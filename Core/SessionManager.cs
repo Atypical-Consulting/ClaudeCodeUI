@@ -77,6 +77,6 @@ public sealed class SessionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var s in all) await s.DisposeAsync();
+        await Task.WhenAll(all.Select(s => s.DisposeAsync().AsTask()));   // in parallel: each may wait 2 s for its process
     }
 }
