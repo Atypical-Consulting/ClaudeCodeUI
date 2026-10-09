@@ -109,7 +109,7 @@
             }
             else
             {
-                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])
+                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])
             }
         </span>
     </div>
