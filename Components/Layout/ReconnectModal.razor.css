@@ -1,157 +1,133 @@
+/* State visibility. blazor.web.js keeps "show" while adding "retrying", so the first-attempt line is excluded there. */
+.rc-wait, .rc-fail, .rc-pause, .rc-bar, .acts, .acts .btn,
 .components-reconnect-first-attempt-visible,
 .components-reconnect-repeated-attempt-visible,
 .components-reconnect-failed-visible,
 .components-pause-visible,
-.components-resume-failed-visible,
-.components-rejoining-animation {
+.components-resume-failed-visible {
     display: none;
 }
 
-#components-reconnect-modal.components-reconnect-show .components-reconnect-first-attempt-visible,
-#components-reconnect-modal.components-reconnect-show .components-rejoining-animation,
-#components-reconnect-modal.components-reconnect-paused .components-pause-visible,
-#components-reconnect-modal.components-reconnect-resume-failed .components-resume-failed-visible,
-#components-reconnect-modal.components-reconnect-retrying,
-#components-reconnect-modal.components-reconnect-retrying .components-reconnect-repeated-attempt-visible,
-#components-reconnect-modal.components-reconnect-retrying .components-rejoining-animation,
-#components-reconnect-modal.components-reconnect-failed,
-#components-reconnect-modal.components-reconnect-failed .components-reconnect-failed-visible {
-    display: block;
+.components-reconnect-show .rc-wait,
+.components-reconnect-show:not(.components-reconnect-retrying) .components-reconnect-first-attempt-visible,
+.components-reconnect-retrying .components-reconnect-repeated-attempt-visible,
+.components-reconnect-failed .rc-fail,
+.components-reconnect-failed .components-reconnect-failed-visible,
+.components-reconnect-resume-failed .rc-fail,
+.components-reconnect-resume-failed .components-resume-failed-visible,
+.components-reconnect-paused .rc-pause,
+.components-reconnect-paused .components-pause-visible {
+    display: inline;
 }
 
+.components-reconnect-show .rc-bar { display: block; }
+.components-reconnect-failed .acts,
+.components-reconnect-paused .acts,
+.components-reconnect-resume-failed .acts { display: flex; }
 
+/* Failed: Retry + Reload. Paused: Resume. Resume failed: Resume + Reload. */
+.components-reconnect-failed #components-reconnect-button,
+.components-reconnect-failed #components-reload-button,
+.components-reconnect-paused #components-resume-button,
+.components-reconnect-resume-failed #components-resume-button,
+.components-reconnect-resume-failed #components-reload-button {
+    display: inline-flex;
+}
+
+/* Overlay vocabulary (DESIGN.md): raise surface, seam-2 stroke and the palette's shadow, over a blurred sunk scrim. */
 #components-reconnect-modal {
-    background-color: white;
-    width: 20rem;
-    margin: 20vh auto;
-    padding: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
-    opacity: 0;
-    transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
-    animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
-    &[open]
-
-{
-    animation: components-reconnect-modal-slideUp 1.5s cubic-bezier(.05, .89, .25, 1.02) 0.3s, components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
-    animation-fill-mode: both;
+    width: min(460px, calc(100vw - 32px));
+    margin: 22vh auto auto;
+    padding: 0;
+    border: 1px solid var(--seam-2);
+    border-radius: 12px;
+    background: var(--raise);
+    color: var(--fg-2);
+    box-shadow: 0 24px 60px -10px #000c, 0 0 0 1px #00000080;
 }
 
+#components-reconnect-modal[open] {
+    animation: rc-in .2s cubic-bezier(.2, .8, .2, 1) both;
 }
 
 #components-reconnect-modal::backdrop {
-    background-color: rgba(0, 0, 0, 0.4);
-    animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
-    opacity: 1;
+    background: color-mix(in srgb, var(--sunk) 60%, transparent);
+    backdrop-filter: blur(2px);
 }
 
-@keyframes components-reconnect-modal-slideUp {
-    0% {
-        transform: translateY(30px) scale(0.95);
-    }
-
-    100% {
-        transform: translateY(0);
-    }
+@keyframes rc-in {
+    from { opacity: 0; transform: translateY(8px); }
 }
 
-@keyframes components-reconnect-modal-fadeInOpacity {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
+.rc {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    padding: 20px 22px 22px;
 }
 
-@keyframes components-reconnect-modal-fadeOutOpacity {
-    0% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0;
-    }
-}
-
-.components-reconnect-container {
+.rc-body {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 1rem;
+    gap: 6px;
+    min-width: 0;
+    padding-top: 6px;
 }
 
-#components-reconnect-modal p {
+.rc h2 {
     margin: 0;
-    text-align: center;
+    font: 600 17px/1.3 var(--sans);
+    letter-spacing: -.01em;
+    color: var(--fg);
 }
 
-#components-reconnect-modal button {
-    border: 0;
-    background-color: #6b9ed2;
-    color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
+.rc h2:focus { outline: none; }
+
+.rc p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--fg-3);
 }
 
-    #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
-    }
+.rc-body ::deep #components-seconds-to-next-attempt {
+    font: 500 12.5px var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+}
 
-    #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
-    }
-
-.components-rejoining-animation {
+/* Indeterminate progress while a rejoin is in flight: a short fg-4 segment sweeping a 2px seam track. */
+.rc-bar {
     position: relative;
-    width: 80px;
-    height: 80px;
+    height: 2px;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: var(--seam-2);
+    overflow: hidden;
 }
 
-    .components-rejoining-animation div {
-        position: absolute;
-        border: 3px solid #0087ff;
-        opacity: 1;
-        border-radius: 50%;
-        animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-    }
+.rc-bar::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 30%;
+    border-radius: inherit;
+    background: var(--fg-3);
+    animation: rc-sweep 1.4s cubic-bezier(.4, 0, .2, 1) infinite;
+}
 
-        .components-rejoining-animation div:nth-child(2) {
-            animation-delay: -0.5s;
-        }
+@keyframes rc-sweep {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(340%); }
+}
 
-@keyframes components-rejoining-animation {
-    0% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
+.rc .acts {
+    gap: 8px;
+    margin-top: 12px;
+}
 
-    4.9% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
-
-    5% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 1;
-    }
-
-    100% {
-        top: 0px;
-        left: 0px;
-        width: 80px;
-        height: 80px;
-        opacity: 0;
-    }
+@media (prefers-reduced-motion: reduce) {
+    #components-reconnect-modal[open] { animation: none; }
+    .rc-bar::after { animation: none; width: 100%; opacity: .5; }
 }

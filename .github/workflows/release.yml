@@ -142,3 +142,19 @@ jobs:
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+
+  # One SHA256SUMS file next to the installers, for users who verify their download by hand.
+  checksums:
+    needs: [release-please, desktop]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - run: |
+          mkdir assets && cd assets
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY"
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber

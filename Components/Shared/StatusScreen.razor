@@ -1,0 +1,50 @@
+@* Full-pane status page for HTTP errors (404, other 4xx, 5xx): the .crash card centred in the thread column. *@
+@{
+    var (key, mood) = Code switch
+    {
+        404 => ("NotFound", Mood.Sad),
+        < 500 => ("BadRequest", Mood.Shocked),
+        _ => ("Error", Mood.Ko),
+    };
+}
+<PageTitle>@L[$"{key}.Title"] · Claude Code</PageTitle>
+
+<div class="pane">
+    <div class="ph"><span class="ttl" tabindex="-1">@L[$"{key}.Title"]</span></div>
+    <div class="oops">
+        <div class="crash@(Code == 404 ? " calm" : "")" role="@(Code >= 500 ? "alert" : null)">
+            <div class="duck" aria-hidden="true"><BlazorKawaii.Components.RubberDuck Mood="mood" Size="72" Color="#FCCC0A" /></div>
+            <div>
+                <p class="code">@Code@(string.IsNullOrEmpty(Path) ? "" : $" · {Path}")</p>
+                <h4>@L[$"{key}.Heading"]</h4>
+                <p>@L[$"{key}.Text"]</p>
+                @if (!string.IsNullOrEmpty(RequestId))
+                {
+                    <pre><span>@L["Error.RequestId"]</span> @RequestId</pre>
+                }
+                <div class="acts">
+                    @if (Code >= 500)
+                    {
+                        <a class="btn primary" href="@Path"><Icon Name="refresh" Sm />@L["Layout.Reload"]</a>
+                        <a class="btn" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                    }
+                    else
+                    {
+                        <a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                        <a class="btn" href="overview">@L["Nav.Overview"]</a>
+                    }
+                    @if (!string.IsNullOrEmpty(RequestId))
+                    {
+                        <button type="button" class="btn ghost" data-copy="@RequestId"><Icon Name="copy" Sm />@L["Error.CopyId"]</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Code { get; set; } = 404;
+    [Parameter] public string? Path { get; set; }
+    [Parameter] public string? RequestId { get; set; }
+}
