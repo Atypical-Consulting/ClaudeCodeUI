@@ -332,6 +332,10 @@
   <data name="Workflow.Subagents" xml:space="preserve"><value>Sous-agents</value></data>
   <data name="Wt.AddSafe" xml:space="preserve"><value>Ajouter les {0} sans risque</value></data>
   <data name="Wt.BranchMissing" xml:space="preserve"><value>branche introuvable</value></data>
+  <data name="Wt.BranchTag" xml:space="preserve"><value>branche</value></data>
+  <data name="Wt.Branches0" xml:space="preserve"><value>{0} branche</value></data>
+  <data name="Wt.Branches1" xml:space="preserve"><value>{0} branche</value></data>
+  <data name="Wt.BranchesN" xml:space="preserve"><value>{0} branches</value></data>
   <data name="Wt.Check0" xml:space="preserve"><value>Rien n'attend ta décision</value></data>
   <data name="Wt.Check1" xml:space="preserve"><value>Un autre attend ta décision</value></data>
   <data name="Wt.CheckN" xml:space="preserve"><value>{0} autres attendent ta décision</value></data>
@@ -344,6 +348,7 @@
   <data name="Wt.ExitOutput" xml:space="preserve"><value>exit {0} : {1}</value></data>
   <data name="Wt.Filter.Active" xml:space="preserve"><value>Actifs</value></data>
   <data name="Wt.Filter.Orphan" xml:space="preserve"><value>Orphelins</value></data>
+  <data name="Wt.GitMissing" xml:space="preserve"><value>Impossible de lancer git ({0}). Est-il installé et dans le PATH ?</value></data>
   <data name="Wt.Filter.Safe" xml:space="preserve"><value>Sûrs</value></data>
   <data name="Wt.Go" xml:space="preserve"><value>Aller</value></data>
   <data name="Wt.Group.Go" xml:space="preserve"><value>Peuvent partir</value></data>
@@ -367,6 +372,7 @@
   <data name="Wt.Run.Skipped" xml:space="preserve"><value>ignoré</value></data>
   <data name="Wt.Safe1" xml:space="preserve"><value>1 worktree peut partir sans risque</value></data>
   <data name="Wt.SafeN" xml:space="preserve"><value>{0} worktrees peuvent partir sans risque</value></data>
+  <data name="Wt.SafeMixed" xml:space="preserve"><value>À supprimer sans risque : {0}</value></data>
   <data name="Wt.Scanning" xml:space="preserve"><value>Recherche des worktrees…</value></data>
   <data name="Wt.ScanningText" xml:space="preserve"><value>Lecture des dépôts des sessions récentes.</value></data>
   <data name="Wt.State.Active" xml:space="preserve"><value>Actif</value></data>
@@ -401,6 +407,7 @@
   <data name="Wt.Why.Running" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; en cours</value></data>
   <data name="Wt.Why.Squashed" xml:space="preserve"><value>Contenu déjà dans &lt;b&gt;{base}&lt;/b&gt; (squash), branche gardée</value></data>
   <data name="Wt.Why.StaleLock" xml:space="preserve"><value>Verrou périmé (pid {0}), sinon sûr</value></data>
+  <data name="Wt.Why.Unreadable" xml:space="preserve"><value>git n'a pas pu le lire : &lt;b&gt;{0}&lt;/b&gt;</value></data>
   <data name="Wt.Why.Waiting" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; attend une décision</value></data>
   <data name="Wt.Worktrees0" xml:space="preserve"><value>{0} worktree</value></data>
   <data name="Wt.Worktrees1" xml:space="preserve"><value>{0} worktree</value></data>
