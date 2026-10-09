@@ -40,7 +40,7 @@
         }
         @if (error is not null)
         {
-            <div class="errbox">@error</div>
+            <div class="errbox" role="alert">@error</div>
         }
         <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
     </div>
