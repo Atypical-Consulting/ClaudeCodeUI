@@ -548,39 +548,82 @@ public static class CliProbe
         });
     }
 
-    // rewind-files: rewind_files {user_message_id: the uuid sent with the user message} lists what that turn changed
-    // (dry_run) then puts it back on disk. Needs CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING, which ClaudeSession sets.
-    // rewind-conversation: rewind_conversation {target_message_uuid: same id} answers rewound + prefillText (the dropped
-    // message) and the next turn no longer sees that message, only the one before it.
+    // rewind-files: rewind_files {user_message_id: the uuid sent with a user message} lists (dry_run) then puts back on
+    // disk what that turn and every later one changed, also once rewind_conversation already ran (LiveSession.Rewind's
+    // order). Needs CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING, which ClaudeSession sets.
+    // rewind-conversation: rewind_conversation {target_message_uuid} refuses any message but the latest ("stale target"),
+    // so a rewind goes newest first back to its target; each step answers rewound, the target's prefillText is its text,
+    // and the next turn and the transcript replay (TranscriptStore) no longer have the dropped messages. Run twice: to a
+    // message that is not the last, then to the first message.
     static async Task<IEnumerable<(string, string, string)>> Rewind(string dir)
     {
         await using var c = await Cli.Start(dir);
         return await Guard(["rewind-files", "rewind-conversation"], async () =>
         {
+            const string first = "Remember the code word PELICAN. Reply with just OK.";
             const string second = "Use the Write tool to create notes.txt containing exactly: first. Then use the Edit tool to change the first line of README.md to: # changed. Reply DONE.";
-            string readme = Path.Combine(dir, "README.md"), notes = Path.Combine(dir, "notes.txt"), before = File.ReadAllText(readme);
-            await c.Turn("Remember the code word PELICAN. Reply with just OK.", uuid: Guid.NewGuid().ToString());
-            var id = Guid.NewGuid().ToString();
-            await c.Turn(second, uuid: id);
-            if (!File.Exists(notes) || File.ReadAllText(readme) == before)
-                return [("FAIL", "inconclusive: the turn did not write notes.txt and edit README.md"), ("SKIP", "needs rewind-files")];
+            const string third = "Use the Write tool to create extra.txt containing exactly: x. Reply DONE.";
+            const string echo = "Reply with the exact text of my previous message, or NONE if there is none, nothing else.";
+            string readme = Path.Combine(dir, "README.md"), notes = Path.Combine(dir, "notes.txt"), extra = Path.Combine(dir, "extra.txt");
+            var before = File.ReadAllText(readme);
+            string u1 = Guid.NewGuid().ToString(), u2 = Guid.NewGuid().ToString(), u3 = Guid.NewGuid().ToString(), u4 = Guid.NewGuid().ToString();
+            await c.Turn(first, uuid: u1);
+            await c.Turn(second, uuid: u2);
+            var session = (await c.Turn(third, uuid: u3)).Select(e => Events.Str(e, "session_id")).LastOrDefault(x => x is not null) ?? "";
+            if (!File.Exists(notes) || !File.Exists(extra) || File.ReadAllText(readme) == before)
+                return [("FAIL", "inconclusive: the turns did not write notes.txt and extra.txt and edit README.md"), ("SKIP", "needs rewind-files")];
 
-            var dry = await c.S.Request("rewind_files", new() { ["user_message_id"] = id, ["dry_run"] = true });
+            var dry = await c.S.Request("rewind_files", new() { ["user_message_id"] = u2, ["dry_run"] = true });
             var listed = Events.Prop(dry, "filesChanged") is { ValueKind: JsonValueKind.Array } f ? f.GetArrayLength() : 0;
-            string answer;
-            try { await c.S.Request("rewind_files", new() { ["user_message_id"] = id }); answer = "rewound"; }
-            catch (ClaudeRequestException ex) { answer = $"error \"{ex.Message}\""; }
-            var restored = !File.Exists(notes) && File.ReadAllText(readme) == before;
-            var files = $"dry_run canRewind={Events.Prop(dry, "canRewind")?.GetRawText()}, {listed} filesChanged; {answer}, files {(restored ? "restored" : "NOT restored")}";
 
-            var conv = await c.S.Request("rewind_conversation", new() { ["target_message_uuid"] = id });
-            var prefill = Events.Str(conv, "prefillText") == second;
-            var echo = string.Concat((await c.Turn("Reply with the exact text of my previous message, nothing else.")).SelectMany(Texts));
-            var dropped = echo.Contains("PELICAN") && !echo.Contains("notes.txt");
-            return [(listed == 2 && restored ? "PASS" : "FAIL", files),
-                (Events.Prop(conv, "rewound") is { ValueKind: JsonValueKind.True } && prefill && dropped ? "PASS" : "FAIL",
-                    $"rewound={Events.Prop(conv, "rewound")?.GetRawText() ?? "absent"}, prefillText {(prefill ? "=" : "≠")} the message, next turn sees \"{echo.Trim()}\"")];
+            // u2 is not the latest message: refused, files untouched. Then u3, u2 (the steps LiveSession.Rewind sends).
+            string stale;
+            try { stale = (await c.S.Request("rewind_conversation", new() { ["target_message_uuid"] = u2 })).GetRawText(); }
+            catch (ClaudeRequestException ex) { stale = $"error \"{ex.Message}\""; }
+            var untouched = File.Exists(notes) && File.Exists(extra);
+            var toU2 = new[] { await Conv(u3), await Conv(u2) };
+            string answer;
+            try { await c.S.Request("rewind_files", new() { ["user_message_id"] = u2 }); answer = "rewound"; }
+            catch (ClaudeRequestException ex) { answer = $"error \"{ex.Message}\""; }
+            var restored = !File.Exists(notes) && !File.Exists(extra) && File.ReadAllText(readme) == before;
+            var files = $"dry_run canRewind={Events.Prop(dry, "canRewind")?.GetRawText()}, {listed} filesChanged; after rewind_conversation: {answer}, files {(restored ? "restored" : "NOT restored")}";
+
+            var seen2 = string.Concat((await c.Turn(echo, uuid: u4)).SelectMany(Texts)).Trim();
+            var replay2 = await Replayed(session, n => n == 2);
+            // Back to the first message: u4, then u1.
+            var toU1 = new[] { await Conv(u4), await Conv(u1) };
+            var replay0 = await Replayed(session, n => n == 0);
+            var seen0 = string.Concat((await c.Turn(echo)).SelectMany(Texts)).Trim();
+
+            var ok = stale.Contains("stale") && untouched && toU2.All(r => r.Rewound) && toU2[^1].Prefill == second
+                     && seen2.Contains("PELICAN") && !seen2.Contains("notes.txt") && replay2 is [first, echo]
+                     && toU1.All(r => r.Rewound) && toU1[^1].Prefill == first && replay0 is [] && !seen0.Contains("PELICAN");
+            return [(listed == 3 && untouched && restored ? "PASS" : "FAIL", files),
+                (ok ? "PASS" : "FAIL", $"to u2 (not last) directly: {stale}, files {(untouched ? "untouched" : "CHANGED")}; "
+                    + $"u3,u2 rewound={string.Join(',', toU2.Select(r => r.Rewound))}, prefillText {(toU2[^1].Prefill == second ? "=" : "≠")} u2; next turn sees \"{seen2}\", "
+                    + $"replay [{string.Join(" | ", replay2)}]; to the first message u4,u1 rewound={string.Join(',', toU1.Select(r => r.Rewound))}, "
+                    + $"prefillText {(toU1[^1].Prefill == first ? "=" : "≠")} u1, replay [{string.Join(" | ", replay0)}], next turn sees \"{seen0}\"")];
         });
+
+        async Task<(bool Rewound, string? Prefill)> Conv(string uuid)
+        {
+            var r = await c.S.Request("rewind_conversation", new() { ["target_message_uuid"] = uuid });
+            return (Events.Prop(r, "rewound") is { ValueKind: JsonValueKind.True }, Events.Str(r, "prefillText"));
+        }
+    }
+
+    // User texts TranscriptStore replays from the session's file, once `done` holds on their count (the CLI writes the
+    // file asynchronously) or after 5 s.
+    static async Task<string[]> Replayed(string session, Func<int, bool> done)
+    {
+        string[] texts = [];
+        for (var i = 0; i < 20; i++)
+        {
+            texts = [.. TranscriptStore.Load(session).OfType<UserItem>().Select(u => u.Text)];
+            if (done(texts.Length)) break;
+            await Task.Delay(250);
+        }
+        return texts;
     }
 
     // ---------- plumbing ----------
