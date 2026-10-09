@@ -16,7 +16,8 @@ else
 {
     <div class="pane">
         <SessionHeader Session="S" />
-        <Thread Session="S" />
+        @* Keyed per session: switching sessions mounts a fresh log, whose initial content is not announced. *@
+        <Thread @key="S.Id" Session="S" />
         <Composer Session="S" />
     </div>
     <Inspector Session="S" />

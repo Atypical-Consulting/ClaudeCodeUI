@@ -1,6 +1,6 @@
 @* Always-present live region: its text changes are announced. Ticking counters are aria-hidden so the
-   reader is not interrupted every second; with nothing to show it stays in the tree, visually hidden. *@
-<div role="status" class="@(Shown ? null : "sr-only")">
+   reader is not interrupted every second. Without a visible .status it is taken out of the flow (app.css). *@
+<div role="status" class="status-live">
 @switch (Session.Status)
 {
     case SessionStatus.Starting:
@@ -25,16 +25,13 @@
         <div class="status" style="color:var(--err-fg)">@L["Status.TurnError", Session.LastResultSubtype ?? ""]</div>
         break;
     case SessionStatus.Idle when Session.LastTurn is not null:
-        @L["Status.TurnDone"]
+        <span class="sr-only">@L["Status.TurnDone"]</span>
         break;
 }
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
-
-    bool Shown => Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting
-        || Session.Status == SessionStatus.Idle && (Session.LastResultSubtype == "interrompu" || Session.LastResultSubtype?.StartsWith("error") == true);
 
     string Elapsed => Session.TurnStartedAt is { } t ? Fmt.Dur(DateTimeOffset.Now - t) : "";
 

@@ -65,7 +65,9 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        label.nodeValue = copied.textContent = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        const msg = label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
+        requestAnimationFrame(() => copied.textContent = msg);
         b.classList.add('done');
         setTimeout(() => { label.nodeValue = old; copied.textContent = ''; b.classList.remove('done'); }, 1400);
     });
