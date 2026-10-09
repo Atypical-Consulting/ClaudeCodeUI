@@ -191,6 +191,7 @@
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>A policy or setting turns hooks off: none of these run.</value></data>
   <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Read-only: they live in the settings files named under Source.</value></data>
+  <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>disabled</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>No hooks configured for this folder.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Couldn't read the hooks: {0}</value></data>
   <data name="Hook.Blocking" xml:space="preserve"><value>blocking error · exit 2</value></data>
