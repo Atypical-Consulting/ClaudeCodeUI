@@ -516,7 +516,7 @@ public static class CliProbe
         });
     }
 
-    // notify-*: what a desktop notification tells apart (Notify.cs). A decision (permission, AskUserQuestion, ExitPlanMode)
+    // notify-*: what a desktop notification tells apart (Notifications.cs). A decision (permission, AskUserQuestion, ExitPlanMode)
     // reaches us as a can_use_tool named after the tool, and every turn, answered or denied, still ends with a `result`.
     // The plan is entered with set_permission_mode, as the mode menu does.
     static async Task<IEnumerable<(string, string, string)>> Waiting(string dir)

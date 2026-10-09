@@ -17,26 +17,31 @@
             root.style.setProperty('--code-size', v);
             localStorage.setItem(SIZE_KEY, v);
         },
-        // Notifications (Notify.cs). shell = desktop app: its shell posts them natively, there is no permission to ask.
-        notifyState(shell) {
-            if (!shell && !window.Notification) return 'unsupported';
-            if (!shell && Notification.permission === 'denied') return 'denied';
-            return localStorage.getItem(NOTIFY_KEY) === 'on' && (shell || Notification.permission === 'granted') ? 'on' : 'off';
+        // Notifications (Notifications.cs), browser side. The desktop app keeps its toggle on the server: its origin
+        // (loopback port) changes with every launch, and localStorage with it.
+        notifyState() {
+            if (!window.Notification) return 'unsupported';
+            if (Notification.permission === 'denied') return 'denied';
+            return localStorage.getItem(NOTIFY_KEY) === 'on' && Notification.permission === 'granted' ? 'on' : 'off';
         },
-        async setNotify(on, shell) {
-            if (on && !shell && window.Notification && Notification.permission !== 'granted') {
+        async setNotify(on) {
+            if (on && window.Notification && Notification.permission !== 'granted') {
                 try { await (asking || Notification.requestPermission()); } finally { asking = null; }
             }
-            localStorage.setItem(NOTIFY_KEY, on && (shell || window.Notification?.permission === 'granted') ? 'on' : 'off');
-            return claudeUi.notifyState(shell);
+            localStorage.setItem(NOTIFY_KEY, on && window.Notification?.permission === 'granted' ? 'on' : 'off');
+            return claudeUi.notifyState();
         },
-        // Nothing while this session is on screen in a focused window. Returns true when the shell must post it.
+        // Browser: nothing while this session is on screen in a focused window. Desktop (shell): returns true when the shell
+        // must post it, only while the window is in the background: macOS does not present a frontmost app's own notification.
         notify(id, title, body, shell) {
+            if (shell) return !document.hasFocus();
             if (localStorage.getItem(NOTIFY_KEY) !== 'on' || (document.hasFocus() && location.pathname.endsWith('/session/' + id))) return false;
-            if (shell) return true;
             if (window.Notification?.permission !== 'granted') return false;
-            const n = new Notification(title, { body, tag: id, icon: 'favicon.png' });   // tag: one per session, the newest replaces
-            n.onclick = () => { window.focus(); n.close(); Blazor.navigateTo('session/' + id); };
+            try {
+                // tag: one per session, the newest replaces the previous one and alerts again (renotify).
+                const n = new Notification(title, { body, tag: id, renotify: true, icon: 'favicon.png' });
+                n.onclick = () => { window.focus(); n.close(); Blazor.navigateTo('session/' + id); };
+            } catch { }   // Android Chrome: only a service worker may show one (Illegal constructor)
             return false;
         },
         copy: text => navigator.clipboard?.writeText(text),

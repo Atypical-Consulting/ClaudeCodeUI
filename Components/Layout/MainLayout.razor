@@ -31,31 +31,44 @@
         if (!firstRender) return;
         self = DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("claudeUi.registerShortcuts", self);
-        await Watch(notify: false);   // what is already waiting when the page loads is on screen, not news
+        lock (seen) Due();   // what is already waiting when the page loads is on screen, not news
         Sessions.Changed += OnSessions;
     }
 
-    void OnSessions() => _ = InvokeAsync(() => Watch(notify: true));
-
-    // Notify.cs: compare each session with its last observation; app.js decides whether the user is looking.
-    async Task Watch(bool notify)
+    // Compared on the thread that raised Changed, not later in the dispatcher: a permission answered and the next one
+    // asked inside one dispatch would otherwise read Waiting → Waiting and go unnoticed.
+    void OnSessions()
     {
-        var due = new List<(string Id, string Title, string Body)>();
+        List<(string, string, string)> due;
+        lock (seen) due = Due();
+        if (due.Count > 0 && (!Notifications.ViaShell || Notifications.ShellOn)) _ = InvokeAsync(() => Post(due));
+    }
+
+    // Notifications.cs: compare each session with its last observation.
+    List<(string Id, string Title, string Body)> Due()
+    {
+        var due = new List<(string, string, string)>();
         foreach (var s in Sessions.All)
         {
             var (status, result, pending) = (s.Status, s.LastResultAt, s.Pending);
             var had = seen.TryGetValue(s.Id, out var before);
             seen[s.Id] = (status, result);
-            var kind = Notify.Between(had ? before.Status : null, before.Result, status, result, s.LastResultSubtype);
-            if (notify && kind != Notify.Kind.None)
-                due.Add((s.Id, s.Name, Notify.Body(kind, pending.FirstOrDefault()?.Tool, s.LastTurn)));
+            var kind = Notifications.Between(had ? before.Status : null, before.Result, status, result, s.LastResultSubtype);
+            if (kind != Notifications.Kind.None)
+                due.Add((s.Id, s.Name, Notifications.Body(kind, pending.FirstOrDefault()?.Tool, s.LastTurn, s.LastResultSubtype)));
         }
+        return due;
+    }
+
+    // app.js decides whether the user is looking; true = the desktop shell must post it.
+    async Task Post(List<(string Id, string Title, string Body)> due)
+    {
         foreach (var (id, title, body) in due)
             try
             {
-                if (await JS.InvokeAsync<bool>("claudeUi.notify", id, title, body, Notify.ViaShell)) Notify.ToShell(title, body);
+                if (await JS.InvokeAsync<bool>("claudeUi.notify", id, title, body, Notifications.ViaShell)) Notifications.ToShell(id, title, body);
             }
-            catch (JSDisconnectedException) { }
+            catch (Exception e) when (e is JSException or JSDisconnectedException or TaskCanceledException) { }   // the next one may still get through
     }
 
     // Keys sent by app.js. Navigation and toggles are handled here; Escape / Enter / Shift+Enter / Delete

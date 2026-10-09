@@ -37,8 +37,9 @@
   <data name="Appearance.LanguageHint" xml:space="preserve"><value>Langue de l’interface. L’appliquer recharge la page.</value></data>
   <data name="Appearance.Lead" xml:space="preserve"><value>Le thème change les couleurs de toute l’interface, coloration syntaxique comprise. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » pour basculer sans ouvrir les réglages.</value></data>
   <data name="Appearance.Notify" xml:space="preserve"><value>Notifications</value></data>
-  <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Les notifications sont bloquées pour ce site : autorise-les dans les réglages du site du navigateur, puis réactive-les ici.</value></data>
+  <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Les notifications sont bloquées pour ce site : autorise-les dans les réglages du site du navigateur, puis recharge cette page.</value></data>
   <data name="Appearance.NotifyHint" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan ou qu’une autre session est affichée.</value></data>
+  <data name="Appearance.NotifyHintDesktop" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan. Cliquer sur la notification ouvre la session.</value></data>
   <data name="Appearance.NotifyLabel" xml:space="preserve"><value>Me prévenir</value></data>
   <data name="Appearance.NotifyUnsupported" xml:space="preserve"><value>Ce navigateur ne sait pas afficher de notifications.</value></data>
   <data name="Appearance.Preview" xml:space="preserve"><value>Aperçu</value></data>
@@ -291,6 +292,7 @@
   <data name="NotFound.Title" xml:space="preserve"><value>Introuvable</value></data>
   <data name="Notify.Decision" xml:space="preserve"><value>Attend ta décision</value></data>
   <data name="Notify.Done" xml:space="preserve"><value>Tour terminé en {0}</value></data>
+  <data name="Notify.Failed" xml:space="preserve"><value>Tour arrêté sur une erreur après {0}</value></data>
   <data name="Notify.Permission" xml:space="preserve"><value>Attend ton autorisation : {0}</value></data>
   <data name="Notify.Plan" xml:space="preserve"><value>Plan prêt à valider</value></data>
   <data name="Notify.Question" xml:space="preserve"><value>A une question pour toi</value></data>
