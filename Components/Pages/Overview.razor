@@ -51,10 +51,10 @@
             <tbody>
                 @foreach (var s in all)
                 {
-                    var (label, color) = State(s);
+                    var (label, cls) = State(s);
                     <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
                         <td><div class="n" title="@s.Name"><a href="@Url(s)" style="color:inherit;text-decoration:none" @onclick:stopPropagation>@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
-                        <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
+                        <td><span class="stt @cls"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
                         <td><span class="mtag">@Strings.Name("Mode.Name.", s.Mode)</span></td>
                         <td>@Last(s)</td>
                         <td class="num">@s.ToolCount</td>
@@ -104,20 +104,20 @@
     static string Url(LiveSession s) => $"session/{s.Id}";
     static string Where(LiveSession s) => string.Join(" · ", new[] { s.Branch, s.Repo }.Where(x => !string.IsNullOrEmpty(x)));
 
-    (string Label, string Color) State(LiveSession s) => s.Status switch
+    (string Label, string Class) State(LiveSession s) => s.Status switch
     {
-        SessionStatus.Waiting => (L["Status.WaitingOn", s.Pending.FirstOrDefault()?.Tool ?? ""], "var(--accent)"),
-        SessionStatus.Running => (L["Status.Running"], "var(--ok)"),
-        SessionStatus.Starting => (L["Status.Starting"], "var(--fg-3)"),
-        SessionStatus.Crashed => (L["Session.ProcessStopped"], "var(--err)"),
-        _ => (L["Status.Done"], "var(--fg-3)"),
+        SessionStatus.Waiting => (L["Status.WaitingOn", s.Pending.FirstOrDefault()?.Tool ?? ""], "c-wait"),
+        SessionStatus.Running => (L["Status.Running"], "c-ok"),
+        SessionStatus.Starting => (L["Status.Starting"], "c-mute"),
+        SessionStatus.Crashed => (L["Session.ProcessStopped"], "c-err"),
+        _ => (L["Status.Done"], "c-mute"),
     };
 
     // Pending tool first, else the last top-level tool; a crash shows the exit line.
     RenderFragment Last(LiveSession s)
     {
         if (s.Status == SessionStatus.Crashed)
-            return @<span class="last" style="color:var(--err-fg)">@(s.StartFailed ? L["Crash.StartFailed.Title"] : L["Session.Exited", s.ExitCode ?? 0])</span>;
+            return @<span class="last c-err-fg">@(s.StartFailed ? L["Crash.StartFailed.Title"] : L["Session.Exited", s.ExitCode ?? 0])</span>;
         var (tool, input) = s.Pending.FirstOrDefault() is { } p ? (p.Tool, p.Input)
             : s.Items.LastOrDefault(i => i is ToolItem { ParentToolUseId: null }) is ToolItem t ? (t.Name, t.Input) : (null, default);
         return tool is null ? @<span class="last"></span>

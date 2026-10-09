@@ -215,7 +215,7 @@ Near-black graphite neutrals, a syntax-highlighter hue set doing semantic work, 
 - **Title** (600, 17px, 1.3, -0.01em): inspector section headings (the permission question). Pane header titles are 600 13px; markdown `h3` 15px.
 - **Body** (400, 14px, 1.5): app UI. Assistant prose 14.5px/1.7 in `prose`; the site body is 15px/1.55.
 - **Reading** (400, 16px, 1.7): docs column, prose capped at 47ch (about 70 characters, Geist runs narrower than `ch`).
-- **Code** (Geist Mono, 13px, 1.65): code blocks, ledger rows (13-13.5px), diffs and file views (12-12.5px), meta lines and `kbd` (11-12px).
+- **Code** (Geist Mono, 13px, 1.65): code blocks, ledger rows and the inspector prose (13px), diffs, file views and meta lines (12px), `kbd` (11px). No half-pixel steps outside the 13.5px path inputs, the 14.5px assistant prose and the theme-card thumbnails.
 - **Label** (600, 11px, 0.08em, uppercase): rail group captions and table headers. Status badges use 0.06em.
 
 ### Named Rules

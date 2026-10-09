@@ -13,7 +13,7 @@
     <div class="ph"><h1 class="ttl" tabindex="-1">@L[$"{key}.Title"]</h1></div>
     <div class="oops">
         <div class="crash@(Code == 404 ? " calm" : "")" role="@(Code >= 500 ? "alert" : null)">
-            <div class="duck" aria-hidden="true"><BlazorKawaii.Components.RubberDuck Mood="mood" Size="72" Color="#FCCC0A" /></div>
+            <div class="duck" aria-hidden="true"><Duck Mood="mood" Size="72" /></div>
             <div>
                 <p class="code">@Code@(string.IsNullOrEmpty(Path) ? "" : $" · {Path}")</p>
                 <h4>@L[$"{key}.Heading"]</h4>

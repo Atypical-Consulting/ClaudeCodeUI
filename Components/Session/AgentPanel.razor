@@ -1,15 +1,15 @@
-@* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI: "—". *@
+@* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI, so no cost row. *@
 @inject UiState Ui
 
 <div class="ph"><h2 class="ttl">@L["Agent.Title"]</h2><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
-<div style="flex:1;min-height:0;overflow:auto">
-    <div class="section" style="border-bottom:0">
+<div class="scroll">
+    <div class="section last">
         <span class="cap">@L["Agent.Writes"]</span>
         @if (LastText is { Length: > 0 } t)
         {
-            <div style="font-size:13.5px"><Markdown Text="@t" /></div>
+            <Markdown Text="@t" />
         }
         else
         {
@@ -19,7 +19,6 @@
             <span>@L["Kv.Type"]</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
             <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Children[Agent.Id].OfType<ToolItem>().Count())</span>
             <span>@L["Kv.Tokens"]</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
-            <span>@L["Kv.Cost"]</span><span>—</span>
         </div>
     </div>
 </div>

@@ -13,7 +13,7 @@
         {
             <div class="start-card">
                 <div class="hello">
-                    <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="88" Color="#FCCC0A" /></div>
+                    <div class="duck"><Duck Mood="Mood.Ko" Size="88" /></div>
                     <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
@@ -37,7 +37,7 @@
         {
         <div class="start-card">
             <div class="hello">
-                <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Happy" Size="88" Color="#FCCC0A" /></div>
+                <div class="duck"><Duck Mood="Mood.Happy" Size="88" /></div>
                 <div><h3>@L["New.Hello"]</h3><p>@L["New.HelloText"]</p></div>
             </div>
             <div class="field">
@@ -45,18 +45,18 @@
                 <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
-                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg)">@L["New.NoFolder"]</div>
                 }
                 else if (untrusted)
                 {
-                    <div role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                         <span>@L["New.Untrusted"]</span>
                         <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
                     </div>
                 }
                 else if (IsHome)
                 {
-                    <div role="status" style="margin-top:8px;font-size:12.5px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
+                    <div role="status" style="margin-top:8px;font-size:12px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
                 }
                 @if (recents.Count > 0)
                 {

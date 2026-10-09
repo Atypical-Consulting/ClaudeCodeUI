@@ -94,7 +94,7 @@
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
         @* One live region, so an error or the busy hint is announced. *@
-        <span class="r" role="status" style="@(error is not null ? "color:var(--err-fg)" : null)" title="@(error is null ? Session.LastResultSubtype : null)">
+        <span class="r @(error is not null ? "c-err-fg" : null)" role="status" title="@(error is null ? Session.LastResultSubtype : null)">
             @if (error is not null)
             {
                 @error
