@@ -1,0 +1,72 @@
+@* "@" mentions: files and folders of the session cwd (FileIndex), filtered by Query. Same shell as SlashPopover;
+   the Composer relays ↑ ↓ Tab via Key / Pick. The cwd is scanned once per opening, off the circuit's thread. *@
+@implements IDisposable
+
+@if (index is null || matches.Count > 0)
+{
+    <div class="pop slash" id="mention-list" role="listbox" aria-label="@L["Mention.Title"]" aria-busy="@(index is null ? "true" : "false")">
+        <div class="sh">
+            <span>@L["Mention.Title"]</span>
+            <span>@(index is null ? L["Mention.Scanning"] : index.Truncated ? L["Mention.Truncated", FileIndex.MaxEntries] : "") <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span>
+        </div>
+        @for (var i = 0; i < matches.Count; i++)
+        {
+            var (p, n) = (matches[i], i);
+            var name = FileIndex.Name(p);
+            var hit = Query.Length > 0 ? name.IndexOf(Query, StringComparison.OrdinalIgnoreCase) : -1;
+            <div id="mention-opt-@n" class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(p)">
+                <b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="@p">@if (hit >= 0) {@name[..hit]<mark>@name.Substring(hit, Query.Length)</mark>@name[(hit + Query.Length)..]} else {@name}</b>
+                <span title="@p">@p[..^name.Length]</span>
+                <span></span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public string Query { get; set; } = "";
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    readonly CancellationTokenSource cts = new();
+    FileIndex.Index? index;
+    List<string> matches = [];
+    string? q;
+    int sel;
+
+    public bool Open => matches.Count > 0;
+    public string? ActiveId => Open ? $"mention-opt-{sel}" : null;
+    public void Key(string key) { sel = ListNav.Next(key, sel, matches.Count); StateHasChanged(); }
+    public Task Pick() => Open ? OnPick.InvokeAsync(matches[sel]) : Task.CompletedTask;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { index = await FileIndex.Scan(Session.Cwd, cts.Token); }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[{Session.Id}] file index: {ex.Message}");
+            index = new([], false);
+        }
+        Refilter();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Query != q) sel = 0;
+        q = Query;
+        Refilter();
+    }
+
+    void Refilter()
+    {
+        matches = index is null ? [] : FileIndex.Filter(index.Paths, Query);
+        if (sel >= matches.Count) sel = 0;
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

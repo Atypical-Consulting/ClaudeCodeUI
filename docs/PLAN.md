@@ -39,6 +39,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s9 | Ultracode | `apply_flag_settings {ultracode:true}` before the turn, `{ultracode:false}` after the `result`, availability via `get_settings.applied.ultracodeAvailable`; verified by `--probe-cli ultracode-on` / `ultracode-off` |
 | s9 | Images in the composer (paste, drop, paperclip picker; png/jpeg/gif/webp, 5 MB and 10 per message), thumbnails on the user message, replayed from the transcript | user `content` = a `text` block (omitted when empty) then `image` blocks `{source:{type:"base64",media_type,data}}`; verified by `--probe-cli image` / `image-only` (haiku reads a random number drawn in a generated PNG and the JPEG/GIF/WebP fixtures, PASS on 2.1.296). The transcript stores the block (CLI re-encoded) on the same `user` line, plus an `isMeta` `[Image: source: …]` line that replay skips. The CLI re-encodes images itself (a 12 MB PNG and an 8550 px one were read): the 5 MB cap is the UI's own. Files reach the server through `InputFile` streaming, `MaximumReceiveMessageSize` untouched |
 | s9 | `/` popover with descriptions | `initialize.commands[{name,description,argumentHint}]`; `/xxx` sent as user text |
+| s9 | `@` file mentions (popover over the cwd: `git ls-files -co --exclude-standard`, else a bounded walk skipping `bin`/`obj`/`node_modules`/`.git`) | `@path` / `@"path with spaces"` sent as user text: the CLI attaches the file (or a folder listing) itself; verified by `--probe-cli file-mention` (all file tools disallowed, 0 `tool_use`, the model quotes a random code word from the mentioned file). Folder and quoted forms checked by hand on 2.1.296 |
 | s9 | Context panel | `get_context_usage` |
 | s9 | "Compact now" | `/compact` as user text; verified by `--probe-cli compact` (`system/compact_boundary`, context going down) |
 | s10 | Sub-agents: one row per agent, sub-tools, agent text | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
@@ -50,7 +51,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 
 ### 1.2 Built, but to be validated once for real (fallback: control disabled)
 
-These requests were accepted but never tested on the real case. On failure, the control is disabled (`aria-disabled`, "coming soon" tooltip) instead of being invented. `dotnet run -- --probe-cli` (`Core/CliProbe.cs`) replays these tests against the real CLI (haiku, throwaway repo): rerun it on every CLI version bump. Ultracode, "Whole session" outside `setMode`, MCP toggle/reconnect and `/compact` passed there (PASS on 2.1.295) and now appear in §1.1.
+These requests were accepted but never tested on the real case. On failure, the control is disabled (`aria-disabled`, "coming soon" tooltip) instead of being invented. `dotnet run -- --probe-cli [id...]` (`Core/CliProbe.cs`) replays these tests against the real CLI (haiku, throwaway repo), all of them or only the given ids: rerun it on every CLI version bump. Ultracode, "Whole session" outside `setMode`, MCP toggle/reconnect and `/compact` passed there (PASS on 2.1.295) and now appear in §1.1.
 
 - Transcript replay: the shape of the `user`/`assistant` lines of the `.jsonl` is assumed identical to the stream, but the diff field (`tool_use_result` in the stream) has not been verified in the file. Fallback: `EditDiff` recomputes from the tool input.
 
@@ -566,7 +567,7 @@ WP0 ──► { WP1, WP2, WP3, WP4, WP5 } in parallel ──► integration (lea
 | Partial-stream throughput (one notification per delta) | 50 ms throttling in `LiveSession`; Markdown rendered once per complete block, plain text during the stream |
 | Concurrent reading of the lists during rendering | copy-on-write `ImmutableList`, a single writer per session |
 | Diff replay from the `.jsonl` not tested for real | `EditDiff` recomputes from the tool input (§1.2) |
-| A CLI version that would change the behaviour of ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect` or `/compact` | rerun `dotnet run -- --probe-cli`; on a FAIL, control disabled (§1.2) |
+| A CLI version that would change the behaviour of ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect`, `/compact` or `@path` expansion | rerun `dotnet run -- --probe-cli`; on a FAIL, control disabled (§1.2) |
 | Fast mode almost always unavailable on this account (`extra_usage_disabled`) | shown disabled with the reason, which matches the mockup |
 | Live sessions die on server restart | they reappear in "Recent" and resume via `--resume`; no dedicated persistence |
 | `-w` worktrees locked by pid, then stale lock | classified "To check", explicit `unlock` in the plan, never `--force` |
