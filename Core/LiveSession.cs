@@ -708,7 +708,7 @@ public sealed class LiveSession : IAsyncDisposable
     }
 
     // Echoed slash commands come back as tags: "<command-name>/x</command-name>…<command-args>a</command-args>" → "/x a"; their output is hidden.
-    static string? UserText(string t)
+    internal static string? UserText(string t)
     {
         if (t.StartsWith("[Request interrupted by user") || t.StartsWith("<local-command-") || t.StartsWith("<task-notification>")) return null;
         if (System.Text.RegularExpressions.Regex.Match(t, "<command-name>(.*?)</command-name>") is not { Success: true } m) return t;

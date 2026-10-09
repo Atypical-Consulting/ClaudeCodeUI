@@ -57,9 +57,7 @@ public static class TranscriptStore
             // The file names the diff field toolUseResult; the stream (and Events) say tool_use_result.
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
             catch (JsonException) { continue; }
-            if (Events.Str(e, "type") is not ("user" or "assistant") || Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
-                || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isCompactSummary") is { ValueKind: JsonValueKind.True }
-                || Events.Prop(e, "isVisibleInTranscriptOnly") is { ValueKind: JsonValueKind.True }) continue;
+            if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
             DateTimeOffset? at = DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var t) ? t : null;
             try
             {
@@ -80,6 +78,54 @@ public static class TranscriptStore
             ? t with { State = ToolState.Error, EndedAt = t.EndedAt ?? t.StartedAt } : i);
 
         static ToolItem? Tool(LiveSession s, string id) => s.Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+    }
+
+    static bool Hidden(JsonElement e) => Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
+        || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isCompactSummary") is { ValueKind: JsonValueKind.True }
+        || Events.Prop(e, "isVisibleInTranscriptOnly") is { ValueKind: JsonValueKind.True };
+
+    // Prompts typed in the latest past sessions of cwd, newest first (Composer history; verified by --probe-cli prompt-history).
+    public static IReadOnlyList<string> Prompts(string cwd, string? exceptId = null, int sessions = 10)
+    {
+        List<string> list = [];
+        try
+        {
+            var dir = new DirectoryInfo(Path.Combine(Root, Slug(Real(cwd))));
+            if (!dir.Exists) return list;
+            foreach (var f in dir.EnumerateFiles("*.jsonl").Where(f => Path.GetFileNameWithoutExtension(f.Name) != exceptId)
+                         .OrderByDescending(f => f.LastWriteTimeUtc).Take(sessions))
+            {
+                try { list.AddRange(PromptsIn(File.ReadLines(f.FullName)).Reverse()); }
+                catch (IOException) { }   // being written on Windows: skip it
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return list;
+    }
+
+    // The user texts Replay would show (same filters as LiveSession: no tool results, notifications, interrupt markers).
+    internal static IEnumerable<string> PromptsIn(IEnumerable<string> lines) =>
+        from line in lines
+        where line.Contains("\"type\":\"user\"")
+        let e = Parse(line)
+        where e is { } x && Events.Str(x, "type") == "user" && !Hidden(x)
+        from u in Events.ParseAll(e!.Value).OfType<UserTextEvt>()
+        let t = LiveSession.UserText(u.Text)
+        where t is not null
+        select t;
+
+    // The CLI keys transcripts by the resolved cwd: macOS /var/folders/… is written under -private-var-folders-….
+    internal static string Real(string path)
+    {
+        try
+        {
+            path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            var parent = Path.GetDirectoryName(path);
+            var p = parent is null ? path : Path.Combine(Real(parent), Path.GetFileName(path));
+            return new DirectoryInfo(p).ResolveLinkTarget(true)?.FullName ?? p;
+        }
+        catch (IOException) { return path; }
     }
 
     // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
