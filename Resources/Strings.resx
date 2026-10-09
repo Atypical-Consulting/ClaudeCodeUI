@@ -229,8 +229,11 @@
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>switches the session to {0} mode</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>allows {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
