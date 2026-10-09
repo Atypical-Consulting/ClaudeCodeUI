@@ -1,27 +1,32 @@
-@* The .pane.insp column: pending permission, else the selected agent or tool, else the context. Hidden by Ctrl I. *@
+@* The .pane.insp column: the pending permission (shown even when Ctrl I hid the pane: it blocks the turn) with the
+   selected agent or tool under it, else the selected agent or tool, else the context. *@
 @implements IDisposable
 @inject UiState Ui
 
-@if (Ui.InspectorOpen)
+@if (Ui.InspectorOpen || Session.Pending.Count > 0)
 {
+    var p = Session.Pending.FirstOrDefault();
     <div class="pane insp">
-        @if (Session.Pending.FirstOrDefault() is { } p)
+        @if (p is not null)
         {
             <PermissionCard @key="p.RequestId" Session="Session" Permission="p" />
         }
-        else if (Selected is { } t && ToolKinds.IsAgent(t.Name))
+        @if (Selected is { } t && t.Id != p?.ToolUseId)
         {
-            <AgentPanel @key="t.Id" Session="Session" Agent="t" />
+            if (ToolKinds.IsAgent(t.Name))
+            {
+                <AgentPanel @key="t.Id" Session="Session" Agent="t" />
+            }
+            else
+            {
+                <ToolDetail @key="t.Id" Session="Session" Tool="t" />
+            }
         }
-        else if (Selected is { } tool)
-        {
-            <ToolDetail @key="tool.Id" Session="Session" Tool="tool" />
-        }
-        else if (Session.Context is not null || Session.HasProcess)
+        else if (p is null && (Session.Context is not null || Session.HasProcess))
         {
             <ContextPanel Session="Session" />
         }
-        else
+        else if (p is null)
         {
             <div class="ph"><span class="ttl">@L["Inspector"]</span></div>
             <div class="section" style="border-bottom:0"><p>@L["Ctx.SelectRow"]</p></div>
@@ -32,7 +37,7 @@
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
 
-    ToolItem? Selected => Ui.SelectedToolId is { } id ? Session.Items.OfType<ToolItem>().LastOrDefault(t => t.Id == id) : null;
+    ToolItem? Selected => Session.Tool(Ui.SelectedToolId);
 
     protected override void OnInitialized() => Ui.Changed += Refresh;
     void Refresh() => InvokeAsync(StateHasChanged);

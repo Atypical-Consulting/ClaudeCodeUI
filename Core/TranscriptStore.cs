@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace ClaudeCodeUI;
 
-public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath);
+public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath, string? Mode = null);
 
 // Past sessions read from ~/.claude/projects/<slug>/<id>.jsonl (top-level files only; <id>/subagents are excluded).
 public static class TranscriptStore
@@ -102,6 +102,9 @@ public static class TranscriptStore
 
     public static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 
+    // Has claude ever run in this folder (it keeps a ~/.claude/projects/<slug> folder per cwd)?
+    public static bool Used(string cwd) => Directory.Exists(Path.Combine(Root, Slug(Path.TrimEndingDirectorySeparator(cwd))));
+
     // "ClaudeCodeUI" for C:\repo\ClaudeCodeUI and for its -w worktrees (…\ClaudeCodeUI\.claude\worktrees\x).
     internal static string RepoName(string cwd)
     {
@@ -167,7 +170,9 @@ public static class TranscriptStore
         var title = custom ?? agent ?? ai ?? Trunc(last) ?? Trunc(firstUser) ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
         var id = Path.GetFileNameWithoutExtension(f.Name);
         if (ledger && RecordedCost(id) is { } rec) cost = Math.Max(cost ?? 0, rec);
-        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree);
+        // Latest permissionMode of the file (permission-mode records and user lines both carry it).
+        var modes = Regex.Matches(text, "\"permissionMode\":\"([A-Za-z]+)\"");
+        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree, modes.Count > 0 ? modes[^1].Groups[1].Value : null);
     }
 
     static string ReadAt(FileStream fs, long at, int count)
@@ -205,10 +210,39 @@ public static class TranscriptStore
         return string.Join('-', Regex.Matches(plain.ToLowerInvariant(), "[a-z0-9]+").Select(m => m.Value).Take(words));
     }
 
+    static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
+
+    // Session ids named by a running claude command line (--session-id / --resume), cached 5 s. Includes this app's own processes.
+    // ponytail: `ps` only, so empty on Windows; read Win32_Process command lines if Windows users need the label.
+    public static IReadOnlySet<string> HeldByClaude()
+    {
+        var c = held;
+        if (c.Ids is not null && DateTimeOffset.Now - c.At < TimeSpan.FromSeconds(5)) return c.Ids;
+        var ids = new HashSet<string>();
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("ps", "-Ao args=") { RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            ids = HeldIds(p.StandardOutput.ReadToEnd());
+            p.WaitForExit(2000);
+        }
+        catch (Exception) { }   // no ps: nothing is known to run elsewhere
+        held = (DateTimeOffset.Now, ids);
+        return ids;
+    }
+
+    internal static void ForgetHeld() => held = default;
+
+    internal static HashSet<string> HeldIds(string ps) =>
+        [.. ps.Split('\n').Where(l => l.Contains("claude")).Select(l => Regex.Match(l, @"--(?:session-id|resume)[ =]([0-9a-fA-F-]{36})"))
+            .Where(m => m.Success).Select(m => m.Groups[1].Value)];
+
     // Shapes of real transcript lines (CLI 2.1.295).
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "TranscriptStore: " + what);
+        Ok(HeldIds("node /opt/claude --permission-mode plan --session-id cf0a03e9-1111-2222-3333-444455556666 --name x\nclaude --resume=b45b0de6-1111-2222-3333-444455556666\nvim --resume 00000000-0000-0000-0000-000000000000")
+           .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");
         Ok(RepoName(@"C:\repo\api\.claude\worktrees\x") == "api" && RepoName(@"C:\repo\api") == "api", "RepoName");
@@ -227,7 +261,9 @@ public static class TranscriptStore
         try
         {
             var p = Read(new FileInfo(path));
-            Ok(p is { Cwd: @"C:\repo\api", Branch: "main", Title: "corrige le test d'auth", CostUsd: 0.66m, WorktreePath: null }, "Read last-prompt + cost");
+            Ok(p is { Cwd: @"C:\repo\api", Branch: "main", Title: "corrige le test d'auth", CostUsd: 0.66m, WorktreePath: null, Mode: "default" }, "Read last-prompt + cost");
+            File.AppendAllLines(path, ["""{"type":"permission-mode","permissionMode":"plan","sessionId":"s"}"""]);
+            Ok(Read(new FileInfo(path)) is { Mode: "plan" }, "latest permission mode");
             File.AppendAllLines(path, ["""{"type":"custom-title","customTitle":"auth-fix","sessionId":"s"}"""]);
             Ok(Read(new FileInfo(path)) is { Title: "auth-fix" }, "custom-title wins");
             File.WriteAllLines(path, File.ReadAllLines(path).Where(l => !l.Contains("-title") && !l.Contains("last-prompt")));
