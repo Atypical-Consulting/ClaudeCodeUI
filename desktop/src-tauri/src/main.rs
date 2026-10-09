@@ -1,7 +1,7 @@
 // Desktop shell: starts the bundled self-contained Blazor server on a loopback port it picks itself, shows the
 // splash (src/index.html) until the server prints its tokened URL on stdout, then points the window at it. The server watches
 // --parent-pid and shuts itself down (killing its claude children) when this process exits.
-// Updates: tauri-plugin-updater, checked silently after startup, from the app menu, or when the server prints
+// Updates: tauri-plugin-updater, checked silently once the server is up, from the app menu, or when the server prints
 // UPDATE_LINE (the UI's "Check for updates" action); see check_for_updates.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -23,7 +23,10 @@ static SERVER: OnceLock<String> = OnceLock::new();
 static SERVER_URL: OnceLock<Url> = OnceLock::new();
 static CHILD: Mutex<Option<Child>> = Mutex::new(None);
 static SPLASH: OnceLock<Url> = OnceLock::new();
-// A check is on screen (one at a time); an update is being installed (the server stopping is then expected).
+// Startup is over (the server is up, or failed to start): before that an update must not install, since the
+// server it would have to stop may still be spawning. A check is on screen (one at a time); an update is being
+// installed (the server stopping is then expected).
+static STARTED: AtomicBool = AtomicBool::new(false);
 static CHECKING: AtomicBool = AtomicBool::new(false);
 static UPDATING: AtomicBool = AtomicBool::new(false);
 // Printed on stdout by the server when the user picks "Check for updates" in the UI (Core/Shell.cs). The same pipe
@@ -83,11 +86,6 @@ fn main() {
                 .build()?;
             let splash = window.url()?;
             let _ = SPLASH.set(splash.clone());
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_secs(5)); // after the server is up; never in the way of startup
-                check_for_updates(handle, false);
-            });
             std::thread::spawn(move || {
                 // Here, not in setup: the splash is already painted while the login shell runs.
                 #[cfg(unix)]
@@ -95,8 +93,9 @@ fn main() {
                     cmd.env("PATH", path);
                 }
                 let fail = |why: String, stopped: bool| {
+                    STARTED.store(true, Ordering::SeqCst);
                     std::thread::sleep(Duration::from_millis(500)); // let the splash finish loading
-                    let _ = window.eval(&format!("fail({why:?}, {stopped})")); // index.html words it in the OS language
+                    let _ = window.eval(format!("fail({why:?}, {stopped})")); // index.html words it in the OS language
                 };
                 let mut child = match cmd.spawn() {
                     Ok(c) => c,
@@ -104,7 +103,6 @@ fn main() {
                 };
                 let stdout = child.stdout.take().unwrap();
                 *CHILD.lock().unwrap() = Some(child);
-                let wait = || CHILD.lock().unwrap().as_mut().map_or_else(String::new, |c| code(c.wait()));
                 // The URL comes from our own child (it binds port 0), so no other listener can be mistaken for it.
                 let mut lines = BufReader::new(stdout).lines().map_while(Result::ok);
                 match lines.find(|l| l.starts_with("http://127.0.0.1:")).and_then(|u| u.parse::<Url>().ok()) {
@@ -112,8 +110,10 @@ fn main() {
                         let _ = SERVER.set(url.origin().ascii_serialization());
                         let _ = SERVER_URL.set(url.clone());
                         let _ = window.navigate(url);
+                        STARTED.store(true, Ordering::SeqCst);
+                        check_for_updates(window.app_handle().clone(), false); // the server is up: never in the way of startup
                     }
-                    None => return fail(wait(), false),
+                    None => return fail(wait_child(), false),
                 }
                 // Keep draining stdout so the server's console logging never blocks; echoed for a terminal launch.
                 for l in lines {
@@ -125,7 +125,7 @@ fn main() {
                 }
                 // stdout closed: the server is gone. Say so on the splash instead of Blazor's endless reconnect,
                 // unless it was stopped on purpose to install an update.
-                let status = wait();
+                let status = wait_child();
                 if UPDATING.load(Ordering::SeqCst) {
                     return;
                 }
@@ -136,6 +136,19 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Claude Code UI");
+}
+
+// Waits for the server to exit, polling so CHILD is never locked across a blocking wait: stop_server must be able
+// to take it to kill a server that ignores /quit.
+fn wait_child() -> String {
+    loop {
+        match CHILD.lock().unwrap().as_mut().map(Child::try_wait) {
+            None => return String::new(),
+            Some(Ok(None)) => {}
+            Some(r) => return code(r.map(Option::unwrap)),
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 // The exit code alone ("1"), not Rust's "exit status: 1"; a signal or a wait error keeps its own wording.
@@ -160,7 +173,15 @@ fn t(en: &'static str, fr: &'static str) -> &'static str {
 // Manual: also reports "up to date" and errors. Runs on its own thread: the native dialogs block it, not the app.
 fn check_for_updates(app: AppHandle, manual: bool) {
     if CHECKING.swap(true, Ordering::SeqCst) {
-        return; // one check at a time; a second click would stack dialogs
+        // One check at a time: a second one would stack dialogs. An explicit request is still answered.
+        if manual {
+            app.dialog()
+                .message(t("An update check is already in progress.", "Une recherche de mises à jour est déjà en cours."))
+                .title(t("Check for Updates", "Rechercher des mises à jour"))
+                .kind(MessageDialogKind::Info)
+                .show(|_| {});
+        }
+        return;
     }
     std::thread::spawn(move || {
         if update_flow(&app, manual) {
@@ -181,8 +202,24 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
         Ok(Ok(None)) => {
             if manual {
                 dialog(
-                    t("You’re up to date", "Vous êtes à jour"),
+                    t("You’re up to date", "Tu es à jour"),
                     t("Claude Code UI {v} is the latest version.", "Claude Code UI {v} est la dernière version.").replace("{v}", &app.package_info().version.to_string()),
+                    MessageDialogKind::Info,
+                );
+            }
+            return false;
+        }
+        // A 404 on latest.json: a release was just published and its manifest is not uploaded yet (the checksums job
+        // runs after every installer is built). Not an error for the user.
+        Ok(Err(tauri_plugin_updater::Error::ReleaseNotFound)) => {
+            if manual {
+                dialog(
+                    t("No update information yet", "Pas encore d’information de mise à jour"),
+                    t(
+                        "Update information isn’t available yet. Try again in a few minutes.",
+                        "L’information de mise à jour n’est pas encore disponible. Réessaie dans quelques minutes.",
+                    )
+                    .into(),
                     MessageDialogKind::Info,
                 );
             }
@@ -192,7 +229,7 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
             if manual {
                 dialog(
                     t("Could not check for updates", "Impossible de vérifier les mises à jour"),
-                    format!("{e}\n\n{}", t("Check your connection and try again.", "Vérifiez votre connexion puis réessayez.")),
+                    format!("{e}\n\n{}", t("Check your connection and try again.", "Vérifie ta connexion puis réessaie.")),
                     MessageDialogKind::Error,
                 );
             }
@@ -200,7 +237,7 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
         }
     };
     update.timeout = None;
-    let mut text = t("Version {new} is available (you have {cur}).", "La version {new} est disponible (vous avez la {cur}).")
+    let mut text = t("Version {new} is available (you have {cur}).", "La version {new} est disponible (tu as la {cur}).")
         .replace("{new}", &update.version)
         .replace("{cur}", &update.current_version);
     if let Some(notes) = update.body.as_deref().map(excerpt).filter(|n| !n.is_empty()) {
@@ -214,6 +251,15 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
         .buttons(MessageDialogButtons::OkCancelCustom(t("Install and restart", "Installer et redémarrer").into(), t("Later", "Plus tard").into()))
         .blocking_show();
     if !install {
+        return false;
+    }
+    if !STARTED.load(Ordering::SeqCst) {
+        // The server may still be spawning: it could not be stopped, and Windows could not replace its executable.
+        dialog(
+            t("Claude Code UI is still starting", "Claude Code UI démarre encore"),
+            t("Try again once the app has started.", "Réessaie une fois l’application démarrée.").into(),
+            MessageDialogKind::Info,
+        );
         return false;
     }
     // Download while the app keeps working; the title bar shows the progress.
@@ -266,15 +312,17 @@ fn stop_server() {
             }
         }
     }
-    if let Some(c) = CHILD.lock().unwrap().as_mut() {
-        for _ in 0..150 {
-            if matches!(c.try_wait(), Ok(Some(_))) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(100));
+    // The lock is taken per poll, never held across a sleep or a wait (the stdout thread polls it too).
+    for _ in 0..150 {
+        match CHILD.lock().unwrap().as_mut().map(Child::try_wait) {
+            None | Some(Ok(Some(_))) => return,
+            _ => {}
         }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    if let Some(c) = CHILD.lock().unwrap().as_mut() {
         let _ = c.kill();
-        let _ = c.wait();
+        let _ = c.wait(); // killed: returns at once
     }
 }
 

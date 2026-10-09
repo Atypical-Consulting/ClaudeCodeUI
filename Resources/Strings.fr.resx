@@ -45,7 +45,7 @@
   <data name="Appearance.UpdateCheck" xml:space="preserve"><value>Rechercher des mises à jour</value></data>
   <data name="Appearance.Version" xml:space="preserve"><value>Version</value></data>
   <data name="Appearance.VersionHintDesktop" xml:space="preserve"><value>Les nouvelles versions viennent des releases GitHub, signées et vérifiées avant l’installation.</value></data>
-  <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Lancé avec dotnet run : mettez la source à jour avec git pull.</value></data>
+  <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Lancé avec dotnet run : mets la source à jour avec git pull.</value></data>
   <data name="BadRequest.Heading" xml:space="preserve"><value>L’application n’a pas pu traiter cette requête.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>Elle a été refusée avant d’atteindre une page. Reviens en arrière et réessaie, ou repars d’une nouvelle session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
