@@ -33,6 +33,7 @@ public record PendingPermission(string RequestId, string Tool, JsonElement Input
 public sealed class LiveSession : IAsyncDisposable
 {
     readonly Lock gate = new();
+    readonly HashSet<string> answering = [];   // request ids whose reply is in flight
     ClaudeSession? proc;
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
@@ -71,8 +72,8 @@ public sealed class LiveSession : IAsyncDisposable
     public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
-    public DateTimeOffset StartedAt { get; }
-    public DateTimeOffset LastEventAt { get; private set; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset LastEventAt { get; internal set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public TimeSpan? LastTurn { get; private set; }
     public string? LastResultSubtype { get; private set; }   // "interrompu" after an interrupt
@@ -91,6 +92,7 @@ public sealed class LiveSession : IAsyncDisposable
     public RateLimitEvt? Limits { get; private set; }
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
+    public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
 
     public event Action? Changed;
 
@@ -108,17 +110,26 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task Answer(PendingPermission p, Decision d)
     {
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
-        lock (gate) Resolve(p, d);
-        Notify();
-        if (d == Decision.Deny) { await c.Respond(p.RequestId, false, p.Input); return; }
-        JsonNode? updated = null;
-        if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+        // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
+        lock (gate) if (!answering.Add(p.RequestId)) return;
+        try
         {
-            var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
-            if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
-            else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input);
+            else
+            {
+                JsonNode? updated = null;
+                if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+                {
+                    var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
+                    if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
+                    else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+                }
+                await c.Respond(p.RequestId, true, p.Input, updated);
+            }
+            lock (gate) Resolve(p, d);
+            Notify();
         }
-        await c.Respond(p.RequestId, true, p.Input, updated);
+        finally { lock (gate) answering.Remove(p.RequestId); }
     }
 
     public async Task Interrupt()
@@ -350,10 +361,12 @@ public sealed class LiveSession : IAsyncDisposable
         ThinkingTokens = 0;
     }
 
+    // Runs after the reply was sent, so the CLI may already have moved the tool on (result, end of turn): only a Waiting tool changes.
     internal void Resolve(PendingPermission p, Decision d)
     {
+        if (!Pending.Contains(p)) return;
         Pending = Pending.Remove(p);
-        if (Tool(p.ToolUseId) is { } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
+        if (Tool(p.ToolUseId) is { State: ToolState.Waiting } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
     }
 
@@ -548,9 +561,12 @@ public sealed class LiveSession : IAsyncDisposable
 
         s.BeginTurn("encore");
         s.Apply(new PermissionEvt("r2", "Edit", input, null, "nope", null));
+        var r2 = s.Pending[0];
         s.Apply(new ResultEvt("error_during_execution", true, 0.03m, 900, 1, 0, null, null, null, "aborted_streaming"));
         Ok(s.CostUsd == 0.03m && s.LastTurnCostUsd == 0.02m, "cost assigned, not added");
         Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == "interrompu" && s.ContextTokens == 41878, "interrupted turn");
+        s.Resolve(r2, Decision.Allow);   // the reply landed after the turn ended
+        Ok(s.Status == SessionStatus.Idle && s.Pending.IsEmpty, "late resolve is a no-op");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
 

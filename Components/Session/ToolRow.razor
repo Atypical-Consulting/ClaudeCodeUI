@@ -1,7 +1,6 @@
 @inject UiState Ui
 
-<div class="t @Class" role="button" tabindex="0" @onclick="() => Ui.SelectedToolId = Tool.Id"
-     @onkeydown='e => { if (e.Key is "Enter" or " ") Ui.SelectedToolId = Tool.Id; }'>
+<div class="t @Class" role="button" tabindex="0" @onclick="Select" @onkeydown='e => { if (e.Key is "Enter" or " ") Select(); }'>
     <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
     <span class="kind" style="color:@ToolKinds.Color(Tool.Name)" title="@Tool.Name">@Tool.Name</span>
     <span class="p">@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
@@ -13,6 +12,12 @@
     [Parameter] public ToolItem Tool { get; set; } = null!;
 
     bool Selected => Ui.SelectedToolId == Tool.Id;
+
+    void Select()
+    {
+        Ui.SelectedToolId = Tool.Id;
+        Ui.InspectorOpen = true;   // the row's only effect is the Inspector: a closed one would swallow the click
+    }
     string? Class => Tool.State switch
     {
         ToolState.Waiting => "wait",

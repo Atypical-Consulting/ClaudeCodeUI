@@ -39,6 +39,7 @@
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     ElementReference el;
+    int prompts;
 
     sealed record Run(List<ToolItem> Tools, bool Agents);
 
@@ -63,9 +64,13 @@
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).
+    // A new prompt brings it back down: the user wants to see what they just sent and the reply.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el); }
+        var n = Session.Items.Count(i => i is UserItem);
+        var force = n > prompts;
+        prompts = n;
+        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el, force); }
         catch (JSException) { }
         catch (JSDisconnectedException) { }
     }

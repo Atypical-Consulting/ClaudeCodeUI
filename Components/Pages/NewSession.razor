@@ -46,6 +46,13 @@
                 {
                     <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
                 }
+                else if (untrusted)
+                {
+                    <div role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <span>@L["New.Untrusted"]</span>
+                        <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
+                    </div>
+                }
                 @if (recents.Count > 0)
                 {
                     <div class="recents">
@@ -92,7 +99,7 @@
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
                     <div class="row">
                         @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", mode]</span> }
-                        <button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>Ctrl ⏎</kbd></button>
+                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>Ctrl ⏎</kbd></button>
                     </div>
                 </div>
             </div>
@@ -107,7 +114,7 @@
 
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default";
     string? branch, wtName, lastQuery;
-    bool exists = true, worktree = true, editing, busy, confirmRisk;
+    bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
     bool claudeFound = ClaudeSession.OnPath();
 
@@ -120,13 +127,18 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Query is { Length: > 0 } q && q != lastQuery) { lastQuery = q; cwd = q; }
+        var link = Query is { Length: > 0 } q && q != lastQuery;
+        if (link) { lastQuery = Query; cwd = Query!; }
         await SetCwd(cwd);
+        // A folder handed over by a URL and never used before: claude would load its .claude settings and hooks, so ask first.
+        if (link) untrusted = exists && !TranscriptStore.Used(cwd) && !TranscriptStore.Used(TranscriptStore.RootOf(cwd));
     }
 
     async Task SetCwd(string value)
     {
-        cwd = value.Trim().Trim('"');
+        value = value.Trim().Trim('"');
+        if (value != cwd) untrusted = false;   // the user picked another folder themselves
+        cwd = value;
         confirmRisk = false;
         exists = Local(cwd);
         branch = exists ? await Branch(cwd) : null;
@@ -167,7 +179,7 @@
     async Task Start()
     {
         if (busy) return;
-        if (!(exists = Local(cwd))) return;
+        if (untrusted || !(exists = Local(cwd))) return;
         // auto / acceptEdits edit the folder unasked: outside an isolated worktree, the second Start confirms.
         if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; return; }
         busy = true;
