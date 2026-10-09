@@ -1,29 +1,20 @@
-﻿@page "/Error"
+@page "/Error"
+@attribute [ExcludeFromInteractiveRouting]
+@attribute [Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryToken(required: false)]
 @using System.Diagnostics
+@using Microsoft.AspNetCore.Diagnostics
 
-<PageTitle>@L["Error.Title"]</PageTitle>
+<StatusScreen Code="500" Path="@path" RequestId="@requestId" />
 
-<h1 class="text-danger">@L["Error.Heading"]</h1>
-<h2 class="text-danger">@L["Error.Message"]</h2>
-
-@if (ShowRequestId)
-{
-    <p>
-        <strong>@L["Error.RequestId"]</strong> <code>@RequestId</code>
-    </p>
-}
-
-<h3>@L["Error.DevMode"]</h3>
-<p>@((MarkupString)L["Error.DevSwap"].Value)</p>
-<p>@((MarkupString)L["Error.DevWarning"].Value)</p>
-
-@code{
+@code {
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
-    private string? RequestId { get; set; }
-    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    string? requestId, path;
 
-    protected override void OnInitialized() =>
-        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+    protected override void OnInitialized()
+    {
+        requestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+        path = HttpContext?.Features.Get<IExceptionHandlerPathFeature>()?.Path;
+    }
 }

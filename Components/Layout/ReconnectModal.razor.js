@@ -1,6 +1,8 @@
 // Set up event handlers
 const reconnectModal = document.getElementById("components-reconnect-modal");
 reconnectModal.addEventListener("components-reconnect-state-changed", handleReconnectStateChanged);
+// Escape would close the dialog over a dead UI: the modal only goes away when the circuit is back.
+reconnectModal.addEventListener("cancel", e => e.preventDefault());
 
 const retryButton = document.getElementById("components-reconnect-button");
 retryButton.addEventListener("click", retry);
@@ -8,16 +10,28 @@ retryButton.addEventListener("click", retry);
 const resumeButton = document.getElementById("components-resume-button");
 resumeButton.addEventListener("click", resume);
 
+document.getElementById("components-reload-button").addEventListener("click", () => location.reload());
+
 function handleReconnectStateChanged(event) {
-    if (event.detail.state === "show") {
-        reconnectModal.showModal();
-    } else if (event.detail.state === "hide") {
+    const state = event.detail.state;
+    if (state === "hide") {
         reconnectModal.close();
-    } else if (event.detail.state === "failed") {
-        document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
-    } else if (event.detail.state === "rejected") {
-        location.reload();
+        return;
     }
+    if (state === "rejected") {
+        location.reload();
+        return;
+    }
+    // "paused" can arrive without a prior "show" (the server paused the circuit), so open on every visible state.
+    if (!reconnectModal.open) reconnectModal.showModal();
+    if (state === "failed") document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
+    if (state !== "retrying") focusAction();
+}
+
+// Keyboard focus goes to the state's action (Retry / Resume), else to the title so the dialog is announced.
+function focusAction() {
+    const action = [retryButton, resumeButton].find(b => b.checkVisibility());
+    (action ?? document.getElementById("rc-title")).focus();
 }
 
 async function retry() {
@@ -53,6 +67,7 @@ async function resume() {
         }
     } catch {
         reconnectModal.classList.replace("components-reconnect-paused", "components-reconnect-resume-failed");
+        focusAction();
     }
 }
 

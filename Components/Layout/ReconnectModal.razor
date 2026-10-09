@@ -1,31 +1,34 @@
-﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
+<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
-<dialog id="components-reconnect-modal" data-nosnippet>
-    <div class="components-reconnect-container">
-        <div class="components-rejoining-animation" aria-hidden="true">
-            <div></div>
-            <div></div>
+@* blazor.web.js puts the state class on the dialog (show, show + retrying, failed, paused, resume-failed) and the CSS
+   shows the matching lines. Rendered with the page, so the text is in the page's culture, like <html lang>. *@
+<dialog id="components-reconnect-modal" data-nosnippet aria-labelledby="rc-title" aria-describedby="rc-text">
+    <div class="rc">
+        <div class="duck" aria-hidden="true">
+            <span class="rc-wait"><BlazorKawaii.Components.RubberDuck Mood="Mood.Shocked" Size="64" Color="#FCCC0A" /></span>
+            <span class="rc-fail"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="64" Color="#FCCC0A" /></span>
+            <span class="rc-pause"><BlazorKawaii.Components.RubberDuck Mood="Mood.Sleepy" Size="64" Color="#FCCC0A" /></span>
         </div>
-        <p class="components-reconnect-first-attempt-visible">
-            @L["Reconnect.Rejoining"]
-        </p>
-        <p class="components-reconnect-repeated-attempt-visible">
-            @((MarkupString)L["Reconnect.Retrying", "<span id=\"components-seconds-to-next-attempt\"></span>"].Value)
-        </p>
-        <p class="components-reconnect-failed-visible">
-            @((MarkupString)L["Reconnect.Failed"].Value)
-        </p>
-        <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            @L["Reconnect.Retry"]
-        </button>
-        <p class="components-pause-visible">
-            @L["Reconnect.Paused"]
-        </p>
-        <p class="components-resume-failed-visible">
-            @((MarkupString)L["Reconnect.ResumeFailed"].Value)
-        </p>
-        <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
-            @L["Reconnect.Resume"]
-        </button>
+        <div class="rc-body">
+            <h2 id="rc-title" tabindex="-1" aria-live="polite">
+                <span class="rc-wait">@L["Reconnect.Title.Lost"]</span>
+                <span class="components-reconnect-failed-visible">@L["Reconnect.Title.Failed"]</span>
+                <span class="components-resume-failed-visible">@L["Reconnect.Title.ResumeFailed"]</span>
+                <span class="rc-pause">@L["Reconnect.Title.Paused"]</span>
+            </h2>
+            <p id="rc-text">
+                <span class="components-reconnect-first-attempt-visible">@L["Reconnect.Rejoining"]</span>
+                <span class="components-reconnect-repeated-attempt-visible">@((MarkupString)L["Reconnect.Retrying", "<span id=\"components-seconds-to-next-attempt\"></span>"].Value)</span>
+                <span class="components-reconnect-failed-visible">@L["Reconnect.Failed"]</span>
+                <span class="components-pause-visible">@L["Reconnect.Paused"]</span>
+                <span class="components-resume-failed-visible">@L["Reconnect.ResumeFailed"]</span>
+            </p>
+            <div class="rc-bar" aria-hidden="true"></div>
+            <div class="acts">
+                <button type="button" id="components-reconnect-button" class="btn primary">@L["Reconnect.Retry"]</button>
+                <button type="button" id="components-resume-button" class="btn primary">@L["Reconnect.Resume"]</button>
+                <button type="button" id="components-reload-button" class="btn">@L["Layout.Reload"]</button>
+            </div>
+        </div>
     </div>
 </dialog>
