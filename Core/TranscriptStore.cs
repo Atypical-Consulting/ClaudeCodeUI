@@ -52,13 +52,22 @@ public static class TranscriptStore
         var s = new LiveSession("", "", "", "default");
         foreach (var line in lines)
         {
-            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"")) continue;
+            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"") && !line.Contains("\"queued_command\"")) continue;
             JsonElement e;
             // The file names the diff field toolUseResult; the stream (and Events) say tool_use_result.
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
             catch (JsonException) { continue; }
-            if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
             DateTimeOffset? at = DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var t) ? t : null;
+            if (Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }) continue;
+            // A message sent mid-turn and folded into it (LiveSession.Send) is written as this attachment, after the tool
+            // result it joined, never as a user line (CLI 2.1.296). Queued messages run as their own turn are user lines.
+            if (Events.Str(e, "type") == "attachment" && Events.Prop(e, "attachment") is { } qa && Events.Str(qa, "type") == "queued_command"
+                && Events.Str(qa, "commandMode") == "prompt" && Events.Str(qa, "prompt") is { } qp)
+            {
+                s.Apply(new UserTextEvt(qp, at));
+                continue;
+            }
+            if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
             try
             {
                 foreach (var ev in Events.ParseAll(e))
@@ -363,6 +372,15 @@ public static class TranscriptStore
             """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_A","type":"tool_result","content":"Async agent launched"}]},"toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aa5"},"timestamp":"2026-10-09T12:00:01Z"}""",
             """{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens></usage>\n</task-notification>"},"timestamp":"2026-10-09T12:00:05Z"}""",
         ]);
+        // Folded mid-turn message (--probe-cli queue, 2.1.296): the attachment after the tool result, trimmed of `rendered`.
+        var fold = Replay([
+            """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_B","name":"Bash","input":{"command":"sleep 3; echo one"}}]},"timestamp":"2026-10-09T22:00:53.000Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_B","type":"tool_result","content":"one"}]},"timestamp":"2026-10-09T22:00:56.100Z"}""",
+            """{"parentUuid":"644fcf74-989d-49d2-85dd-a53edb85c9f0","isSidechain":false,"attachment":{"type":"queued_command","prompt":"Reply with exactly the word PINEAPPLE.","source_uuid":"f2b3dcee-0514-4a2f-850e-255f0515e69a","delivery_id":"8d074104-35d2-4b55-875a-8546782a5e81","commandMode":"prompt","timestamp":"2026-10-09T22:00:52.990Z"},"type":"attachment","uuid":"70d92a4a-e751-4a97-bbe8-9a670ac4819e","timestamp":"2026-10-09T22:00:52.990Z","renderedRole":"system","sessionId":"c682d2a7-66b5-4452-a11d-ee02b7f1589e","version":"2.1.296"}""",
+            """{"parentUuid":"x","isSidechain":false,"type":"queue-operation","operation":"remove","content":"Reply with exactly the word PINEAPPLE.","reason":"absorbed_mid_turn"}""",
+            """{"type":"assistant","message":{"id":"m2","role":"assistant","content":[{"type":"text","text":"PINEAPPLE"}]},"timestamp":"2026-10-09T22:00:57.000Z"}""",
+        ]);
+        Ok(fold is [ToolItem { State: ToolState.Done }, UserItem { Text: "Reply with exactly the word PINEAPPLE." }, TextItem], "replay folded mid-turn message");
         var api = Replay(["""{"type":"assistant","isApiErrorMessage":true,"message":{"model":"<synthetic>","id":"m3","role":"assistant","content":[{"type":"text","text":"API Error: Output blocked by content filtering policy"}]},"timestamp":"2026-10-09T12:00:00Z"}"""]);
         Ok(api is [ApiErrorItem], "replay api error");
 
