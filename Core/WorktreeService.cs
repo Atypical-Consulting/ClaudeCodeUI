@@ -28,6 +28,15 @@ public sealed class WorktreeService(SessionManager sessions)
     readonly ConcurrentDictionary<string, int> cleanable = new(StringComparer.OrdinalIgnoreCase);
     IReadOnlyList<string>? repos;
 
+    public event Action? Changed;   // raised after a scan changes CleanableCount
+
+    internal void SetCleanable(string repo, int count)
+    {
+        var had = cleanable.TryGetValue(repo, out var old);
+        cleanable[repo] = count;
+        if (!had || old != count) Changed?.Invoke();
+    }
+
     public int? CleanableCount => cleanable.IsEmpty ? null : cleanable.Values.Sum();   // Safe + Orphan of the last scan
 
     // Repo roots: cwds of the live sessions, plus the newest transcript folders of the last 30 days (not under %TEMP%).
@@ -138,7 +147,7 @@ public sealed class WorktreeService(SessionManager sessions)
             return new WorktreeInfo(Norm(repoRoot), path, System.IO.Path.GetFileName(path), branch, r.GetValueOrDefault("HEAD"),
                 state, why.Replace("{base}", Enc(bas)), null, last, reason is not null, reason, dirty, ahead, isMerged, squash, track == "gone");
         }));
-        cleanable[Norm(repoRoot)] = rows.Count(w => w.State is WtState.Safe or WtState.Orphan);
+        SetCleanable(Norm(repoRoot), rows.Count(w => w.State is WtState.Safe or WtState.Orphan));
         return rows;
     }
 
@@ -350,5 +359,12 @@ public sealed class WorktreeService(SessionManager sessions)
         SelfCheck.Assert(all.Contains("branch -d bsafe") && all.Contains("worktree prune") && all.Contains("worktree unlock C:/r/.claude/worktrees/orph"), "Plan : branch -d, prune, unlock orphelin");
         SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/detm"), "Plan : détachée mergée supprimée");
         SelfCheck.Assert(plan.First(s => s.GitArgs[0] == "worktree" && s.GitArgs[1] == "remove").Display == "git worktree remove .claude/worktrees/safe", "Plan : chemin relatif affiché");
+        var svc = new WorktreeService(null!); var fired = 0; svc.Changed += () => fired++;
+        svc.SetCleanable("C:/r", 2);
+        SelfCheck.Assert(fired == 1 && svc.CleanableCount == 2, "CleanableCount : Changed à la première valeur");
+        svc.SetCleanable("C:/r", 2);
+        SelfCheck.Assert(fired == 1, "CleanableCount : pas de Changed si inchangé");
+        svc.SetCleanable("C:/r", 0);
+        SelfCheck.Assert(fired == 2 && svc.CleanableCount == 0, "CleanableCount : Changed quand le compte baisse");
     }
 }
