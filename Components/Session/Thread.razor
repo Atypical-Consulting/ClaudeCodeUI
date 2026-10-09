@@ -14,7 +14,7 @@
             case UserItem u:
                 <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]@if (Session.CanRewind(u))
                     {
-                        <button type="button" class="rw-btn" aria-haspopup="dialog" @onclick="() => rewind!.Open(u)"><Icon Name="undo" Sm />@L["Rewind.Action"]</button>
+                        <button type="button" class="rw-btn" aria-haspopup="dialog" aria-label="@L["Rewind.ActionLabel", Fmt.Time(u.At)]" @onclick="() => rewind!.Open(u)"><Icon Name="undo" Sm />@L["Rewind.Action"]</button>
                     }</div>@if (u.Ultracode)
                     {
                         <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>

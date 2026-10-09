@@ -189,7 +189,9 @@ public sealed class LiveSession : IAsyncDisposable
             {
                 lock (gate)
                 {
-                    Draft = prefill ?? Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == cut)?.Text ?? "";
+                    // The rewound message goes back to the Composer, ahead of anything not sent yet.
+                    if ((prefill ?? Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == cut)?.Text) is { } back)
+                        Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
                     Truncate(cut);
                 }
                 Notify();

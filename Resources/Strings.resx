@@ -370,6 +370,7 @@
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page paused</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Couldn't resume</value></data>
   <data name="Rewind.Action" xml:space="preserve"><value>Rewind to here</value></data>
+  <data name="Rewind.ActionLabel" xml:space="preserve"><value>Rewind to here, message of {0}</value></data>
   <data name="Rewind.Confirm" xml:space="preserve"><value>Rewind</value></data>
   <data name="Rewind.Files" xml:space="preserve"><value>Files put back as they were before this message</value></data>
   <data name="Rewind.FilesFailed" xml:space="preserve"><value>The conversation was rewound, but the files stay as they are: {0}</value></data>
