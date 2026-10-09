@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -18,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -153,6 +155,48 @@ public static class CliProbe
             catch (TimeoutException) { return [toggle, ("FAIL", "mcp_reconnect unanswered")]; }
             var after = await Status();
             return [toggle, after == "failed" ? ("PASS", $"answered {answer}, status {after}") : ("FAIL", $"answered {answer}, status {after}")];
+        });
+    }
+
+    // mcp-auth: mcp_authenticate {serverName} on a `needs-auth` http server answers {authUrl, callbackExpected, ...}; once
+    // the browser follows authUrl, the CLI's own callback listener takes the code, fetches the token and reconnects, so
+    // mcp_status turns `connected` without another request. The server is the probe's own OAuth-protected fake (no
+    // network, no account); an HttpClient plays the browser. mcp_clear_auth then drops the token the CLI stored.
+    static async Task<IEnumerable<(string, string, string)>> McpAuth(string dir)
+    {
+        using var fake = new FakeOAuthMcp();
+        var config = Path.Combine(dir, "mcp-auth.json");
+        File.WriteAllText(config, """{"mcpServers":{"probe-auth":{"type":"http","url":"URL"}}}""".Replace("URL", fake.Url + "mcp"));
+        await using var c = await Cli.Start(dir, "--mcp-config", config, "--strict-mcp-config");
+        return await Guard(["mcp-auth"], async () =>
+        {
+            async Task<string> Status() =>
+                Events.Prop(await c.S.Request("mcp_status"), "mcpServers") is { ValueKind: JsonValueKind.Array } a
+                && a.EnumerateArray().FirstOrDefault(m => Events.Str(m, "name") == "probe-auth") is { ValueKind: JsonValueKind.Object } m
+                    ? Events.Str(m, "status") ?? "?" : "absent";
+            async Task<string> Until(Func<string, bool> done)
+            {
+                var st = await Status();
+                for (var i = 0; i < 40 && !done(st); i++) { await Task.Delay(500); st = await Status(); }
+                return st;
+            }
+
+            var before = await Until(st => st != "pending");
+            if (before != "needs-auth") return [("FAIL", $"status {before}, expected needs-auth")];
+            var r = await c.S.Request("mcp_authenticate", new() { ["serverName"] = "probe-auth" }, Seconds);
+            Console.WriteLine($"  mcp_authenticate -> {r.GetRawText()}");
+            if (McpAuthStart.Parse(r) is not { Url: { } url }) return [("FAIL", $"no usable authUrl in {r.GetRawText()}")];
+
+            using var browser = new HttpClient();   // follows authorize -> 302 -> the CLI's localhost callback
+            var landed = await browser.GetAsync(url);
+            var after = await Until(st => st == "connected");
+
+            string cleared;
+            try { await c.S.Request("mcp_clear_auth", new() { ["serverName"] = "probe-auth" }, Seconds); cleared = "success"; }
+            catch (ClaudeRequestException ex) { cleared = $"error \"{ex.Message}\""; }
+            var detail = $"{before} -> authUrl {new Uri(url).GetLeftPart(UriPartial.Path)}, callback HTTP {(int)landed.StatusCode}, "
+                + $"token {(fake.TokenIssued ? "issued" : "never asked")}, bearer {(fake.BearerSeen ? "used" : "unused")} -> {after}; mcp_clear_auth {cleared}, then {await Status()}";
+            return [after == "connected" && fake.BearerSeen ? ("PASS", detail) : ("FAIL", detail)];
         });
     }
 
@@ -913,6 +957,101 @@ public static class CliProbe
             return v;
         }
         catch (Exception ex) { return $"--version failed: {ex.Message}"; }
+    }
+
+    // Minimal OAuth 2.1 authorization server + streamable-HTTP MCP server on a loopback port: 401 with resource metadata,
+    // dynamic client registration, an authorize endpoint that approves at once, a token endpoint, then initialize and
+    // tools/list for the bearer. Just enough for the CLI's own OAuth client to run its whole flow against it.
+    sealed class FakeOAuthMcp : IDisposable
+    {
+        const string Token = "ccui-probe-token";
+        readonly HttpListener http = new();
+        public string Url { get; }
+        public bool TokenIssued { get; private set; }
+        public bool BearerSeen { get; private set; }
+
+        public FakeOAuthMcp()
+        {
+            var l = new TcpListener(IPAddress.Loopback, 0);
+            l.Start();
+            var port = ((IPEndPoint)l.LocalEndpoint).Port;
+            l.Stop();
+            Url = $"http://127.0.0.1:{port}/";
+            http.Prefixes.Add(Url);
+            http.Start();
+            _ = Task.Run(Loop);
+        }
+
+        async Task Loop()
+        {
+            while (http.IsListening)
+            {
+                HttpListenerContext ctx;
+                try { ctx = await http.GetContextAsync(); } catch { return; }
+                try { Handle(ctx); } catch { ctx.Response.StatusCode = 500; }
+                finally { ctx.Response.Close(); }
+            }
+        }
+
+        void Handle(HttpListenerContext ctx)
+        {
+            var (req, res) = (ctx.Request, ctx.Response);
+            var path = req.Url!.AbsolutePath;
+            var body = new StreamReader(req.InputStream).ReadToEnd();
+            void Json(object o, int code = 200) { res.StatusCode = code; res.ContentType = "application/json"; res.OutputStream.Write(JsonSerializer.SerializeToUtf8Bytes(o)); }
+
+            if (path.StartsWith("/.well-known/oauth-protected-resource"))
+                Json(new { resource = Url + "mcp", authorization_servers = new[] { Url.TrimEnd('/') } });
+            else if (path.StartsWith("/.well-known/oauth-authorization-server") || path.StartsWith("/.well-known/openid-configuration"))
+                Json(new
+                {
+                    issuer = Url.TrimEnd('/'), authorization_endpoint = Url + "authorize", token_endpoint = Url + "token", registration_endpoint = Url + "register",
+                    response_types_supported = new[] { "code" }, grant_types_supported = new[] { "authorization_code", "refresh_token" },
+                    code_challenge_methods_supported = new[] { "S256" }, token_endpoint_auth_methods_supported = new[] { "none" },
+                });
+            else if (path == "/register")
+            {
+                var n = JsonNode.Parse(body)!.AsObject();
+                n["client_id"] = "ccui-probe-client";
+                n["client_id_issued_at"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                n["token_endpoint_auth_method"] = "none";
+                Json(n, 201);
+            }
+            else if (path == "/authorize")
+            {
+                var q = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+                res.StatusCode = 302;
+                res.RedirectLocation = $"{q["redirect_uri"]}?code=ccui-probe-code&state={Uri.EscapeDataString(q["state"] ?? "")}";
+            }
+            else if (path == "/token")
+            {
+                TokenIssued = true;
+                Json(new { access_token = Token, token_type = "Bearer", expires_in = 3600, refresh_token = "ccui-probe-refresh" });
+            }
+            else if (path == "/mcp" && req.Headers["Authorization"] != "Bearer " + Token)
+            {
+                res.StatusCode = 401;
+                res.AddHeader("WWW-Authenticate", $"Bearer resource_metadata=\"{Url}.well-known/oauth-protected-resource\"");
+            }
+            else if (path == "/mcp" && req.HttpMethod == "POST")
+            {
+                BearerSeen = true;
+                var m = JsonNode.Parse(body)!;
+                if (m["id"] is not { } id) { res.StatusCode = 202; return; }   // a notification
+                object? result = (string?)m["method"] switch
+                {
+                    "initialize" => new { protocolVersion = (string?)m["params"]?["protocolVersion"] ?? "2025-06-18", capabilities = new { tools = new { } }, serverInfo = new { name = "ccui-probe", version = "1.0.0" } },
+                    "tools/list" => new { tools = new[] { new { name = "ping", description = "probe", inputSchema = new { type = "object" } } } },
+                    _ => null,
+                };
+                Json(result is null
+                    ? new { jsonrpc = "2.0", id = id.DeepClone(), error = (object)new { code = -32601, message = "method not found" } }
+                    : new { jsonrpc = "2.0", id = id.DeepClone(), result });
+            }
+            else res.StatusCode = path == "/mcp" ? 405 : 404;   // GET /mcp: no server-initiated stream
+        }
+
+        public void Dispose() { try { http.Close(); } catch { } }
     }
 
     sealed class StartException(string message) : Exception(message);

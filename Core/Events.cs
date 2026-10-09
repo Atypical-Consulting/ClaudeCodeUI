@@ -35,6 +35,17 @@ public record HookEvt(string Name, string Outcome, int? ExitCode, string Output)
 // Disabled is the row's own flag (claude 2.1.296 sets it on every row under disableAllHooks), not inferred from the policy.
 public record HookRow(string Event, string Matcher, string Type, string Command, string? Display, string Source, string? SourceLabel, string? Plugin, int? Timeout, bool Disabled = false);
 
+// Answer of mcp_authenticate (verified by `--probe-cli mcp-auth`): `authUrl` to open in a browser, or none when the stored
+// token was still valid. With callbackExpected the CLI listens on a localhost port for the redirect and reconnects the
+// server itself; without it (claude.ai connectors) nothing comes back on its own. Url is kept only when http(s): it ends
+// up in an href.
+public record McpAuthStart(string? Url, bool CallbackExpected)
+{
+    public static McpAuthStart Parse(JsonElement r) => new(
+        Events.Str(r, "authUrl") is { } u && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? u : null,
+        Events.Prop(r, "callbackExpected") is { ValueKind: JsonValueKind.True });
+}
+
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
 public static class Events
 {
@@ -332,5 +343,11 @@ public static class Events
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
         Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");
+
+        static McpAuthStart A(string json) => McpAuthStart.Parse(JsonDocument.Parse(json).RootElement.Clone());
+        Ok(A("""{"authUrl":"http://127.0.0.1:5/authorize?response_type=code&state=s","requiresUserAction":true,"callbackExpected":true,"redirectScheme":"localhost","state":"s","callbackPort":61234}""")
+           is { Url: "http://127.0.0.1:5/authorize?response_type=code&state=s", CallbackExpected: true }, "mcp_authenticate authUrl");
+        Ok(A("""{"requiresUserAction":false,"callbackExpected":false}""") is { Url: null, CallbackExpected: false }, "mcp_authenticate already signed in");
+        Ok(A("""{"authUrl":"javascript:alert(1)","callbackExpected":true}""").Url is null && A("""{"authUrl":"/relative"}""").Url is null, "mcp_authenticate non-http url dropped");
     }
 }
