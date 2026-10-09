@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Rapide</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>usage supplémentaire désactivé</value></data>
