@@ -20,6 +20,7 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        scrollToEnd(el) { if (el) el.scrollLeft = el.scrollWidth; },
         // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
         // read), then focus moves to the card unless the user is typing a draft or using a dialog.
         armPermission(el) {
