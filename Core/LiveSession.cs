@@ -13,6 +13,7 @@ public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
+public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -225,7 +226,7 @@ public sealed class LiveSession : IAsyncDisposable
     // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
     internal List<string> Args(bool resume)
     {
-        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text" };
+        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text", "--include-hook-events" };
         if (resume) args.AddRange(["--resume", Id]);
         else
         {
@@ -563,6 +564,11 @@ public sealed class LiveSession : IAsyncDisposable
                 });
                 break;
 
+            // A silent success is the common case (and most of the stream's hook events): nothing to show.
+            case HookEvt h when h.Outcome != "success" || h.Output.Length > 0:
+                Items = Items.Add(new HookItem(h));
+                break;
+
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
                 break;
@@ -575,9 +581,9 @@ public sealed class LiveSession : IAsyncDisposable
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
@@ -588,6 +594,12 @@ public sealed class LiveSession : IAsyncDisposable
         ae.Apply(new AssistantTextEvt("m", apiErr, null, false));
         ae.Apply(new AssistantTextEvt("m", "Total cost: $0.01", null, true));
         Ok(ae.Items is [ApiErrorItem { Error.Raw: apiErr }, TextItem, TextItem], "api error item only for synthetic API Error text");
+
+        var hk = new LiveSession("hk", "hk", @"C:\w", "default");
+        hk.Apply(new HookEvt("Stop", "success", 0, ""));
+        hk.Apply(new HookEvt("UserPromptSubmit", "success", 0, "context"));
+        hk.Apply(new HookEvt("PreToolUse:Write", "error", 2, "nope"));
+        Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }], "silent hooks hidden, output and errors kept");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try
