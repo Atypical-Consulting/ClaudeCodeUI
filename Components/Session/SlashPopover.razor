@@ -1,9 +1,55 @@
-@* Stub (WP0). Owner: WP2. Commands matching Query ("/xx"); OnPick receives the chosen command name. *@
+@* "/" commands of the CLI (initialize.commands), filtered by Query ("/co"). The Composer relays ↑ ↓ Tab via Move / Pick. *@
 
-<div class="pop slash"><div class="sh"><span>Commandes et skills</span></div></div>
+@if (matches.Count > 0)
+{
+    <div class="pop slash" role="listbox" aria-label="Commandes et skills">
+        <div class="sh"><span>Commandes et skills</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
+        @for (var i = 0; i < matches.Count; i++)
+        {
+            var (c, n) = (matches[i], i);
+            <div class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(c.Name)">
+                <b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="/@c.Name">/<mark>@(c.Show[..q.Length])</mark>@(c.Show[q.Length..])</b>
+                <span title="@c.Description">@c.Description</span>
+                @if (c.Tag is { } tag) { <span class="tag">@tag</span> } else { <span></span> }
+            </div>
+        }
+    </div>
+}
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     [Parameter] public string Query { get; set; } = "";
     [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    record Cmd(string Name, string Description, string? Tag)
+    {
+        public string Show => Name[(Name.LastIndexOf(':') + 1)..];
+    }
+    List<Cmd> matches = [];
+    string q = "";
+    int sel;
+
+    public bool Open => matches.Count > 0;
+    public void Move(int d) { if (matches.Count > 0) sel = (sel + d + matches.Count) % matches.Count; StateHasChanged(); }
+    public Task Pick() => matches.Count > 0 ? OnPick.InvokeAsync(matches[sel].Name) : Task.CompletedTask;
+
+    protected override void OnParametersSet()
+    {
+        var nq = Query.TrimStart('/');
+        if (nq != q) sel = 0;
+        q = nq;
+        // Plugin commands ("plugin:cmd") are matched and shown by their command part, the plugin goes in the tag. Built-ins first.
+        matches = [.. Commands().Where(c => c.Show.StartsWith(q, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.Tag == "intégrée" ? 0 : c.Name.Contains(':') ? 2 : 1).Take(8)];
+        if (sel >= matches.Count) sel = 0;
+    }
+
+    IEnumerable<Cmd> Commands()
+    {
+        if (Session.InitializeInfo is { } info && Events.Prop(info, "commands") is { ValueKind: JsonValueKind.Array } cmds)
+            return cmds.EnumerateArray().Select(c => Events.Str(c, "name") is { } name
+                ? new Cmd(name, Events.Str(c, "description") ?? "", Events.Prop(c, "builtin") is { ValueKind: JsonValueKind.True } ? "intégrée" : name.Contains(':') ? name[..name.IndexOf(':')] : null)
+                : null).OfType<Cmd>();
+        return (Session.Init?.SlashCommands ?? []).Select(n => new Cmd(n, "", n.Contains(':') ? n[..n.IndexOf(':')] : null));
+    }
 }

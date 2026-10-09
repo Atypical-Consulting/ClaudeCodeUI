@@ -1,8 +1,35 @@
-@* Stub (WP0). Owner: WP2. *@
+@* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI: "—". *@
+@inject UiState Ui
 
-<div class="section"><div class="kv"></div></div>
+<div class="ph"><span class="ttl">Agent</span><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
+    <span class="end"><button class="btn ghost" title="Fermer" aria-label="Fermer" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+</div>
+<div style="flex:1;min-height:0;overflow:auto">
+    <div class="section" style="border-bottom:0">
+        <span class="cap">Ce que l'agent écrit</span>
+        @if (LastText is { Length: > 0 } t)
+        {
+            <div style="font-size:13.5px"><Markdown Text="@t" /></div>
+        }
+        else
+        {
+            <p>@(Agent.State == ToolState.Running ? "L'agent n'a encore rien écrit." : "Aucun texte.")</p>
+        }
+        <div class="kv">
+            <span>type</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
+            <span>outils</span><span>@Math.Max(Agent.SubToolUses, Session.Items.OfType<ToolItem>().Count(i => i.ParentToolUseId == Agent.Id))</span>
+            <span>tokens</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
+            <span>coût</span><span>—</span>
+        </div>
+    </div>
+</div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     [Parameter] public ToolItem Agent { get; set; } = null!;
+
+    // The agent's own messages (parent_tool_use_id), else its handback report once done.
+    string? LastText => Session.Items.OfType<TextItem>().LastOrDefault(i => i.ParentToolUseId == Agent.Id)?.Markdown
+        ?? (Agent.Structured is { } s && Events.Prop(s, "handbackReport") is { } h ? Events.Str(h, "text") : null)
+        ?? Agent.ResultText;
 }
