@@ -24,8 +24,8 @@
             var cmd = tool is { } x ? Events.Str(x.Input, "command") : null;
             <details @key="t.Id" class="bg-row" open="@t.Running">
                 <summary>
-                    <span class="dot @(t.Running ? "run" : t.Status == "completed" ? "idle" : "err")" aria-hidden="true"></span>
-                    <span class="nm">@(tool?.Name ?? "Bash") · @t.Description</span>
+                    <span class="dot @Dot(t)" aria-hidden="true"></span>
+                    <span class="nm">@(tool is null ? "" : $"{tool.Name} · ")@t.Description</span>
                     <span class="m">@Label(t) · @Fmt.Dur((t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt)</span>
                 </summary>
                 @if (cmd is not null)
@@ -53,7 +53,7 @@
     readonly HashSet<string> final = [];      // ended tasks whose last output was read (or is gone)
     readonly HashSet<string> stopping = [];
     string? error;
-    bool polling;
+    bool polling, disposed;
     Timer? poll;
 
     // The timer callback hops onto the renderer's dispatcher: the dictionaries are only touched there.
@@ -61,7 +61,7 @@
 
     async Task Poll()
     {
-        if (polling || !Session.HasProcess) return;
+        if (polling || disposed || !Session.HasProcess) return;   // disposed: a tick queued before Dispose
         polling = true;
         try
         {
@@ -92,6 +92,9 @@
         finally { stopping.Remove(t.Id); }
     }
 
+    // A stop the user asked for is not a failure: neutral dashed dot, red only for "failed" and unknown statuses.
+    static string Dot(BgTask t) => t.Running ? "run" : t.Status switch { "completed" => "idle", "killed" or "stopped" => "exited", _ => "err" };
+
     string Label(BgTask t) => t.Status switch
     {
         "running" or "pending" => L["Bg.Running"],
@@ -102,5 +105,5 @@
         _ => L["Bg.Ended"],             // a status this build does not know: it is not Running either
     };
 
-    public void Dispose() => poll?.Dispose();
+    public void Dispose() { disposed = true; poll?.Dispose(); }
 }
