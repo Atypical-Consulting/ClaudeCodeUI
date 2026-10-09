@@ -20,6 +20,16 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
+        // read), then focus moves to the card unless the user is typing a draft or using a dialog.
+        armPermission(el) {
+            if (!el) return;
+            el._armedAt = performance.now() + 300;
+            const a = document.activeElement;
+            const busy = a instanceof Element && (a.closest('[role=dialog],[contenteditable]:not([contenteditable=false])')
+                || (a.closest('input,textarea,select') && a.value));
+            if (!busy) el.focus({ preventScroll: true });
+        },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // Pin a scroller to its bottom after each render, unless the user scrolled up.
         scrollEnd(el) {
@@ -76,9 +86,20 @@
         if (ctrl && !e.altKey && e.shiftKey && (letter === 'A' || letter === 'O')) key = 'Ctrl+Shift+' + letter;
         else if (ctrl && !e.altKey && !e.shiftKey && (letter === 'K' || letter === 'I' || letter === 'N')) key = 'Ctrl+' + letter;
         else if (e.altKey && !ctrl && !e.shiftKey && letter === 'N') key = 'Ctrl+N';
-        else if (e.key === 'Escape' && !(e.target instanceof Element && e.target.closest('.composer:has(.pop)'))) key = 'Escape';   // the Composer closes its popover
-        else if (!ctrl && !e.altKey && (e.key === 'Enter' || e.key === 'Delete') && !isField(e.target) && document.querySelector('[data-permission]'))
-            key = e.key === 'Enter' && e.shiftKey ? 'Shift+Enter' : e.key;
+        else if (e.key === 'Escape') {
+            // Esc interrupts the turn only from the composer, the palette or nothing focused; elsewhere it first
+            // leaves the focused control (or the text selection), so a stray Esc never kills a turn.
+            const t = e.target instanceof Element ? e.target : null, sel = getSelection();
+            if (t?.closest('.composer:has(.pop)')) { }   // the Composer closes its popover
+            else if (t && t !== document.body && !t.closest('.composer,.palette')) t.blur();
+            else if (t === document.body && sel && !sel.isCollapsed) sel.removeAllRanges();
+            else key = 'Escape';
+        }
+        else if (!ctrl && !e.altKey && (e.key === 'Enter' || e.key === 'Delete') && !e.repeat && !isField(e.target)) {
+            // Answer only from inside the card (it takes focus when it arrives), and only once it is armed.
+            const card = e.target instanceof Element && e.target.closest('[data-permission]');
+            if (card && performance.now() >= card._armedAt) key = e.key === 'Enter' && e.shiftKey ? 'Shift+Enter' : e.key;
+        }
         if (!key) return;
         if (key !== 'Escape') e.preventDefault();
         net.invokeMethodAsync('OnShortcut', key).catch(() => { });

@@ -513,7 +513,9 @@ body{background:var(--ground);overflow:hidden}
 .app:not(:has(>.insp)){grid-template-columns:256px minmax(0,1fr)}
 :where(button){font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 a.btn{text-decoration:none}
-a.s,a.pi{color:inherit;text-decoration:none}
+a.s,a.pi,a.q{color:inherit;text-decoration:none}
+.perm-off{display:none}
+[data-permission]:not(:focus-within) .perm-off{display:inline}
 button.tc{display:block;width:100%}
 button.mode{text-align:left}
 .box:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
