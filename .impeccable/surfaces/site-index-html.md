@@ -19,7 +19,7 @@ STORY: Le visiteur voit un prompt « installe Claude Code UI », comprend en une
 
 FIRST VIEWPORT: Rail étroit à gauche (marque, liens Docs / GitHub / Releases, canard). Colonne centrale : bloc `.you` avec le prompt, puis une ligne de statut et un ledger court (Read README, Grep prérequis, Bash vérification `claude --version`). À droite, colonne inspecteur : carte de permission « Télécharger Claude Code UI pour Windows ? » (OS détecté) listant fichier, taille, version ; Autoriser = téléchargement direct, « Autres systèmes » = liste des installeurs, Refuser = lien vers la doc. Action primaire dans le premier écran.
 
-FORM: Journal d'outils (ledger), position 3 de ma liste ordonnée, dealt lead ; seed key e3d1a8aa (non corroborée : la sortie du concept-roll qui l'aurait imprimée n'a pas été conservée et `direction-payload.json` ne la contient pas ; considérer le tirage comme non vérifié).
+FORM: Journal d'outils (ledger), position 3 de ma liste ordonnée, dealt lead ; seed key e3d1a8aa (sortie de `impeccable concept-seed --scope surface --mode persuade` du 2026-10-09, choix enregistré par `--kind assigned --from e3d1a8aa`).
 
 Signature interaction : chaque ligne du ledger se déplie (clavier ⏎ / clic) sur la capture et l'explication ; le texte du premier bloc assistant arrive en flux avec le caret, une seule fois, respecte prefers-reduced-motion.
 
