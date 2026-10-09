@@ -3,8 +3,8 @@
     <div class="crash" role="alert">
         <div class="duck" aria-hidden="true"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="72" Color="#FCCC0A" /></div>
         <div>
-            <h4>@L["Crash.Title"]</h4>
-            <p>@L["Crash.Text"]</p>
+            <h4>@L[Session.StartFailed ? "Crash.StartFailed.Title" : "Crash.Title"]</h4>
+            <p>@L[Session.StartFailed ? "Crash.StartFailed.Text" : "Crash.Text"]</p>
             <pre>@Session.ExitText</pre>
             <div class="acts" style="justify-content:flex-start">
                 <button class="btn primary" disabled="@restarting" @onclick="Restart"><Icon Name="refresh" Sm />@L["Crash.Restart"]</button>

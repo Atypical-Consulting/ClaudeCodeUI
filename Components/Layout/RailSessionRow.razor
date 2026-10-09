@@ -11,7 +11,7 @@
         {
             case SessionStatus.Waiting: <span class="pill wait">@s.Pending.Count</span> break;
             case SessionStatus.Running: <span class="c" style="color:var(--ok)">@L["Status.Running"]</span> break;
-            case SessionStatus.Crashed: <span class="pill err">exit @s.ExitCode</span> break;
+            case SessionStatus.Crashed: <span class="pill err">@s.ExitLabel</span> break;
             default: <span class="c">@(s.CostUsd >= 0.005m ? Fmt.Cost(s.CostUsd, 2) : "")</span> break;
         }
     </NavLink>

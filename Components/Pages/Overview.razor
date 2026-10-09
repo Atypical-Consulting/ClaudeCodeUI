@@ -114,10 +114,10 @@
     };
 
     // Pending tool first, else the last top-level tool; a crash shows the exit line.
-    static RenderFragment Last(LiveSession s)
+    RenderFragment Last(LiveSession s)
     {
         if (s.Status == SessionStatus.Crashed)
-            return @<span class="last" style="color:var(--err-fg)">claude exited @s.ExitCode</span>;
+            return @<span class="last" style="color:var(--err-fg)">@(s.StartFailed ? L["Crash.StartFailed.Title"] : L["Session.Exited", s.ExitCode ?? 0])</span>;
         var (tool, input) = s.Pending.FirstOrDefault() is { } p ? (p.Tool, p.Input)
             : s.Items.LastOrDefault(i => i is ToolItem { ParentToolUseId: null }) is ToolItem t ? (t.Name, t.Input) : (null, default);
         return tool is null ? @<span class="last"></span>

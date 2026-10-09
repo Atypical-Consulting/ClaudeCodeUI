@@ -92,7 +92,7 @@ public sealed class ClaudeSession : IAsyncDisposable
             job?.Dispose();   // external kill or crash: take the MCP servers down with it, before onExit
             foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException(Strings.Get("Session.ProcessStopped")));
             try { await stderr; } catch (Exception) { }
-            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode}\n{string.Join('\n', errText)}".Trim());
+            if (!disposing) onExit(proc.ExitCode, $"{Strings.Get("Session.Exited", proc.ExitCode)}\n{string.Join('\n', errText)}".Trim());
         });
     }
 
@@ -132,7 +132,7 @@ public sealed class ClaudeSession : IAsyncDisposable
     {
         var res = allow
             ? new JsonObject { ["behavior"] = "allow", ["updatedInput"] = JsonNode.Parse(input.GetRawText()) }
-            : new JsonObject { ["behavior"] = "deny", ["message"] = "Refusé par l’utilisateur" };
+            : new JsonObject { ["behavior"] = "deny", ["message"] = "The user denied this tool use." };
         if (allow && updatedPermissions is not null) res["updatedPermissions"] = updatedPermissions.DeepClone();
         return Write(new JsonObject
         {

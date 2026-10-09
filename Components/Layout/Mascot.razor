@@ -21,7 +21,7 @@
             if (running > 0)
                 return (Mood.Excited, L["Mascot.Working"], running == 1 ? L["Mascot.Running1"] : L["Mascot.RunningN", running]);
             if (all.LastOrDefault(s => s.Status == SessionStatus.Crashed) is { } c)
-                return (Mood.Sad, L["Mascot.Crashed"], $"{c.Name} · exit {c.ExitCode}");
+                return (Mood.Sad, L["Mascot.Crashed"], $"{c.Name} · {c.ExitLabel}");
             // ponytail: re-evaluated on the next session event, not by a timer at the 5-minute mark
             if (all.Where(s => s.LastResultSubtype == "success" && s.LastResultAt > DateTimeOffset.Now.AddMinutes(-5)).MaxBy(s => s.LastResultAt) is { } d)
                 return (Mood.Blissful, L["Mascot.TurnDone"], d.LastTurn is { } t ? $"{d.Name} · {Fmt.Dur(t)}" : d.Name);

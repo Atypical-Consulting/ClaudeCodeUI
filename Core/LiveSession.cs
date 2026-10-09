@@ -83,10 +83,13 @@ public sealed class LiveSession : IAsyncDisposable
     public DateTimeOffset LastEventAt { get; internal set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public TimeSpan? LastTurn { get; private set; }
-    public string? LastResultSubtype { get; private set; }   // "interrompu" after an interrupt
+    public const string Interrupted = "interrupted";   // protocol sentinel, never shown: display text lives in the resx
+    public string? LastResultSubtype { get; private set; }   // Interrupted after an interrupt
     public DateTimeOffset? LastResultAt { get; private set; }
     public int? ExitCode { get; private set; }
     public string? ExitText { get; private set; }
+    public bool StartFailed { get; private set; }   // the claude process never spawned: no turn ran
+    public string ExitLabel => StartFailed ? Strings.Get("Session.NotStarted") : Strings.Get("Session.ExitShort", ExitCode);
     public InitEvt? Init { get; private set; }
     public JsonElement? InitializeInfo { get; private set; }  // "initialize" response: models, commands, agents, account
     public string? Model { get; private set; }
@@ -311,7 +314,7 @@ public sealed class LiveSession : IAsyncDisposable
             if (s is not null && proc != s) return false;
             proc = null;
             Status = SessionStatus.Crashed;
-            ExitCode = code; ExitText = text;
+            ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
             TurnStartedAt = null;
             ClearStream();
@@ -519,7 +522,7 @@ public sealed class LiveSession : IAsyncDisposable
                 else LastTurnCostUsd = 0;
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
                 var aborted = r.TerminalReason?.StartsWith("aborted") == true;   // an interrupt also drops the queued messages
-                LastResultSubtype = aborted ? "interrompu" : r.Subtype;
+                LastResultSubtype = aborted ? Interrupted : r.Subtype;
                 LastResultAt = now;
                 if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
                 if (r.ContextWindow is { } w) ContextWindow = w;
@@ -613,8 +616,8 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Status == SessionStatus.Waiting && s.Pending.Count == 1 && s.Items[^1] is ToolItem { State: ToolState.Waiting }, "permission");
         s.Resolve(s.Pending[0], Decision.Deny);
         Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty && s.Items[^1] is ToolItem { State: ToolState.Denied }, "deny");
-        s.Apply(new ToolResultEvt("t1", "Refusé par l’utilisateur", true, null));
-        Ok(s.Items[^1] is ToolItem { State: ToolState.Denied, ResultText: "Refusé par l’utilisateur" }, "denied stays denied");
+        s.Apply(new ToolResultEvt("t1", "The user denied this tool use.", true, null));
+        Ok(s.Items[^1] is ToolItem { State: ToolState.Denied, ResultText: "The user denied this tool use." }, "denied stays denied");
         s.Apply(new ResultEvt("success", false, 0.01m, 2400, 2, 41878, 1000000, "off", "sdk_opt_in_required"));
         Ok(s.Status == SessionStatus.Idle && s.CostUsd == 0.01m && s.LastTurn == TimeSpan.FromMilliseconds(2400) && s.ContextTokens == 41878, "result");
 
@@ -623,7 +626,7 @@ public sealed class LiveSession : IAsyncDisposable
         var r2 = s.Pending[0];
         s.Apply(new ResultEvt("error_during_execution", true, 0.03m, 900, 1, 0, null, null, null, "aborted_streaming"));
         Ok(s.CostUsd == 0.03m && s.LastTurnCostUsd == 0.02m, "cost assigned, not added");
-        Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == "interrompu" && s.ContextTokens == 41878, "interrupted turn");
+        Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == Interrupted && s.ContextTokens == 41878, "interrupted turn");
         s.Resolve(r2, Decision.Allow);   // the reply landed after the turn ended
         Ok(s.Status == SessionStatus.Idle && s.Pending.IsEmpty, "late resolve is a no-op");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));

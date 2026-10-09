@@ -129,7 +129,7 @@
         if (answered || (d == Decision.AllowSession && !CanAllowSession)) return;
         answered = true;
         try { await Session.Answer(Permission, d); }
-        catch (Exception ex) { error = ex.Message; answered = false; }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 
     void OnKey(string key) => InvokeAsync(async () =>
