@@ -5,7 +5,7 @@
     long max = c is { } x1 ? Long(x1, "maxTokens") : Session.ContextWindow ?? 0;
     long total = c is { } x2 ? Long(x2, "totalTokens") : Session.ContextTokens;
 }
-<div class="ph"><span class="ttl">@L["Ctx.Title"]</span>
+<div class="ph"><h2 class="ttl">@L["Ctx.Title"]</h2>
     @if (max > 0)
     {
         <span class="sub">@Fmt.Tokens(total) / @Fmt.Tokens(max) · @Fmt.Pct(total / (double)max)</span>
@@ -34,7 +34,7 @@
                 </div>
             </div>
             <div class="acts">
-                <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
+                <button class="btn" disabled="@(compacting || Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
                     <span class="why" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
@@ -42,7 +42,7 @@
             </div>
             @if (error is not null)
             {
-                <div class="errbox">@error</div>
+                <div class="errbox" role="alert">@error</div>
             }
         </div>
         @if (mcpTools.Count > 0)
@@ -50,7 +50,7 @@
             <div class="section last">
                 <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
-                <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", n == 1 ? L["Tools1"] : L["ToolsN", n], k == 1 ? L["Ctx.Servers1"] : L["Ctx.ServersN", k]] @L["Ctx.DisableHint"]</p>
+                <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", Strings.Plural(n, "Tools"), Strings.Plural(k, "Ctx.Servers")] @L["Ctx.DisableHint"]</p>
                 <div><a class="btn" href="extensions">@L["Ctx.ManageMcp"]</a></div>
             </div>
         }
@@ -80,10 +80,10 @@
                 "System tools" => new Row(Strings.Get("Ctx.Cat.SystemTools"), "var(--syn-fn)", Long(k, "tokens"), false),
                 var n when n.StartsWith("MCP") => new Row(mcp > 0 ? Strings.Get("Ctx.Cat.McpN", mcp) : Strings.Get("Ctx.Cat.Mcp"), "var(--syn-kw)", Long(k, "tokens"), true),
                 "Memory files" => new Row(Strings.Get("Ctx.Cat.Memory"), "var(--syn-attr)", Long(k, "tokens"), false),
-                "Custom agents" => new Row("agents", "var(--syn-type)", Long(k, "tokens"), false),
-                "Skills" => new Row("skills", "var(--syn-num)", Long(k, "tokens"), false),
-                "Messages" => new Row("messages", "var(--syn-str)", Long(k, "tokens"), false),
-                var n => new Row(n.ToLowerInvariant(), "var(--fg-3)", Long(k, "tokens"), false),
+                "Custom agents" => new Row(Strings.Get("Ctx.Cat.Agents"), "var(--syn-type)", Long(k, "tokens"), false),
+                "Skills" => new Row(Strings.Get("Ctx.Cat.Skills"), "var(--syn-num)", Long(k, "tokens"), false),
+                "Messages" => new Row(Strings.Get("Ctx.Cat.Messages"), "var(--syn-str)", Long(k, "tokens"), false),
+                var n => new Row(n, "var(--fg-3)", Long(k, "tokens"), false),
             })]
         : [];
     }
@@ -99,10 +99,15 @@
     }
 
     // Plain user text: slash commands run locally in the CLI.
+    // Send awaits apply_flag_settings (Ultracode) before the turn starts, so Status stays Idle meanwhile: refuse a second click here.
+    bool compacting;
     async Task Compact()
     {
+        if (compacting) return;
+        compacting = true;
         error = null;
         try { await Session.Send("/compact"); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Ctx.CompactFailed", ex.Message]; }
+        finally { compacting = false; }
     }
 }

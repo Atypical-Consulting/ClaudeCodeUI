@@ -42,10 +42,10 @@ public static class ApiErrors
         const string cf = "API Error: Output blocked by content filtering policy";
         Ok(Parse(cf) is { Title: var t, Raw: cf } && t.Contains("filtre de contenu"), "content filter");
         Ok(Parse("""API Error: 429 {"type":"error","error":{"type":"rate_limit_error"}}""") is { Title: "Limite de requêtes atteinte." }, "rate limit");
-        Ok(Parse("API Error: something new") is { Title: "L'API Claude a renvoyé une erreur." }, "generic");
+        Ok(Parse("API Error: something new") is { Title: "L’API Claude a renvoyé une erreur." }, "generic");
         Ok(Parse("Hello") is null && Parse("") is null, "non-errors");
-        Ok(Parse("  API Error: 529 overloaded") is { Title: "L'API Claude est surchargée." }, "leading whitespace");
-        Ok(Parse("API Error: prompt used 1500 tokens") is { Title: "L'API Claude a renvoyé une erreur." }, "1500 is not a 500");
+        Ok(Parse("  API Error: 529 overloaded") is { Title: "L’API Claude est surchargée." }, "leading whitespace");
+        Ok(Parse("API Error: prompt used 1500 tokens") is { Title: "L’API Claude a renvoyé une erreur." }, "1500 is not a 500");
         Ok(Parse("API Error: 500 oops") is { Kind: "Server" }, "bare status code still matches");
     }
 }

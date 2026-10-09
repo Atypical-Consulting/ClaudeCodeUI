@@ -6,75 +6,94 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="Action.Cancel" xml:space="preserve"><value>Annuler</value></data>
   <data name="Action.Close" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Action.Ok" xml:space="preserve"><value>OK</value></data>
   <data name="Action.Open" xml:space="preserve"><value>Ouvrir</value></data>
   <data name="Agent.NoText" xml:space="preserve"><value>Aucun texte.</value></data>
-  <data name="Agent.NothingYet" xml:space="preserve"><value>L'agent n'a encore rien écrit.</value></data>
-  <data name="Agent.Writes" xml:space="preserve"><value>Ce que l'agent écrit</value></data>
+  <data name="Agent.NothingYet" xml:space="preserve"><value>L’agent n’a encore rien écrit.</value></data>
+  <data name="Agent.Title" xml:space="preserve"><value>Agent</value></data>
+  <data name="Agent.Writes" xml:space="preserve"><value>Ce que l’agent écrit</value></data>
+  <data name="Agents1" xml:space="preserve"><value>1 agent</value></data>
+  <data name="AgentsN" xml:space="preserve"><value>{0} agents</value></data>
   <data name="ApiError.Auth.Hint" xml:space="preserve"><value>Reconnecte-toi avec `claude /login` dans un terminal.</value></data>
-  <data name="ApiError.Auth.Title" xml:space="preserve"><value>L'authentification auprès de l'API a échoué.</value></data>
+  <data name="ApiError.Auth.Title" xml:space="preserve"><value>L’authentification auprès de l’API a échoué.</value></data>
   <data name="ApiError.ContentFilter.Hint" xml:space="preserve"><value>Reformule la demande ou retire le contenu sensible, puis renvoie le message.</value></data>
-  <data name="ApiError.ContentFilter.Title" xml:space="preserve"><value>La réponse a été bloquée par le filtre de contenu de l'API.</value></data>
-  <data name="ApiError.Generic.Hint" xml:space="preserve"><value>Le détail brut est ci-dessous.</value></data>
-  <data name="ApiError.Generic.Title" xml:space="preserve"><value>L'API Claude a renvoyé une erreur.</value></data>
+  <data name="ApiError.ContentFilter.Title" xml:space="preserve"><value>La réponse a été bloquée par le filtre de contenu de l’API.</value></data>
+  <data name="ApiError.Generic.Hint" xml:space="preserve"><value>Renvoie le message ; si l’erreur persiste, copie le détail ci-dessous pour la signaler.</value></data>
+  <data name="ApiError.Generic.Title" xml:space="preserve"><value>L’API Claude a renvoyé une erreur.</value></data>
   <data name="ApiError.Network.Hint" xml:space="preserve"><value>Vérifie la connexion réseau puis renvoie le message.</value></data>
-  <data name="ApiError.Network.Title" xml:space="preserve"><value>Impossible de joindre l'API Claude.</value></data>
+  <data name="ApiError.Network.Title" xml:space="preserve"><value>Impossible de joindre l’API Claude.</value></data>
   <data name="ApiError.Overloaded.Hint" xml:space="preserve"><value>Réessaie dans un moment.</value></data>
-  <data name="ApiError.Overloaded.Title" xml:space="preserve"><value>L'API Claude est surchargée.</value></data>
+  <data name="ApiError.Overloaded.Title" xml:space="preserve"><value>L’API Claude est surchargée.</value></data>
   <data name="ApiError.RateLimit.Hint" xml:space="preserve"><value>Patiente quelques instants avant de renvoyer le message.</value></data>
   <data name="ApiError.RateLimit.Title" xml:space="preserve"><value>Limite de requêtes atteinte.</value></data>
-  <data name="ApiError.Server.Hint" xml:space="preserve"><value>Réessaie ; si l'erreur persiste, consulte status.anthropic.com.</value></data>
-  <data name="ApiError.Server.Title" xml:space="preserve"><value>L'API Claude a rencontré une erreur interne.</value></data>
+  <data name="ApiError.Server.Hint" xml:space="preserve"><value>Réessaie ; si l’erreur persiste, consulte status.anthropic.com.</value></data>
+  <data name="ApiError.Server.Title" xml:space="preserve"><value>L’API Claude a rencontré une erreur interne.</value></data>
   <data name="ApiError.TooLong.Hint" xml:space="preserve"><value>Lance `/compact` ou démarre une nouvelle session.</value></data>
   <data name="ApiError.TooLong.Title" xml:space="preserve"><value>La conversation dépasse la taille de contexte du modèle.</value></data>
   <data name="Appearance.Apply" xml:space="preserve"><value>Appliquer</value></data>
   <data name="Appearance.CodeSize" xml:space="preserve"><value>Taille du code</value></data>
   <data name="Appearance.CodeSizeHint" xml:space="preserve"><value>Blocs de code, diffs, inspecteur.</value></data>
   <data name="Appearance.Language" xml:space="preserve"><value>Langue</value></data>
-  <data name="Appearance.LanguageHint" xml:space="preserve"><value>Langue de l'interface. L'appliquer recharge la page.</value></data>
-  <data name="Appearance.Lead" xml:space="preserve"><value>Le thème change les couleurs de toute l'interface, coloration syntaxique comprise. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » pour basculer sans ouvrir les réglages.</value></data>
+  <data name="Appearance.LanguageHint" xml:space="preserve"><value>Langue de l’interface. L’appliquer recharge la page.</value></data>
+  <data name="Appearance.Lead" xml:space="preserve"><value>Le thème change les couleurs de toute l’interface, coloration syntaxique comprise. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » pour basculer sans ouvrir les réglages.</value></data>
   <data name="Appearance.Preview" xml:space="preserve"><value>Aperçu</value></data>
   <data name="Appearance.PreviewHint" xml:space="preserve"><value>Le rendu réel avec le thème choisi.</value></data>
-  <data name="Appearance.SampleComment" xml:space="preserve"><value>Le canard change d'humeur selon l'état de la session</value></data>
+  <data name="Appearance.SampleComment" xml:space="preserve"><value>Le canard change d’humeur selon l’état de la session</value></data>
   <data name="Appearance.Theme" xml:space="preserve"><value>Thème</value></data>
   <data name="Appearance.ThemeHint" xml:space="preserve"><value>Appliqué tout de suite, retenu pour la prochaine fois.</value></data>
   <data name="Appearance.ThemeLabel" xml:space="preserve"><value>Thème {0}</value></data>
-  <data name="BadRequest.Heading" xml:space="preserve"><value>L'application n'a pas pu traiter cette requête.</value></data>
-  <data name="BadRequest.Text" xml:space="preserve"><value>Elle a été refusée avant d'atteindre une page. Reviens en arrière et réessaie, ou repars d'une nouvelle session.</value></data>
+  <data name="BadRequest.Heading" xml:space="preserve"><value>L’application n’a pas pu traiter cette requête.</value></data>
+  <data name="BadRequest.Text" xml:space="preserve"><value>Elle a été refusée avant d’atteindre une page. Reviens en arrière et réessaie, ou repars d’une nouvelle session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
+  <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
+  <data name="Composer.ActionFailed" xml:space="preserve"><value>Action impossible : {0}</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
+  <data name="Composer.Effort" xml:space="preserve"><value>Effort de réflexion</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Rapide</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>usage supplémentaire désactivé</value></data>
   <data name="Composer.FastMode" xml:space="preserve"><value>Mode rapide</value></data>
   <data name="Composer.FastSdkOptIn" xml:space="preserve"><value>opt-in SDK requis</value></data>
   <data name="Composer.FastUnavailable" xml:space="preserve"><value>Mode rapide indisponible</value></data>
-  <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Mode rapide indisponible : {0}</value></data>
+  <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Mode rapide indisponible : {0}</value></data>
   <data name="Composer.Interrupt" xml:space="preserve"><value>Interrompre</value></data>
   <data name="Composer.Interrupted" xml:space="preserve"><value>interrompu</value></data>
   <data name="Composer.Label" xml:space="preserve"><value>Message pour Claude</value></data>
   <data name="Composer.PermissionMode" xml:space="preserve"><value>Mode de permission</value></data>
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session arrêtée. Relance-la pour continuer.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Réponds à Claude…</value></data>
+  <data name="Composer.PhHistory" xml:space="preserve"><value>Envoie un message pour reprendre cette session…</value></data>
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude travaille. Tu peux préparer la suite…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Ou explique à Claude ce que tu veux à la place…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Tu peux préparer la suite…</value></data>
+  <data name="Composer.DenyAndSend" xml:space="preserve"><value>Refuser {0} et envoyer</value></data>
+  <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Les demandes d’autorisation en attente sont d’abord refusées, puis ton message est envoyé.</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Envoyer</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Arrêter le workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>tour</value></data>
+  <data name="Composer.TurnError" xml:space="preserve"><value>erreur</value></data>
   <data name="Composer.UltraHint" xml:space="preserve"><value>Active le réglage ultracode du CLI pour le prochain tour</value></data>
   <data name="Composer.UltraThisTurn" xml:space="preserve"><value>multi-agents pour ce tour</value></data>
   <data name="Composer.UltraUnavailable" xml:space="preserve"><value>Ultracode indisponible pour ce compte ou ce modèle</value></data>
   <data name="Crash.Restart" xml:space="preserve"><value>Relancer la session</value></data>
-  <data name="Crash.Text" xml:space="preserve"><value>La session s'est interrompue en plein tour. Le transcript est conservé ; tu peux relancer dans le même dossier.</value></data>
+  <data name="Crash.StartFailed.Text" xml:space="preserve"><value>Vérifie que claude est installé et dans le PATH, puis relance.</value></data>
+  <data name="Crash.StartFailed.Title" xml:space="preserve"><value>Claude Code n’a pas pu démarrer</value></data>
+  <data name="Crash.Text" xml:space="preserve"><value>La session s’est interrompue en plein tour. Le transcript est conservé ; tu peux relancer dans le même dossier.</value></data>
   <data name="Crash.Title" xml:space="preserve"><value>Le processus Claude s’est arrêté</value></data>
   <data name="Ctx.Auto" xml:space="preserve"><value>Auto à {0}</value></data>
-  <data name="Ctx.AutoTitle" xml:space="preserve"><value>Seuil d'auto-compactage du CLI</value></data>
+  <data name="Ctx.AutoTitle" xml:space="preserve"><value>Seuil d’auto-compactage du CLI</value></data>
+  <data name="Ctx.Cat.Agents" xml:space="preserve"><value>agents personnalisés</value></data>
   <data name="Ctx.Cat.Mcp" xml:space="preserve"><value>outils MCP</value></data>
   <data name="Ctx.Cat.McpN" xml:space="preserve"><value>outils MCP · {0}</value></data>
   <data name="Ctx.Cat.Memory" xml:space="preserve"><value>mémoire, CLAUDE.md</value></data>
+  <data name="Ctx.Cat.Messages" xml:space="preserve"><value>messages</value></data>
+  <data name="Ctx.Cat.Skills" xml:space="preserve"><value>skills</value></data>
   <data name="Ctx.Cat.SystemPrompt" xml:space="preserve"><value>prompt système</value></data>
   <data name="Ctx.Cat.SystemTools" xml:space="preserve"><value>outils intégrés</value></data>
+  <data name="Ctx.CompactFailed" xml:space="preserve"><value>Compactage impossible : {0}</value></data>
   <data name="Ctx.CompactNow" xml:space="preserve"><value>Compacter maintenant</value></data>
   <data name="Ctx.DisableHint" xml:space="preserve"><value>Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</value></data>
   <data name="Ctx.Free" xml:space="preserve"><value>libre</value></data>
@@ -82,50 +101,62 @@
   <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} de {1} sont chargés.</value></data>
   <data name="Ctx.ManageMcp" xml:space="preserve"><value>Gérer les serveurs MCP</value></data>
   <data name="Ctx.McpWeight" xml:space="preserve"><value>Les outils MCP pèsent {0}</value></data>
-  <data name="Ctx.SelectRow" xml:space="preserve"><value>Sélectionne une ligne du journal pour l'inspecter.</value></data>
+  <data name="Ctx.SelectRow" xml:space="preserve"><value>Sélectionne une ligne du journal pour l’inspecter.</value></data>
   <data name="Ctx.Servers1" xml:space="preserve"><value>1 serveur</value></data>
   <data name="Ctx.ServersN" xml:space="preserve"><value>{0} serveurs</value></data>
   <data name="Ctx.Title" xml:space="preserve"><value>Contexte</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>il y a {0} j</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>hier</value></data>
-  <data name="Error.Copy" xml:space="preserve"><value>Copier l'erreur</value></data>
-  <data name="Error.CopyApi" xml:space="preserve"><value>Copier l'erreur API</value></data>
-  <data name="Error.CopyId" xml:space="preserve"><value>Copier l'ID de requête</value></data>
+  <data name="Diff.MoreLines" xml:space="preserve"><value>Lignes non affichées : {0}</value></data>
+  <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences non affichées : {0}</value></data>
+  <data name="Effort.high" xml:space="preserve"><value>élevé</value></data>
+  <data name="Effort.low" xml:space="preserve"><value>faible</value></data>
+  <data name="Effort.max" xml:space="preserve"><value>max</value></data>
+  <data name="Effort.medium" xml:space="preserve"><value>moyen</value></data>
+  <data name="Effort.xhigh" xml:space="preserve"><value>très élevé</value></data>
+  <data name="Error.Copy" xml:space="preserve"><value>Copier l’erreur</value></data>
+  <data name="Error.CopyId" xml:space="preserve"><value>Copier l’ID de requête</value></data>
   <data name="Error.Heading" xml:space="preserve"><value>Une erreur est survenue côté serveur.</value></data>
-  <data name="Error.RequestId" xml:space="preserve"><value>ID de requête :</value></data>
-  <data name="Error.Text" xml:space="preserve"><value>Recharge pour réessayer. Si l'erreur persiste, copie l'ID de requête pour la signaler.</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>ID de requête :</value></data>
+  <data name="Error.Text" xml:space="preserve"><value>Recharge pour réessayer. Si l’erreur persiste, copie l’ID de requête pour la signaler.</value></data>
   <data name="Error.Title" xml:space="preserve"><value>Erreur serveur</value></data>
+  <data name="Ext.ActionFailed" xml:space="preserve"><value>L’action MCP a échoué : {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>Le CLI annonce cette liste au premier message de la session.</value></data>
-  <data name="Ext.AuthText" xml:space="preserve"><value>Le serveur attend une connexion. Ses outils restent indisponibles d'ici là.</value></data>
+  <data name="Ext.AuthHow" xml:space="preserve"><value>Pour te connecter, lance cette commande dans Claude Code depuis un terminal :</value></data>
+  <data name="Ext.AuthText" xml:space="preserve"><value>Le serveur attend une connexion. Ses outils restent indisponibles d’ici là.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentification requise</value></data>
   <data name="Ext.Col.Description" xml:space="preserve"><value>Description</value></data>
   <data name="Ext.Col.McpServers" xml:space="preserve"><value>Serveurs MCP</value></data>
+  <data name="Ext.Col.Plugin" xml:space="preserve"><value>Plugin</value></data>
   <data name="Ext.Col.Server" xml:space="preserve"><value>Serveur</value></data>
+  <data name="Ext.Col.Skill" xml:space="preserve"><value>Skill</value></data>
   <data name="Ext.Col.Source" xml:space="preserve"><value>Source</value></data>
   <data name="Ext.Col.ThisFolder" xml:space="preserve"><value>Pour ce dossier</value></data>
   <data name="Ext.EnableHere" xml:space="preserve"><value>Activer pour ce dossier</value></data>
-  <data name="Ext.FailedText" xml:space="preserve"><value>Ses outils manquent à cette session tant que ce n'est pas corrigé.</value></data>
-  <data name="Ext.FailedTitle" xml:space="preserve"><value>Le serveur n'a pas pu démarrer</value></data>
+  <data name="Ext.FailedText" xml:space="preserve"><value>Ses outils manquent à cette session tant que ce n’est pas corrigé.</value></data>
+  <data name="Ext.FailedTitle" xml:space="preserve"><value>Le serveur n’a pas pu démarrer</value></data>
   <data name="Ext.Filter.Auth" xml:space="preserve"><value>Authentification</value></data>
   <data name="Ext.Filter.Connected" xml:space="preserve"><value>Connectés</value></data>
   <data name="Ext.Filter.Failed" xml:space="preserve"><value>En échec</value></data>
   <data name="Ext.Kv.Scope" xml:space="preserve"><value>portée</value></data>
   <data name="Ext.Kv.Source" xml:space="preserve"><value>source</value></data>
   <data name="Ext.Kv.Target" xml:space="preserve"><value>cible</value></data>
-  <data name="Ext.Lead" xml:space="preserve"><value>{0} serveurs MCP, {1} skills, {2} agents, {3} plugins, chargés par le CLI au démarrage de chaque session.</value></data>
+  <data name="Ext.Kv.Transport" xml:space="preserve"><value>transport</value></data>
+  <data name="Ext.Kv.Version" xml:space="preserve"><value>version</value></data>
+  <data name="Ext.Lead" xml:space="preserve"><value>Serveurs MCP, skills, agents et plugins que le CLI charge au démarrage de chaque session.</value></data>
   <data name="Ext.NoSession" xml:space="preserve"><value>Démarre une session pour voir ce que le CLI charge.</value></data>
-  <data name="Ext.OpenConfig" xml:space="preserve"><value>Ouvrir la configuration</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
   <data name="Ext.Scope.Project" xml:space="preserve"><value>projet</value></data>
   <data name="Ext.Scope.User" xml:space="preserve"><value>utilisateur</value></data>
-  <data name="Ext.SignIn" xml:space="preserve"><value>Se connecter</value></data>
-  <data name="Ext.Soon" xml:space="preserve"><value>bientôt</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connecté</value></data>
   <data name="Ext.State.Disabled" xml:space="preserve"><value>désactivé</value></data>
   <data name="Ext.State.Failed" xml:space="preserve"><value>en échec</value></data>
   <data name="Ext.State.NeedsAuth" xml:space="preserve"><value>authentification requise</value></data>
   <data name="Ext.State.Pending" xml:space="preserve"><value>connexion…</value></data>
+  <data name="Ext.Tab.Agents" xml:space="preserve"><value>Agents</value></data>
+  <data name="Ext.Tab.Plugins" xml:space="preserve"><value>Plugins</value></data>
+  <data name="Ext.Tab.Skills" xml:space="preserve"><value>Skills</value></data>
   <data name="Filter.All" xml:space="preserve"><value>Tous</value></data>
   <data name="Fmt.Bytes" xml:space="preserve"><value>{0} o</value></data>
   <data name="Fmt.GB" xml:space="preserve"><value>{0} Go</value></data>
@@ -141,10 +172,12 @@
   <data name="Key.Esc" xml:space="preserve"><value>Échap</value></data>
   <data name="Key.ShiftEnter" xml:space="preserve"><value>Maj ⏎</value></data>
   <data name="Kv.Cost" xml:space="preserve"><value>coût</value></data>
+  <data name="Kv.Tokens" xml:space="preserve"><value>tokens</value></data>
   <data name="Kv.Tools" xml:space="preserve"><value>outils</value></data>
+  <data name="Kv.Type" xml:space="preserve"><value>type</value></data>
   <data name="Layout.Dismiss" xml:space="preserve"><value>Fermer</value></data>
   <data name="Layout.Error" xml:space="preserve"><value>Une erreur inattendue est survenue.</value></data>
-  <data name="Layout.ErrorHint" xml:space="preserve"><value>L'interface ne suit plus les changements. Recharge pour la rétablir.</value></data>
+  <data name="Layout.ErrorHint" xml:space="preserve"><value>L’interface ne suit plus les changements. Recharge pour la rétablir.</value></data>
   <data name="Layout.Reload" xml:space="preserve"><value>Recharger</value></data>
   <data name="Mascot.Calm" xml:space="preserve"><value>Tout est calme</value></data>
   <data name="Mascot.Crashed" xml:space="preserve"><value>Une session est tombée</value></data>
@@ -163,115 +196,162 @@
   <data name="Md.Alert.Warning" xml:space="preserve"><value>Attention</value></data>
   <data name="Md.Copy" xml:space="preserve"><value>Copier</value></data>
   <data name="Md.PlainText" xml:space="preserve"><value>texte</value></data>
+  <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accepter les éditions</value></data>
+  <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>
+  <data name="Mode.Name.default" xml:space="preserve"><value>Demander</value></data>
+  <data name="Mode.Name.plan" xml:space="preserve"><value>Plan</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepte les éditions, demande pour le shell</value></data>
-  <data name="Mode.auto" xml:space="preserve"><value>N'interrompt jamais, à utiliser avec prudence</value></data>
+  <data name="Mode.auto" xml:space="preserve"><value>N’interrompt jamais, à utiliser avec prudence</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} modifie les fichiers sans demander. Choisis-le à nouveau pour confirmer.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Demande avant chaque outil sensible</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Lecture seule, propose un plan</value></data>
   <data name="Model" xml:space="preserve"><value>Modèle</value></data>
   <data name="Model.Current" xml:space="preserve"><value>actuel</value></data>
+  <data name="Model.SetFailed" xml:space="preserve"><value>Changement de modèle impossible : {0}</value></data>
   <data name="Nav.Appearance" xml:space="preserve"><value>Apparence</value></data>
-  <data name="Nav.Overview" xml:space="preserve"><value>Vue d'ensemble</value></data>
+  <data name="Nav.Extensions" xml:space="preserve"><value>Extensions</value></data>
+  <data name="Nav.Overview" xml:space="preserve"><value>Vue d’ensemble</value></data>
+  <data name="Nav.Worktrees" xml:space="preserve"><value>Worktrees</value></data>
   <data name="New.CheckAgain" xml:space="preserve"><value>Vérifier à nouveau</value></data>
+  <data name="New.DefaultEffort" xml:space="preserve"><value>Effort par défaut</value></data>
+  <data name="New.DefaultModel" xml:space="preserve"><value>Modèle par défaut</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Modifier</value></data>
   <data name="New.FirstMessage" xml:space="preserve"><value>Premier message</value></data>
+  <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Dossier de travail</value></data>
-  <data name="New.Guide" xml:space="preserve"><value>Guide complet :</value></data>
-  <data name="New.Hello" xml:space="preserve"><value>Sur quoi on travaille ?</value></data>
+  <data name="New.Guide" xml:space="preserve"><value>Guide complet :</value></data>
+  <data name="New.GuideUrl" xml:space="preserve"><value>https://docs.claude.com/fr/docs/claude-code/setup</value></data>
+  <data name="New.Hello" xml:space="preserve"><value>Sur quoi on travaille ?</value></data>
   <data name="New.HelloText" xml:space="preserve"><value>Claude Code tournera dans ce dossier, avec tes outils et tes permissions.</value></data>
   <data name="New.HintInspector" xml:space="preserve"><value>inspecteur</value></data>
   <data name="New.HintNew" xml:space="preserve"><value>nouvelle session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>changer de session</value></data>
-  <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n'existe pas.</value></data>
+  <data name="New.Isolation" xml:space="preserve"><value>Isolation</value></data>
+  <data name="New.HomeFolder" xml:space="preserve"><value>C’est ton dossier personnel : Claude peut y lire et modifier tout, sans worktree pour l’isoler. Préfère un dossier de projet.</value></data>
+  <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n’existe pas.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Claude Code est introuvable</value></data>
-  <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n'est pas dans le PATH.</value></data>
+  <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n’est pas dans le PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
+  <data name="New.NpmShimText" xml:space="preserve"><value>Seul le raccourci npm &lt;code&gt;claude.cmd&lt;/code&gt; est dans le PATH. Cette application lance &lt;code&gt;claude.exe&lt;/code&gt; directement : installe la version native avec la commande Windows ci-dessous.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d’un lien et vous ne l’avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
+  <data name="New.Permissions" xml:space="preserve"><value>Permissions</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Décris la tâche…</value></data>
+  <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} modifie ce dossier sans demander, hors d’un worktree isolé.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Démarrer</value></data>
+  <data name="New.StartAnyway" xml:space="preserve"><value>Démarrer quand même</value></data>
   <data name="New.Step1" xml:space="preserve"><value>1. Installer Claude Code</value></data>
   <data name="New.Step2" xml:space="preserve"><value>2. Se connecter</value></data>
   <data name="New.Step2Text" xml:space="preserve"><value>Lance &lt;code&gt;claude&lt;/code&gt; une fois dans un terminal et connecte-toi.</value></data>
   <data name="New.Step3" xml:space="preserve"><value>3. Relancer</value></data>
-  <data name="New.Step3Text" xml:space="preserve"><value>Redémarre Claude Code UI pour qu'il retrouve &lt;code&gt;claude&lt;/code&gt; dans le PATH.</value></data>
-  <data name="New.Unix" xml:space="preserve"><value>macOS, Linux, WSL :</value></data>
-  <data name="New.Windows" xml:space="preserve"><value>Windows (PowerShell) :</value></data>
+  <data name="New.Step3Text" xml:space="preserve"><value>Redémarre Claude Code UI pour qu’il retrouve &lt;code&gt;claude&lt;/code&gt; dans le PATH.</value></data>
+  <data name="New.Unix" xml:space="preserve"><value>macOS, Linux, WSL :</value></data>
+  <data name="New.Windows" xml:space="preserve"><value>Windows (PowerShell) :</value></data>
   <data name="New.Worktree" xml:space="preserve"><value>Nouveau worktree</value></data>
   <data name="New.WorktreeFrom" xml:space="preserve"><value>{0} depuis {1}</value></data>
   <data name="New.WorktreeName" xml:space="preserve"><value>Nom du worktree</value></data>
-  <data name="NotFound.Heading" xml:space="preserve"><value>Il n'y a rien à cette adresse.</value></data>
-  <data name="NotFound.Text" xml:space="preserve"><value>Le lien est peut-être périmé ou mal saisi. Démarre une nouvelle session ou ouvre la vue d'ensemble.</value></data>
+  <data name="NotFound.Heading" xml:space="preserve"><value>Il n’y a rien à cette adresse.</value></data>
+  <data name="NotFound.Text" xml:space="preserve"><value>Le lien est peut-être périmé ou mal saisi. Démarre une nouvelle session ou ouvre la vue d’ensemble.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Introuvable</value></data>
   <data name="OfN" xml:space="preserve"><value>{0} sur {1}</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Coût</value></data>
   <data name="Ov.Col.Duration" xml:space="preserve"><value>Durée</value></data>
   <data name="Ov.Col.Last" xml:space="preserve"><value>Dernière action</value></data>
-  <data name="Ov.Decision1" xml:space="preserve"><value>1 décision t'attend</value></data>
-  <data name="Ov.DecisionN" xml:space="preserve"><value>{0} décisions t'attendent</value></data>
+  <data name="Ov.Decision1" xml:space="preserve"><value>1 décision t’attend</value></data>
+  <data name="Ov.DecisionN" xml:space="preserve"><value>{0} décisions t’attendent</value></data>
+  <data name="Ov.Empty" xml:space="preserve"><value>Aucune session en cours</value></data>
+  <data name="Ov.EmptyText" xml:space="preserve"><value>Démarres-en une pour voir ici son état, son coût et les décisions en attente.</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>en attente</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>File des décisions</value></data>
+  <data name="Ov.Sessions0" xml:space="preserve"><value>{0} session</value></data>
   <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>
   <data name="Ov.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
-  <data name="Ov.Today" xml:space="preserve"><value>aujourd'hui</value></data>
+  <data name="Ov.ThisRun" xml:space="preserve"><value>dépensés depuis le lancement</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>changer…</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>naviguer</value></data>
   <data name="Palette.NewSessionIn" xml:space="preserve"><value>Nouvelle session dans {0}</value></data>
+  <data name="Palette.NextDecision" xml:space="preserve"><value>Décision suivante</value></data>
   <data name="Palette.NoResults" xml:space="preserve"><value>Aucun résultat</value></data>
   <data name="Palette.Open" xml:space="preserve"><value>ouvrir</value></data>
   <data name="Palette.Placeholder" xml:space="preserve"><value>Rechercher une session ou une action…</value></data>
   <data name="Palette.Sessions" xml:space="preserve"><value>Sessions</value></data>
-  <data name="Palette.Theme" xml:space="preserve"><value>Thème : {0}</value></data>
+  <data name="Palette.Theme" xml:space="preserve"><value>Thème : {0}</value></data>
   <data name="Perm.Allow" xml:space="preserve"><value>Autoriser</value></data>
-  <data name="Perm.AllowTool" xml:space="preserve"><value>Autoriser {0} ?</value></data>
+  <data name="Perm.AllowTool" xml:space="preserve"><value>Autoriser {0} ?</value></data>
   <data name="Perm.AlsoWaiting" xml:space="preserve"><value>Aussi en attente</value></data>
-  <data name="Perm.Create" xml:space="preserve"><value>Créer {0} ?</value></data>
+  <data name="Perm.AnswerFailed" xml:space="preserve"><value>Ta réponse n’est pas parvenue à Claude : {0}. Réessaie.</value></data>
+  <data name="Perm.Create" xml:space="preserve"><value>Créer {0} ?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Refuser</value></data>
-  <data name="Perm.Edit" xml:space="preserve"><value>Modifier {0} ?</value></data>
+  <data name="Perm.Edit" xml:space="preserve"><value>Modifier {0} ?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>passe la session en mode {0}</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>autorise {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>autoriser</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>refuser</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>cliquez sur la carte pour utiliser ces touches</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>toute la session</value></data>
-  <data name="Perm.Overwrite" xml:space="preserve"><value>Écraser {0} ?</value></data>
-  <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
+  <data name="Perm.Overwrite" xml:space="preserve"><value>Écraser {0} ?</value></data>
+  <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
+  <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
   <data name="Perm.WholeSession" xml:space="preserve"><value>Toute la session</value></data>
   <data name="Quota.FiveHours" xml:space="preserve"><value>5 h</value></data>
+  <data name="Quota.Hint" xml:space="preserve"><value>Utilisation du forfait rapportée par Claude. La fenêtre de 7 jours se réinitialise le {0}.</value></data>
   <data name="Quota.Resets" xml:space="preserve"><value>réinit. {0}</value></data>
   <data name="Quota.SevenDays" xml:space="preserve"><value>7 j</value></data>
   <data name="Quota.Usage" xml:space="preserve"><value>Utilisation</value></data>
   <data name="Rail.Active" xml:space="preserve"><value>Actives</value></data>
+  <data name="Rail.Label" xml:space="preserve"><value>Sessions et navigation</value></data>
   <data name="Rail.NewSession" xml:space="preserve"><value>Nouvelle session</value></data>
   <data name="Rail.Recent" xml:space="preserve"><value>Récentes</value></data>
   <data name="Rail.Search" xml:space="preserve"><value>Rechercher</value></data>
   <data name="Rail.ToClean" xml:space="preserve"><value>{0} à nettoyer</value></data>
-  <data name="Reconnect.Failed" xml:space="preserve"><value>Le serveur de l'application ne répond pas. Réessaie quand il tourne à nouveau, ou recharge la page.</value></data>
+  <data name="Reconnect.Failed" xml:space="preserve"><value>Le serveur de l’application ne répond pas. Réessaie quand il tourne à nouveau, ou recharge la page.</value></data>
   <data name="Reconnect.Paused" xml:space="preserve"><value>Le serveur a mis cette page en pause. Reprends pour te reconnecter.</value></data>
   <data name="Reconnect.Rejoining" xml:space="preserve"><value>Reconnexion au serveur…</value></data>
   <data name="Reconnect.Resume" xml:space="preserve"><value>Reprendre</value></data>
-  <data name="Reconnect.ResumeFailed" xml:space="preserve"><value>La connexion de cette page n'a pas pu être rétablie. Recharge la page.</value></data>
+  <data name="Reconnect.ResumeFailed" xml:space="preserve"><value>La connexion de cette page n’a pas pu être rétablie. Recharge la page.</value></data>
   <data name="Reconnect.Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Reconnect.Retrying" xml:space="preserve"><value>Toujours rien. Prochain essai dans {0} s.</value></data>
   <data name="Reconnect.Title.Failed" xml:space="preserve"><value>Serveur injoignable</value></data>
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connexion perdue</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page en pause</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Reprise impossible</value></data>
+  <data name="Session.ExitShort" xml:space="preserve"><value>code {0}</value></data>
+  <data name="Session.Exited" xml:space="preserve"><value>claude s’est arrêté ({0})</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>Aucun processus claude pour cette session.</value></data>
   <data name="Session.NotFound" xml:space="preserve"><value>Session introuvable</value></data>
-  <data name="Session.NotFoundText" xml:space="preserve"><value>Aucune session active ni transcript récent avec cet identifiant.</value></data>
+  <data name="Session.NotFoundText" xml:space="preserve"><value>Aucune session active ni transcript avec cet identifiant.</value></data>
+  <data name="Session.NotStarted" xml:space="preserve"><value>non démarré</value></data>
+  <data name="Session.CopyCwd" xml:space="preserve"><value>Copier le dossier de travail</value></data>
+  <data name="Session.InitTimeout" xml:space="preserve"><value>claude n’a pas répondu à la requête initialize en {0} s, il a donc été arrêté. Relance la session pour réessayer.</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>processus arrêté</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
-  <data name="Session.StartFailed" xml:space="preserve"><value>claude n'a pas pu démarrer : {0}</value></data>
+  <data name="Session.StartFailed" xml:space="preserve"><value>claude n’a pas pu démarrer : {0}</value></data>
+  <data name="Session.Stop" xml:space="preserve"><value>Terminer la session</value></data>
+  <data name="Session.StopHint" xml:space="preserve"><value>Arrête le processus claude. La transcription reste dans Récentes.</value></data>
+  <data name="Session.TitleRunning" xml:space="preserve"><value>En cours</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>erreur inconnue</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Réglages</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>intégrée</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commandes et skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Les agents travaillent…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>terminée</value></data>
+  <data name="Status.Err.Budget" xml:space="preserve"><value>Tour arrêté : le plafond de dépense de cette session est atteint.</value></data>
+  <data name="Status.Err.Execution" xml:space="preserve"><value>Le tour a échoué en cours d’exécution. Envoie un message pour réessayer ; relance la session si l’échec persiste.</value></data>
+  <data name="Status.Err.MaxTurns" xml:space="preserve"><value>Tour arrêté : nombre maximal de tours atteint. Envoie un message pour continuer.</value></data>
+  <data name="Status.Elsewhere" xml:space="preserve"><value>ouverte ailleurs</value></data>
+  <data name="Status.ElsewhereLine" xml:space="preserve"><value>Ouverte dans un autre claude. Envoyer d’ici lancerait un second processus sur la même session.</value></data>
+  <data name="Status.History" xml:space="preserve"><value>historique</value></data>
+  <data name="Status.HistoryLine" xml:space="preserve"><value>Historique. Envoyer un message reprend cette session en mode {0}.</value></data>
   <data name="Status.Interrupted" xml:space="preserve"><value>Interrompu</value></data>
-  <data name="Status.Paused" xml:space="preserve"><value>Claude est en pause : {0} attend ton accord</value></data>
+  <data name="Status.Paused" xml:space="preserve"><value>Claude est en pause : {0} attend ton accord</value></data>
   <data name="Status.Running" xml:space="preserve"><value>en cours</value></data>
   <data name="Status.Starting" xml:space="preserve"><value>démarrage</value></data>
   <data name="Status.StartingClaude" xml:space="preserve"><value>Démarrage de claude…</value></data>
   <data name="Status.Thinking" xml:space="preserve"><value>réflexion {0} tokens</value></data>
   <data name="Status.ToolRunning" xml:space="preserve"><value>{0} en cours…</value></data>
-  <data name="Status.TurnError" xml:space="preserve"><value>Le tour s'est terminé en erreur : {0}</value></data>
+  <data name="Status.TurnDone" xml:space="preserve"><value>Claude a terminé</value></data>
+  <data name="Status.TurnError" xml:space="preserve"><value>Le tour s’est terminé en erreur. Envoie un message pour réessayer.</value></data>
   <data name="Status.WaitingOn" xml:space="preserve"><value>attend · {0}</value></data>
   <data name="Status.WhatCommand" xml:space="preserve"><value>une commande</value></data>
   <data name="Status.WhatEdit" xml:space="preserve"><value>une édition</value></data>
@@ -282,6 +362,7 @@
   <data name="Theme.graphite" xml:space="preserve"><value>Graphite</value></data>
   <data name="Theme.mousse" xml:space="preserve"><value>Mousse</value></data>
   <data name="Theme.ristretto" xml:space="preserve"><value>Ristretto</value></data>
+  <data name="Thread.JumpLatest" xml:space="preserve"><value>Nouvelle activité, aller en bas</value></data>
   <data name="Thread.You" xml:space="preserve"><value>toi · {0}</value></data>
   <data name="Tool.Applied" xml:space="preserve"><value>appliqué</value></data>
   <data name="Tool.Created" xml:space="preserve"><value>créé</value></data>
@@ -294,61 +375,77 @@
   <data name="Tool.Kv.Lines" xml:space="preserve"><value>lignes</value></data>
   <data name="Tool.Kv.Status" xml:space="preserve"><value>statut</value></data>
   <data name="Tool.Kv.Tool" xml:space="preserve"><value>outil</value></data>
+  <data name="Tool.Lines0" xml:space="preserve"><value>{0} ligne</value></data>
   <data name="Tool.Lines1" xml:space="preserve"><value>1 ligne</value></data>
   <data name="Tool.LinesN" xml:space="preserve"><value>{0} lignes</value></data>
   <data name="Tool.NoChanges" xml:space="preserve"><value>Aucune modification.</value></data>
   <data name="Tool.Output" xml:space="preserve"><value>Sortie</value></data>
   <data name="Tool.RawJson" xml:space="preserve"><value>JSON brut</value></data>
+  <data name="Tool.Results0" xml:space="preserve"><value>{0} résultat</value></data>
   <data name="Tool.Results1" xml:space="preserve"><value>1 résultat</value></data>
   <data name="Tool.ResultsN" xml:space="preserve"><value>{0} résultats</value></data>
   <data name="Tool.Waiting" xml:space="preserve"><value>attend ta décision</value></data>
   <data name="Tools1" xml:space="preserve"><value>1 outil</value></data>
   <data name="ToolsN" xml:space="preserve"><value>{0} outils</value></data>
   <data name="Workflow.Subagents" xml:space="preserve"><value>Sous-agents</value></data>
+  <data name="Workflow.Tag" xml:space="preserve"><value>workflow</value></data>
+  <data name="Workflow.Tokens" xml:space="preserve"><value>{0} tokens</value></data>
   <data name="Wt.AddSafe" xml:space="preserve"><value>Ajouter les {0} sans risque</value></data>
+  <data name="Wt.AddSafe1" xml:space="preserve"><value>Ajouter le worktree sans risque</value></data>
+  <data name="Wt.AddSafeN" xml:space="preserve"><value>Ajouter les {0} worktrees sans risque</value></data>
   <data name="Wt.BranchMissing" xml:space="preserve"><value>branche introuvable</value></data>
-  <data name="Wt.Check0" xml:space="preserve"><value>Rien n'attend ta décision</value></data>
+  <data name="Wt.Branches0" xml:space="preserve"><value>{0} branche</value></data>
+  <data name="Wt.Branches1" xml:space="preserve"><value>{0} branche</value></data>
+  <data name="Wt.BranchesN" xml:space="preserve"><value>{0} branches</value></data>
+  <data name="Wt.BranchTag" xml:space="preserve"><value>branche</value></data>
+  <data name="Wt.Check0" xml:space="preserve"><value>Rien n’attend ta décision</value></data>
   <data name="Wt.Check1" xml:space="preserve"><value>Un autre attend ta décision</value></data>
   <data name="Wt.CheckN" xml:space="preserve"><value>{0} autres attendent ta décision</value></data>
+  <data name="Wt.CheckOnly0" xml:space="preserve"><value>Rien n’attend ta décision.</value></data>
+  <data name="Wt.CheckOnly1" xml:space="preserve"><value>1 worktree attend ta décision.</value></data>
+  <data name="Wt.CheckOnlyN" xml:space="preserve"><value>{0} worktrees attendent ta décision.</value></data>
   <data name="Wt.CleanN" xml:space="preserve"><value>Nettoyer {0}</value></data>
   <data name="Wt.Cleanup" xml:space="preserve"><value>Nettoyage</value></data>
   <data name="Wt.Col.Size" xml:space="preserve"><value>Taille</value></data>
   <data name="Wt.Col.Why" xml:space="preserve"><value>Pourquoi</value></data>
+  <data name="Wt.Col.Worktree" xml:space="preserve"><value>Worktree</value></data>
   <data name="Wt.Delete" xml:space="preserve"><value>Supprimer</value></data>
   <data name="Wt.Detached" xml:space="preserve"><value>HEAD détachée</value></data>
-  <data name="Wt.ExitOutput" xml:space="preserve"><value>exit {0} : {1}</value></data>
+  <data name="Wt.ExitOutput" xml:space="preserve"><value>exit {0} : {1}</value></data>
   <data name="Wt.Filter.Active" xml:space="preserve"><value>Actifs</value></data>
   <data name="Wt.Filter.Orphan" xml:space="preserve"><value>Orphelins</value></data>
+  <data name="Wt.GitMissing" xml:space="preserve"><value>Impossible de lancer git ({0}). Est-il installé et dans le PATH ?</value></data>
   <data name="Wt.Filter.Safe" xml:space="preserve"><value>Sûrs</value></data>
   <data name="Wt.Go" xml:space="preserve"><value>Aller</value></data>
   <data name="Wt.Group.Go" xml:space="preserve"><value>Peuvent partir</value></data>
-  <data name="Wt.NeverForce" xml:space="preserve"><value>&lt;code&gt;git branch -d&lt;/code&gt;, jamais &lt;code&gt;-D&lt;/code&gt; : git refusera de lui-même toute branche qui n'est pas mergée.</value></data>
-  <data name="Wt.NothingActive" xml:space="preserve"><value>, et rien d'actif ne sera touché.</value></data>
-  <data name="Wt.NothingPlanned" xml:space="preserve"><value>Rien n'est prévu. « Supprimer » ou « Élaguer » ajoute un worktree au nettoyage ; les commandes git s'affichent ici avant d'être lancées.</value></data>
+  <data name="Wt.NeverForce" xml:space="preserve"><value>&lt;code&gt;git branch -d&lt;/code&gt;, jamais &lt;code&gt;-D&lt;/code&gt; : git refusera de lui-même toute branche qui n’est pas mergée.</value></data>
+  <data name="Wt.NothingActive" xml:space="preserve"><value>, et rien d’actif ne sera touché.</value></data>
+  <data name="Wt.NothingPlanned" xml:space="preserve"><value>Rien n’est prévu. « Supprimer » ou « Élaguer » ajoute un worktree au nettoyage ; les commandes git s’affichent ici avant d’être lancées.</value></data>
   <data name="Wt.NothingToClean" xml:space="preserve"><value>Aucun worktree à nettoyer</value></data>
   <data name="Wt.Prune" xml:space="preserve"><value>Élaguer</value></data>
   <data name="Wt.Push" xml:space="preserve"><value>Pousser</value></data>
-  <data name="Wt.PushTitle" xml:space="preserve"><value>Pousser {0} ?</value></data>
+  <data name="Wt.PushTitle" xml:space="preserve"><value>Pousser {0} ?</value></data>
   <data name="Wt.Recoverable" xml:space="preserve"><value>{0} récupérables.</value></data>
   <data name="Wt.Refresh" xml:space="preserve"><value>Rafraîchir</value></data>
-  <data name="Wt.RepoError" xml:space="preserve"><value>{0} : {1}</value></data>
+  <data name="Wt.RepoError" xml:space="preserve"><value>{0} : {1}</value></data>
   <data name="Wt.Repos0" xml:space="preserve"><value>{0} dépôt</value></data>
   <data name="Wt.Repos1" xml:space="preserve"><value>{0} dépôt</value></data>
   <data name="Wt.ReposN" xml:space="preserve"><value>{0} dépôts</value></data>
   <data name="Wt.Run.BranchKept" xml:space="preserve"><value>branche gardée (git a refusé)</value></data>
-  <data name="Wt.Run.Changed" xml:space="preserve"><value>ignoré : l'état a changé ({0})</value></data>
-  <data name="Wt.Run.Forbidden" xml:space="preserve"><value>refusé : option interdite</value></data>
-  <data name="Wt.Run.Missing" xml:space="preserve"><value>ignoré : worktree introuvable</value></data>
+  <data name="Wt.Run.Changed" xml:space="preserve"><value>ignoré : l’état a changé ({0})</value></data>
+  <data name="Wt.Run.Forbidden" xml:space="preserve"><value>refusé : option interdite</value></data>
+  <data name="Wt.Run.Missing" xml:space="preserve"><value>ignoré : worktree introuvable</value></data>
   <data name="Wt.Run.Skipped" xml:space="preserve"><value>ignoré</value></data>
   <data name="Wt.Safe1" xml:space="preserve"><value>1 worktree peut partir sans risque</value></data>
   <data name="Wt.SafeN" xml:space="preserve"><value>{0} worktrees peuvent partir sans risque</value></data>
+  <data name="Wt.SafeMixed" xml:space="preserve"><value>À supprimer sans risque : {0}</value></data>
   <data name="Wt.Scanning" xml:space="preserve"><value>Recherche des worktrees…</value></data>
   <data name="Wt.ScanningText" xml:space="preserve"><value>Lecture des dépôts des sessions récentes.</value></data>
   <data name="Wt.State.Active" xml:space="preserve"><value>Actif</value></data>
   <data name="Wt.State.Check" xml:space="preserve"><value>À vérifier</value></data>
   <data name="Wt.State.Orphan" xml:space="preserve"><value>Orphelin</value></data>
   <data name="Wt.State.Safe" xml:space="preserve"><value>Sûr</value></data>
-  <data name="Wt.Unignored" xml:space="preserve"><value>&lt;code&gt;.claude/worktrees/&lt;/code&gt; n'est pas ignoré par git dans {0} : un &lt;code&gt;git add .&lt;/code&gt; y ajouterait les worktrees. Ajoute-le au &lt;code&gt;.gitignore&lt;/code&gt;.</value></data>
+  <data name="Wt.Unignored" xml:space="preserve"><value>&lt;code&gt;.claude/worktrees/&lt;/code&gt; n’est pas ignoré par git dans {0} : un &lt;code&gt;git add .&lt;/code&gt; y ajouterait les worktrees. Ajoute-le au &lt;code&gt;.gitignore&lt;/code&gt;.</value></data>
   <data name="Wt.Unplan" xml:space="preserve"><value>Retirer</value></data>
   <data name="Wt.Unpushed1" xml:space="preserve"><value>1 commit jamais poussé sur &lt;b&gt;{0}&lt;/b&gt;.</value></data>
   <data name="Wt.UnpushedN" xml:space="preserve"><value>{0} commits jamais poussés sur &lt;b&gt;{1}&lt;/b&gt;.</value></data>
@@ -376,6 +473,7 @@
   <data name="Wt.Why.Running" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; en cours</value></data>
   <data name="Wt.Why.Squashed" xml:space="preserve"><value>Contenu déjà dans &lt;b&gt;{base}&lt;/b&gt; (squash), branche gardée</value></data>
   <data name="Wt.Why.StaleLock" xml:space="preserve"><value>Verrou périmé (pid {0}), sinon sûr</value></data>
+  <data name="Wt.Why.Unreadable" xml:space="preserve"><value>git n’a pas pu le lire : &lt;b&gt;{0}&lt;/b&gt;</value></data>
   <data name="Wt.Why.Waiting" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; attend une décision</value></data>
   <data name="Wt.Worktrees0" xml:space="preserve"><value>{0} worktree</value></data>
   <data name="Wt.Worktrees1" xml:space="preserve"><value>{0} worktree</value></data>

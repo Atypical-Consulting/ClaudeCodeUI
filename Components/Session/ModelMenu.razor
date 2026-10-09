@@ -65,7 +65,7 @@
             await Session.SetModel(value);
             await OnClose.InvokeAsync();
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Model.SetFailed", ex.Message]; }
     }
 
     public static IEnumerable<JsonElement> Models(LiveSession s) =>

@@ -24,7 +24,7 @@ public static class Fmt
 
     public static string Tokens(long n) => n switch
     {
-        >= 1_000_000 => $"{(n / 1_000_000.0).ToString("0.#", C)}M",
+        >= 999_500 =>$"{(n / 1_000_000.0).ToString("0.#", C)}M",
         >= 1_000 => $"{Math.Round(n / 1_000.0)}k",
         _ => n.ToString(),
     };

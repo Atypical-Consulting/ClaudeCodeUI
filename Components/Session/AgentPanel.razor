@@ -1,7 +1,7 @@
 @* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI, so no cost row. *@
 @inject UiState Ui
 
-<div class="ph"><span class="ttl">Agent</span><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
+<div class="ph"><h2 class="ttl">@L["Agent.Title"]</h2><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="scroll">
@@ -16,9 +16,9 @@
             <p>@(Agent.State == ToolState.Running ? L["Agent.NothingYet"] : L["Agent.NoText"])</p>
         }
         <div class="kv">
-            <span>type</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
-            <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Items.OfType<ToolItem>().Count(i => i.ParentToolUseId == Agent.Id))</span>
-            <span>tokens</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
+            <span>@L["Kv.Type"]</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
+            <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Children[Agent.Id].OfType<ToolItem>().Count())</span>
+            <span>@L["Kv.Tokens"]</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
         </div>
     </div>
 </div>
@@ -28,7 +28,7 @@
     [Parameter] public ToolItem Agent { get; set; } = null!;
 
     // The agent's own messages (parent_tool_use_id), else its handback report once done.
-    string? LastText => Session.Items.OfType<TextItem>().LastOrDefault(i => i.ParentToolUseId == Agent.Id)?.Markdown
+    string? LastText => Session.Children[Agent.Id].OfType<TextItem>().LastOrDefault()?.Markdown
         ?? (Agent.Structured is { } s && Events.Prop(s, "handbackReport") is { } h ? Events.Str(h, "text") : null)
         ?? Agent.ResultText;
 }

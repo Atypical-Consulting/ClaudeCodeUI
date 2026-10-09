@@ -3,45 +3,51 @@
 @inject SessionManager Sessions
 @inject UiState Ui
 
-<PageTitle>@(S?.Name ?? L["Session.Session"]) · Claude Code</PageTitle>
+<SessionTitle Session="S" />
 
 @if (S is null)
 {
     <div class="pane">
-        <div class="ph"><span class="ttl" tabindex="-1">@L["Session.NotFound"]</span></div>
-        <div class="thread"><p class="prose">@L["Session.NotFoundText"]</p></div>
+        <div class="ph"><h1 class="ttl" tabindex="-1">@L["Session.NotFound"]</h1></div>
+        <div class="thread">
+            <p class="prose">@L["Session.NotFoundText"]</p>
+            <div class="acts">
+                <a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                <button type="button" class="btn" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
+            </div>
+        </div>
     </div>
 }
 else
 {
-    <div class="pane">
+    @* Keyed: the page is reused across /session/{Id}, its children must not carry one session's state into the next. *@
+    <div class="pane" @key="S.Id">
         <SessionHeader Session="S" />
-        <Thread Session="S" />
+        @* Keyed per session: switching sessions mounts a fresh log, whose initial content is not announced. *@
+        <Thread @key="S.Id" Session="S" />
         <Composer Session="S" />
     </div>
-    <Inspector Session="S" />
+    <Inspector @key="S.Id" Session="S" />
 }
 
 @code {
     [Parameter] public string Id { get; set; } = "";
     LiveSession? S;
-    Timer? tick;
+    int seen = -1;
 
     protected override void OnInitialized()
     {
         Ui.Changed += Refresh;
         Ui.Key += OnKey;
-        // Elapsed times (status line, running agents) move without events.
-        tick = new Timer(_ => { if (S?.Status is SessionStatus.Running or SessionStatus.Waiting) Refresh(); }, null, 1000, 1000);
     }
 
     // A live session, else a past one from the transcripts (history replayed, process started on demand).
     protected override void OnParametersSet()
     {
         if (S?.Id == Id) return;
-        if (S is not null) S.Changed -= Refresh;
-        S = Sessions.Get(Id) ?? (TranscriptStore.Recent().FirstOrDefault(p => p.Id == Id) is { } past ? Sessions.Open(past) : null);
-        if (S is not null) S.Changed += Refresh;
+        if (S is not null) S.Changed -= OnSession;
+        S = Sessions.Get(Id) ?? (TranscriptStore.ById(Id) is { } past ? Sessions.Open(past) : null);
+        if (S is not null) S.Changed += OnSession;
     }
 
     void OnKey(string key)
@@ -56,11 +62,16 @@ else
 
     void Refresh() => InvokeAsync(StateHasChanged);
 
+    // Streamed text alone is rendered by StreamingTail; elapsed times by their Ticker.
+    void OnSession()
+    {
+        if (S is { } s && Interlocked.Exchange(ref seen, s.Version) != s.Version) Refresh();
+    }
+
     public void Dispose()
     {
-        tick?.Dispose();
         Ui.Changed -= Refresh;
         Ui.Key -= OnKey;
-        if (S is not null) S.Changed -= Refresh;
+        if (S is not null) S.Changed -= OnSession;
     }
 }

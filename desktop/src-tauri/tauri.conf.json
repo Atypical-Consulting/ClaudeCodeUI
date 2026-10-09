@@ -10,6 +10,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Claude Code UI",
         "width": 1440,
         "height": 900,
@@ -21,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; object-src 'none'; base-uri 'none'"
     }
   },
   "bundle": {
