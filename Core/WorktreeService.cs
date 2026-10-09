@@ -43,17 +43,54 @@ public sealed class WorktreeService(SessionManager sessions)
     // Cached; refresh = true rescans.
     public async Task<IReadOnlyList<string>> DiscoverReposAsync(CancellationToken ct) => await DiscoverReposAsync(false, ct);
 
+    // Roots resolved from live sessions are remembered here (and in ReposFile) until the repo vanishes from disk.
+    internal string ReposFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeCodeUI", "repos.json");
+    readonly object rememberedGate = new();
+    HashSet<string>? remembered;
+
     public async Task<IReadOnlyList<string>> DiscoverReposAsync(bool refresh, CancellationToken ct)
     {
-        var live = Sessions.All.Select(s => s.Cwd);
+        var live = Sessions.All.Select(s => StripWorktree(s.Cwd)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string[] mem;
+        lock (rememberedGate) mem = [.. remembered ??= LoadRemembered()];
         if (repos is null || refresh) repos = await Task.Run(() => FromTranscripts().ToList(), ct);
         var roots = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
-        await Parallel.ForEachAsync(live.Concat(repos).Distinct(StringComparer.OrdinalIgnoreCase), ct, async (cwd, ct) =>
+        var liveRoots = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        var dead = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        await Parallel.ForEachAsync(live.Concat(mem).Concat(repos).Distinct(StringComparer.OrdinalIgnoreCase), ct, async (cwd, ct) =>
         {
-            if (await RootOf(cwd, ct) is { } r) roots.TryAdd(r, 0);
+            var r = await RootOf(cwd, ct);
+            if (r is null) { dead.TryAdd(Norm(cwd), 0); return; }
+            roots.TryAdd(r, 0);
+            if (live.Contains(cwd)) liveRoots.TryAdd(r, 0);
         });
+        lock (rememberedGate)
+        {
+            var before = remembered!.ToArray();
+            remembered.UnionWith(liveRoots.Keys.Select(Norm));
+            foreach (var d in dead.Keys) if (!live.Contains(d)) remembered.Remove(d);
+            if (!remembered.SetEquals(before)) SaveRemembered();
+        }
         return [.. roots.Keys.Order(StringComparer.OrdinalIgnoreCase)];
     }
+
+    HashSet<string> LoadRemembered()
+    {
+        try { return new((JsonSerializer.Deserialize<string[]>(File.ReadAllText(ReposFile)) ?? []).Select(Norm), StringComparer.OrdinalIgnoreCase); }
+        catch (Exception) { return new(StringComparer.OrdinalIgnoreCase); }   // missing or corrupt: nothing remembered
+    }
+
+    void SaveRemembered()
+    {
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ReposFile)!);
+            File.WriteAllText(ReposFile, JsonSerializer.Serialize(remembered!.Order(StringComparer.OrdinalIgnoreCase)));
+        }
+        catch (Exception) { }   // a cache: losing it only costs rediscovery
+    }
+
+    static string StripWorktree(string cwd) => Regex.Replace(cwd, @"[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$", "");
 
     static IEnumerable<string> FromTranscripts()
     {
@@ -69,7 +106,7 @@ public sealed class WorktreeService(SessionManager sessions)
         {
             var f = d.EnumerateFiles("*.jsonl").MaxBy(f => f.LastWriteTime);
             if (f is null || CwdOf(f.FullName) is not { } cwd) continue;
-            cwd = Regex.Replace(cwd, @"[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$", "");
+            cwd = StripWorktree(cwd);
             if (Directory.Exists(cwd) && seen.Add(cwd)) yield return cwd;
         }
     }
@@ -366,5 +403,34 @@ public sealed class WorktreeService(SessionManager sessions)
         SelfCheck.Assert(fired == 1, "CleanableCount : pas de Changed si inchangé");
         svc.SetCleanable("C:/r", 0);
         SelfCheck.Assert(fired == 2 && svc.CleanableCount == 0, "CleanableCount : Changed quand le compte baisse");
+
+        var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cc-ui-wt-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var repo = System.IO.Path.Combine(tmp, "repo"); Directory.CreateDirectory(repo);
+            static void G(string dir, params string[] a)
+            {
+                var psi = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var x in a) psi.ArgumentList.Add(x);
+                using var p = Process.Start(psi)!; p.StandardOutput.ReadToEnd(); p.StandardError.ReadToEnd(); p.WaitForExit();
+                SelfCheck.Assert(p.ExitCode == 0, "git " + string.Join(' ', a));
+            }
+            G(repo, "init", "-q"); G(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "i");
+            G(repo, "worktree", "add", "-q", ".claude/worktrees/demo", "-b", "demo");
+            var wt = System.IO.Path.Combine(repo, ".claude", "worktrees", "demo");
+            var file = System.IO.Path.Combine(tmp, "repos.json");
+            var sm = new SessionManager(); sm.Open(new PastSession(Guid.NewGuid().ToString(), wt, "demo", "t", null, DateTimeOffset.Now, null));
+            WorktreeService Svc(SessionManager m) => new(m) { ReposFile = file, repos = [] };
+            IReadOnlyList<string> Disc(WorktreeService w) => w.DiscoverReposAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var root = System.IO.Path.GetFileName(tmp);   // macOS temp is a symlink: match on the unique folder name
+            G(repo, "worktree", "remove", ".claude/worktrees/demo");
+            SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover : repo d'une session -w dont le worktree a été supprimé");
+            SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover : dépôt mémorisé après redémarrage");
+            Directory.Delete(repo, true);
+            SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover : dépôt disparu oublié");
+            File.WriteAllText(file, "not json");
+            SelfCheck.Assert(Disc(Svc(new SessionManager())).Count == 0, "Discover : repos.json corrompu ignoré");
+        }
+        finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
     }
 }
