@@ -273,6 +273,7 @@ td .d{font:12px var(--mono);color:var(--fg-4)}
 .ovt td .n,.ovt .branch{max-width:226px}
 .ovt td .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 td .last{font:12px var(--mono);color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:330px;display:block}
+td .hookcmd{font:12px var(--mono);color:var(--fg-3);white-space:pre-wrap;overflow-wrap:anywhere;max-width:48ch;display:block}   /* wraps instead of truncating: readable without a hover title */
 tr.hot td{background:color-mix(in srgb,var(--accent) 4%,transparent)}
 tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .stt{display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
