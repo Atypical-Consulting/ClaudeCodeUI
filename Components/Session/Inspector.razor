@@ -26,14 +26,10 @@
                 <ToolDetail @key="t.Id" Session="Session" Tool="t" />
             }
         }
-        else if (p is null && (Session.Context is not null || Session.HasProcess))
-        {
-            <ContextPanel Session="Session" />
-        }
         else if (p is null)
         {
-            <div class="ph"><h2 class="ttl">@L["Inspector"]</h2></div>
-            <div class="section last"><p>@L["Ctx.SelectRow"]</p></div>
+            @* Without a process yet (a past session) the context is empty, but the memory files are still on disk. *@
+            <ContextPanel Session="Session" />
         }
     </aside>
 }

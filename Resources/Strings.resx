@@ -265,6 +265,27 @@
   <data name="Md.Alert.Warning" xml:space="preserve"><value>Warning</value></data>
   <data name="Md.Copy" xml:space="preserve"><value>Copy</value></data>
   <data name="Md.PlainText" xml:space="preserve"><value>text</value></data>
+  <data name="Mem.Absent" xml:space="preserve"><value>not created</value></data>
+  <data name="Mem.Conflict" xml:space="preserve"><value>{0} changed on disk since you opened it. Reload it (your edits are lost) or overwrite it with your version.</value></data>
+  <data name="Mem.Create" xml:space="preserve"><value>Create</value></data>
+  <data name="Mem.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Mem.EditLabel" xml:space="preserve"><value>Contents of {0}</value></data>
+  <data name="Mem.Empty" xml:space="preserve"><value>This file is empty.</value></data>
+  <data name="Mem.Hint" xml:space="preserve"><value>Claude Code reads these files when a session starts and again on /compact: a saved change applies to the next session, or to this one after Compact now.</value></data>
+  <data name="Mem.Missing" xml:space="preserve"><value>This file doesn't exist yet: Create writes it.</value></data>
+  <data name="Mem.NotAllowed" xml:space="preserve"><value>This file is not one of this session's memory files.</value></data>
+  <data name="Mem.NotLoaded" xml:space="preserve"><value>not loaded yet</value></data>
+  <data name="Mem.Overwrite" xml:space="preserve"><value>Overwrite</value></data>
+  <data name="Mem.ReadFailed" xml:space="preserve"><value>Couldn't read the file: {0}</value></data>
+  <data name="Mem.Reload" xml:space="preserve"><value>Reload</value></data>
+  <data name="Mem.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Mem.SaveFailed" xml:space="preserve"><value>Couldn't save: {0}</value></data>
+  <data name="Mem.Saved" xml:space="preserve"><value>Saved. It applies to the next session, or to this one after Compact now.</value></data>
+  <data name="Mem.Title" xml:space="preserve"><value>Memory</value></data>
+  <data name="Mem.TooLarge" xml:space="preserve"><value>Larger than {0}: edit it in your editor.</value></data>
+  <data name="Mem.Type.Local" xml:space="preserve"><value>local</value></data>
+  <data name="Mem.Type.Project" xml:space="preserve"><value>project</value></data>
+  <data name="Mem.Type.User" xml:space="preserve"><value>user</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Scanning…</value></data>
   <data name="Mention.Title" xml:space="preserve"><value>Files and folders</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>first {0:N0} entries</value></data>
