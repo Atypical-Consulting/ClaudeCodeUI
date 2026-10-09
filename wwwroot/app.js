@@ -21,11 +21,21 @@
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
-        // Pin a scroller to its bottom after each render, unless the user scrolled up.
+        // Pin a scroller to its bottom after each render, unless the user scrolled up; then new output
+        // reveals the sibling .dock .jump button, which scrolls back down and pins again.
         scrollEnd(el) {
             if (!el) return;
-            if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+            const jump = el.nextElementSibling?.querySelector('.jump');
+            if (!el.onscroll) {
+                el.onscroll = () => {
+                    el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+                    if (!el._free && jump) jump.hidden = true;
+                };
+                if (jump) jump.onclick = () => { el._free = false; el.scrollTop = el.scrollHeight; jump.hidden = true; };
+            }
             if (!el._free) el.scrollTop = el.scrollHeight;
+            else if (jump && el._h !== undefined && el.scrollHeight > el._h) jump.hidden = false;
+            el._h = el.scrollHeight;
         },
     };
 

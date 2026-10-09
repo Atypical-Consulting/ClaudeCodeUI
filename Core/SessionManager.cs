@@ -31,7 +31,13 @@ public sealed class SessionManager : IAsyncDisposable
     public LiveSession Open(PastSession p)
     {
         if (Get(p.Id) is { } live) return live;
-        var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
+        var items = TranscriptStore.Load(p.Id);
+        // Started at the first message of the transcript, last active at its last write: duration covers the real span.
+        var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true)
+        {
+            Items = [.. items], CostUsd = p.CostUsd ?? 0, CostAtOpen = p.CostUsd ?? 0,
+            StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,
+        };
         s.ToolCount = s.Items.OfType<ToolItem>().Count();
         _ = s.RefreshGit();
         return Add(s);

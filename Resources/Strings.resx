@@ -206,11 +206,13 @@
   <data name="Ov.Col.Last" xml:space="preserve"><value>Last action</value></data>
   <data name="Ov.Decision1" xml:space="preserve"><value>1 decision waiting on you</value></data>
   <data name="Ov.DecisionN" xml:space="preserve"><value>{0} decisions waiting on you</value></data>
+  <data name="Ov.Empty" xml:space="preserve"><value>No session running</value></data>
+  <data name="Ov.EmptyText" xml:space="preserve"><value>Start one to see its state, cost and pending decisions here.</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>waiting</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>Decision queue</value></data>
   <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>
   <data name="Ov.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
-  <data name="Ov.Today" xml:space="preserve"><value>today</value></data>
+  <data name="Ov.ThisRun" xml:space="preserve"><value>spent since launch</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>
@@ -252,9 +254,10 @@
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connection lost</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page paused</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Couldn't resume</value></data>
+  <data name="Session.CopyCwd" xml:space="preserve"><value>Copy working directory</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>No claude process for this session.</value></data>
   <data name="Session.NotFound" xml:space="preserve"><value>Session not found</value></data>
-  <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or recent transcript has this ID.</value></data>
+  <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or transcript has this ID.</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
@@ -282,6 +285,7 @@
   <data name="Theme.graphite" xml:space="preserve"><value>Graphite</value></data>
   <data name="Theme.mousse" xml:space="preserve"><value>Mousse</value></data>
   <data name="Theme.ristretto" xml:space="preserve"><value>Ristretto</value></data>
+  <data name="Thread.JumpLatest" xml:space="preserve"><value>New activity, jump to latest</value></data>
   <data name="Thread.You" xml:space="preserve"><value>you · {0}</value></data>
   <data name="Tool.Applied" xml:space="preserve"><value>applied</value></data>
   <data name="Tool.Created" xml:space="preserve"><value>created</value></data>

@@ -120,6 +120,11 @@ public static class TranscriptStore
         return path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
     }
 
+    // Any transcript by id, not only the Recent() window: deep links and reloads after a restart.
+    // The id comes from the URL: letters, digits and dashes only, so it can never leave the projects folder.
+    public static PastSession? ById(string id) =>
+        id.Length > 0 && id.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') && Find(id) is { } path ? Read(new FileInfo(path)) : null;
+
     static string? Find(string id)
     {
         try { return Directory.EnumerateDirectories(Root).Select(d => Path.Combine(d, id + ".jsonl")).FirstOrDefault(File.Exists); }
