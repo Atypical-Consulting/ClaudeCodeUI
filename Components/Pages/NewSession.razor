@@ -8,6 +8,32 @@
 <div class="pane">
     <div class="ph"><span class="ttl">Nouvelle session</span></div>
     <div class="start">
+        @if (!claudeFound)
+        {
+            <div class="start-card">
+                <div class="hello">
+                    <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="88" Color="#FCCC0A" /></div>
+                    <div><h3>Claude Code est introuvable</h3><p>Cette application pilote le CLI <code>claude</code>, qui n'est pas dans le PATH.</p></div>
+                </div>
+                <div class="field">
+                    <label>1. Installer Claude Code</label>
+                    <p>macOS, Linux, WSL : <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
+                    <p>Windows (PowerShell) : <code>irm https://claude.ai/install.ps1 | iex</code></p>
+                    <p>Guide complet : <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener">docs.claude.com</a></p>
+                </div>
+                <div class="field">
+                    <label>2. Se connecter</label>
+                    <p>Lance <code>claude</code> une fois dans un terminal et connecte-toi.</p>
+                </div>
+                <div class="field">
+                    <label>3. Relancer</label>
+                    <p>Redémarre Claude Code UI pour qu'il retrouve <code>claude</code> dans le PATH.</p>
+                </div>
+                <div class="row"><button class="btn primary" @onclick="() => claudeFound = ClaudeSession.OnPath()">Vérifier à nouveau</button></div>
+            </div>
+        }
+        else
+        {
         <div class="start-card">
             <div class="hello">
                 <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Happy" Size="88" Color="#FCCC0A" /></div>
@@ -69,6 +95,7 @@
             </div>
             <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Alt N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
         </div>
+        }
     </div>
 </div>
 
@@ -88,6 +115,7 @@
     string? branch, wtName, lastQuery;
     bool exists = true, worktree = true, editing, busy;
     List<string> recents = [];
+    bool claudeFound = ClaudeSession.OnPath();
 
     bool Isolated => worktree && branch is not null;
     string WtName => wtName ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");

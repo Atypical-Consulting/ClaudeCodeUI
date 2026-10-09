@@ -5,3 +5,7 @@ obj/
 .impeccable/review/
 .impeccable/questions/
 .claude/worktrees/
+publish/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/server/

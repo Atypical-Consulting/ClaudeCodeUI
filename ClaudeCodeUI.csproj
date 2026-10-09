@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <Version>0.1.0</Version><!-- x-release-please-version -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);desktop/**;publish/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

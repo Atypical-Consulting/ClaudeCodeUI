@@ -112,6 +112,11 @@ public sealed class ClaudeSession : IAsyncDisposable
         finally { writeLock.Release(); }
     }
 
+    // Same lookup as Process.Start("claude") with UseShellExecute=false: on Windows CreateProcess only appends ".exe".
+    public static bool OnPath() =>
+        (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Any(d => File.Exists(Path.Combine(d.Trim('"'), OperatingSystem.IsWindows() ? "claude.exe" : "claude")));
+
     static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
