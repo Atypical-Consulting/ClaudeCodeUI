@@ -95,10 +95,10 @@ internal sealed class ProcessJob : IDisposable
         Prepare(psi);
         using var p = Process.Start(psi)!;
         using var job = Attach(p);
-        SelfCheck.Assert(job is not null, "ProcessJob : Attach a renvoyé null");
+        SelfCheck.Assert(job is not null, "ProcessJob: Attach returned null");
         Thread.Sleep(win ? 2500 : 500);
         p.Kill(false);
         job!.Dispose();
-        SelfCheck.Assert(p.StandardOutput.ReadToEndAsync().Wait(TimeSpan.FromSeconds(5)), "ProcessJob : le petit-enfant survit");
+        SelfCheck.Assert(p.StandardOutput.ReadToEndAsync().Wait(TimeSpan.FromSeconds(5)), "ProcessJob: the grandchild survives");
     }
 }

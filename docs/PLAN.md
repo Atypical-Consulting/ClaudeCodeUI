@@ -1,121 +1,121 @@
-# Plan d'implémentation : console graphite
+# Implementation plan: graphite console
 
-Branche `feat/graphite-console`. Cible : remplacer la page unique `Components/Pages/Home.razor` par l'application des 11 écrans de `.impeccable/mockups/graphite.html` (captures dans `docs/mockups/screens/01..11.png`), sur le vrai CLI `claude` 2.1.295 en stream-json.
+Branch `feat/graphite-console`. Goal: replace the single page `Components/Pages/Home.razor` with the application of the 11 screens of `.impeccable/mockups/graphite.html` (screenshots in `docs/mockups/screens/01..11.png`), on the real `claude` 2.1.295 CLI in stream-json.
 
-Sources de vérité, par ordre de priorité :
-1. Le rapport protocole (captures `s1..s7.jsonl` dans le scratchpad). Seuls les points **VÉRIFIÉS** deviennent des fonctionnalités.
-2. `PRODUCT.md` : pas de fonctionnalité inventée, thèmes sombres uniquement, interface en français.
-   *Depuis : interface en anglais et en français.* Textes dans `Resources/Strings.resx` (anglais, neutre) et `Strings.fr.resx` (le français d'origine, inchangé) ; composants via `IStringLocalizer<Strings>`, code de `Core/` via `Strings.Get`. Langue : cookie posé par le sélecteur de la page Apparence (`/culture`, rechargement), sinon `Accept-Language`, sinon anglais ; `<html lang>` suit. `--self-check` vérifie que les deux resx ont les mêmes clés.
-3. `.impeccable/mockups/graphite.src.html` : la seule source CSS (lignes 10–526) et le balisage de référence.
+Sources of truth, in priority order:
+1. The protocol report (captures `s1..s7.jsonl` in the scratchpad). Only **VERIFIED** points become features.
+2. `PRODUCT.md`: no invented features, dark themes only, French interface.
+   *Since then: the interface is in English and French.* Texts live in `Resources/Strings.resx` (English, neutral) and `Strings.fr.resx` (the original French, unchanged); components use `IStringLocalizer<Strings>`, `Core/` code uses `Strings.Get`. Language: cookie set by the picker on the Appearance page (`/culture`, reload), otherwise `Accept-Language`, otherwise English; `<html lang>` follows. `--self-check` verifies that both resx files have the same keys.
+3. `.impeccable/mockups/graphite.src.html`: the only CSS source (lines 10–526) and the reference markup.
 
-Quand les rapports se contredisent, ce plan tranche en faveur du protocole vérifié. Exemples : le flux partiel est **dans** le périmètre, et `set_model` / `apply_flag_settings` sont vérifiés.
+When the reports contradict each other, this plan sides with the verified protocol. Examples: partial streaming is **in** scope, and `set_model` / `apply_flag_settings` are verified.
 
 ---
 
-## 1. Périmètre
+## 1. Scope
 
-### 1.1 Construit pour de vrai
+### 1.1 Built for real
 
-| Écran | Fonction | Mécanisme vérifié |
+| Screen | Feature | Verified mechanism |
 |---|---|---|
-| s1 | Nouvelle session : dossier, worktree, mode, premier prompt | flags `--permission-mode` (toujours explicite ; `default` est envoyé comme `manual`), `-w <nom>`, `--name`, `--session-id` |
-| s2 | Texte en direct + curseur `.caret` | `--include-partial-messages` (`stream_event` / `text_delta`) |
-| s2 | Journal d'outils, inspecteur Sortie/Entrée/JSON | `assistant` `tool_use` + `user` `tool_result` (+ `tool_use_result` pour le diff) |
-| s2 | Indicateur de réflexion | `system/thinking_tokens` (pas le texte, qui est toujours vide) |
-| s3 | Permission avec diff, Autoriser / Refuser | `control_request can_use_tool` → `control_response allow/deny` |
-| s3 | « Toute la session » quand la suggestion est `setMode` | `set_permission_mode` puis `allow` |
-| s3 | « Toute la session » pour les autres suggestions (`addRules`, `addDirectories`) | `allow` + `updatedPermissions` ; vérifié par `--probe-cli permission-session` (0 nouvelle demande au tour suivant, 1 sans `updatedPermissions`) |
-| s4 | Vue d'ensemble, file des décisions | état en mémoire de toutes les sessions |
-| s5 | Palette Ctrl K, carte de crash, relance | sortie du processus + `--resume <id>` |
-| s6 | Markdown Markdig + blocs de code + hljs | existant, emballage `.cb` fait côté serveur |
-| s7 | 5 thèmes + taille du code, mémorisés | `localStorage` + JS interop |
-| s8 | Worktrees : classement et nettoyage sûr | `git` (commandes listées dans le rapport worktrees) |
-| s9 | Choix du modèle | `initialize.models` + `set_model` |
-| s9 | Effort | `--effort` au lancement, `apply_flag_settings {effortLevel}` en cours de session, lecture via `get_settings.applied.effort` |
-| s9 | Mode rapide | `apply_flag_settings {fastMode}`. Affiché selon `fast_mode_state` / `fast_mode_disabled_reason` : souvent désactivé, avec la raison en infobulle |
-| s9 | Ultracode | `apply_flag_settings {ultracode:true}` avant le tour, `{ultracode:false}` après le `result`, disponibilité via `get_settings.applied.ultracodeAvailable` ; vérifié par `--probe-cli ultracode-on` / `ultracode-off` |
-| s9 | Popover `/` avec descriptions | `initialize.commands[{name,description,argumentHint}]` ; `/xxx` envoyé comme texte utilisateur |
-| s9 | Panneau contexte | `get_context_usage` |
-| s9 | « Compacter maintenant » | `/compact` en texte utilisateur ; vérifié par `--probe-cli compact` (`system/compact_boundary`, contexte en baisse) |
-| s10 | Sous-agents : ligne par agent, sous-outils, texte de l'agent | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
-| s11 | Liste MCP (état, outils, erreur, transport) | `mcp_status` |
-| s11 | Bascule MCP et « Réessayer » | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}` ; vérifié par `--probe-cli mcp-toggle` / `mcp-reconnect` (l'état lu dans `mcp_status` suit la bascule) |
+| s1 | New session: folder, worktree, mode, first prompt | flags `--permission-mode` (always explicit; `default` is sent as `manual`), `-w <name>`, `--name`, `--session-id` |
+| s2 | Live text + `.caret` cursor | `--include-partial-messages` (`stream_event` / `text_delta`) |
+| s2 | Tool ledger, Output/Input/JSON inspector | `assistant` `tool_use` + `user` `tool_result` (+ `tool_use_result` for the diff) |
+| s2 | Thinking indicator | `system/thinking_tokens` (not the text, which is always empty) |
+| s3 | Permission with diff, Allow / Deny | `control_request can_use_tool` → `control_response allow/deny` |
+| s3 | "Whole session" when the suggestion is `setMode` | `set_permission_mode` then `allow` |
+| s3 | "Whole session" for the other suggestions (`addRules`, `addDirectories`) | `allow` + `updatedPermissions`; verified by `--probe-cli permission-session` (0 new requests on the next turn, 1 without `updatedPermissions`) |
+| s4 | Overview, decision queue | in-memory state of all sessions |
+| s5 | Ctrl K palette, crash card, restart | process exit + `--resume <id>` |
+| s6 | Markdig Markdown + code blocks + hljs | existing; `.cb` wrapper done server-side |
+| s7 | 5 themes + code size, remembered | `localStorage` + JS interop |
+| s8 | Worktrees: classification and safe cleanup | `git` (commands listed in the worktrees report) |
+| s9 | Model choice | `initialize.models` + `set_model` |
+| s9 | Effort | `--effort` at launch, `apply_flag_settings {effortLevel}` mid-session, read via `get_settings.applied.effort` |
+| s9 | Fast mode | `apply_flag_settings {fastMode}`. Displayed according to `fast_mode_state` / `fast_mode_disabled_reason`: often disabled, with the reason in a tooltip |
+| s9 | Ultracode | `apply_flag_settings {ultracode:true}` before the turn, `{ultracode:false}` after the `result`, availability via `get_settings.applied.ultracodeAvailable`; verified by `--probe-cli ultracode-on` / `ultracode-off` |
+| s9 | `/` popover with descriptions | `initialize.commands[{name,description,argumentHint}]`; `/xxx` sent as user text |
+| s9 | Context panel | `get_context_usage` |
+| s9 | "Compact now" | `/compact` as user text; verified by `--probe-cli compact` (`system/compact_boundary`, context going down) |
+| s10 | Sub-agents: one row per agent, sub-tools, agent text | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
+| s11 | MCP list (state, tools, error, transport) | `mcp_status` |
+| s11 | MCP toggle and "Retry" | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}`; verified by `--probe-cli mcp-toggle` / `mcp-reconnect` (the state read in `mcp_status` follows the toggle) |
 | s11 | Skills / Agents / Plugins | `initialize` (`agents`, `commands`) + init (`skills`, `plugins`) |
-| rail | Quota 5 h / 7 j | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` au démarrage |
-| rail | « Récentes » et reprise avec historique | lecture des `~/.claude/projects/<slug>/*.jsonl` + `--resume` (le CLI **ne rejoue pas** l'historique) |
+| rail | 5 h / 7 d quota | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` at startup |
+| rail | "Recent" and resuming with history | reading `~/.claude/projects/<slug>/*.jsonl` + `--resume` (the CLI **does not replay** history) |
 
-### 1.2 Construit, mais à valider une fois en vrai (repli : contrôle désactivé)
+### 1.2 Built, but to be validated once for real (fallback: control disabled)
 
-Ces requêtes ont été acceptées mais jamais testées sur le cas réel. En cas d'échec, le contrôle est désactivé (`aria-disabled`, infobulle « bientôt ») au lieu d'être inventé. `dotnet run -- --probe-cli` (`Core/CliProbe.cs`) rejoue ces tests contre le vrai CLI (haiku, dépôt jetable) : à relancer à chaque montée de version du CLI. Ultracode, « Toute la session » hors `setMode`, bascule/reconnexion MCP et `/compact` y sont passés (PASS sur 2.1.295) et figurent désormais en §1.1.
+These requests were accepted but never tested on the real case. On failure, the control is disabled (`aria-disabled`, "coming soon" tooltip) instead of being invented. `dotnet run -- --probe-cli` (`Core/CliProbe.cs`) replays these tests against the real CLI (haiku, throwaway repo): rerun it on every CLI version bump. Ultracode, "Whole session" outside `setMode`, MCP toggle/reconnect and `/compact` passed there (PASS on 2.1.295) and now appear in §1.1.
 
-- Relecture d'un transcript : la forme des lignes `user`/`assistant` du `.jsonl` est supposée identique au flux, mais le champ du diff (`tool_use_result` dans le flux) n'a pas été vérifié dans le fichier. Repli : `EditDiff` recalcule depuis l'entrée de l'outil.
+- Transcript replay: the shape of the `user`/`assistant` lines of the `.jsonl` is assumed identical to the stream, but the diff field (`tool_use_result` in the stream) has not been verified in the file. Fallback: `EditDiff` recomputes from the tool input.
 
-### 1.3 Affiché désactivé (« bientôt ») ou omis, parce que le CLI ne le fournit pas
+### 1.3 Shown disabled ("coming soon") or omitted, because the CLI does not provide it
 
-| Élément de la maquette | Traitement | Raison |
+| Mockup element | Treatment | Reason |
 |---|---|---|
-| Texte de réflexion | omis (seul l'indicateur reste) | `thinking_delta` est toujours vide |
-| Phases du workflow, nom `review-changes`, cartes « trouvaille », coût par agent | omis ; coût affiché `—` | aucune donnée CLI (seuls des tokens et une durée par agent existent) |
-| « Auto à 80 % » | libellé en lecture seule `Auto à {autoCompactThreshold}` si `isAutoCompactEnabled`, sinon rien | aucune requête de réglage vérifiée |
-| « Se connecter » (MCP en `needs-auth`), « Ouvrir la configuration », onglet Hooks | bouton désactivé « bientôt » ; onglet Hooks masqué | pas de flux d'authentification ; forme de `get_hooks_listing` inconnue |
-| « Parcourir », « Joindre » | omis | un navigateur ne peut pas parcourir les dossiers du serveur ; pièces jointes hors périmètre |
-| « PR #212 mergée », toggles « Automatiquement » (s8) | omis | il faudrait `gh` ; spéculatif |
-| `Ctrl ⏎ ouvrir à côté` (palette) | omis | pas de vue scindée |
-| Retour arrière sur les fichiers | omis | `rewind_files` : « not enabled » |
-| Titre IA de session | omis ; on passe `--name` nous-mêmes | pas d'`ai-title` en `-p` ; `generate_session_title` n'enregistre rien |
-| Modes `bypassPermissions` / `dontAsk` | non proposés (s1 propose `default`, `acceptEdits`, `plan`, `auto`) | non montrés dans la maquette ; risque de sécurité |
+| Thinking text | omitted (only the indicator remains) | `thinking_delta` is always empty |
+| Workflow phases, `review-changes` name, "finding" cards, cost per agent | omitted; cost shown as `—` | no CLI data (only tokens and a duration per agent exist) |
+| "Auto at 80 %" | read-only label `Auto at {autoCompactThreshold}` if `isAutoCompactEnabled`, otherwise nothing | no verified settings request |
+| "Sign in" (MCP in `needs-auth`), "Open configuration", Hooks tab | disabled "coming soon" button; Hooks tab hidden | no authentication flow; shape of `get_hooks_listing` unknown |
+| "Browse", "Attach" | omitted | a browser cannot browse the server's folders; attachments out of scope |
+| "PR #212 merged", "Automatically" toggles (s8) | omitted | would need `gh`; speculative |
+| `Ctrl ⏎ open alongside` (palette) | omitted | no split view |
+| File rewind | omitted | `rewind_files`: "not enabled" |
+| AI session title | omitted; we pass `--name` ourselves | no `ai-title` in `-p`; `generate_session_title` records nothing |
+| `bypassPermissions` / `dontAsk` modes | not offered (s1 offers `default`, `acceptEdits`, `plan`, `auto`) | not shown in the mockup; security risk |
 
 ---
 
 ## 2. Architecture
 
-### 2.1 Fichiers (état cible)
+### 2.1 Files (target state)
 
 ```
 Program.cs                     DI + --self-check
-ClaudeSession.cs               processus + stdin/stdout (modifié)
-Core/Events.cs                 records typés + Parse(JsonElement)
-Core/LiveSession.cs            état d'une session + réducteur Apply(ClaudeEvent)
-Core/SessionManager.cs         singleton : sessions vivantes, file des décisions
-Core/TranscriptStore.cs        static : sessions passées + relecture d'un .jsonl
-Core/WorktreeService.cs        singleton : scan / classement / plan / exécution git
-Core/UiState.cs                scoped : inspecteur, palette, sélection
-Core/Fmt.cs                    formats fr-FR (durées, tailles, %), coûts invariants
-Core/ToolKinds.cs              couleur + cible d'un outil
-Core/EditDiff.cs               lignes de diff pour Edit/Write/MultiEdit
-Core/Md.cs                     Markdig + emballage .cb + titres d'alertes FR
-Core/SelfCheck.cs              vérifications exécutables (§6)
-Components/...                 voir §4
+ClaudeSession.cs               process + stdin/stdout (modified)
+Core/Events.cs                 typed records + Parse(JsonElement)
+Core/LiveSession.cs            state of one session + reducer Apply(ClaudeEvent)
+Core/SessionManager.cs         singleton: live sessions, decision queue
+Core/TranscriptStore.cs        static: past sessions + reading a .jsonl
+Core/WorktreeService.cs        singleton: scan / classification / plan / git execution
+Core/UiState.cs                scoped: inspector, palette, selection
+Core/Fmt.cs                    fr-FR formats (durations, sizes, %), invariant costs
+Core/ToolKinds.cs              colour + target of a tool
+Core/EditDiff.cs               diff lines for Edit/Write/MultiEdit
+Core/Md.cs                     Markdig + .cb wrapper + FR alert titles
+Core/SelfCheck.cs              executable checks (§6)
+Components/...                 see §4
 wwwroot/app.css, app.js, fonts/
 ```
 
-Pas d'interface (une seule implémentation par service) et aucun réglage côté serveur : le thème et la taille du code vivent dans `localStorage`, les dossiers récents viennent de `TranscriptStore`.
+No interface (a single implementation per service) and no server-side settings: the theme and code size live in `localStorage`, recent folders come from `TranscriptStore`.
 
 ### 2.2 `Program.cs`
 
 ```csharp
-if (args is ["--self-check"]) { SelfCheck.Run(); return; }   // exit code != 0 en cas d'échec
+if (args is ["--self-check"]) { SelfCheck.Run(); return; }   // exit code != 0 on failure
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
-builder.Services.AddSingleton<SessionManager>();   // IAsyncDisposable : tue les processus à l'arrêt
+builder.Services.AddSingleton<SessionManager>();   // IAsyncDisposable: kills the processes on shutdown
 builder.Services.AddSingleton<WorktreeService>();
 builder.Services.AddScoped<UiState>();
 ```
 
-### 2.3 `ClaudeSession` (modifications)
+### 2.3 `ClaudeSession` (changes)
 
-- Nouvelle signature : `ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement,Task> onEvent, Action<int,string> onExit)`. Les flags de base restent dans la classe. `args` est construit par `LiveSession` :
-  - toujours : `--permission-mode <mode>` (`default` est envoyé comme `manual`), `--include-partial-messages`, `--forward-subagent-text`
-  - nouvelle session : `--session-id <uuid>` et `--name <nom>`
-  - reprise : `--resume <id>` (sans `--session-id` ; l'id reste le même)
-  - selon le formulaire s1 : `-w <nom>`, `--model <m>`, `--effort <e>`
-- `Task<JsonElement> Request(string subtype, JsonObject? fields = null)` : écrit un `control_request` avec un `request_id` unique et attend la réponse via un `ConcurrentDictionary<string, TaskCompletionSource<JsonElement>>`. Le lecteur intercepte les `control_response` (`success` → résultat de `response.response` ; `error` → `ClaudeRequestException(error)`), puis transmet quand même l'événement. Délai d'expiration : 15 s.
-- `Interrupt()` devient `Request("interrupt")`.
-- `Respond(requestId, allow, input, JsonNode? updatedPermissions = null)`. Message de refus : `"Refusé par l’utilisateur"`.
-- `onExit(exitCode, "claude exited {code} {stderr}")`. Ne rien appeler si le processus a été disposé volontairement : un booléen `disposing` suffit.
+- New signature: `ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement,Task> onEvent, Action<int,string> onExit)`. The base flags stay in the class. `args` is built by `LiveSession`:
+  - always: `--permission-mode <mode>` (`default` is sent as `manual`), `--include-partial-messages`, `--forward-subagent-text`
+  - new session: `--session-id <uuid>` and `--name <name>`
+  - resume: `--resume <id>` (without `--session-id`; the id stays the same)
+  - depending on the s1 form: `-w <name>`, `--model <m>`, `--effort <e>`
+- `Task<JsonElement> Request(string subtype, JsonObject? fields = null)`: writes a `control_request` with a unique `request_id` and awaits the response via a `ConcurrentDictionary<string, TaskCompletionSource<JsonElement>>`. The reader intercepts `control_response` (`success` → result of `response.response`; `error` → `ClaudeRequestException(error)`), then still forwards the event. Timeout: 15 s.
+- `Interrupt()` becomes `Request("interrupt")`.
+- `Respond(requestId, allow, input, JsonNode? updatedPermissions = null)`. Denial message: `"Refusé par l’utilisateur"` (French text sent to the CLI, "Denied by the user"; kept unchanged because it is compared in tests).
+- `onExit(exitCode, "claude exited {code} {stderr}")`. Call nothing if the process was disposed on purpose: a `disposing` boolean is enough.
 
-### 2.4 Modèle d'événements (`Core/Events.cs`)
+### 2.4 Event model (`Core/Events.cs`)
 
-Un seul point de parsing, `static ClaudeEvent? Parse(JsonElement e)`. Il renvoie `null` pour ce qu'on ignore : `hook_*`, `system/notification`, `message_start/stop` et types inconnus.
+A single parsing point, `static ClaudeEvent? Parse(JsonElement e)`. It returns `null` for what we ignore: `hook_*`, `system/notification`, `message_start/stop` and unknown types.
 
 ```csharp
 abstract record ClaudeEvent;
@@ -123,13 +123,13 @@ record InitEvt(string SessionId, string Cwd, string Model, string PermissionMode
                McpBrief[] Mcp, string[] SlashCommands, string[] Skills, string[] Agents, string[] Plugins,
                string FastModeState, string? FastModeReason) : ClaudeEvent;
 record McpBrief(string Name, string Status);                       // connected|failed|needs-auth|pending
-record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;   // "requesting", changement de mode
+record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;   // "requesting", mode change
 record ThinkingEvt(int EstimatedTokens) : ClaudeEvent;
 record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;  // stream_event content_block_delta text_delta
 record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic) : ClaudeEvent;
 record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
 record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result
-record UserTextEvt(string Text) : ClaudeEvent;                     // relecture du transcript / "[Request interrupted by user]"
+record UserTextEvt(string Text) : ClaudeEvent;                     // transcript replay / "[Request interrupted by user]"
 record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
                      string? ToolUseId, JsonElement? Suggestions) : ClaudeEvent;
 record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
@@ -141,39 +141,39 @@ record TaskDoneEvt(string TaskId, string ToolUseId, string Status) : ClaudeEvent
 record TitleEvt(string Title) : ClaudeEvent;                       // session_title_changed
 ```
 
-Règles de parsing :
-- Le coût `total_cost_usd` est **cumulé** sur la session et à travers `--resume`. On l'affecte, on ne l'additionne jamais. Le coût d'un tour est la différence avec la valeur précédente.
+Parsing rules:
+- The `total_cost_usd` cost is **cumulative** over the session and across `--resume`. It is assigned, never added. The cost of a turn is the difference from the previous value.
 - `ContextTokens` = `usage.input_tokens + cache_read_input_tokens + cache_creation_input_tokens`. `ContextWindow` = `modelUsage[*].contextWindow`.
-- `assistant` arrive **un bloc par message** (même `message.id`). Chaque bloc `text` donne un `AssistantTextEvt` et chaque `tool_use` un `ToolUseEvt`. `model:"<synthetic>"` donne `Synthetic=true` (sortie des commandes `/`).
-- Les messages `user` et `assistant` d'un transcript `.jsonl` ont la même forme. `TranscriptStore` les passe donc au même `Parse` (champ du diff non vérifié dans le fichier, §1.2).
-- `control_cancel_request` n'a jamais été observé : pas d'événement dédié. Un `PendingPermission` est retiré quand on y répond, ou au `ResultEvt` / à la sortie du processus.
-- Outils (via `ToolKinds`) : le shell est **`PowerShell`** sur ce poste (`Bash` n'est pas dans `tools`), les deux ont la couleur `--bash` et la vue `pre.cmd`. Le sous-agent s'appelle **`Agent`** dans les messages (et `Task` dans `tools`) : les deux noms donnent une `.wf`.
-- `system/status`, `system/task_updated`, `message_delta` et `stream_event` autres que `text_delta` sont ignorés sauf mention ci-dessus.
+- `assistant` arrives **one block per message** (same `message.id`). Each `text` block yields an `AssistantTextEvt` and each `tool_use` a `ToolUseEvt`. `model:"<synthetic>"` yields `Synthetic=true` (output of `/` commands).
+- The `user` and `assistant` messages of a `.jsonl` transcript have the same shape. `TranscriptStore` therefore feeds them to the same `Parse` (diff field not verified in the file, §1.2).
+- `control_cancel_request` has never been observed: no dedicated event. A `PendingPermission` is removed when it is answered, or at `ResultEvt` / process exit.
+- Tools (via `ToolKinds`): the shell is **`PowerShell`** on this machine (`Bash` is not in `tools`); both have the `--bash` colour and the `pre.cmd` view. The sub-agent is called **`Agent`** in messages (and `Task` in `tools`): both names yield a `.wf`.
+- `system/status`, `system/task_updated`, `message_delta` and `stream_event` other than `text_delta` are ignored unless mentioned above.
 
-### 2.5 État par session (`Core/LiveSession.cs`)
+### 2.5 Per-session state (`Core/LiveSession.cs`)
 
 ```csharp
 enum SessionStatus { Starting, Idle, Running, Waiting, Exited, Crashed }
 sealed class LiveSession {
-  string Id;                 // == --session-id == nom du .jsonl == route /session/{Id}
-  string Name, Cwd, Mode; string? Branch, Repo, Worktree;      // Cwd remplacé par init.cwd (cas -w)
+  string Id;                 // == --session-id == name of the .jsonl == route /session/{Id}
+  string Name, Cwd, Mode; string? Branch, Repo, Worktree;      // Cwd replaced by init.cwd (-w case)
   SessionStatus Status;
-  ImmutableList<Item> Items;                 // copie à l'écriture : rendu sans verrou
+  ImmutableList<Item> Items;                 // copy-on-write: lock-free rendering
   ImmutableList<PendingPermission> Pending;
-  string StreamingText;                      // texte partiel du bloc en cours (parent null)
+  string StreamingText;                      // partial text of the current block (parent null)
   int ThinkingTokens;
   decimal CostUsd; decimal LastTurnCostUsd; int ToolCount;
   DateTimeOffset StartedAt, LastEventAt; DateTimeOffset? TurnStartedAt; TimeSpan? LastTurn; string? LastResultSubtype;
   int? ExitCode; string? ExitText;
-  InitEvt? Init; JsonElement? InitializeInfo;          // réponse "initialize" (models, commands, agents, account)
+  InitEvt? Init; JsonElement? InitializeInfo;          // "initialize" response (models, commands, agents, account)
   string? Model, Effort; bool Ultracode; string FastModeState; string? FastModeReason;
-  JsonElement? Context; JsonElement? McpStatus;       // réponses brutes de get_context_usage / mcp_status, lues par WP2 / WP5
-  DateTimeOffset? LastResultAt;                         // humeur « Tour terminé » du canard
+  JsonElement? Context; JsonElement? McpStatus;       // raw responses of get_context_usage / mcp_status, read by WP2 / WP5
+  DateTimeOffset? LastResultAt;                         // duck mood "Turn finished"
   event Action? Changed;
   Task Send(string text); Task Answer(PendingPermission p, Decision d); Task Interrupt(); Task Restart();
   Task SetModel(string m); Task SetEffort(string e); Task SetFast(bool on); Task SetUltracode(bool on);
   Task RefreshContext(); Task RefreshMcp(); Task<JsonElement> Request(string subtype, JsonObject? f = null);
-  internal void Apply(ClaudeEvent e);        // réducteur pur sur l'état : testé par SelfCheck
+  internal void Apply(ClaudeEvent e);        // pure reducer on the state: tested by SelfCheck
 }
 abstract record Item;
 record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
@@ -181,136 +181,136 @@ record TextItem(string Markdown, string? ParentToolUseId) : Item;
 sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item {
   public ToolState State; public string? ResultText; public JsonElement? Structured;
   public DateTimeOffset StartedAt; public DateTimeOffset? EndedAt;
-  public string? TaskId; public long Tokens; public int SubToolUses;     // Agent uniquement
+  public string? TaskId; public long Tokens; public int SubToolUses;     // Agent only
 }
 enum ToolState { Running, Done, Error, Waiting, Denied }
 record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId, JsonElement? Suggestions);
 enum Decision { Allow, AllowSession, Deny }
 ```
 
-Transitions :
+Transitions:
 - `Send` → `Running`, `TurnStartedAt = now`.
-- `PermissionEvt` → `Waiting` ; la `ToolItem` correspondante passe à `ToolState.Waiting`.
-- Un refus marque la `ToolItem` `Denied`.
-- `ResultEvt` → `Idle`, ou `Idle` + « interrompu » si `terminal_reason == aborted_streaming`.
-- Sortie inattendue du processus → `Crashed`. `Dispose` volontaire → `Exited`.
+- `PermissionEvt` → `Waiting`; the matching `ToolItem` goes to `ToolState.Waiting`.
+- A denial marks the `ToolItem` `Denied`.
+- `ResultEvt` → `Idle`, or `Idle` + "interrupted" if `terminal_reason == aborted_streaming`.
+- Unexpected process exit → `Crashed`. Deliberate `Dispose` → `Exited`.
 
-Concurrence et rendu :
-- Le réducteur tourne sur le thread lecteur du processus (un seul écrivain par session). Les listes sont des `ImmutableList` remplacées à chaque changement, et les composants les lisent sans verrou.
-- `Changed` est **limité à 1 notification / 50 ms** pendant le flux de `TextDeltaEvt`. Notification immédiate pour tout le reste.
+Concurrency and rendering:
+- The reducer runs on the process reader thread (a single writer per session). The lists are `ImmutableList`s replaced on every change, and components read them without a lock.
+- `Changed` is **throttled to 1 notification / 50 ms** during the `TextDeltaEvt` stream. Immediate notification for everything else.
 
-Démarrage :
-- Une session neuve lance le processus tout de suite, puis envoie `initialize`, `get_settings` et `get_usage`. Cela remplit le modèle, les commandes, l'effort et le quota avant le premier message ; `system/init` n'arrive qu'après ce premier message.
-- `initialize` est attendu **une seule fois** (même `request_id`, 180 s, ligne « still waiting » à 60 s) : renvoyer sous un nouvel id perdait la réponse tardive au premier. Pendant `Starting`, la chronologie du démarrage (spawn, écritures, stderr en direct, réponses tardives) part sur la console en `[<id>] boot …`. `dotnet run -- --boot-probe <dossier> [s]` rejoue un démarrage à froid hors de l'UI ; la cause du blocage de 60 s n'est pas reproduite par la sonde (issue #6).
-- Une session passée (reprise) est créée avec `Items` chargés par `TranscriptStore.Load(id)`. Son processus `--resume` n'est lancé qu'au premier `Send` ou au clic sur « Reprendre ».
+Startup:
+- A new session launches the process right away, then sends `initialize`, `get_settings` and `get_usage`. This fills in the model, commands, effort and quota before the first message; `system/init` only arrives after that first message.
+- `initialize` is awaited **only once** (same `request_id`, 180 s, "still waiting" line at 60 s): resending under a new id lost the late response to the first one. During `Starting`, the startup timeline (spawn, writes, live stderr, late responses) goes to the console as `[<id>] boot …`. `dotnet run -- --boot-probe <folder> [s]` replays a cold start outside the UI; the cause of the 60 s stall is not reproduced by the probe (issue #6).
+- A past (resumed) session is created with `Items` loaded by `TranscriptStore.Load(id)`. Its `--resume` process is only launched on the first `Send` or on clicking "Resume".
 
-Ultracode « pour ce tour » :
-- `Send` avec le toggle actif appelle `apply_flag_settings {ultracode:true}` avant d'envoyer le message.
-- Au `ResultEvt`, on renvoie `{ultracode:false}` et on remet le toggle à zéro.
-- `UserItem.Ultracode=true` affiche la puce `.ultra-chip`.
+Ultracode "for this turn":
+- `Send` with the toggle active calls `apply_flag_settings {ultracode:true}` before sending the message.
+- On `ResultEvt`, we send `{ultracode:false}` back and reset the toggle.
+- `UserItem.Ultracode=true` shows the `.ultra-chip` chip.
 
-« Toute la session » :
-- Suggestion `setMode` : `set_permission_mode {mode}` puis `allow`.
-- Sinon : `allow` + `updatedPermissions = suggestions` (vérifié par `--probe-cli permission-session`).
+"Whole session":
+- `setMode` suggestion: `set_permission_mode {mode}` then `allow`.
+- Otherwise: `allow` + `updatedPermissions = suggestions` (verified by `--probe-cli permission-session`).
 
-`Restart` crée un nouveau `ClaudeSession` avec `--resume Id` dans `Cwd` **tel que remplacé par `init.cwd`** (le dossier du worktree en cas de `-w` : c'est ce cwd qui donne le slug du `.jsonl`). Ne pas repasser `-w`. Si le processus est mort avant le premier message (pas de `.jsonl`), relancer en session neuve avec le même `--session-id`.
+`Restart` creates a new `ClaudeSession` with `--resume Id` in `Cwd` **as replaced by `init.cwd`** (the worktree folder in the `-w` case: that cwd gives the slug of the `.jsonl`). Do not pass `-w` again. If the process died before the first message (no `.jsonl`), restart as a new session with the same `--session-id`.
 
-WP0 implémente **entièrement** `LiveSession` (réducteur + toutes les méthodes : ce sont des enveloppes de quelques lignes autour de `Request`). Les WP1–5 ne font que les appeler et les valider en vrai.
+WP0 implements `LiveSession` **entirely** (reducer + all methods: they are few-line wrappers around `Request`). WP1–5 only call them and validate them for real.
 
 ### 2.6 `SessionManager` (singleton)
 
 ```csharp
-IReadOnlyList<LiveSession> All;                    // ordre de création, jamais retrié (s4)
+IReadOnlyList<LiveSession> All;                    // creation order, never re-sorted (s4)
 LiveSession? Get(string id);
 LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort);
-LiveSession Open(PastSession p);                   // historique chargé, processus paresseux
+LiveSession Open(PastSession p);                   // history loaded, lazy process
 Task Stop(string id);
-IEnumerable<(LiveSession S, PendingPermission P)> DecisionQueue;   // toutes sessions, ordre d'arrivée
-RateLimitEvt? Limits;                              // dernier reçu, toutes sessions confondues
-event Action? Changed;                             // relayé depuis chaque LiveSession.Changed
+IEnumerable<(LiveSession S, PendingPermission P)> DecisionQueue;   // all sessions, arrival order
+RateLimitEvt? Limits;                              // last received, all sessions combined
+event Action? Changed;                             // relayed from each LiveSession.Changed
 ```
 
-`Branch` vient de `git -C cwd branch --show-current`. `Repo` est le nom du dossier parent de `rev-parse --path-format=absolute --git-common-dir`. On les recalcule après `InitEvt`, car le `cwd` peut changer avec `-w`.
+`Branch` comes from `git -C cwd branch --show-current`. `Repo` is the name of the parent folder of `rev-parse --path-format=absolute --git-common-dir`. They are recomputed after `InitEvt`, because the `cwd` may change with `-w`.
 
 ### 2.7 `TranscriptStore` (static)
 
 ```csharp
 record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath);
-static IReadOnlyList<PastSession> Recent(int take = 30);   // *.jsonl de premier niveau, par mtime, 30 derniers jours
-static IReadOnlyList<Item> Load(string id);                // cherche ~/.claude/projects/*/{id}.jsonl, relit user/assistant via Events.Parse + réducteur
+static IReadOnlyList<PastSession> Recent(int take = 30);   // top-level *.jsonl, by mtime, last 30 days
+static IReadOnlyList<Item> Load(string id);                // searches ~/.claude/projects/*/{id}.jsonl, re-reads user/assistant via Events.Parse + reducer
 static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 ```
 
-- Lire au plus 64 Ko en tête et 64 Ko en queue par fichier.
-- Titre : `custom-title` → `agent-name` → `ai-title` → `last-prompt` (tronqué) → premier texte `user`.
-- Coût : max de `cost-state.totalCostUSD` et du registre de l'UI `%LOCALAPPDATA%\ClaudeCodeUI\costs\<id>.txt` (écrit à chaque `result` coûteux). `cost-state` n'est écrit que si le CLI sort proprement ; `PersistedCost` reste le `cost-state` brut que `--resume` restaure.
-- Mettre le résultat de `Recent` en cache 30 s.
+- Read at most 64 KB at the head and 64 KB at the tail of each file.
+- Title: `custom-title` → `agent-name` → `ai-title` → `last-prompt` (truncated) → first `user` text.
+- Cost: max of `cost-state.totalCostUSD` and of the UI registry `%LOCALAPPDATA%\ClaudeCodeUI\costs\<id>.txt` (written on every costly `result`). `cost-state` is only written if the CLI exits cleanly; `PersistedCost` remains the raw `cost-state` that `--resume` restores.
+- Cache the result of `Recent` for 30 s.
 
 ### 2.8 `WorktreeService` (singleton)
 
-C'est l'API du rapport worktrees, en un seul fichier. La logique de classement est extraite en fonction **pure**, `static (WtState, string Why) Classify(WtFacts f)`, testée par SelfCheck. Les faits (`Dirty`, `Ahead`, `Merged`, `SquashMerged`, `UpstreamGone`, `Locked`, `LockPid`, `PidAlive`, `Exists`, `Prunable`, `ActiveSessionName`) sont collectés à part, par les commandes git du rapport.
+This is the API of the worktrees report, in a single file. The classification logic is extracted into a **pure** function, `static (WtState, string Why) Classify(WtFacts f)`, tested by SelfCheck. The facts (`Dirty`, `Ahead`, `Merged`, `SquashMerged`, `UpstreamGone`, `Locked`, `LockPid`, `PidAlive`, `Exists`, `Prunable`, `ActiveSessionName`) are collected separately, by the git commands of the report.
 
-Garde-fous non négociables :
-- jamais `--force` ni `-D` ;
-- revérification de chaque ligne juste avant exécution ;
-- l'échec de `branch -d` n'est pas fatal ;
-- confirmation après affichage des commandes exactes ;
-- le worktree principal n'est jamais proposé.
+Non-negotiable safeguards:
+- never `--force` or `-D`;
+- recheck every row just before execution;
+- the failure of `branch -d` is not fatal;
+- confirmation after displaying the exact commands;
+- the main worktree is never offered.
 
-Le cas « verrou à pid mort » est classé « À vérifier », avec `git worktree unlock` dans le plan. C'est le cas normal des worktrees créés par nos propres sessions `-w` une fois terminées.
+The "lock with dead pid" case is classified "To check", with `git worktree unlock` in the plan. This is the normal case for worktrees created by our own `-w` sessions once they have finished.
 
-Signatures figées par WP0 (corps WP4) : `DiscoverReposAsync`, `ScanAsync`, `SizeAsync`, `Plan`, `RunAsync`, `PushAsync` (rapport worktrees §5, `SessionManager` au lieu de `sessions`), plus `static Classify(WtFacts)` et **`int? CleanableCount`** (Sûrs + Orphelins du dernier scan, `null` avant le premier ; lu par le rail de WP3).
+Signatures frozen by WP0 (bodies in WP4): `DiscoverReposAsync`, `ScanAsync`, `SizeAsync`, `Plan`, `RunAsync`, `PushAsync` (worktrees report §5, `SessionManager` instead of `sessions`), plus `static Classify(WtFacts)` and **`int? CleanableCount`** (Safe + Orphan of the last scan, `null` before the first; read by the WP3 rail).
 
-Actions par ligne (s8) : Supprimer / Élaguer → ajoutent la ligne au plan ; Aller → `/session/{id}` ; Pousser → `PushAsync` après confirmation ; Ouvrir → `/` avec le dossier pré-rempli.
+Per-row actions (s8): Delete / Prune → add the row to the plan; Go → `/session/{id}`; Push → `PushAsync` after confirmation; Open → `/` with the folder pre-filled.
 
-### 2.9 `UiState` (scoped, par circuit)
+### 2.9 `UiState` (scoped, per circuit)
 
 `bool InspectorOpen = true; bool PaletteOpen; string? SelectedToolId; event Action? Changed; event Action<string>? Key;`
 
-`MainLayout` (WP0) reçoit tous les raccourcis de `app.js` et les traite **lui-même** : Ctrl K / Ctrl I (bascule `UiState`), Ctrl N / Alt N (`/`), Ctrl ⇧ O (`/overview`), Ctrl ⇧ A (session de `DecisionQueue.First()`). Les autres (`Escape`, `Enter`, `Shift+Enter`, `Delete`) sont relayés tels quels par `UiState.Key` : `SessionPage` interrompt sur Échap, `PermissionCard` répond sur ⏎ / Maj ⏎ / Suppr, la palette se ferme sur Échap.
+`MainLayout` (WP0) receives all the shortcuts from `app.js` and handles them **itself**: Ctrl K / Ctrl I (toggle `UiState`), Ctrl N / Alt N (`/`), Ctrl ⇧ O (`/overview`), Ctrl ⇧ A (session of `DecisionQueue.First()`). The others (`Escape`, `Enter`, `Shift+Enter`, `Delete`) are relayed as-is by `UiState.Key`: `SessionPage` interrupts on Esc, `PermissionCard` answers on ⏎ / Shift ⏎ / Del, the palette closes on Esc.
 
-`SelectedToolId` désigne aussi une ligne `.agent` (id du `tool_use` `Agent`) : c'est ce qui fait afficher `AgentPanel`.
+`SelectedToolId` also designates an `.agent` row (id of the `Agent` `tool_use`): this is what makes `AgentPanel` appear.
 
 ---
 
-## 3. CSS, polices, thèmes, JS
+## 3. CSS, fonts, themes, JS
 
-- **`wwwroot/app.css`** : lignes 10–526 de `graphite.src.html` copiées telles quelles (elles incluent déjà `md_themes.css`, `parity.css` et le mapping hljs des lignes 336–349). On exclut les lignes 71–82 (`.doc .screen .frame .synthetic`) et 352–356 (`.themebar`). Retouches :
-  - retirer `.focus-demo` du sélecteur de la ligne 281 ;
-  - ligne 276 : `.btn[aria-disabled=true],.btn:disabled` ;
-  - `.effort span`→`.effort>*`, `.seg span`→`.seg>*`, `.subtabs span`→`.subtabs>*`, y compris dans les listes de transition et de survol de « polish 2 ».
+- **`wwwroot/app.css`**: lines 10–526 of `graphite.src.html` copied as-is (they already include `md_themes.css`, `parity.css` and the hljs mapping of lines 336–349). Lines 71–82 (`.doc .screen .frame .synthetic`) and 352–356 (`.themebar`) are excluded. Tweaks:
+  - remove `.focus-demo` from the selector on line 281;
+  - line 276: `.btn[aria-disabled=true],.btn:disabled`;
+  - `.effort span`→`.effort>*`, `.seg span`→`.seg>*`, `.subtabs span`→`.subtabs>*`, including in the "polish 2" transition and hover lists.
 
-  On ajoute ensuite le bloc « app glue » du rapport maquettes §1.4, plus `.search{width:100%}` et `.app:not(:has(>.insp)){grid-template-columns:256px minmax(0,1fr)}`. De l'ancien `app.css`, on garde seulement `#blazor-error-ui` et `.blazor-error-boundary`. `app.css` appartient à WP0 seul : le CSS de la maquette est final, donc les WP1–5 n'y touchent pas. Un WP qui a besoin d'une règle la note dans son PR et l'intégrateur l'ajoute (des sections `/* WPn */` voisines feraient des conflits git, les hunks adjacents se chevauchant).
-- **Supprimer** `Home.razor.css`, `MainLayout.razor.css` et le lien `vs2015.min.css`. Aucun CSS scopé par composant.
-- **Polices** : Geist et Geist Mono auto-hébergées en `wwwroot/fonts/Geist[wght].woff2` et `GeistMono[wght].woff2` (OFL, depuis le paquet npm `geist` ou le dépôt vercel/geist-font), déclarées par `@font-face` en tête d'`app.css`. Si le téléchargement échoue, utiliser le `<link>` Google Fonts des lignes 7–8 de la maquette. Les piles de repli système sont déjà dans les tokens.
-- **Thèmes** : `data-theme` sur `<html>` (graphite, encre, ristretto, mousse, contraste). Un script inline dans `<head>` (avant la peinture) lit `localStorage['claude-ui.theme']` et `['claude-ui.code-size']`. `<html lang="fr">`.
-- **`wwwroot/app.js`** (remplace l'observer inline de `App.razor`) :
+  Then add the "app glue" block from mockups report §1.4, plus `.search{width:100%}` and `.app:not(:has(>.insp)){grid-template-columns:256px minmax(0,1fr)}`. From the old `app.css`, keep only `#blazor-error-ui` and `.blazor-error-boundary`. `app.css` belongs to WP0 alone: the mockup CSS is final, so WP1–5 do not touch it. A WP that needs a rule notes it in its PR and the integrator adds it (neighbouring `/* WPn */` sections would cause git conflicts, as adjacent hunks overlap).
+- **Delete** `Home.razor.css`, `MainLayout.razor.css` and the `vs2015.min.css` link. No per-component scoped CSS.
+- **Fonts**: Geist and Geist Mono self-hosted as `wwwroot/fonts/Geist[wght].woff2` and `GeistMono[wght].woff2` (OFL, from the `geist` npm package or the vercel/geist-font repo), declared by `@font-face` at the top of `app.css`. If the download fails, use the Google Fonts `<link>` from lines 7–8 of the mockup. The system fallback stacks are already in the tokens.
+- **Themes**: `data-theme` on `<html>` (graphite, encre, ristretto, mousse, contraste). An inline script in `<head>` (before paint) reads `localStorage['claude-ui.theme']` and `['claude-ui.code-size']`. `<html lang="fr">`.
+- **`wwwroot/app.js`** (replaces the inline observer of `App.razor`):
   - `window.claudeUi = { getTheme, setTheme, getCodeSize, setCodeSize, copy, registerShortcuts(dotnetRef), focus(el) }`.
-  - MutationObserver avec débounce rAF :
-    1. `pre>code:not(.hljs)` → `hljs.highlightElement` ;
+  - MutationObserver with rAF debounce:
+    1. `pre>code:not(.hljs)` → `hljs.highlightElement`;
     2. `[data-hl] code.lc:not([data-done])` → `hljs.highlight(text,{language,ignoreIllegals:true})`.
-  - Clic délégué sur `.cb .copy` et `[data-copy]` (libellé « Copié » pendant 1400 ms).
-  - Raccourcis globaux transmis à .NET : Ctrl K, Ctrl I, Échap, Ctrl ⇧ A, Ctrl ⇧ O, Ctrl N **et Alt N** (le navigateur capture Ctrl N), ainsi que ⏎ / Maj ⏎ / Suppr quand aucun champ n'a le focus et qu'une permission est affichée.
-  - **Ne jamais** remplacer de nœud de premier niveau dans un `MarkupString`. L'emballage `.cb` est fait côté serveur par `Md.cs`.
-- **Langage hljs** : `.razor` / `.cshtml` → `csharp` ; table des extensions dans `EditDiff.Lang(path)`.
-- **Mascotte** : `<PackageReference Include="BlazorKawaii" Version="2.2.0" />`. Dans `_Imports.razor`, ajouter `@using BlazorKawaii.Common` et `@using RubberDuck = BlazorKawaii.Components.RubberDuck`. Pas de `@using BlazorKawaii.Components`, à cause du conflit avec `System.IO.File`. Toujours passer `Color="#FCCC0A"` : la couleur par défaut du composant n'est pas confirmée.
+  - Delegated click on `.cb .copy` and `[data-copy]` ("Copied" label for 1400 ms).
+  - Global shortcuts forwarded to .NET: Ctrl K, Ctrl I, Esc, Ctrl ⇧ A, Ctrl ⇧ O, Ctrl N **and Alt N** (the browser captures Ctrl N), as well as ⏎ / Shift ⏎ / Del when no field has focus and a permission is displayed.
+  - **Never** replace a top-level node inside a `MarkupString`. The `.cb` wrapper is done server-side by `Md.cs`.
+- **hljs language**: `.razor` / `.cshtml` → `csharp`; extension table in `EditDiff.Lang(path)`.
+- **Mascot**: `<PackageReference Include="BlazorKawaii" Version="2.2.0" />`. In `_Imports.razor`, add `@using BlazorKawaii.Common` and `@using RubberDuck = BlazorKawaii.Components.RubberDuck`. No `@using BlazorKawaii.Components`, because of the conflict with `System.IO.File`. Always pass `Color="#FCCC0A"`: the component's default colour is not confirmed.
 
 ---
 
-## 4. Arbre de composants
+## 4. Component tree
 
-Rendu interactif global : `<Routes @rendermode="InteractiveServer" />` et `<HeadOutlet @rendermode="InteractiveServer" />` dans `App.razor`. Plus aucun `@rendermode` par page. Dans `Routes.razor`, `FocusOnNavigate Selector="h1"` devient `".ph .ttl"`.
+Global interactive rendering: `<Routes @rendermode="InteractiveServer" />` and `<HeadOutlet @rendermode="InteractiveServer" />` in `App.razor`. No more per-page `@rendermode`. In `Routes.razor`, `FocusOnNavigate Selector="h1"` becomes `".ph .ttl"`.
 
-| Fichier | Classes maquette | Écrans | WP |
+| File | Mockup classes | Screens | WP |
 |---|---|---|---|
-| `Components/App.razor` | head, script de thème | tous | 0 |
-| `Components/Layout/MainLayout.razor` | `.app` + `<Rail/>` + `@Body` + `<CommandPalette/>` + `<IconSprite/>` ; enregistre les raccourcis | tous | 0 |
-| `Components/Layout/IconSprite.razor` | sprite SVG (src 530–553) | tous | 0 |
-| `Components/Shared/Icon.razor` | `svg.i(.sm)` | tous | 0 |
-| `Components/Layout/Rail.razor` | `.pane .brand .rail-actions .grp .list` | tous | 3 |
-| `Components/Layout/RailSessionRow.razor` | `.s .dot .n .branch .pill .c` | tous | 3 |
-| `Components/Layout/QuotaMeter.razor` | `.quota .qrow .bar` | tous | 3 |
-| `Components/Layout/Mascot.razor` | `.mascot .duck` | tous | 3 |
+| `Components/App.razor` | head, theme script | all | 0 |
+| `Components/Layout/MainLayout.razor` | `.app` + `<Rail/>` + `@Body` + `<CommandPalette/>` + `<IconSprite/>`; registers the shortcuts | all | 0 |
+| `Components/Layout/IconSprite.razor` | SVG sprite (src 530–553) | all | 0 |
+| `Components/Shared/Icon.razor` | `svg.i(.sm)` | all | 0 |
+| `Components/Layout/Rail.razor` | `.pane .brand .rail-actions .grp .list` | all | 3 |
+| `Components/Layout/RailSessionRow.razor` | `.s .dot .n .branch .pill .c` | all | 3 |
+| `Components/Layout/QuotaMeter.razor` | `.quota .qrow .bar` | all | 3 |
+| `Components/Layout/Mascot.razor` | `.mascot .duck` | all | 3 |
 | `Components/Layout/CommandPalette.razor` | `.scrim .palette .q-in .pg .pi .pfoot` | s5 | 3 |
 | `Components/Pages/NewSession.razor` `/` | `.start .start-card .hello .field .input .recents .modes .mode .toggle .hint` | s1 | 3 |
 | `Components/Pages/Overview.razor` `/overview` | `.ov .ovhead .tot table .stt .mtag .queue .q` | s4 | 3 |
@@ -319,254 +319,254 @@ Rendu interactif global : `<Routes @rendermode="InteractiveServer" />` et `<Head
 | `Components/Session/Thread.razor` | `.thread`, `.you`, `.ultra-chip`, `.caret` | s2 s3 s5 s6 s10 | 1 |
 | `Components/Session/Ledger.razor` | `.ledger .lh` | s2 s3 | 1 |
 | `Components/Session/ToolRow.razor` | `.t(.sel/.wait/.void) .kind .p .m .badge` | s2 s3 | 1 |
-| `Components/Session/Workflow.razor` | `.wf .wh .agent .subrun .sl` (sans `.phases`) | s10 | 1 |
+| `Components/Session/Workflow.razor` | `.wf .wh .agent .subrun .sl` (without `.phases`) | s10 | 1 |
 | `Components/Session/StatusLine.razor` | `.status(.wait) .spin` | s2 s3 s10 | 1 |
 | `Components/Session/CrashBanner.razor` | `.crash` (`h4`) | s5 | 1 |
 | `Components/Shared/Markdown.razor` + `Core/Md.cs` | `.prose.md .cb` | s6 | 1 |
 | `Components/Session/Composer.razor` | `.composer.rich .box .tools-row .chip .pick .effort .go .meta` | s2 s3 s5 s9 s10 | 2 |
 | `Components/Session/SlashPopover.razor` | `.pop.slash .sh .si` | s9 | 2 |
-| `Components/Session/ModelMenu.razor` | `.pop` + `.si` (non maquetté, styles réutilisés) | s9 | 2 |
-| `Components/Session/Inspector.razor` | `.pane.insp` (aiguillage) | s2 s3 s9 s10 | 2 |
+| `Components/Session/ModelMenu.razor` | `.pop` + `.si` (not in the mockup, styles reused) | s9 | 2 |
+| `Components/Session/Inspector.razor` | `.pane.insp` (switch) | s2 s3 s9 s10 | 2 |
 | `Components/Session/ToolDetail.razor` | `.tabs .tab .cmdlog .errbox .kv` | s2 s6 | 2 |
-| `Components/Session/PermissionCard.razor` | `.section .acts .cmd` + « Aussi en attente » | s3 | 2 |
+| `Components/Session/PermissionCard.razor` | `.section .acts .cmd` + "Also waiting" | s3 | 2 |
 | `Components/Session/ContextPanel.razor` | `.ctx .ctxbar .legend` | s9 | 2 |
-| `Components/Session/AgentPanel.razor` | `.kv` + `.prose.md` (sans `.finding`) | s10 | 2 |
+| `Components/Session/AgentPanel.razor` | `.kv` + `.prose.md` (without `.finding`) | s10 | 2 |
 | `Components/Shared/DiffView.razor` + `Core/EditDiff.cs` | `.diff .fh .hunk .l .add .del .g .lc` | s3 s2 | 2 |
 | `Components/Shared/FileView.razor` | `.filev .lc` | s2 | 2 |
 | `Components/Pages/Worktrees.razor` | `.wt .wt-head .filters .wtt .grp-row .state .st-* .why .rowacts .plan .it .cmdlog .guard` | s8 | 4 |
 | `Components/Pages/Extensions.razor` `/extensions` | `.ext .subtabs .filters .mcp .ms .errbox .toggle` | s11 | 5 |
 | `Components/Pages/Appearance.razor` `/settings/appearance` | `.settings .set-row .themes .tc .pv .seg .sample` | s7 | 5 |
 
-On supprime `Components/Pages/Home.razor` (WP1, une fois la session portée). `Error.razor` et `NotFound.razor` restent.
+`Components/Pages/Home.razor` is deleted (WP1, once the session is ported). `Error.razor` and `NotFound.razor` stay.
 
-Le balisage, les textes français et les règles d'affichage de chaque composant suivent le **rapport maquettes §2–§3**, qui sert de spécification annexe. Ce plan en corrige les points suivants :
-- le flux partiel et `.caret` sont dans le périmètre ;
-- `ToolKinds` : `PowerShell` traité comme `Bash` (couleur, `pre.cmd`, verbe « Lancer cette commande ? », « une commande » dans `.status.wait`), `Agent` comme `Task` ;
-- s1 : la branche affichée sous le toggle worktree est `worktree-<nom>` (ce que crée `-w`), pas `claude/<slug>` ;
-- un diff **après coup** (inspecteur, onglet Diff) se construit depuis `tool_use_result.structuredPatch` (vérifié) ; `EditDiff` ne calcule que le diff **avant** autorisation (carte de permission) et le repli de relecture ;
-- l'effort, le modèle, le mode rapide et ultracode passent par les requêtes vérifiées (§2.5), pas par le préfixe « ultracode » dans le prompt ;
-- le mode rapide est désactivé seulement si `fast_mode_state != "on"` ou si le modèle n'a pas `supportsFastMode`. L'infobulle donne la raison en français : `sdk_opt_in_required` → « opt-in SDK requis », `extra_usage_disabled` → « usage supplémentaire désactivé », sinon le code brut ;
-- l'effort n'affiche que `supportedEffortLevels` du modèle courant et disparaît si `!supportsEffort` ;
-- Extensions utilise `mcp_status` pour l'erreur, le transport et les outils ;
-- pour le quota, `rate_limit_event` donne `utilization` entre 0 et 1, alors que `get_usage` donne une valeur entre 0 et 100. Normaliser.
+The markup, French texts and display rules of each component follow the **mockups report §2–§3**, which serves as an annex specification. This plan corrects the following points:
+- partial streaming and `.caret` are in scope;
+- `ToolKinds`: `PowerShell` treated as `Bash` (colour, `pre.cmd`, the verb "Run this command?", "a command" in `.status.wait`), `Agent` as `Task`;
+- s1: the branch shown under the worktree toggle is `worktree-<name>` (what `-w` creates), not `claude/<slug>`;
+- a diff **after the fact** (inspector, Diff tab) is built from `tool_use_result.structuredPatch` (verified); `EditDiff` only computes the **pre-authorization** diff (permission card) and the replay fallback;
+- effort, model, fast mode and ultracode go through the verified requests (§2.5), not through the "ultracode" prefix in the prompt;
+- fast mode is disabled only if `fast_mode_state != "on"` or if the model lacks `supportsFastMode`. The tooltip gives the reason in French: `sdk_opt_in_required` → "opt-in SDK requis" (SDK opt-in required), `extra_usage_disabled` → "usage supplémentaire désactivé" (extra usage disabled), otherwise the raw code;
+- effort only shows the `supportedEffortLevels` of the current model and disappears if `!supportsEffort`;
+- Extensions uses `mcp_status` for the error, transport and tools;
+- for the quota, `rate_limit_event` gives `utilization` between 0 and 1, whereas `get_usage` gives a value between 0 and 100. Normalize.
 
 ---
 
-## 5. Lots de travail
+## 5. Work packages
 
-### 5.0 Contrats partagés (créés par WP0, figés ensuite)
+### 5.0 Shared contracts (created by WP0, frozen afterwards)
 
-Tous les autres WP codent contre ces contrats. Une modification passe par l'intégrateur.
+All the other WPs code against these contracts. Any change goes through the integrator.
 
-1. **C#** : tout le §2. On fige `Events.cs`, `LiveSession` (complète), `SessionManager`, `UiState`, `Fmt`, `ToolKinds`, les **signatures** de `TranscriptStore`, `WorktreeService`, `EditDiff` et `Md` (corps : implémentation minimale renvoyant du vide, **pas** `NotImplementedException`, pour que l'app tourne pendant que les WP avancent), et `SelfCheck.Run()`. Signatures des utilitaires :
-   - `Fmt` : `Dur(TimeSpan)` → `2,4 s` / `2 min 14`, `Size(long)` → `1,34 Go`, `Pct(double)` → `32 %`, `Tokens(long)` → `212k`, `Cost(decimal, int decimals)` → `$0.0391`, `Time(DateTimeOffset)` → `14:31` ;
-   - `ToolKinds` : `Color(name)`, `Target(JsonElement input, string cwd)`, `IsShell(name)`, `IsAgent(name)`, `IsEdit(name)` ;
-   - `EditDiff` : `IReadOnlyList<DiffLine> FromInput(string tool, JsonElement input)`, `FromPatch(JsonElement structuredPatch)`, `Lang(string path)` ;
-   - `Md` : `string Render(string markdown)`. Ce dernier appelle `Events.Check()`, `LiveSession.Check()`, `Md.Check()`, `EditDiff.Check()` et `WorktreeService.Check()` ; chaque `Check` vit dans le fichier de sa logique et reste vide tant que le WP propriétaire ne l'a pas écrit.
-2. **Paramètres des composants transverses**, créés en *stubs* compilables par WP0 (balisage minimal) :
+1. **C#**: all of §2. Frozen: `Events.cs`, `LiveSession` (complete), `SessionManager`, `UiState`, `Fmt`, `ToolKinds`, the **signatures** of `TranscriptStore`, `WorktreeService`, `EditDiff` and `Md` (bodies: minimal implementation returning empty, **not** `NotImplementedException`, so the app runs while the WPs progress), and `SelfCheck.Run()`. Utility signatures:
+   - `Fmt`: `Dur(TimeSpan)` → `2,4 s` / `2 min 14`, `Size(long)` → `1,34 Go`, `Pct(double)` → `32 %`, `Tokens(long)` → `212k`, `Cost(decimal, int decimals)` → `$0.0391`, `Time(DateTimeOffset)` → `14:31`;
+   - `ToolKinds`: `Color(name)`, `Target(JsonElement input, string cwd)`, `IsShell(name)`, `IsAgent(name)`, `IsEdit(name)`;
+   - `EditDiff`: `IReadOnlyList<DiffLine> FromInput(string tool, JsonElement input)`, `FromPatch(JsonElement structuredPatch)`, `Lang(string path)`;
+   - `Md`: `string Render(string markdown)`. `SelfCheck.Run()` calls `Events.Check()`, `LiveSession.Check()`, `Md.Check()`, `EditDiff.Check()` and `WorktreeService.Check()`; each `Check` lives in the file of its logic and stays empty until the owning WP has written it.
+2. **Parameters of the cross-cutting components**, created as compilable *stubs* by WP0 (minimal markup):
    - `Icon(Name, Sm, Class)`
    - `Markdown(Text)`
-   - `DiffView(Path, IReadOnlyList<DiffLine> Lines)`, avec `record DiffLine(DiffKind Kind, int? N, string Text)`, `enum DiffKind{Ctx,Add,Del,Hunk}`
+   - `DiffView(Path, IReadOnlyList<DiffLine> Lines)`, with `record DiffLine(DiffKind Kind, int? N, string Text)`, `enum DiffKind{Ctx,Add,Del,Hunk}`
    - `FileView(Path, string ReadResultText)`
    - `Composer(LiveSession Session)`
    - `Inspector(LiveSession Session)`
    - `Thread(LiveSession Session)`
    - `SessionHeader(LiveSession Session)`
    - `CrashBanner(LiveSession Session)`
-   - `Mascot()`, `Rail()`, `CommandPalette()`, toutes les pages avec leur `@page`.
-3. **Mêmes conventions partout** :
-   - abonnement à `Changed` dans `OnInitialized`, désabonnement dans `Dispose`, rafraîchissement par `InvokeAsync(StateHasChanged)` ;
-   - formats uniquement via `Fmt` ;
-   - couleurs d'outils via `ToolKinds.Color`.
-4. **CSS** : les noms de classes sont ceux de la maquette (colonne « Classes » du §4). Aucun WP n'invente de classe si la maquette en a une, et aucun WP1–5 ne modifie `app.css` (§3).
-5. **Propriété des fichiers** : WP0 crée tous les fichiers (stubs compris) ; ensuite chaque fichier a **un seul** propriétaire, celui de la liste « Fichiers » de son WP. Un stub de WP0 n'est plus touché par WP0.
+   - `Mascot()`, `Rail()`, `CommandPalette()`, all pages with their `@page`.
+3. **Same conventions everywhere**:
+   - subscribe to `Changed` in `OnInitialized`, unsubscribe in `Dispose`, refresh through `InvokeAsync(StateHasChanged)`;
+   - formats only via `Fmt`;
+   - tool colours via `ToolKinds.Color`.
+4. **CSS**: class names are those of the mockup ("Mockup classes" column of §4). No WP invents a class if the mockup has one, and no WP1–5 modifies `app.css` (§3).
+5. **File ownership**: WP0 creates all files (stubs included); after that each file has **a single** owner, the one in the "Files" list of its WP. A WP0 stub is no longer touched by WP0.
 
-### WP0 : fondations (séquentiel, avant tout le reste)
+### WP0: foundations (sequential, before everything else)
 
-**Fichiers :**
+**Files:**
 - `ClaudeCodeUI.csproj`, `Program.cs`, `ClaudeSession.cs`
 - `Core/Events.cs`, `Core/LiveSession.cs`, `Core/SessionManager.cs`, `Core/UiState.cs`, `Core/Fmt.cs`, `Core/ToolKinds.cs`, `Core/SelfCheck.cs`
-- les stubs `Core/TranscriptStore.cs`, `Core/WorktreeService.cs`, `Core/EditDiff.cs`, `Core/Md.cs` (port de la pipeline actuelle)
+- the stubs `Core/TranscriptStore.cs`, `Core/WorktreeService.cs`, `Core/EditDiff.cs`, `Core/Md.cs` (port of the current pipeline)
 - `wwwroot/app.css`, `wwwroot/app.js`, `wwwroot/fonts/*`
 - `Components/App.razor`, `Components/Routes.razor`, `Components/_Imports.razor`
-- `Layout/MainLayout.razor` (raccourcis complets, §2.9), `Layout/IconSprite.razor`, `Shared/Icon.razor`
-- les stubs de tous les composants et pages du §4
-- suppression de `MainLayout.razor.css`
-- `.gitignore` : ajouter `.claude/worktrees/` (sinon les worktrees `-w` et ceux des WP deviennent des gitlinks au premier `git add .`)
+- `Layout/MainLayout.razor` (full shortcuts, §2.9), `Layout/IconSprite.razor`, `Shared/Icon.razor`
+- the stubs of all components and pages of §4
+- deletion of `MainLayout.razor.css`
+- `.gitignore`: add `.claude/worktrees/` (otherwise the `-w` worktrees and those of the WPs become gitlinks on the first `git add .`)
 
-**Critères d'acceptation :**
-- `dotnet build` : 0 erreur, aucun nouvel avertissement.
-- Ctrl K / Ctrl I / Alt N / Ctrl ⇧ O / Ctrl ⇧ A agissent (palette et inspecteur en stub suffisent).
-- `dotnet run -- --self-check` passe. `Events.Check()` parse un exemple de chaque type de ligne JSON du rapport protocole (init, text_delta, tool_use, tool_result avec `tool_use_result`, can_use_tool, result succès + interrompu, rate_limit_event, task_started/notification) et vérifie les champs clés. `LiveSession.Check()` rejoue une séquence (send → tool_use → permission → deny → result) et vérifie le statut, la `ToolItem` `Denied`, le coût affecté (pas additionné) et `Pending` vide.
-- `dotnet run` : la coquille `.app` s'affiche avec le thème graphite et les polices Geist. Changer `localStorage['claude-ui.theme']='mousse'` puis recharger recolore toute l'interface sans flash.
-- `SessionManager.Start` appelé par le stub `NewSession` (dossier courant, `haiku`) reçoit la réponse `initialize` : `InitializeInfo` rempli, nombre de modèles et de commandes écrit dans le log. Pas de bouton de test à retirer.
-- `Home.razor` existe encore mais a perdu son `@page` (route reprise par `NewSession`).
+**Acceptance criteria:**
+- `dotnet build`: 0 errors, no new warnings.
+- Ctrl K / Ctrl I / Alt N / Ctrl ⇧ O / Ctrl ⇧ A act (stub palette and inspector are enough).
+- `dotnet run -- --self-check` passes. `Events.Check()` parses an example of each JSON line type from the protocol report (init, text_delta, tool_use, tool_result with `tool_use_result`, can_use_tool, result success + interrupted, rate_limit_event, task_started/notification) and checks the key fields. `LiveSession.Check()` replays a sequence (send → tool_use → permission → deny → result) and checks the status, the `Denied` `ToolItem`, the assigned (not added) cost and an empty `Pending`.
+- `dotnet run`: the `.app` shell is displayed with the graphite theme and Geist fonts. Setting `localStorage['claude-ui.theme']='mousse'` then reloading recolours the whole interface without a flash.
+- `SessionManager.Start` called by the `NewSession` stub (current folder, `haiku`) receives the `initialize` response: `InitializeInfo` filled, number of models and commands written to the log. No test button to remove.
+- `Home.razor` still exists but has lost its `@page` (route taken over by `NewSession`).
 
-### WP1 : fil de session
+### WP1: session thread
 
-**Fichiers :**
+**Files:**
 - `Pages/SessionPage.razor`
 - `Session/SessionHeader.razor`, `Session/Thread.razor`, `Session/Ledger.razor`, `Session/ToolRow.razor`, `Session/Workflow.razor`, `Session/StatusLine.razor`, `Session/CrashBanner.razor`
 - `Shared/Markdown.razor`, `Core/Md.cs` (+ `Md.Check`)
-- suppression de `Pages/Home.razor` et `Home.razor.css`
+- deletion of `Pages/Home.razor` and `Home.razor.css`
 
-**Critères d'acceptation :**
-- Avec un vrai prompt en `--model haiku` :
-  - le texte apparaît en direct avec `.caret`, puis est remplacé par le bloc complet ;
-  - les outils consécutifs forment un `.ledger`, le dernier déplié et les anciens repliés ;
-  - durées et compteurs au format `Fmt` (`2,4 s`).
-- Cliquer une `.t` met `UiState.SelectedToolId` et `.t.sel`. Échap interrompt : statut « interrompu », pas de crash.
-- Un sous-agent (« lance un agent qui répond pong ») produit une `.wf` avec une `.agent` (tokens issus de `task_progress`, coût `—`) et ses sous-outils dépliables en `.sl`.
-- Tuer le processus `claude` à la main affiche `.crash` avec le canard Ko, le texte de sortie, « Copier l'erreur » (`data-copy`) et « Relancer la session ». La relance reprend la session (`--resume`) et le modèle se souvient du contexte.
-- Une session passée ouverte depuis l'URL affiche son historique relu.
-- `Md.Check` couvre `` ```csharp `` → `.cb` avec l'en-tête « C# », un bloc sans langage → « texte », et `[!WARNING]` → « Attention ».
-- Rendu conforme à `screens/02.png`, `06.png` et `10.png` (sans `.phases` ni cartes « trouvaille »), à la donnée près.
+**Acceptance criteria:**
+- With a real prompt on `--model haiku`:
+  - the text appears live with `.caret`, then is replaced by the complete block;
+  - consecutive tools form a `.ledger`, the last one expanded and the older ones collapsed;
+  - durations and counters in `Fmt` format (`2,4 s`).
+- Clicking a `.t` sets `UiState.SelectedToolId` and `.t.sel`. Esc interrupts: "interrupted" status, no crash.
+- A sub-agent ("launch an agent that answers pong") produces a `.wf` with an `.agent` (tokens from `task_progress`, cost `—`) and its sub-tools expandable in `.sl`.
+- Killing the `claude` process by hand shows `.crash` with the KO duck, the exit text, "Copy error" (`data-copy`) and "Restart session". Restarting resumes the session (`--resume`) and the model remembers the context.
+- A past session opened from the URL shows its replayed history.
+- `Md.Check` covers `` ```csharp `` → `.cb` with the "C#" header, a block without language → "texte" (plain text), and `[!WARNING]` → "Attention" (Warning).
+- Rendering matches `screens/02.png`, `06.png` and `10.png` (without `.phases` or "finding" cards), data aside.
 
-### WP2 : composer et inspecteur
+### WP2: composer and inspector
 
-**Fichiers :**
+**Files:**
 - `Session/Composer.razor`, `Session/SlashPopover.razor`, `Session/ModelMenu.razor`
 - `Session/Inspector.razor`, `Session/ToolDetail.razor`, `Session/PermissionCard.razor`, `Session/ContextPanel.razor`, `Session/AgentPanel.razor`
 - `Shared/DiffView.razor`, `Shared/FileView.razor`, `Core/EditDiff.cs` (+ `EditDiff.Check`)
 
-**Critères d'acceptation :**
-- Composer :
-  - Ctrl ⏎ envoie ;
-  - placeholders et bouton principal suivent l'état (table du rapport maquettes §2.5) ;
-  - la méta affiche tour / session / outils / contexte, avec le coût **cumulé**.
-- Modèle : le menu liste `initialize.models` (`displayName`) ; un choix appelle `set_model`, et le tour suivant indique le nouveau modèle dans `system/init`.
-- Effort : un clic appelle `apply_flag_settings {effortLevel}`, puis `get_settings.applied.effort` reflète la valeur, avec `.on` sur le bon bouton.
-- Rapide : désactivé avec la raison en infobulle quand `fast_mode_state=="off"`.
-- Ultracode : un tour avec le toggle actif envoie `{ultracode:true}` (lu dans `get_settings.applied.ultracode`), puis `{ultracode:false}` après le `result`. Un essai réel (coûteux, modèle par défaut) note dans le PR si des sous-agents apparaissent ; sinon le toggle reste, l'infobulle disant qu'il active le réglage CLI.
-- Saisir `/` ouvre `.pop.slash` filtré, avec descriptions et étiquette `intégrée` ou nom de plugin. ↑ / ↓ / Tab fonctionnent. `/cost` envoyé affiche la sortie synthétique dans le fil.
-- Permission :
-  - Edit montre un `DiffView` (`EditDiff.FromInput`) dont les lignes `+`/`−` sont celles du `structuredPatch` reçu après coup ;
-  - PowerShell/Bash montre `pre.cmd` ;
-  - Autoriser, Refuser (message FR, ligne `.t.void` « refusé ») et « Toute la session » via `setMode` fonctionnent, au clic comme au clavier (⏎, Maj ⏎, Suppr) ;
-  - « 1 sur 2 » et « Aussi en attente » reflètent `SessionManager.DecisionQueue`.
-- Le cas `updatedPermissions` est testé une fois et le résultat noté dans le PR. S'il échoue, le bouton est masqué pour ces suggestions.
-- `ToolDetail` : onglet Diff ou Sortie selon l'outil, Entrée et JSON brut. Read est rendu en `FileView` coloré par hljs.
-- `ContextPanel` : affiche `get_context_usage` (barre + légende). « Compacter maintenant » est testé ; s'il échoue, il est désactivé.
-- `AgentPanel` : affiche le dernier texte de l'agent et le `.kv` type / outils / tokens / coût `—`.
-- `EditDiff.Check` couvre un remplacement d'une ligne au milieu, un ajout pur, Write sur un fichier absent, MultiEdit à deux hunks et `FromPatch` sur le `structuredPatch` du rapport protocole.
-- Rendu conforme à `screens/03.png` et `09.png`.
+**Acceptance criteria:**
+- Composer:
+  - Ctrl ⏎ sends;
+  - placeholders and main button follow the state (table in mockups report §2.5);
+  - the meta shows turn / session / tools / context, with the **cumulative** cost.
+- Model: the menu lists `initialize.models` (`displayName`); a choice calls `set_model`, and the next turn reports the new model in `system/init`.
+- Effort: a click calls `apply_flag_settings {effortLevel}`, then `get_settings.applied.effort` reflects the value, with `.on` on the right button.
+- Fast: disabled with the reason in a tooltip when `fast_mode_state=="off"`.
+- Ultracode: a turn with the toggle active sends `{ultracode:true}` (read in `get_settings.applied.ultracode`), then `{ultracode:false}` after the `result`. A real (costly, default model) trial notes in the PR whether sub-agents appear; otherwise the toggle stays, the tooltip saying it enables the CLI setting.
+- Typing `/` opens a filtered `.pop.slash`, with descriptions and a `built-in` label or plugin name. ↑ / ↓ / Tab work. Sending `/cost` shows the synthetic output in the thread.
+- Permission:
+  - Edit shows a `DiffView` (`EditDiff.FromInput`) whose `+`/`−` lines are those of the `structuredPatch` received afterwards;
+  - PowerShell/Bash shows `pre.cmd`;
+  - Allow, Deny (FR message, `.t.void` "refusé" row, i.e. "denied") and "Whole session" via `setMode` work, by click and by keyboard (⏎, Shift ⏎, Del);
+  - "1 of 2" and "Also waiting" reflect `SessionManager.DecisionQueue`.
+- The `updatedPermissions` case is tested once and the result noted in the PR. If it fails, the button is hidden for those suggestions.
+- `ToolDetail`: Diff or Output tab depending on the tool, Input and raw JSON. Read is rendered as a `FileView` coloured by hljs.
+- `ContextPanel`: shows `get_context_usage` (bar + legend). "Compact now" is tested; if it fails, it is disabled.
+- `AgentPanel`: shows the agent's last text and the `.kv` type / tools / tokens / cost `—`.
+- `EditDiff.Check` covers a one-line replacement in the middle, a pure addition, Write on a missing file, MultiEdit with two hunks and `FromPatch` on the `structuredPatch` from the protocol report.
+- Rendering matches `screens/03.png` and `09.png`.
 
-### WP3 : navigation, démarrage, vue d'ensemble, historique
+### WP3: navigation, start, overview, history
 
-**Fichiers :**
+**Files:**
 - `Layout/Rail.razor`, `Layout/RailSessionRow.razor`, `Layout/QuotaMeter.razor`, `Layout/Mascot.razor`, `Layout/CommandPalette.razor`
 - `Pages/NewSession.razor`, `Pages/Overview.razor`
 - `Core/TranscriptStore.cs`
 
-**Critères d'acceptation :**
-- s1 :
-  - les dossiers récents viennent de `TranscriptStore.Recent` ;
-  - un dossier inexistant affiche « Ce dossier n'existe pas. » ;
-  - le toggle worktree propose un nom slugifié, modifiable, et passe `-w` ;
-  - les 4 modes sont présents (`default` envoyé comme `manual`) ;
-  - « Démarrer » crée la session, envoie le prompt et navigue vers `/session/{id}`.
-- Rail :
-  - « Actives » : sessions vivantes dans l'ordre de création. « Récentes » : `TranscriptStore.Recent` moins les ids vivants ;
-  - pastilles et suffixes de droite selon le statut ;
-  - compteurs « à nettoyer » (`WorktreeService.CleanableCount`, masqué si `null` ou 0) et MCP en échec (`Init.Mcp` de la session vivante la plus récente) masqués à 0 ;
-  - le quota apparaît seulement après un `rate_limit_event` ou `get_usage` ;
-  - l'humeur du canard suit la table de priorité du rapport maquettes §2.2.
-- Palette Ctrl K :
-  - filtre insensible à la casse avec `<mark>` encodé ;
-  - ↑ / ↓ / ⏎ / Échap ;
-  - actions Nouvelle session, Vue d'ensemble, Worktrees, Extensions, Apparence ;
-  - « Thème : X » passe au thème suivant via `claudeUi.setTheme`.
-- s4 : totaux, tableau stable, file des décisions masquée si vide, « aujourd'hui » = somme des coûts des sessions démarrées aujourd'hui.
-- Rendu conforme à `screens/01.png`, `04.png` et `05.png`.
+**Acceptance criteria:**
+- s1:
+  - recent folders come from `TranscriptStore.Recent`;
+  - a non-existent folder shows "This folder does not exist.";
+  - the worktree toggle offers a slugified, editable name, and passes `-w`;
+  - the 4 modes are present (`default` sent as `manual`);
+  - "Start" creates the session, sends the prompt and navigates to `/session/{id}`.
+- Rail:
+  - "Active": live sessions in creation order. "Recent": `TranscriptStore.Recent` minus live ids;
+  - dots and right-hand suffixes according to status;
+  - "to clean up" counters (`WorktreeService.CleanableCount`, hidden if `null` or 0) and failing MCP (`Init.Mcp` of the most recent live session) hidden at 0;
+  - the quota appears only after a `rate_limit_event` or `get_usage`;
+  - the duck's mood follows the priority table of mockups report §2.2.
+- Ctrl K palette:
+  - case-insensitive filter with encoded `<mark>`;
+  - ↑ / ↓ / ⏎ / Esc;
+  - actions New session, Overview, Worktrees, Extensions, Appearance;
+  - "Theme: X" switches to the next theme via `claudeUi.setTheme`.
+- s4: totals, stable table, decision queue hidden when empty, "today" = sum of the costs of sessions started today.
+- Rendering matches `screens/01.png`, `04.png` and `05.png`.
 
-### WP4 : worktrees
+### WP4: worktrees
 
-**Fichiers :** `Core/WorktreeService.cs` (+ `WorktreeService.Check`), `Pages/Worktrees.razor`.
+**Files:** `Core/WorktreeService.cs` (+ `WorktreeService.Check`), `Pages/Worktrees.razor`.
 
-**Critères d'acceptation :**
-- `WorktreeService.Check` couvre `Classify` sur au moins ces cas :
-  - session active dans l'app → Actif ;
-  - verrou avec pid vivant → Actif ;
-  - dossier absent → Orphelin ;
-  - sale → À vérifier ;
-  - commits non poussés et non mergés → À vérifier ;
-  - verrou à pid mort mais tout propre et mergé → À vérifier, plan avec `unlock` ;
-  - mergé et propre → Sûr ;
-  - squash → Sûr, branche gardée ;
-  - frais → Sûr ;
-  - inconnu → À vérifier.
-- Contre un dépôt jetable avec un worktree par état (celui du scratchpad de recherche, `scratchpad\wt\repo`, s'il existe encore ; sinon le recréer par un petit script dans le scratchpad du WP), chaque ligne est classée comme dans le rapport worktrees §3.
-- La page s8 affiche les groupes, les filtres et la taille calculée en arrière-plan (`…` en attendant). L'inspecteur « Nettoyage » montre le plan et les commandes exactes avant confirmation. Les actions par ligne suivent §2.8.
-- L'exécution diffuse chaque commande et son résultat dans `.cmdlog`. `WorktreeService.Check` vérifie qu'aucune étape de `Plan` (tous cas confondus) ne contient `--force`, `-f` ou `-D` (un `Debug.Assert` ne tournerait pas en Release).
-- Avertissement si `.claude/worktrees/` n'est pas ignoré par git.
-- Rendu conforme à `screens/08.png`.
+**Acceptance criteria:**
+- `WorktreeService.Check` covers `Classify` on at least these cases:
+  - active session in the app → Active;
+  - lock with live pid → Active;
+  - missing folder → Orphan;
+  - dirty → To check;
+  - unpushed and unmerged commits → To check;
+  - lock with dead pid but everything clean and merged → To check, plan with `unlock`;
+  - merged and clean → Safe;
+  - squash → Safe, branch kept;
+  - fresh → Safe;
+  - unknown → To check.
+- Against a throwaway repo with one worktree per state (the one in the research scratchpad, `scratchpad\wt\repo`, if it still exists; otherwise recreate it with a small script in the WP's scratchpad), each row is classified as in worktrees report §3.
+- The s8 page shows the groups, the filters and the size computed in the background (`…` while waiting). The "Cleanup" inspector shows the plan and the exact commands before confirmation. The per-row actions follow §2.8.
+- Execution streams each command and its result into `.cmdlog`. `WorktreeService.Check` verifies that no `Plan` step (all cases combined) contains `--force`, `-f` or `-D` (a `Debug.Assert` would not run in Release).
+- Warning if `.claude/worktrees/` is not ignored by git.
+- Rendering matches `screens/08.png`.
 
-### WP5 : extensions et apparence
+### WP5: extensions and appearance
 
-**Fichiers :** `Pages/Extensions.razor`, `Pages/Appearance.razor`.
+**Files:** `Pages/Extensions.razor`, `Pages/Appearance.razor`.
 
-**Critères d'acceptation :**
-- s11 :
-  - source = la session vivante la plus récente, via `RefreshMcp()` (`mcp_status`) ; sans session, l'état vide « Démarre une session pour voir ce que le CLI charge. » ;
-  - onglets MCP / Skills / Agents / Plugins avec leurs compteurs, filtres par état ;
-  - l'inspecteur d'un serveur en échec montre `.errbox` avec `error` ;
-  - `mcp_toggle` et `mcp_reconnect` testés une fois sur un vrai serveur ; contrôle désactivé si échec ;
-  - « Se connecter » désactivé, « bientôt ».
-- s7 :
-  - 5 cartes `.tc[data-theme]` dont l'aperçu suit leurs propres tokens ;
-  - un clic applique le thème immédiatement et le persiste ;
-  - la taille du code (12 à 15) est persistée ;
-  - l'aperçu passe par `Md.Render` ;
-  - l'état initial est lu par `OnAfterRenderAsync(firstRender)`.
-- Rendu conforme à `screens/07.png` et `11.png`.
+**Acceptance criteria:**
+- s11:
+  - source = the most recent live session, via `RefreshMcp()` (`mcp_status`); without a session, the empty state "Start a session to see what the CLI loads.";
+  - MCP / Skills / Agents / Plugins tabs with their counters, filters by state;
+  - the inspector of a failing server shows `.errbox` with `error`;
+  - `mcp_toggle` and `mcp_reconnect` tested once on a real server; control disabled on failure;
+  - "Sign in" disabled, "coming soon".
+- s7:
+  - 5 `.tc[data-theme]` cards whose preview follows their own tokens;
+  - a click applies the theme immediately and persists it;
+  - the code size (12 to 15) is persisted;
+  - the preview goes through `Md.Render`;
+  - the initial state is read by `OnAfterRenderAsync(firstRender)`.
+- Rendering matches `screens/07.png` and `11.png`.
 
-### Ordre et intégration
+### Order and integration
 
 ```
-WP0 ──► { WP1, WP2, WP3, WP4, WP5 } en parallèle ──► intégration (lead)
+WP0 ──► { WP1, WP2, WP3, WP4, WP5 } in parallel ──► integration (lead)
 ```
 
-- Aucun fichier n'appartient à deux WP (§5.0 point 5), `app.css` compris (WP0 seul).
-- Chaque WP travaille dans **son propre worktree git** créé depuis le commit de WP0 (`git worktree add ../ClaudeCodeUI-wpN`) : un seul dossier partagé ferait se battre les `dotnet build` sur `obj/` et les `dotnet run` sur le port. Chaque WP lance l'app sur son propre port (`--urls http://localhost:51N0`).
-- Un WP qui a besoin d'un changement de contrat le signale au lieu de modifier un fichier qui ne lui appartient pas.
-- Intégration :
-  1. build ;
-  2. self-check ;
-  3. parcours complet s1→s11 ;
-  4. passe de captures (§6) ;
-  5. suppression des stubs restants.
+- No file belongs to two WPs (§5.0 point 5), `app.css` included (WP0 alone).
+- Each WP works in **its own git worktree** created from the WP0 commit (`git worktree add ../ClaudeCodeUI-wpN`): a single shared folder would make the `dotnet build`s fight over `obj/` and the `dotnet run`s over the port. Each WP runs the app on its own port (`--urls http://localhost:51N0`).
+- A WP that needs a contract change reports it instead of modifying a file it does not own.
+- Integration:
+  1. build;
+  2. self-check;
+  3. full walkthrough s1→s11;
+  4. screenshot pass (§6);
+  5. removal of the remaining stubs.
 
 ---
 
-## 6. Vérification
+## 6. Verification
 
-1. **Build** : `dotnet build` avec 0 erreur et aucun nouvel avertissement ; on peut ajouter `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` à l'intégration si c'est déjà propre.
-2. **Contrôle exécutable** : `dotnet run -- --self-check` exécute les `Check()` décrits plus haut (événements, réducteur, Md, EditDiff, classement des worktrees). Il sort avec un code non nul et un message clair au premier échec. Pas de projet xunit : un dossier `tests/` sous la racine serait compilé dans le projet web (glob `**/*.cs` par défaut), et un seul point d'entrée suffit.
-3. **Parcours manuel** avec `dotnet run` et `--model haiku` dans un dépôt jetable du scratchpad : nouvelle session avec worktree, Edit autorisé, Write refusé, interruption, sous-agent, `/cost`, crash forcé, relance, reprise depuis « Récentes », nettoyage du worktree créé.
-4. **Captures** : navigateur headless (MCP chrome-devtools ou `msedge --headless --screenshot --window-size=1440,900`). On compare page par page avec `docs/mockups/screens/NN.png`, à données différentes près : structure, espacements, couleurs, polices. On fait passer les 5 thèmes au moins sur s2. Les écarts acceptés sont listés dans le PR.
-5. **Pas de régression de sécurité** : Markdig garde `DisableHtml()`, et tout texte inséré dans un `MarkupString` (palette, `Md`) est encodé avec `HtmlEncoder`.
+1. **Build**: `dotnet build` with 0 errors and no new warnings; `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` can be added at integration if it is already clean.
+2. **Executable check**: `dotnet run -- --self-check` runs the `Check()`s described above (events, reducer, Md, EditDiff, worktree classification). It exits with a non-zero code and a clear message on the first failure. No xunit project: a `tests/` folder under the root would be compiled into the web project (default `**/*.cs` glob), and a single entry point is enough.
+3. **Manual walkthrough** with `dotnet run` and `--model haiku` in a throwaway repo in the scratchpad: new session with worktree, Edit allowed, Write denied, interruption, sub-agent, `/cost`, forced crash, restart, resume from "Recent", cleanup of the created worktree.
+4. **Screenshots**: headless browser (MCP chrome-devtools or `msedge --headless --screenshot --window-size=1440,900`). Compare page by page with `docs/mockups/screens/NN.png`, data aside: structure, spacing, colours, fonts. Run the 5 themes at least on s2. Accepted differences are listed in the PR.
+5. **No security regression**: Markdig keeps `DisableHtml()`, and any text inserted into a `MarkupString` (palette, `Md`) is encoded with `HtmlEncoder`.
 
 ---
 
-## 7. Risques et questions ouvertes
+## 7. Risks and open questions
 
-| Risque | Mitigation |
+| Risk | Mitigation |
 |---|---|
-| WP0 est gros et bloque tout | il ne livre que contrats, réducteur, coquille et CSS ; les stubs permettent de démarrer les WP dès qu'il compile |
-| Débit du flux partiel (une notification par delta) | limitation à 50 ms dans `LiveSession` ; Markdown rendu une fois par bloc complet, texte brut pendant le flux |
-| Lecture concurrente des listes pendant le rendu | `ImmutableList` à copie à l'écriture, un seul écrivain par session |
-| Relecture du diff depuis le `.jsonl` non testée en vrai | `EditDiff` recalcule depuis l'entrée de l'outil (§1.2) |
-| Une version du CLI qui changerait le comportement d'ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect` ou `/compact` | relancer `dotnet run -- --probe-cli` ; sur un FAIL, contrôle désactivé (§1.2) |
-| Mode rapide presque toujours indisponible sur ce compte (`extra_usage_disabled`) | affiché désactivé avec la raison, ce qui correspond à la maquette |
-| Les sessions vivantes meurent au redémarrage du serveur | elles réapparaissent dans « Récentes » et se reprennent via `--resume` ; pas de persistance propre |
-| Worktrees `-w` verrouillés par pid, puis verrou périmé | classés « À vérifier », `unlock` explicite dans le plan, jamais `--force` |
-| Scan de `~/.claude/projects` lent (865 dossiers) | 30 derniers jours, 64 Ko par fichier, cache, rescan sur « Rafraîchir » |
-| Ctrl N intercepté par le navigateur | Alt N en plus, libellé conservé |
-| Hooks de l'utilisateur qui produisent du bruit (`hook_*`, `stop-hook-error`) | ignorés par `Events.Parse` |
-| `bypassPermissions` / `dontAsk` existent dans le CLI | volontairement non exposés dans l'interface |
+| WP0 is big and blocks everything | it only delivers contracts, reducer, shell and CSS; the stubs allow starting the WPs as soon as it compiles |
+| Partial-stream throughput (one notification per delta) | 50 ms throttling in `LiveSession`; Markdown rendered once per complete block, plain text during the stream |
+| Concurrent reading of the lists during rendering | copy-on-write `ImmutableList`, a single writer per session |
+| Diff replay from the `.jsonl` not tested for real | `EditDiff` recomputes from the tool input (§1.2) |
+| A CLI version that would change the behaviour of ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect` or `/compact` | rerun `dotnet run -- --probe-cli`; on a FAIL, control disabled (§1.2) |
+| Fast mode almost always unavailable on this account (`extra_usage_disabled`) | shown disabled with the reason, which matches the mockup |
+| Live sessions die on server restart | they reappear in "Recent" and resume via `--resume`; no dedicated persistence |
+| `-w` worktrees locked by pid, then stale lock | classified "To check", explicit `unlock` in the plan, never `--force` |
+| Slow scan of `~/.claude/projects` (865 folders) | last 30 days, 64 KB per file, cache, rescan on "Refresh" |
+| Ctrl N intercepted by the browser | Alt N in addition, label kept |
+| User hooks that produce noise (`hook_*`, `stop-hook-error`) | ignored by `Events.Parse` |
+| `bypassPermissions` / `dontAsk` exist in the CLI | deliberately not exposed in the interface |
 
-**Décisions par défaut (modifiables) :**
-1. Ultracode s'applique « pour ce tour », comme dans la maquette.
-2. Le mode `auto` est proposé dans s1, avec la mention « à utiliser avec prudence ».
-3. Les polices Geist (licence OFL, ~100 Ko) sont auto-hébergées dans le dépôt.
-4. Sans worktree, une session prend par défaut le slug des 4 premiers mots du prompt.
+**Default decisions (changeable):**
+1. Ultracode applies "for this turn", as in the mockup.
+2. The `auto` mode is offered in s1, with the note "use with caution".
+3. The Geist fonts (OFL licence, ~100 KB) are self-hosted in the repository.
+4. Without a worktree, a session defaults to the slug of the first 4 words of the prompt.

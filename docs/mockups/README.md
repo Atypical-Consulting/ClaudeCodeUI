@@ -1,27 +1,27 @@
-# Mockups · Console graphite
+# Mockups · Graphite console
 
-Maquettes de l'interface web de Claude Code UI. Ouvrir [`index.html`](index.html) dans un navigateur : 11 écrans, 5 thèmes sombres, sélecteur de thème en haut de page. Les noms, coûts et durées sont fictifs.
+Mockups of the Claude Code UI web interface. Open [`index.html`](index.html) in a browser: 11 screens, 5 dark themes, theme picker at the top of the page. Names, costs and durations are fictional.
 
-| # | Écran | |
+| # | Screen | |
 |--:|---|---|
-| 1 | Démarrage d'une session (dossier, worktree, mode de permission) | ![](screens/01.png) |
-| 2 | Session en cours (streaming, journal d'outils, inspecteur) | ![](screens/02.png) |
-| 3 | Demande de permission (diff complet) | ![](screens/03.png) |
-| 4 | Vue d'ensemble multi-sessions et file des décisions | ![](screens/04.png) |
-| 5 | Sélecteur `Ctrl K` et processus arrêté | ![](screens/05.png) |
-| 6 | Rendu markdown (sortie Markdig + highlight.js) | ![](screens/06.png) |
-| 7 | Apparence et thèmes | ![](screens/07.png) |
-| 8 | Worktrees : ménage sans risque | ![](screens/08.png) |
-| 9 | Composer : modèle, effort, ultracode, commandes `/` | ![](screens/09.png) |
-| 10 | Ultracode et sous-agents | ![](screens/10.png) |
-| 11 | Extensions : MCP, skills, agents, plugins, hooks | ![](screens/11.png) |
+| 1 | Starting a session (folder, worktree, permission mode) | ![](screens/01.png) |
+| 2 | Running session (streaming, tool ledger, inspector) | ![](screens/02.png) |
+| 3 | Permission request (full diff) | ![](screens/03.png) |
+| 4 | Multi-session overview and decision queue | ![](screens/04.png) |
+| 5 | `Ctrl K` picker and stopped process | ![](screens/05.png) |
+| 6 | Markdown rendering (Markdig + highlight.js output) | ![](screens/06.png) |
+| 7 | Appearance and themes | ![](screens/07.png) |
+| 8 | Worktrees: risk-free cleanup | ![](screens/08.png) |
+| 9 | Composer: model, effort, ultracode, `/` commands | ![](screens/09.png) |
+| 10 | Ultracode and sub-agents | ![](screens/10.png) |
+| 11 | Extensions: MCP, skills, agents, plugins, hooks | ![](screens/11.png) |
 
-## Régénérer
+## Regenerate
 
-Les sources sont dans `.impeccable/mockups/` (`graphite.src.html` + `build.js`). Les SVG du canard (BlazorKawaii 2.2.0) et le HTML Markdig sont pré-rendus dans `inputs/`.
+The sources are in `.impeccable/mockups/` (`graphite.src.html` + `build.js`). The duck SVGs (BlazorKawaii 2.2.0) and the Markdig HTML are pre-rendered in `inputs/`.
 
 ```bash
-bash .impeccable/mockups/shoot.sh   # reconstruit index.html et capture les écrans dans .impeccable/review/
+bash .impeccable/mockups/shoot.sh   # rebuilds index.html and captures the screens into .impeccable/review/
 ```
 
-Direction et contrat de design : [`PRODUCT.md`](../../PRODUCT.md), [`.impeccable/surfaces/`](../../.impeccable/surfaces/).
+Design direction and contract: [`PRODUCT.md`](../../PRODUCT.md), [`.impeccable/surfaces/`](../../.impeccable/surfaces/).
