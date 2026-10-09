@@ -19,6 +19,8 @@
     }
     else if (MentionQuery is { } mq)
     {
+        @* No @key needed: SessionPage keys its pane by session, so another session gets a new Composer and a new scan.
+           OnReady is a no-op on purpose: invoking an EventCallback built here re-renders the Composer (aria-activedescendant). *@
         <MentionPopover @ref="mention" Session="Session" Query="@mq" OnPick="PickMention" OnReady="() => { }" />
     }
     <div class="box" @ref="box">
@@ -347,7 +349,7 @@
             switch (e.Key)
             {
                 case "ArrowDown" or "ArrowUp": mention!.Key(e.Key); break;
-                case "Tab": await mention!.Pick(); break;   // the browser moved the focus; PickMention puts it back
+                case "Tab" when !e.ShiftKey: await mention!.Pick(); break;   // the browser moved the focus; PickMention puts it back
             }
             return;
         }

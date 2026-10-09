@@ -53,10 +53,12 @@
         await OnReady.InvokeAsync();
     }
 
+    // Only on a new Query: the parent re-renders every ~50 ms while a turn streams, and a filter over 20k paths costs ms.
     protected override void OnParametersSet()
     {
-        if (Query != q) sel = 0;
+        if (Query == q) return;
         q = Query;
+        sel = 0;
         Refilter();
     }
 
