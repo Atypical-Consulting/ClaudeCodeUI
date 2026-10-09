@@ -330,6 +330,7 @@
                 await Task.Delay(2000, ct);
                 if (!s.HasProcess) { auth = null; return; }
                 await s.RefreshMcp();
+                ct.ThrowIfCancellationRequested();   // a newer sign-in took over while mcp_status was in flight
                 if (Servers(s).FirstOrDefault(x => x.Name == name)?.Status is not ("needs-auth" or "pending")) { auth = null; return; }
             }
             auth = null;
