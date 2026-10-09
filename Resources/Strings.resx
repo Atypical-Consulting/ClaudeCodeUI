@@ -89,6 +89,8 @@
   <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Diff.MoreLines" xml:space="preserve"><value>Lines not shown: {0}</value></data>
+  <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences not shown: {0}</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copy error</value></data>
   <data name="Error.CopyApi" xml:space="preserve"><value>Copy the API error</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copy request ID</value></data>
