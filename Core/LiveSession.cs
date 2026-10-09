@@ -225,12 +225,13 @@ public sealed class LiveSession : IAsyncDisposable
         static DateTimeOffset Reset(JsonElement w) => DateTimeOffset.TryParse(Events.Str(w, "resets_at"), out var t) ? t : default;
     }
 
-    Task OnEvent(JsonElement raw)
+    internal Task OnEvent(JsonElement raw)
     {
         foreach (var e in Events.ParseAll(raw))
         {
             var cwd = Cwd;
             Apply(e);
+            if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
             if (e is TextDeltaEvt) Throttled(); else Notify();
             if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
             if (e is ResultEvt && turnUltra)
@@ -474,6 +475,17 @@ public sealed class LiveSession : IAsyncDisposable
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var s = new LiveSession("id", "essai", @"C:\w", "default");
+
+        var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
+        try
+        {
+            var c = new LiveSession(cid, "c", @"C:\w", "default");
+            c.OnEvent(JsonDocument.Parse("""{"type":"result","subtype":"success","is_error":false,"duration_ms":10,"num_turns":1,"total_cost_usd":0.0123}""").RootElement);
+            Ok(TranscriptStore.RecordedCost(cid) == 0.0123m && c.CostUsd == 0.0123m, "result recorded in ledger");
+            new LiveSession(zid, "z", @"C:\w", "default").OnEvent(JsonDocument.Parse("""{"type":"result","subtype":"success","is_error":false,"duration_ms":10,"num_turns":1,"total_cost_usd":0}""").RootElement);
+            Ok(TranscriptStore.RecordedCost(zid) is null, "slash result not recorded");
+        }
+        finally { foreach (var i in new[] { cid, zid }) TranscriptStore.DeleteCost(i); }
 
         s.BeginTurn("crée b.txt");
         Ok(s.Status == SessionStatus.Running && s.TurnStartedAt is not null && s.Items is [UserItem { Text: "crée b.txt" }], "send");

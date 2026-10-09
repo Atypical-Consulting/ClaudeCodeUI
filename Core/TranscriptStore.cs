@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -72,7 +73,27 @@ public static class TranscriptStore
     }
 
     // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
-    public static decimal PersistedCost(string id) => Find(id) is { } path ? Read(new FileInfo(path))?.CostUsd ?? 0 : 0;
+    // Raw cost-state: what the CLI restores on --resume (EnsureProcess subtracts it).
+    public static decimal PersistedCost(string id) => Find(id) is { } path ? CostState(new FileInfo(path)) ?? 0 : 0;
+
+    // cost-state is only written on a clean CLI exit; the ledger holds what the UI saw (ResultEvt.TotalCostUsd).
+    static readonly string CostDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeCodeUI", "costs");
+
+    public static void RecordCost(string id, decimal usd)
+    {
+        try { Directory.CreateDirectory(CostDir); File.WriteAllText(Path.Combine(CostDir, id + ".txt"), usd.ToString(CultureInfo.InvariantCulture)); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    internal static void DeleteCost(string id) { try { File.Delete(Path.Combine(CostDir, id + ".txt")); } catch (IOException) { } }
+
+    internal static decimal? RecordedCost(string id)
+    {
+        try { return decimal.TryParse(File.ReadAllText(Path.Combine(CostDir, id + ".txt")), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    internal static decimal? CostState(FileInfo f) => Read(f, false)?.CostUsd;
 
     public static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 
@@ -106,7 +127,7 @@ public static class TranscriptStore
     }
 
     // Head and tail (64 KB each) are enough: metadata lines are rewritten near the end, cwd/branch sit in the first user line.
-    static PastSession? Read(FileInfo f)
+    static PastSession? Read(FileInfo f, bool ledger = true)
     {
         string text;
         try
@@ -139,7 +160,9 @@ public static class TranscriptStore
             }
         }
         var title = custom ?? agent ?? ai ?? Trunc(last) ?? Trunc(firstUser) ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
-        return new(Path.GetFileNameWithoutExtension(f.Name), cwd, branch, title, cost, f.LastWriteTime, worktree);
+        var id = Path.GetFileNameWithoutExtension(f.Name);
+        if (ledger && RecordedCost(id) is { } rec) cost = Math.Max(cost ?? 0, rec);
+        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree);
     }
 
     static string ReadAt(FileStream fs, long at, int count)
@@ -210,6 +233,21 @@ public static class TranscriptStore
                && t1.EndedAt - t1.StartedAt == TimeSpan.FromSeconds(2) && t2.EndedAt == t2.StartedAt, "replay");
         }
         finally { File.Delete(path); }
+
+        // The cost-state is stale (clean exits only); the UI ledger carries the real spend.
+        var cid = Guid.NewGuid().ToString();
+        var cpath = Path.Combine(Path.GetTempPath(), cid + ".jsonl");
+        File.WriteAllLines(cpath, [
+            """{"type":"user","message":{"role":"user","content":"x"},"cwd":"C:\\repo\\api","gitBranch":"main"}""",
+            """{"type":"cost-state","sessionId":"s","totalCostUSD":0.00062763}""",
+        ]);
+        try
+        {
+            RecordCost(cid, 0.01506324m);
+            Ok(Read(new FileInfo(cpath)) is { CostUsd: 0.01506324m }, "ledger beats stale cost-state");
+            Ok(CostState(new FileInfo(cpath)) == 0.00062763m, "cost-state stays raw");
+        }
+        finally { File.Delete(cpath); DeleteCost(cid); }
 
         // Background agent: launch receipt, then the task-notification 5 s later (no duration tag → timestamp decides).
         var bg = Replay([

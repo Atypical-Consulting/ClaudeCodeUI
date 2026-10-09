@@ -242,7 +242,7 @@ static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 
 - Lire au plus 64 Ko en tête et 64 Ko en queue par fichier.
 - Titre : `custom-title` → `agent-name` → `ai-title` → `last-prompt` (tronqué) → premier texte `user`.
-- Coût : `cost-state.totalCostUSD`.
+- Coût : max de `cost-state.totalCostUSD` et du registre de l'UI `%LOCALAPPDATA%\ClaudeCodeUI\costs\<id>.txt` (écrit à chaque `result` coûteux). `cost-state` n'est écrit que si le CLI sort proprement ; `PersistedCost` reste le `cost-state` brut que `--resume` restaure.
 - Mettre le résultat de `Recent` en cache 30 s.
 
 ### 2.8 `WorktreeService` (singleton)
