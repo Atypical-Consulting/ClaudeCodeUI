@@ -1047,30 +1047,34 @@ public static class CliProbe
     // transcript-search: the CLI writes the turn to ~/.claude/projects/<slug>/<session_id>.jsonl in the shape
     // TranscriptStore.Search reads: the user prompt as user text, the reply as an assistant text block.
     // The reply's token is not in the prompt (the prompt splits it), so a hit on it can only come from assistant text.
-    // search-bounds: a query matching nothing scans the transcripts within the byte budget and returns.
+    // The user query carries quotes, so it also checks the escaped raw prefilter against the line the CLI really wrote.
+    // search-bounds: a random query gets no hit (no false positive), and a 1-byte budget stops the scan short
+    // (Complete=false). The default budget's timing is reported, not judged.
     static Task<IEnumerable<(string, string, string)>> TranscriptSearch(string dir) => Guard(["transcript-search", "search-bounds"], async () =>
     {
         var token = "ccuiprobe" + Guid.NewGuid().ToString("N")[..10];
         string? id;
         await using (var c = await Cli.Start(dir))   // exited before searching: the file is complete
         {
-            var turn = await c.Turn($"Join the two words {token[..9]} and {token[9..]} without any space or other character. Reply with the joined word only.");
+            var turn = await c.Turn($"Join the two words \"{token[..9]}\" and \"{token[9..]}\" without any space or other character. Reply with the joined word only.");
             id = turn.Select(e => Events.Str(e, "session_id")).LastOrDefault(s => s is not null);
         }
         if (id is null) return [("FAIL", "no session_id in the turn"), ("SKIP", "no session")];
 
         string Found(string q) =>
             TranscriptStore.Search(q, 5, CancellationToken.None).Hits.FirstOrDefault(h => h.Session.Id == id) is { } h ? $"\"{h.Snippet}\"" : "none";
-        var user = Found($"{token[..9]} and {token[9..]}");
+        var user = Found($"\"{token[..9]}\" and \"{token[9..]}\"");
         var assistant = Found(token);
         var detail = $"{Path.GetFileName(TranscriptStore.Find(id))}: user hit {user}; assistant hit {assistant}";
 
+        var random = "ccui-no-such-text-" + Guid.NewGuid().ToString("N");
         var watch = Stopwatch.StartNew();
-        var (none, complete) = TranscriptStore.Search("ccui-no-such-text-" + Guid.NewGuid().ToString("N"), 20, CancellationToken.None);
+        var (none, complete) = TranscriptStore.Search(random, 20, CancellationToken.None);
+        var ms = watch.ElapsedMilliseconds;
+        var (_, cutComplete) = TranscriptStore.Search(random, 20, CancellationToken.None, budget: 1);
+        var bounds = $"{none.Count} hits in {ms} ms, {(complete ? "every transcript read" : "stopped at the byte budget")}; 1-byte budget complete={cutComplete}";
         return [(user != "none" && assistant != "none" ? "PASS" : "FAIL", detail),
-            none.Count == 0
-                ? ("PASS", $"0 hits in {watch.ElapsedMilliseconds} ms, {(complete ? "every transcript read" : "stopped at the byte budget")}")
-                : ("FAIL", $"{none.Count} hits for a random token")];
+            (none.Count == 0 && !cutComplete ? "PASS" : "FAIL", bounds)];
     });
 
     // ---------- plumbing ----------
