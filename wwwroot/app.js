@@ -21,10 +21,11 @@
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
-        // Pin a scroller to its bottom after each render, unless the user scrolled up.
-        scrollEnd(el) {
+        // Pin a scroller to its bottom after each render, unless the user scrolled up (force: pin anyway).
+        scrollEnd(el, force) {
             if (!el) return;
             if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+            if (force) el._free = false;
             if (!el._free) el.scrollTop = el.scrollHeight;
         },
     };
