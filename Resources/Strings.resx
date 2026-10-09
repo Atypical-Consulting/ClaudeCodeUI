@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude is still working. Press Esc to interrupt, or send when the turn ends.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
@@ -56,9 +57,12 @@
   <data name="Composer.PermissionMode" xml:space="preserve"><value>Permission mode</value></data>
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session stopped. Restart it to continue.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Reply to Claude…</value></data>
+  <data name="Composer.PhHistory" xml:space="preserve"><value>Send a message to resume this session…</value></data>
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. You can draft what's next…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Or tell Claude what you want instead…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. You can draft what's next…</value></data>
+  <data name="Composer.DenyAndSend" xml:space="preserve"><value>Deny {0} and send</value></data>
+  <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Pending permission requests are denied first, then your message is sent.</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
@@ -88,8 +92,9 @@
   <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Diff.MoreLines" xml:space="preserve"><value>Lines not shown: {0}</value></data>
+  <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences not shown: {0}</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copy error</value></data>
-  <data name="Error.CopyApi" xml:space="preserve"><value>Copy the API error</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copy request ID</value></data>
   <data name="Error.Heading" xml:space="preserve"><value>Something went wrong on the server.</value></data>
   <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
@@ -165,6 +170,7 @@
   <data name="Md.PlainText" xml:space="preserve"><value>text</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepts edits, asks for the shell</value></data>
   <data name="Mode.auto" xml:space="preserve"><value>Never interrupts, use with care</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} edits files without asking. Pick it again to confirm.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Asks before every sensitive tool</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
@@ -181,12 +187,17 @@
   <data name="New.HintInspector" xml:space="preserve"><value>inspector</value></data>
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
+  <data name="New.HomeFolder" xml:space="preserve"><value>This is your home folder: Claude can read and edit everything in it, and there's no worktree to isolate it. Prefer a project folder.</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Trust this folder</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>This folder came from a link and you haven't used it before. Claude will load its .claude settings and hooks.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Describe the task…</value></data>
+  <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} edits this folder without asking, outside an isolated worktree.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Start</value></data>
+  <data name="New.StartAnyway" xml:space="preserve"><value>Start anyway</value></data>
   <data name="New.Step1" xml:space="preserve"><value>1. Install Claude Code</value></data>
   <data name="New.Step2" xml:space="preserve"><value>2. Sign in</value></data>
   <data name="New.Step2Text" xml:space="preserve"><value>Run &lt;code&gt;claude&lt;/code&gt; once in a terminal and sign in.</value></data>
@@ -213,7 +224,6 @@
   <data name="Ov.Today" xml:space="preserve"><value>today</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
-  <data name="Palette.CloseSession" xml:space="preserve"><value>Close this session</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>
   <data name="Palette.NewSessionIn" xml:space="preserve"><value>New session in {0}</value></data>
   <data name="Palette.NoResults" xml:space="preserve"><value>No results</value></data>
@@ -227,8 +237,11 @@
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>switches the session to {0} mode</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>allows {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
@@ -258,13 +271,20 @@
   <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or recent transcript has this ID.</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Session.TitleRunning" xml:space="preserve"><value>Running</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
+  <data name="Session.Stop" xml:space="preserve"><value>End session</value></data>
+  <data name="Session.StopHint" xml:space="preserve"><value>Stop the claude process. The transcript stays under Recent.</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>unknown error</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>built-in</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commands and skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Agents are working…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>done</value></data>
+  <data name="Status.Elsewhere" xml:space="preserve"><value>running elsewhere</value></data>
+  <data name="Status.ElsewhereLine" xml:space="preserve"><value>Open in another claude. Sending from here would run a second process on the same session.</value></data>
+  <data name="Status.History" xml:space="preserve"><value>history</value></data>
+  <data name="Status.HistoryLine" xml:space="preserve"><value>History. Sending a message resumes this session in {0} mode.</value></data>
   <data name="Status.Interrupted" xml:space="preserve"><value>Interrupted</value></data>
   <data name="Status.Paused" xml:space="preserve"><value>Claude is paused: {0} needs your approval</value></data>
   <data name="Status.Running" xml:space="preserve"><value>running</value></data>
@@ -272,6 +292,7 @@
   <data name="Status.StartingClaude" xml:space="preserve"><value>Starting claude…</value></data>
   <data name="Status.Thinking" xml:space="preserve"><value>thinking {0} tokens</value></data>
   <data name="Status.ToolRunning" xml:space="preserve"><value>{0} running…</value></data>
+  <data name="Status.TurnDone" xml:space="preserve"><value>Claude finished</value></data>
   <data name="Status.TurnError" xml:space="preserve"><value>The turn ended with an error: {0}</value></data>
   <data name="Status.WaitingOn" xml:space="preserve"><value>waiting · {0}</value></data>
   <data name="Status.WhatCommand" xml:space="preserve"><value>a command</value></data>

@@ -1,7 +1,7 @@
 @if (Session.Status == SessionStatus.Crashed)
 {
-    <div class="crash">
-        <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="72" Color="#FCCC0A" /></div>
+    <div class="crash" role="alert">
+        <div class="duck" aria-hidden="true"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="72" Color="#FCCC0A" /></div>
         <div>
             <h4>@L["Crash.Title"]</h4>
             <p>@L["Crash.Text"]</p>
