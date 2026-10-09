@@ -26,7 +26,7 @@ public static class CliProbe
             Git(dir, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "-q", "-m", "init");
 
             var fails = 0;
-            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession })
+            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession, Mcp })
                 foreach (var (verdict, id, detail) in await probe(dir))
                 {
                     Console.WriteLine($"{verdict} {id}: {detail}");
@@ -105,6 +105,45 @@ public static class CliProbe
             return [ran == 0 ? ("FAIL", $"inconclusive: no {tool} tool_use in the second turn")
                 : asked == 0 ? ("PASS", $"{types} honoured, {tool} ran again with 0 re-prompts")
                 : ("FAIL", $"{types} not honoured, {asked} re-prompt(s) for {tool}")];
+        });
+    }
+
+    // mcp-toggle: mcp_toggle {enabled:false} turns a server `disabled` in mcp_status, {enabled:true} brings it back.
+    // mcp-reconnect: mcp_reconnect is answered (success or error) and leaves the unstartable server `failed`.
+    // The server is the probe's own (--strict-mcp-config): a stdio command that does not exist, so it is always `failed`.
+    static async Task<IEnumerable<(string, string, string)>> Mcp(string dir)
+    {
+        var config = Path.Combine(dir, "mcp.json");
+        File.WriteAllText(config, """{"mcpServers":{"probe":{"command":"ccui-probe-missing-binary"}}}""");
+        await using var c = await Cli.Start(dir, "--mcp-config", config, "--strict-mcp-config");
+        return await Guard(["mcp-toggle", "mcp-reconnect"], async () =>
+        {
+            async Task<string> Status() =>
+                Events.Prop(await c.S.Request("mcp_status"), "mcpServers") is { ValueKind: JsonValueKind.Array } a
+                && a.EnumerateArray().FirstOrDefault(m => Events.Str(m, "name") == "probe") is { ValueKind: JsonValueKind.Object } m
+                    ? Events.Str(m, "status") ?? "?" : "absent";
+            async Task<string> Toggle(bool on)
+            {
+                // Enabling a server that cannot start may answer an error: the status read back is what counts.
+                var err = "";
+                try { await c.S.Request("mcp_toggle", new() { ["serverName"] = "probe", ["enabled"] = on }, Seconds); }
+                catch (ClaudeRequestException ex) { err = $" (error \"{ex.Message}\")"; }
+                return await Status() + err;
+            }
+
+            var before = await Status();
+            var off = await Toggle(false);
+            var on = await Toggle(true);
+            var toggle = off == "disabled" && !on.StartsWith("disabled")
+                ? ("PASS", $"{before} → {off} → {on}")
+                : ("FAIL", $"{before} → {off} → {on}");
+
+            string answer;
+            try { await c.S.Request("mcp_reconnect", new() { ["serverName"] = "probe" }, Seconds); answer = "success"; }
+            catch (ClaudeRequestException ex) { answer = $"error \"{ex.Message}\""; }
+            catch (TimeoutException) { return [toggle, ("FAIL", "mcp_reconnect unanswered")]; }
+            var after = await Status();
+            return [toggle, after == "failed" ? ("PASS", $"answered {answer}, status {after}") : ("FAIL", $"answered {answer}, status {after}")];
         });
     }
 
