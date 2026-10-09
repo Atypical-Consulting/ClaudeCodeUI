@@ -58,6 +58,7 @@ public sealed class LiveSession : IAsyncDisposable
     public int ThinkingTokens { get; private set; }
     public decimal CostUsd { get; internal set; }
     public decimal LastTurnCostUsd { get; private set; }
+    decimal costBase;                                          // cost of earlier processes of this session
     public int ToolCount { get; private set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
@@ -171,6 +172,7 @@ public sealed class LiveSession : IAsyncDisposable
         ClaudeSession s = null!;
         try
         {
+            costBase = CostUsd;
             s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text));
         }
         catch (Exception ex)
@@ -191,7 +193,11 @@ public sealed class LiveSession : IAsyncDisposable
     {
         try
         {
-            var info = await p.Request("initialize");
+            // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute: retry rather than lose the models list.
+            JsonElement info = default;
+            for (var i = 0; ; i++)
+                try { info = await p.Request("initialize", null, 60); break; }
+                catch (TimeoutException) when (i < 2) { Console.Error.WriteLine($"[{Id}] initialize : pas de réponse, nouvel essai"); }
             InitializeInfo = info;
             Console.WriteLine($"[{Id}] initialize : {Count(info, "models")} modèles, {Count(info, "commands")} commandes");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
@@ -373,8 +379,8 @@ public sealed class LiveSession : IAsyncDisposable
                 if (r.Structured is { } s && Events.Prop(s, "totalTokens") is { ValueKind: JsonValueKind.Number } tok) t.Tokens = tok.GetInt64();
                 break;
 
-            case UserTextEvt u when u.Text != "[Request interrupted by user]":
-                Items = Items.Add(new UserItem(u.Text, u.At ?? now, false));
+            case UserTextEvt u when UserText(u.Text) is { } text:
+                Items = Items.Add(new UserItem(text, u.At ?? now, false));
                 break;
 
             case PermissionEvt p:
@@ -384,14 +390,14 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case ResultEvt r:
-                if (r.TotalCostUsd > 0)   // cumulative: assign, never add (slash commands report 0)
+                if (r.TotalCostUsd > 0)   // cumulative per process: assign, never add (slash commands report 0); a relaunch restarts at 0
                 {
-                    LastTurnCostUsd = r.TotalCostUsd - CostUsd;
-                    CostUsd = r.TotalCostUsd;
+                    LastTurnCostUsd = costBase + r.TotalCostUsd - CostUsd;
+                    CostUsd = costBase + r.TotalCostUsd;
                 }
                 else LastTurnCostUsd = 0;
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
-                LastResultSubtype = r.TerminalReason == "aborted_streaming" ? "interrompu" : r.Subtype;
+                LastResultSubtype = r.TerminalReason?.StartsWith("aborted") == true ? "interrompu" : r.Subtype;
                 LastResultAt = now;
                 if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
                 if (r.ContextWindow is { } w) ContextWindow = w;
@@ -465,5 +471,16 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == "interrompu" && s.ContextTokens == 41878, "interrupted turn");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
+        Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
+            && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
+    }
+
+    // Echoed slash commands come back as tags: "<command-name>/x</command-name>…<command-args>a</command-args>" → "/x a"; their output is hidden.
+    static string? UserText(string t)
+    {
+        if (t.StartsWith("[Request interrupted by user") || t.StartsWith("<local-command-") || t.StartsWith("<task-notification>")) return null;
+        if (System.Text.RegularExpressions.Regex.Match(t, "<command-name>(.*?)</command-name>") is not { Success: true } m) return t;
+        var args = System.Text.RegularExpressions.Regex.Match(t, "<command-args>(.*?)</command-args>", System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value.Trim();
+        return args.Length > 0 ? $"{m.Groups[1].Value} {args}" : m.Groups[1].Value;
     }
 }

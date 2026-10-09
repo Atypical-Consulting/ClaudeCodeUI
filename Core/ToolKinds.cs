@@ -25,7 +25,7 @@ public static class ToolKinds
         if (Events.Str(input, "file_path") is { } f) return Relative(f, cwd);
         if (Events.Str(input, "command") is { } c) return c;
         if (Events.Str(input, "pattern") is { } p)
-            return (Events.Str(input, "glob") ?? Events.Str(input, "path")) is { } where ? $"{p} · {Relative(where, cwd)}" : p;
+            return (Events.Str(input, "glob") ?? Events.Str(input, "path")) is { } where && Relative(where, cwd) is var w && w != "." ? $"{p} · {w}" : p;
         return Events.Str(input, "description") ?? Events.Str(input, "url") ?? Events.Str(input, "query") ?? "";
     }
 

@@ -81,7 +81,7 @@
         }
         else
         {
-            <span class="r">@(Session.Status == SessionStatus.Running ? "claude · stream-json" : Session.LastResultSubtype)</span>
+            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype)</span>
         }
     </div>
 </div>

@@ -58,7 +58,7 @@
         var name = char.ToUpper(theme[0]) + theme[1..];
         Row[] actions =
         [
-            new(false, cwd is null ? "Nouvelle session" : $"Nouvelle session dans {TranscriptStore.Short(cwd)}", "plus", null, 0, null, "Ctrl N",
+            new(false, cwd is null ? "Nouvelle session" : $"Nouvelle session dans {ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)}", "plus", null, 0, null, "Ctrl N",
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
             new(false, "Vue d'ensemble", "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
             new(false, $"Thème : {name}", "palette", null, 0, "changer…", null, NextTheme),

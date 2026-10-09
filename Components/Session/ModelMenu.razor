@@ -1,6 +1,6 @@
 @* Model picker (not in the mockup): initialize.models, chosen with set_model. Reuses the .pop.slash / .si styles. *@
 
-<div class="pop slash" role="listbox" aria-label="Modèle" style="max-height:60vh;overflow:auto">
+<div class="pop slash menu" role="listbox" aria-label="Modèle">
     <div class="sh"><span>Modèle</span><span>@error</span></div>
     @{ var cur = Current(Session) is { } c ? Events.Str(c, "value") : null; }
     @foreach (var m in Models(Session))

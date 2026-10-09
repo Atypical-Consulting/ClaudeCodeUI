@@ -2,7 +2,7 @@
 
 <div class="t @Class" @onclick="() => Ui.SelectedToolId = Tool.Id">
     <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
-    <span class="kind" style="color:@ToolKinds.Color(Tool.Name)">@Tool.Name</span>
+    <span class="kind" style="color:@ToolKinds.Color(Tool.Name)" title="@Tool.Name">@Tool.Name</span>
     <span class="p">@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
     @Meta(Tool)
 </div>

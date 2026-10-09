@@ -38,7 +38,7 @@
                     @Filter("failed", "En échec", servers.Count(x => x.Status == "failed"))
                 </div>
                 <table class="mcp">
-                    <thead><tr><th>Serveur</th><th>Source</th><th>État</th><th class="num">Outils</th><th class="num">Pour cette session</th></tr></thead>
+                    <thead><tr><th>Serveur</th><th>Source</th><th>État</th><th class="num">Outils</th><th class="num">Pour ce dossier</th></tr></thead>
                     <tbody>
                         @foreach (var m in servers.Where(x => filter == "" || x.Status == filter))
                         {
@@ -58,7 +58,7 @@
                                             break;
                                         case "connected" or "disabled":
                                             var on = m.Status == "connected";
-                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="Activer pour cette session"
+                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="Activer pour ce dossier"
                                                     disabled="@busy" @onclick="() => Toggle(s, m.Name, !on)"><span class="sw"></span></button>
                                             break;
                                     }
@@ -274,9 +274,9 @@
         "connected" => @<span class="ms ok"><i></i>connecté</span>,
         "needs-auth" => @<span class="ms auth"><i></i>authentification requise</span>,
         "failed" => @<span class="ms fail"><i></i>en échec</span>,
-        "disabled" => @<span class="ms" style="color:var(--fg-4)"><i style="background:var(--fg-5)"></i>désactivé</span>,
-        "pending" => @<span class="ms" style="color:var(--fg-3)"><i style="background:var(--fg-4)"></i>connexion…</span>,
-        _ => @<span class="ms" style="color:var(--fg-4)"><i style="background:var(--fg-5)"></i>@status</span>,
+        "disabled" => @<span class="ms off"><i></i>désactivé</span>,
+        "pending" => @<span class="ms wait"><i></i>connexion…</span>,
+        _ => @<span class="ms off"><i></i>@status</span>,
     };
 
     public void Dispose()

@@ -6,6 +6,9 @@
     case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
         <div class="status"><span class="spin"></span>Les agents travaillent… <small>@agents.Count(a => a.State == ToolState.Done) sur @agents.Count</small></div>
         break;
+    case SessionStatus.Running when Session.Items.LastOrDefault() is ToolItem { State: ToolState.Running } tool:
+        <div class="status"><span class="spin"></span>@tool.Name en cours… <small>@Elapsed</small></div>
+        break;
     case SessionStatus.Running:
         <div class="status"><span class="spin"></span>Claude écrit… <small>@Elapsed@(Session.ThinkingTokens > 0 ? $" · réflexion {Fmt.Tokens(Session.ThinkingTokens)} tokens" : "")</small></div>
         break;

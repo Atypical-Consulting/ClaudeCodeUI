@@ -125,7 +125,7 @@
     }
 
     // ~/repo/api; long paths keep their last two folders.
-    static string Chip(string dir)
+    internal static string Chip(string dir)
     {
         var s = TranscriptStore.Short(dir).Replace('\\', '/');
         return s.Length <= 32 ? s : "…/" + string.Join('/', s.Split('/')[^2..]);

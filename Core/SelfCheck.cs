@@ -12,6 +12,7 @@ public static class SelfCheck
             Md.Check();
             EditDiff.Check();
             WorktreeService.Check();
+            TranscriptStore.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

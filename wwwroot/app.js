@@ -20,6 +20,12 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        // Pin a scroller to its bottom after each render, unless the user scrolled up.
+        scrollEnd(el) {
+            if (!el) return;
+            if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+            if (!el._free) el.scrollTop = el.scrollHeight;
+        },
     };
 
     function highlight() {

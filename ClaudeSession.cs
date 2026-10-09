@@ -62,8 +62,8 @@ public sealed class ClaudeSession : IAsyncDisposable
         else tcs.TrySetResult(r.TryGetProperty("response", out var v) ? v : Empty);
     }
 
-    // Sends a control_request and waits (15 s max) for its control_response payload.
-    public async Task<JsonElement> Request(string subtype, JsonObject? fields = null)
+    // Sends a control_request and waits (15 s by default) for its control_response payload.
+    public async Task<JsonElement> Request(string subtype, JsonObject? fields = null, int seconds = 15)
     {
         var id = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -74,7 +74,7 @@ public sealed class ClaudeSession : IAsyncDisposable
         try
         {
             await Write(new JsonObject { ["type"] = "control_request", ["request_id"] = id, ["request"] = req });
-            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(seconds));
         }
         finally { requests.TryRemove(id, out _); }
     }
