@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -807,6 +807,45 @@ public static class CliProbe
         var upd = await c.Until(e => Events.Parse(e) is TaskUpdatedEvt { Status: not null } u && u.TaskId == taskId);
         var status = (Events.Parse(upd) as TaskUpdatedEvt)?.Status;
         return status == "killed" ? ("PASS", "answered, task_updated status killed") : ("FAIL", $"answered, task_updated status {status}");
+    }
+
+    // hooks-listing: get_hooks_listing returns the hooks of the folder's .claude/settings.json with event, matcher, type,
+    // command and source (the Extensions page's Hooks tab).
+    // hooks-events: with --include-hook-events (LiveSession.Args) a PreToolUse hook that exits 2 streams a hook_response
+    // (outcome error, exit 2, its stderr) and the tool does not run; a hook that prints streams its output.
+    const string Blocked = "ccui-probe-blocked.txt";
+    static async Task<IEnumerable<(string, string, string)>> Hooks(string dir)
+    {
+        var settings = Path.Combine(dir, ".claude");
+        Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """
+            {"hooks":{
+              "PreToolUse":[{"matcher":"Write","hooks":[{"type":"command","command":"echo ccui-probe-block >&2; exit 2"}]}],
+              "UserPromptSubmit":[{"hooks":[{"type":"command","command":"echo ccui-probe-prompt","timeout":5}]}]}}
+            """);
+        try
+        {
+            await using var c = await Cli.Start(dir, "--include-hook-events");
+            return await Guard(["hooks-listing", "hooks-events"], async () =>
+            {
+                var (rows, _) = Events.Hooks(await c.S.Request("get_hooks_listing"));
+                var mine = rows.Where(r => r.Source == "projectSettings").ToList();
+                var found = $"{rows.Count} hooks, projectSettings: {string.Join(", ", mine.Select(r => $"{r.Event}[{r.Matcher}] {r.Type} \"{r.Command}\""))}";
+                var listing = mine.Any(r => r is { Event: "PreToolUse", Matcher: "Write", Type: "command" } && r.Command.Contains("ccui-probe-block"))
+                              && mine.Any(r => r is { Event: "UserPromptSubmit", Timeout: 5 })
+                    ? ("PASS", found) : ("FAIL", found);
+
+                var turn = await c.Turn($"Use the Write tool to create {Blocked} containing hi. Do nothing else.");
+                var seen = turn.SelectMany(Events.ParseAll).OfType<HookEvt>().ToList();
+                var block = seen.FirstOrDefault(h => h.Output.Contains("ccui-probe-block"));
+                var prompt = seen.Any(h => h.Name == "UserPromptSubmit" && h.Output == "ccui-probe-prompt");
+                var written = File.Exists(Path.Combine(dir, Blocked));
+                var detail = $"{seen.Count} hook_response, block {(block is null ? "absent" : $"{block.Name} {block.Outcome} exit {block.ExitCode}")}, "
+                             + $"UserPromptSubmit output {(prompt ? "seen" : "absent")}, {Blocked} {(written ? "written" : "not written")}";
+                return [listing, block is { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2 } && prompt && !written ? ("PASS", detail) : ("FAIL", detail)];
+            });
+        }
+        finally { try { Directory.Delete(settings, true); } catch { } }
     }
 
     // ---------- plumbing ----------
