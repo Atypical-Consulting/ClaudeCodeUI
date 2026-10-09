@@ -1,8 +1,13 @@
-@* Prompt box with the per-turn settings: model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
+@* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
 @inject IJSRuntime JS
 
-<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = false; }'>
-    @if (menuOpen)
+<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
+    @if (modeOpen)
+    {
+        <div class="shield" @onclick="() => modeOpen = false"></div>
+        <ModeMenu Session="Session" OnClose="() => modeOpen = false" OnEscape="CloseModeToTrigger" />
+    }
+    else if (menuOpen)
     {
         <div class="shield" @onclick="() => menuOpen = false"></div>
         <ModelMenu Session="Session" OnClose="() => menuOpen = false" OnEscape="CloseMenuToTrigger" />
@@ -14,10 +19,18 @@
     <div class="box">
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
         <div class="tools-row">
-            <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+            @if (crashed)
+            {
+                <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+            }
+            else
+            {
+                <button class="chip @(LiveSession.Risky(Session.Mode) ? "risk" : null)" @ref="modeBtn" title="@L["Composer.PermissionMode"]" aria-label="@L["Composer.PermissionMode"]: @Session.Mode"
+                        aria-haspopup="listbox" aria-expanded="@(modeOpen ? "true" : "false")" @onclick="() => { modeOpen = !modeOpen; menuOpen = false; }">@Session.Mode<Icon Name="down" /></button>
+            }
             @if (models.Count > 0 && !crashed)
             {
-                <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">
+                <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
                     <Icon Name="cpu" />@ModelLabel @if (Session.ContextWindow is { } w) {<small>@Fmt.Tokens(w)</small>}<Icon Name="down" />
                 </button>
             }
@@ -60,6 +73,11 @@
                 {
                     <button class="btn go" disabled>@L["Composer.Send"]</button>
                 }
+                else if (Session.Pending.Count is var n and > 0)
+                {
+                    @* Sending answers the pending requests with a denial first: say so on the button itself. *@
+                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>Ctrl ⏎</kbd></button>
+                }
                 else
                 {
                     <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>Ctrl ⏎</kbd></button>
@@ -68,22 +86,29 @@
         </div>
     </div>
     <div class="meta">
-        @if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }
+        <Ticker Active="Session.TurnStartedAt is not null">@if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }</Ticker>
         <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
-        @if (error is not null)
-        {
-            <span class="r" style="color:var(--err-fg)">@error</span>
-        }
-        else if (Session.Ultracode && Session.Status != SessionStatus.Running)
-        {
-            <span class="r"><span class="tag acc">ultracode</span> @L["Composer.UltraThisTurn"]</span>
-        }
-        else
-        {
-            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)</span>
-        }
+        @* One live region, so an error or the busy hint is announced. *@
+        <span class="r" role="status" style="@(error is not null ? "color:var(--err-fg)" : null)">
+            @if (error is not null)
+            {
+                @error
+            }
+            else if (busy && Session.Status == SessionStatus.Running)
+            {
+                @L["Composer.Busy"]
+            }
+            else if (Session.Ultracode && Session.Status != SessionStatus.Running)
+            {
+                <span class="tag acc">ultracode</span> @L["Composer.UltraThisTurn"]
+            }
+            else
+            {
+                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)
+            }
+        </span>
     </div>
 </div>
 
@@ -92,8 +117,10 @@
 
     ElementReference area;
     SlashPopover? slash;
-    string text = "";
-    bool menuOpen, slashDismissed, settingsAsked;
+    // The draft lives on the session: it survives navigation, reloads and reconnects.
+    string text { get => Session.Draft; set => Session.Draft = value; }
+    bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy;
+    int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
     bool? ultraAvailable;
     string? appliedEffort, error;
     List<JsonElement> models = [];
@@ -121,6 +148,7 @@
     {
         SessionStatus.Crashed => L["Composer.PhCrashed"],
         SessionStatus.Waiting => L["Composer.PhWaiting"],
+        SessionStatus.Exited => L["Composer.PhHistory"],
         SessionStatus.Running when ultraTurn => L["Composer.PhWorkflow"],
         SessionStatus.Running => L["Composer.PhRunning"],
         _ => L["Composer.PhIdle"],
@@ -167,7 +195,14 @@
         catch (Exception ex) { error = ex.Message; }
     }
 
-    ElementReference pickBtn;
+    ElementReference pickBtn, modeBtn;
+
+    async Task CloseModeToTrigger()
+    {
+        modeOpen = false;
+        StateHasChanged();
+        await JS.InvokeVoidAsync("claudeUi.focus", modeBtn);
+    }
 
     async Task CloseMenuToTrigger()
     {
@@ -179,15 +214,37 @@
     async Task Send()
     {
         var t = text.Trim();
-        if (t.Length == 0 || Session.Status is SessionStatus.Running or SessionStatus.Crashed) return;
+        busy = false;
+        if (t.Length == 0 || crashed) return;
+        // The Send button is replaced by Interrupt while running: acknowledge Ctrl+Enter instead of ignoring it.
+        if (Session.Status == SessionStatus.Running) { busy = true; return; }
         text = "";
-        menuOpen = false;
+        recall = -1;
+        menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
         {
             foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
             await Session.Send(t);
         });
+        if (error is not null && text.Length == 0) text = t;   // never lose the prompt to a failed send
+    }
+
+    // CLI-style recall: ArrowUp in an empty box shows the last prompt, then older ones; ArrowDown goes back.
+    // Only while the box still holds the recalled prompt untouched.
+    bool Recall(int dir)
+    {
+        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).ToList();
+        if (recall < 0 || recall >= past.Count || text != past[recall])
+        {
+            recall = -1;
+            if (dir > 0 || text.Length > 0 || past.Count == 0) return false;
+            recall = past.Count;
+        }
+        var n = recall + dir;
+        if (n < 0) return true;
+        (recall, text) = n < past.Count ? (n, past[n]) : (-1, "");
+        return true;
     }
 
     async Task Pick(string name)
@@ -200,6 +257,7 @@
     {
         if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
         if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; return; }   // the menu closes on .composer
+        if (e.Key is "ArrowUp" or "ArrowDown" && !(e.ShiftKey || e.AltKey || e.CtrlKey || e.MetaKey) && Recall(e.Key == "ArrowUp" ? -1 : 1)) return;
         if (!text.StartsWith('/')) slashDismissed = false;
         if (slash is not { Open: true } || SlashQuery is null) return;
         switch (e.Key)

@@ -1,4 +1,4 @@
-@* Rendered once per text change; .cb wrapping and highlighting hooks come from Md.Render and app.js. *@
+@* Rendered once per text; .cb wrapping and highlighting hooks come from Md.Render and app.js. *@
 
 <div class="prose md">@html</div>
 
@@ -7,10 +7,16 @@
     string? text;
     MarkupString html;
 
+    // Per text instance (and UI culture: the code block labels are localized), not per component:
+    // remounting a thread (switching sessions) does not re-render its messages.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<string, Tuple<string, string>> rendered = new();
+
     protected override void OnParametersSet()
     {
         if (text == Text) return;
         text = Text;
-        html = new MarkupString(Md.Render(Text));
+        var ui = System.Globalization.CultureInfo.CurrentUICulture.Name;
+        if (!rendered.TryGetValue(Text, out var r) || r.Item1 != ui) rendered.AddOrUpdate(Text, r = Tuple.Create(ui, Md.Render(Text)));
+        html = new MarkupString(r.Item2);
     }
 }
