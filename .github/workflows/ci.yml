@@ -20,7 +20,7 @@ jobs:
       - run: dotnet run --project ClaudeCodeUI.csproj --no-build -- --self-check
 
   desktop:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - run: |
