@@ -1,9 +1,55 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject UiState Ui
+@inject SessionManager Sessions
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-@Body
+<div class="app">
+    <Rail />
+    @Body
+</div>
+<CommandPalette />
+<IconSprite />
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Une erreur inattendue est survenue.
+    <a href="." class="reload">Recharger</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    DotNetObjectReference<MainLayout>? self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        self = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("claudeUi.registerShortcuts", self);
+    }
+
+    // Keys sent by app.js. Navigation and toggles are handled here; Escape / Enter / Shift+Enter / Delete
+    // are relayed through UiState.Key (session interrupt, permission card), except Escape closing the palette.
+    [JSInvokable]
+    public void OnShortcut(string key)
+    {
+        switch (key)
+        {
+            case "Ctrl+K": Ui.PaletteOpen = !Ui.PaletteOpen; break;
+            case "Ctrl+I": Ui.InspectorOpen = !Ui.InspectorOpen; break;
+            case "Ctrl+N": Ui.PaletteOpen = false; Nav.NavigateTo(""); break;
+            case "Ctrl+Shift+O": Ui.PaletteOpen = false; Nav.NavigateTo("overview"); break;
+            case "Ctrl+Shift+A":
+                if (Sessions.DecisionQueue.FirstOrDefault() is { S: { } s })
+                {
+                    Ui.PaletteOpen = false;
+                    Nav.NavigateTo($"session/{s.Id}");
+                }
+                break;
+            case "Escape" when Ui.PaletteOpen: Ui.PaletteOpen = false; break;
+            default: Ui.RaiseKey(key); break;
+        }
+    }
+
+    public void Dispose() => self?.Dispose();
+}

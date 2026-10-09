@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-ui-desktop",
+  "private": true,
+  "scripts": {
+    "server": "dotnet publish ../ClaudeCodeUI.csproj -c Release --ucr --self-contained -p:PublishSingleFile=true -p:DebugType=none -o src-tauri/server",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

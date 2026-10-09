@@ -1,0 +1,35 @@
+@* Rail duck. Priority: decisions pending > running > crashed > turn done < 5 min > calm. *@
+@implements IDisposable
+@inject SessionManager Sessions
+
+@{ var st = State; }
+<div class="mascot">
+    <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="st.Mood" Size="48" Color="#FCCC0A" /></div>
+    <div><b>@st.Title</b>@st.Text</div>
+</div>
+
+@code {
+    (Mood Mood, string Title, string Text) State
+    {
+        get
+        {
+            var all = Sessions.All;
+            var pending = Sessions.DecisionQueue.Count();
+            if (pending > 0)
+                return (Mood.Shocked, pending == 1 ? "1 décision t’attend" : $"{pending} décisions t’attendent", "Ctrl ⇧ A pour la suivante");
+            var running = all.Count(s => s.Status == SessionStatus.Running);
+            if (running > 0)
+                return (Mood.Excited, "Claude travaille", running == 1 ? "1 session en cours" : $"{running} sessions en cours");
+            if (all.LastOrDefault(s => s.Status == SessionStatus.Crashed) is { } c)
+                return (Mood.Sad, "Une session est tombée", $"{c.Name} · exit {c.ExitCode}");
+            // ponytail: re-evaluated on the next session event, not by a timer at the 5-minute mark
+            if (all.Where(s => s.LastResultSubtype == "success" && s.LastResultAt > DateTimeOffset.Now.AddMinutes(-5)).MaxBy(s => s.LastResultAt) is { } d)
+                return (Mood.Blissful, "Tour terminé", d.LastTurn is { } t ? $"{d.Name} · {Fmt.Dur(t)}" : d.Name);
+            return (Mood.Happy, "Tout est calme", "Aucune décision en attente");
+        }
+    }
+
+    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Sessions.Changed -= Refresh;
+}

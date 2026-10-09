@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Claude Code UI</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0E0F11; color: #9095A0; font: 14px system-ui, sans-serif; color-scheme: dark; }
+  body { display: grid; place-items: center; }
+  main { display: grid; justify-items: center; gap: 18px; }
+  img { width: 112px; height: 112px; animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+  @media (prefers-reduced-motion: reduce) { img { animation: none; } }
+  #msg.err { color: #F07178; }
+</style>
+</head>
+<body>
+<main>
+  <img src="icon.png" alt="" />
+  <div id="msg" role="status">Démarrage…</div>
+</main>
+</body>
+</html>

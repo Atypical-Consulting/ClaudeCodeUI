@@ -1,28 +1,25 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="fr">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>(function () { var d = document.documentElement, t = localStorage.getItem('claude-ui.theme'); d.dataset.theme = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'].includes(t) ? t : 'graphite'; d.style.setProperty('--code-size', localStorage.getItem('claude-ui.code-size') || '13px'); })()</script>
+    <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
     <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["lib/highlight/vs2015.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ClaudeCodeUI.styles.css"]" />
     <ImportMap />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["lib/highlight/highlight.min.js"]"></script>
-    <script>
-        // Highlight code blocks as Blazor adds them; .hljs marks already-processed ones.
-        new MutationObserver(() => document.querySelectorAll('pre code:not(.hljs)').forEach(el => hljs.highlightElement(el)))
-            .observe(document.body, { childList: true, subtree: true });
-    </script>
+    <script src="@Assets["app.js"]"></script>
 </body>
 
 </html>

@@ -1,0 +1,20 @@
+@* Quota from the latest rate_limit_event or get_usage; nothing until one arrived. *@
+@implements IDisposable
+@inject SessionManager Sessions
+
+@if (Sessions.Limits is { } l)
+{
+    <div class="quota" title="rate_limit_event">
+        <div class="qh"><span class="cap">Utilisation</span><span>réinit. @Fmt.Time(l.FiveHourReset)</span></div>
+        <div class="qrow"><span>5 h</span><span class="bar"><i style="width:@W(l.FiveHour)"></i></span><span>@Fmt.Pct(l.FiveHour)</span></div>
+        <div class="qrow"><span>7 j</span><span class="bar"><i style="width:@W(l.SevenDay)"></i></span><span>@Fmt.Pct(l.SevenDay)</span></div>
+    </div>
+}
+
+@code {
+    static string W(double f) => $"{Math.Round(Math.Clamp(f, 0, 1) * 100)}%";
+
+    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Sessions.Changed -= Refresh;
+}

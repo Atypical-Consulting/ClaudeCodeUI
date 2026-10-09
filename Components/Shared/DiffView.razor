@@ -1,0 +1,25 @@
+@* Unified diff of one file. Code lines are highlighted in place by app.js ([data-hl] code.lc). *@
+
+<div class="diff" data-hl="@EditDiff.Lang(Path)">
+    <div class="fh"><span>@Path</span><span><span class="a">+@Lines.Count(l => l.Kind == DiffKind.Add)</span> <span class="d">−@Lines.Count(l => l.Kind == DiffKind.Del)</span></span></div>
+    @foreach (var l in Lines)
+    {
+        @if (l.Kind == DiffKind.Hunk)
+        {
+            <div class="hunk">@l.Text</div>
+        }
+        else if (l.Kind == DiffKind.Ctx)
+        {
+            <div class="l"><span class="n">@l.N</span><span></span><code class="lc">@l.Text</code></div>
+        }
+        else
+        {
+            <div class="l @(l.Kind == DiffKind.Add ? "add" : "del")"><span class="n">@l.N</span><span class="g">@(l.Kind == DiffKind.Add ? "+" : "−")</span><code class="lc">@l.Text</code></div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public IReadOnlyList<DiffLine> Lines { get; set; } = [];
+}

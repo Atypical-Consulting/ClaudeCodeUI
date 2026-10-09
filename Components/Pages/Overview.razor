@@ -1,0 +1,113 @@
+@page "/overview"
+@implements IDisposable
+@inject SessionManager Sessions
+@inject NavigationManager Nav
+
+<PageTitle>Vue d'ensemble · Claude Code</PageTitle>
+
+@{
+    var all = Sessions.All;
+    var queue = Sessions.DecisionQueue.ToList();
+    var today = all.Where(s => s.StartedAt.LocalDateTime.Date == DateTime.Today).Sum(s => s.CostUsd);
+    qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));
+}
+<div class="pane">
+    <div class="ph"><span class="ttl">Vue d'ensemble</span><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />Nouvelle session</a></span></div>
+    <div class="ov">
+        <div class="ovhead">
+            <h3>@Plural(all.Count, "session", "sessions")@(queue.Count > 0 ? $", {Plural(queue.Count, "décision t'attend", "décisions t'attendent")}" : "")</h3>
+            <div class="tot">
+                <div class="w"><b>@queue.Count</b>en attente</div>
+                <div><b>@all.Count(s => s.Status == SessionStatus.Running)</b>en cours</div>
+                <div><b>@Fmt.Cost(today, 2)</b>aujourd'hui</div>
+                <div><b>@all.Sum(s => s.ToolCount)</b>outils</div>
+            </div>
+        </div>
+        <table>
+            <thead><tr><th style="width:250px">Session</th><th>État</th><th>Mode</th><th>Dernière action</th><th class="num">Outils</th><th class="num">Durée</th><th class="num">Coût</th></tr></thead>
+            <tbody>
+                @foreach (var s in all)
+                {
+                    var (label, color) = State(s);
+                    <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
+                        <td><div class="n"><a href="@Url(s)" style="color:inherit;text-decoration:none">@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
+                        <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
+                        <td><span class="mtag">@s.Mode</span></td>
+                        <td>@Last(s)</td>
+                        <td class="num">@s.ToolCount</td>
+                        <td class="num">@Fmt.Dur(s.LastEventAt - s.StartedAt)</td>
+                        <td class="num">@Fmt.Cost(s.CostUsd, 2)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (queue.Count > 0)
+        {
+            <div class="queue" tabindex="0" @onkeydown="e => QueueKey(e, queue)" @onfocusin="() => focused = true" @onfocusout="() => focused = false">
+                <div class="qh"><span class="cap">File des décisions</span><span style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> naviguer · <kbd>⏎</kbd> ouvrir</span></div>
+                @for (var i = 0; i < queue.Count; i++)
+                {
+                    var (s, p) = queue[i];
+                    <div @key="p.RequestId" class="q" style="@(focused && i == qi ? "background:var(--raise)" : null)">
+                        <span class="who">@s.Name</span>
+                        <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                        <span class="p">@ToolKinds.Target(p.Input, s.Cwd)@Delta(p)</span>
+                        <a class="btn" href="@Url(s)">Ouvrir</a>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    int qi;
+    bool focused;
+
+    static string Url(LiveSession s) => $"session/{s.Id}";
+    static string Plural(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
+    static string Where(LiveSession s) => string.Join(" · ", new[] { s.Branch, s.Repo }.Where(x => !string.IsNullOrEmpty(x)));
+
+    static (string Label, string Color) State(LiveSession s) => s.Status switch
+    {
+        SessionStatus.Waiting => ($"attend · {s.Pending.FirstOrDefault()?.Tool}", "var(--accent)"),
+        SessionStatus.Running => ("en cours", "var(--ok)"),
+        SessionStatus.Starting => ("démarrage", "var(--fg-3)"),
+        SessionStatus.Crashed => ("processus arrêté", "var(--err)"),
+        _ => ("terminée", "var(--fg-3)"),
+    };
+
+    // Pending tool first, else the last top-level tool; a crash shows the exit line.
+    static RenderFragment Last(LiveSession s)
+    {
+        if (s.Status == SessionStatus.Crashed)
+            return @<span class="last" style="color:var(--err-fg)">claude exited @s.ExitCode</span>;
+        var (tool, input) = s.Pending.FirstOrDefault() is { } p ? (p.Tool, p.Input)
+            : s.Items.LastOrDefault(i => i is ToolItem { ParentToolUseId: null }) is ToolItem t ? (t.Name, t.Input) : (null, default);
+        return tool is null ? @<span class="last"></span>
+            : @<span class="last"><span style="color:@ToolKinds.Color(tool)">@tool</span> @ToolKinds.Target(input, s.Cwd)</span>;
+    }
+
+    // "+3 −1" for an edit waiting for approval.
+    static RenderFragment Delta(PendingPermission p)
+    {
+        if (!ToolKinds.IsEdit(p.Tool)) return @<text></text>;
+        var lines = EditDiff.FromInput(p.Tool, p.Input);
+        int add = lines.Count(l => l.Kind == DiffKind.Add), del = lines.Count(l => l.Kind == DiffKind.Del);
+        return add + del == 0 ? @<text></text> : @<text> <span style="color:var(--fg-4)">+@add −@del</span></text>;
+    }
+
+    void QueueKey(KeyboardEventArgs e, List<(LiveSession S, PendingPermission P)> queue)
+    {
+        switch (e.Key)
+        {
+            case "j" or "J" or "ArrowDown": qi = (qi + 1) % queue.Count; break;
+            case "k" or "K" or "ArrowUp": qi = (qi + queue.Count - 1) % queue.Count; break;
+            case "Enter": Nav.NavigateTo(Url(queue[qi].S)); break;
+        }
+    }
+
+    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Sessions.Changed -= Refresh;
+}

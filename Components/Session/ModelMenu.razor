@@ -1,0 +1,46 @@
+@* Model picker (not in the mockup): initialize.models, chosen with set_model. Reuses the .pop.slash / .si styles. *@
+
+<div class="pop slash menu" role="listbox" aria-label="Modèle">
+    <div class="sh"><span>Modèle</span><span>@error</span></div>
+    @{ var cur = Current(Session) is { } c ? Events.Str(c, "value") : null; }
+    @foreach (var m in Models(Session))
+    {
+        var value = Events.Str(m, "value") ?? "";
+        var current = value == cur;
+        <div class="si @(current ? "on" : null)" role="option" tabindex="0" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)"
+             @onkeydown='e => e.Key is "Enter" or " " ? Pick(value) : Task.CompletedTask'>
+            <b>@(Events.Str(m, "displayName") ?? value)</b>
+            <span title="@Events.Str(m, "description")">@Events.Str(m, "description")</span>
+            @if (current) { <span class="tag acc">actuel</span> } else { <span></span> }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    string? error;
+
+    async Task Pick(string value)
+    {
+        try
+        {
+            await Session.SetModel(value);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    public static IEnumerable<JsonElement> Models(LiveSession s) =>
+        s.InitializeInfo is { } info && Events.Prop(info, "models") is { ValueKind: JsonValueKind.Array } a ? a.EnumerateArray() : [];
+
+    // Session.Model is a launch alias ("haiku"), a set_model value or the resolved id from init ("claude-haiku-5-5").
+    public static JsonElement? Current(LiveSession s)
+    {
+        var ms = Models(s).ToList();
+        if (ms.FirstOrDefault(m => Events.Str(m, "value") == s.Model) is { ValueKind: JsonValueKind.Object } byValue) return byValue;
+        var resolved = ms.Where(m => s.Model is { } x && Events.Str(m, "resolvedModel") is { } r && x.StartsWith(r, StringComparison.OrdinalIgnoreCase)).ToList();
+        return resolved.FirstOrDefault(m => Events.Str(m, "value") != "default") is { ValueKind: JsonValueKind.Object } r2 ? r2
+             : resolved.FirstOrDefault() is { ValueKind: JsonValueKind.Object } r3 ? r3 : null;
+    }
+}

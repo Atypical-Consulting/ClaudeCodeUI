@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -5,15 +6,22 @@ using System.Text.Json.Nodes;
 
 namespace ClaudeCodeUI;
 
+public sealed class ClaudeRequestException(string message) : Exception(message);
+
 // One long-lived Claude Code CLI process speaking the Agent SDK stream-json protocol
-// (same flags the SDK / VS Code extension use). Every stdout line is passed to onEvent.
+// (same flags the SDK / VS Code extension use). Every stdout line is passed to onEvent;
+// control_response lines also complete the matching Request().
 public sealed class ClaudeSession : IAsyncDisposable
 {
+    static readonly JsonElement Empty = JsonDocument.Parse("{}").RootElement;
+
     readonly Process proc;
     readonly Task reader;
     readonly SemaphoreSlim writeLock = new(1, 1);
+    readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> requests = new();
+    volatile bool disposing;
 
-    public ClaudeSession(string cwd, string permissionMode, Func<JsonElement, Task> onEvent, Action<string> onExit)
+    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit)
     {
         var psi = new ProcessStartInfo("claude")
         {
@@ -24,8 +32,9 @@ public sealed class ClaudeSession : IAsyncDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardInputEncoding = new UTF8Encoding(false),
         };
-        foreach (var a in new[] { "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--permission-prompt-tool=stdio", "--permission-mode", permissionMode })
+        foreach (var a in new[] { "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--permission-prompt-tool=stdio" })
             psi.ArgumentList.Add(a);
+        foreach (var a in args) psi.ArgumentList.Add(a);
 
         proc = Process.Start(psi)!;
         var stderr = proc.StandardError.ReadToEndAsync();
@@ -36,11 +45,38 @@ public sealed class ClaudeSession : IAsyncDisposable
                 JsonElement evt;
                 try { evt = JsonDocument.Parse(line).RootElement.Clone(); }
                 catch (JsonException) { continue; }
-                await onEvent(evt);
+                if (Str(evt, "type") == "control_response") Complete(evt.GetProperty("response"));
+                try { await onEvent(evt); }
+                catch (Exception ex) { Console.Error.WriteLine($"claude event handler failed: {ex}"); }
             }
             await proc.WaitForExitAsync();
-            onExit($"claude exited {proc.ExitCode} {await stderr}".Trim());
+            foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException("processus arrêté"));
+            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {await stderr}".Trim());
         });
+    }
+
+    void Complete(JsonElement r)
+    {
+        if (Str(r, "request_id") is not { } id || !requests.TryRemove(id, out var tcs)) return;
+        if (Str(r, "subtype") == "error") tcs.TrySetException(new ClaudeRequestException(Str(r, "error") ?? "erreur inconnue"));
+        else tcs.TrySetResult(r.TryGetProperty("response", out var v) ? v : Empty);
+    }
+
+    // Sends a control_request and waits (15 s by default) for its control_response payload.
+    public async Task<JsonElement> Request(string subtype, JsonObject? fields = null, int seconds = 15)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        requests[id] = tcs;
+        var req = new JsonObject { ["subtype"] = subtype };
+        if (fields is not null)
+            foreach (var (k, v) in fields) req[k] = v?.DeepClone();
+        try
+        {
+            await Write(new JsonObject { ["type"] = "control_request", ["request_id"] = id, ["request"] = req });
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(seconds));
+        }
+        finally { requests.TryRemove(id, out _); }
     }
 
     public Task SendUser(string text) => Write(new JsonObject
@@ -50,25 +86,20 @@ public sealed class ClaudeSession : IAsyncDisposable
     });
 
     // Answer a "can_use_tool" control_request.
-    public Task Respond(string requestId, bool allow, JsonElement input) => Write(new JsonObject
+    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null)
     {
-        ["type"] = "control_response",
-        ["response"] = new JsonObject
+        var res = allow
+            ? new JsonObject { ["behavior"] = "allow", ["updatedInput"] = JsonNode.Parse(input.GetRawText()) }
+            : new JsonObject { ["behavior"] = "deny", ["message"] = "Refusé par l’utilisateur" };
+        if (allow && updatedPermissions is not null) res["updatedPermissions"] = updatedPermissions.DeepClone();
+        return Write(new JsonObject
         {
-            ["subtype"] = "success",
-            ["request_id"] = requestId,
-            ["response"] = allow
-                ? new JsonObject { ["behavior"] = "allow", ["updatedInput"] = JsonNode.Parse(input.GetRawText()) }
-                : new JsonObject { ["behavior"] = "deny", ["message"] = "The user denied this tool use." },
-        },
-    });
+            ["type"] = "control_response",
+            ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = res },
+        });
+    }
 
-    public Task Interrupt() => Write(new JsonObject
-    {
-        ["type"] = "control_request",
-        ["request_id"] = Guid.NewGuid().ToString("N"),
-        ["request"] = new JsonObject { ["subtype"] = "interrupt" },
-    });
+    public Task Interrupt() => Request("interrupt");
 
     async Task Write(JsonNode msg)
     {
@@ -81,8 +112,17 @@ public sealed class ClaudeSession : IAsyncDisposable
         finally { writeLock.Release(); }
     }
 
+    // Same lookup as Process.Start("claude") with UseShellExecute=false: on Windows CreateProcess only appends ".exe".
+    public static bool OnPath() =>
+        (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Any(d => File.Exists(Path.Combine(d.Trim('"'), OperatingSystem.IsWindows() ? "claude.exe" : "claude")));
+
+    static string? Str(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
     public async ValueTask DisposeAsync()
     {
+        disposing = true;
         try { proc.StandardInput.Close(); } catch { }
         if (!proc.WaitForExit(2000)) try { proc.Kill(true); } catch { }
         await reader.ConfigureAwait(false);

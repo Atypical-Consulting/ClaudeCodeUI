@@ -1,0 +1,117 @@
+@* Selected tool: Diff (edits) or Sortie, Entrée, JSON brut, and a .kv footer. *@
+@using System.Text.Encodings.Web
+@inject UiState Ui
+
+<div class="ph"><span class="ttl">Inspecteur</span><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
+    <span class="end"><button class="btn ghost" title="Fermer" aria-label="Fermer" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+</div>
+<div class="tabs" role="tablist">
+    @foreach (var (t, label) in new[] { (0, edit ? "Diff" : "Sortie"), (1, "Entrée"), (2, "JSON brut") })
+    {
+        <button class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" @onclick="() => tab = t">@label</button>
+    }
+</div>
+<div style="flex:1;min-height:0;overflow:auto">
+    @switch (tab)
+    {
+        case 0 when edit && Tool.State is not (ToolState.Denied or ToolState.Error):
+            <div style="padding:16px">
+                @if (diff.Count > 0)
+                {
+                    <DiffView @key="diffState" Path="@ToolKinds.Target(Tool.Input, Session.Cwd)" Lines="diff" />
+                }
+                else
+                {
+                    <p style="margin:0;color:var(--fg-4);font-size:13px">Aucune modification.</p>
+                }
+            </div>
+            break;
+        case 0 when Tool.State is ToolState.Error or ToolState.Denied:
+            <div style="padding:16px"><div class="errbox">@Tool.ResultText</div></div>
+            break;
+        case 0 when Tool.Name == "Read" && Tool.ResultText is { } read:
+            <FileView Path="@(FilePath ?? "")" ReadResultText="@read" />
+            break;
+        case 0:
+            <div style="padding:16px"><pre class="cmdlog" style="margin:0;overflow:auto">@(Tool.ResultText ?? "…")</pre></div>
+            break;
+        case 1:
+            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Pretty(Tool.Input)}\n```")" /></div>
+            break;
+        default:
+            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Raw()}\n```")" /></div>
+            break;
+    }
+</div>
+<div class="section" style="margin-top:auto;border-top:1px solid var(--seam);border-bottom:0">
+    <div class="kv">
+        <span>outil</span><span>@Tool.Name</span>
+        @if (FilePath is not null)
+        {
+            <span>fichier</span><span>@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
+        }
+        @if (Tool.Name == "Read" && ReadRange is { } range)
+        {
+            <span>lignes</span><span>@range</span>
+        }
+        @if (edit && diff.Count > 0)
+        {
+            <span>diff</span><span>+@diff.Count(l => l.Kind == DiffKind.Add) −@diff.Count(l => l.Kind == DiffKind.Del)</span>
+        }
+        <span>statut</span>
+        @switch (Tool.State)
+        {
+            case ToolState.Done: <span style="color:var(--ok)">@(edit ? "appliqué" : "terminé")</span> break;
+            case ToolState.Denied: <span style="color:var(--err)">refusé</span> break;
+            case ToolState.Error: <span style="color:var(--err)">erreur</span> break;
+            case ToolState.Waiting: <span style="color:var(--accent)">attend ta décision</span> break;
+            default: <span>en cours</span> break;
+        }
+        @if (Tool.EndedAt is { } end)
+        {
+            <span>durée</span><span>@Fmt.Dur(end - Tool.StartedAt)</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public ToolItem Tool { get; set; } = null!;
+
+    static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    public static string Pretty(JsonElement e) => JsonSerializer.Serialize(e, Indented);
+
+    int tab;
+    bool edit;
+    IReadOnlyList<DiffLine> diff = [];
+    ToolState? diffState;
+
+    string? FilePath => Events.Str(Tool.Input, "file_path");
+
+    string? ReadRange => System.Text.RegularExpressions.Regex.Matches(Tool.ResultText ?? "", @"^\s*(\d+)[→\t]", System.Text.RegularExpressions.RegexOptions.Multiline) is { Count: > 0 } m
+        ? $"{m[0].Groups[1].Value}–{m[^1].Groups[1].Value}" : null;
+
+    protected override void OnParametersSet()
+    {
+        edit = ToolKinds.IsEdit(Tool.Name);
+        if (!edit || diffState == Tool.State) return;
+        diffState = Tool.State;
+        // After the fact: the CLI's structuredPatch; a created file has none. Before (or replayed without it): from the input.
+        diff = Tool.Structured is { } s && Events.Prop(s, "structuredPatch") is { ValueKind: JsonValueKind.Array } p && p.GetArrayLength() > 0 ? EditDiff.FromPatch(p)
+             : Tool.Structured is { } c && Events.Str(c, "type") == "create" ? EditDiff.Created(Events.Str(c, "content") ?? "")
+             : EditDiff.FromInput(Tool.Name, Tool.Input);
+    }
+
+    // The tool_use block and its result, as the CLI sent them (rebuilt: the raw lines are not kept).
+    string Raw()
+    {
+        var o = new System.Text.Json.Nodes.JsonObject
+        {
+            ["tool_use"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "tool_use", ["id"] = Tool.Id, ["name"] = Tool.Name, ["input"] = System.Text.Json.Nodes.JsonNode.Parse(Tool.Input.GetRawText()) },
+        };
+        if (Tool.ResultText is not null)
+            o["tool_result"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "tool_result", ["tool_use_id"] = Tool.Id, ["content"] = Tool.ResultText, ["is_error"] = Tool.State is ToolState.Error or ToolState.Denied };
+        if (Tool.Structured is { } s) o["tool_use_result"] = System.Text.Json.Nodes.JsonNode.Parse(s.GetRawText());
+        return o.ToJsonString(Indented);
+    }
+}

@@ -1,0 +1,69 @@
+@* Top-level items only; subagent items (ParentToolUseId set) live under their Workflow row.
+   Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
+@inject IJSRuntime JS
+
+<div class="thread" @ref="el">
+    @{ var blocks = Blocks(); var last = blocks.OfType<Run>().LastOrDefault(r => !r.Agents); }
+    @foreach (var b in blocks)
+    {
+        switch (b)
+        {
+            case UserItem u:
+                <div class="you"><div class="w">toi · @Fmt.Time(u.At)</div>@if (u.Ultracode)
+                    {
+                        <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>
+                    }@u.Text</div>
+                break;
+            case TextItem t:
+                <Markdown Text="@t.Markdown" />
+                break;
+            case Run { Agents: true } r:
+                <Workflow @key="r.Tools[0].Id" Session="Session" Agents="r.Tools" />
+                break;
+            case Run r:
+                <Ledger @key="r.Tools[0].Id" Session="Session" Tools="r.Tools" Expanded="r == last" />
+                break;
+        }
+    }
+    @if (Session.StreamingText.Length > 0)
+    {
+        <div class="prose md"><p style="white-space:pre-wrap">@Session.StreamingText<span class="caret"></span></p></div>
+    }
+    <StatusLine Session="Session" />
+    <CrashBanner Session="Session" />
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    ElementReference el;
+
+    sealed record Run(List<ToolItem> Tools, bool Agents);
+
+    List<object> Blocks()
+    {
+        var blocks = new List<object>();
+        foreach (var item in Session.Items)
+        {
+            switch (item)
+            {
+                case ToolItem { ParentToolUseId: null } t:
+                    var agent = ToolKinds.IsAgent(t.Name);
+                    if (blocks.LastOrDefault() is Run r && r.Agents == agent) r.Tools.Add(t);
+                    else blocks.Add(new Run([t], agent));
+                    break;
+                case UserItem or TextItem { ParentToolUseId: null }:
+                    blocks.Add(item);
+                    break;
+            }
+        }
+        return blocks;
+    }
+
+    // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+    }
+}

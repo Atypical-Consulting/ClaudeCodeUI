@@ -1,0 +1,126 @@
+@* can_use_tool for this session. ⏎ / Maj ⏎ / Suppr arrive through UiState.Key (app.js forwards them while [data-permission] is shown). *@
+@implements IDisposable
+@inject SessionManager Sessions
+@inject UiState Ui
+@inject NavigationManager Nav
+
+<div class="ph"><span class="ttl">Permission</span><span class="sub">@Permission.Tool</span>
+    <span class="end"><span class="pill wait">@(queue.FindIndex(x => x.P == Permission) + 1) sur @queue.Count</span></span>
+</div>
+<div style="flex:1;min-height:0;overflow:auto">
+    <div class="section" data-permission>
+        <h3>@Title</h3>
+        @if (Events.Str(Permission.Input, "description") is { Length: > 0 } d)
+        {
+            <p>@d</p>
+        }
+        @if (diff is not null)
+        {
+            <DiffView Path="@ToolKinds.Target(Permission.Input, Session.Cwd)" Lines="diff" />
+        }
+        else if (ToolKinds.IsShell(Permission.Tool))
+        {
+            <pre class="cmd">@Events.Str(Permission.Input, "command")</pre>
+        }
+        else
+        {
+            <Markdown Text="@($"```json\n{ToolDetail.Pretty(Permission.Input)}\n```")" />
+        }
+        <div class="acts">
+            <button class="btn primary" disabled="@answered" @onclick="() => Answer(Decision.Allow)">Autoriser <kbd>⏎</kbd></button>
+            @if (CanAllowSession)
+            {
+                <button class="btn" disabled="@answered" @onclick="() => Answer(Decision.AllowSession)">Toute la session</button>
+            }
+            <button class="btn danger" disabled="@answered" @onclick="() => Answer(Decision.Deny)">Refuser</button>
+        </div>
+        @if (error is not null)
+        {
+            <div class="errbox">@error</div>
+        }
+        <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> autoriser · @if (CanAllowSession) {<kbd>Maj ⏎</kbd><text> toute la session · </text>}<kbd>Suppr</kbd> refuser</p>
+    </div>
+    @if (queue.Where(x => x.P != Permission).ToList() is { Count: > 0 } others)
+    {
+        <div class="section" style="border-bottom:0">
+            <span class="cap">Aussi en attente</span>
+            @foreach (var (s, p) in others)
+            {
+                <div class="q" style="grid-template-columns:auto 52px minmax(0,1fr);padding:0;border:0;cursor:pointer" @onclick="() => Open(s)">
+                    <span class="dot wait"></span>
+                    <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                    <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Input, s.Cwd)</span></span>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public PendingPermission Permission { get; set; } = null!;
+
+    List<(LiveSession S, PendingPermission P)> queue = [];
+    IReadOnlyList<DiffLine>? diff;
+    PendingPermission? shown;
+    bool answered;
+    string? error;
+
+    // "Toute la session": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions.
+    bool CanAllowSession => Permission.Suggestions is { ValueKind: JsonValueKind.Array } s && s.GetArrayLength() > 0;
+
+    string File => Path.GetFileName(Events.Str(Permission.Input, "file_path") ?? "");
+    string Title => Permission.Tool switch
+    {
+        "Edit" or "MultiEdit" => $"Modifier {File} ?",
+        "Write" => System.IO.File.Exists(Events.Str(Permission.Input, "file_path")) ? $"Écraser {File} ?" : $"Créer {File} ?",
+        var t when ToolKinds.IsShell(t) => "Lancer cette commande ?",
+        var t => $"Autoriser {t} ?",
+    };
+
+    protected override void OnInitialized()
+    {
+        Sessions.Changed += Refresh;
+        Ui.Key += OnKey;
+    }
+
+    protected override void OnParametersSet()
+    {
+        queue = [.. Sessions.DecisionQueue];
+        if (shown == Permission) return;
+        shown = Permission;
+        answered = false;
+        error = null;
+        diff = ToolKinds.IsEdit(Permission.Tool) ? EditDiff.FromInput(Permission.Tool, Permission.Input) : null;
+    }
+
+    async Task Answer(Decision d)
+    {
+        if (answered || (d == Decision.AllowSession && !CanAllowSession)) return;
+        answered = true;
+        try { await Session.Answer(Permission, d); }
+        catch (Exception ex) { error = ex.Message; answered = false; }
+    }
+
+    void OnKey(string key) => InvokeAsync(async () =>
+    {
+        switch (key)
+        {
+            case "Enter": await Answer(Decision.Allow); break;
+            case "Shift+Enter": await Answer(Decision.AllowSession); break;
+            case "Delete": await Answer(Decision.Deny); break;
+            default: return;
+        }
+        StateHasChanged();
+    });
+
+    void Open(LiveSession s) => Nav.NavigateTo("session/" + s.Id);
+
+    void Refresh() => InvokeAsync(() => { queue = [.. Sessions.DecisionQueue]; StateHasChanged(); });
+
+    public void Dispose()
+    {
+        Sessions.Changed -= Refresh;
+        Ui.Key -= OnKey;
+    }
+}

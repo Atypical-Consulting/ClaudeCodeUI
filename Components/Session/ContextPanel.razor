@@ -1,0 +1,108 @@
+@* get_context_usage, refreshed when the session goes idle after a turn. *@
+
+@{
+    var c = Session.Context;
+    long max = c is { } x1 ? Long(x1, "maxTokens") : Session.ContextWindow ?? 0;
+    long total = c is { } x2 ? Long(x2, "totalTokens") : Session.ContextTokens;
+}
+<div class="ph"><span class="ttl">Contexte</span>
+    @if (max > 0)
+    {
+        <span class="sub">@Fmt.Tokens(total) / @Fmt.Tokens(max) · @Fmt.Pct(total / (double)max)</span>
+    }
+</div>
+<div style="flex:1;min-height:0;overflow:auto">
+    @if (c is { } ctx && max > 0)
+    {
+        var rows = Rows(ctx);
+        var mcpTools = Events.Prop(ctx, "mcpTools") is { ValueKind: JsonValueKind.Array } mt ? mt.EnumerateArray().Where(t => Events.Prop(t, "isLoaded") is { ValueKind: JsonValueKind.True }).ToList() : [];
+        var mcpTokens = rows.Where(r => r.Mcp).Sum(r => r.Tokens);
+        <div class="section">
+            <div class="ctx">
+                <div class="ctxbar">
+                    @foreach (var r in rows)
+                    {
+                        <i style="width:@((r.Tokens * 100.0 / max).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;background:@r.Color"></i>
+                    }
+                </div>
+                <div class="legend">
+                    @foreach (var r in rows.GroupBy(r => r.Label))
+                    {
+                        <i style="background:@r.First().Color"></i><span>@r.Key</span><span>@Fmt.Tokens(r.Sum(x => x.Tokens))</span>
+                    }
+                    <i style="background:var(--seam)"></i><span>libre</span><span>@Fmt.Tokens(Math.Max(0, max - total))</span>
+                </div>
+            </div>
+            <div class="acts">
+                <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />Compacter maintenant</button>
+                @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
+                {
+                    <span class="btn ghost" title="Seuil d'auto-compactage du CLI">Auto à @Fmt.Pct(th / (double)max)</span>
+                }
+            </div>
+            @if (error is not null)
+            {
+                <div class="errbox">@error</div>
+            }
+        </div>
+        @if (mcpTools.Count > 0)
+        {
+            <div class="section" style="border-bottom:0">
+                <span class="cap">Les outils MCP pèsent @Fmt.Tokens(mcpTokens)</span>
+                @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
+                <p>@(n == 1 ? "1 outil" : $"{n} outils") de @(k == 1 ? "1 serveur" : $"{k} serveurs") @(n == 1 ? "est chargé" : "sont chargés"). Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</p>
+                <div><a class="btn" href="extensions">Gérer les serveurs MCP</a></div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="section" style="border-bottom:0"><p>Sélectionne une ligne du journal pour l'inspecter.</p></div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    DateTimeOffset? refreshedFor;
+    bool refreshed;
+    string? error;
+
+    record Row(string Label, string Color, long Tokens, bool Mcp);
+
+    // Used categories only ("deferred" tools are not in the context, "buffer" and "free" count as libre).
+    static List<Row> Rows(JsonElement ctx)
+    {
+        var mcp = Events.Prop(ctx, "mcpTools") is { ValueKind: JsonValueKind.Array } mt ? mt.EnumerateArray().Count(t => Events.Prop(t, "isLoaded") is { ValueKind: JsonValueKind.True }) : 0;
+        return Events.Prop(ctx, "categories") is { ValueKind: JsonValueKind.Array } cats
+        ? [.. cats.EnumerateArray().Where(k => Events.Str(k, "kind") == "used" && Long(k, "tokens") > 0).Select(k => (Events.Str(k, "name") ?? "") switch
+            {
+                "System prompt" => new Row("prompt système", "var(--fg-4)", Long(k, "tokens"), false),
+                "System tools" => new Row("outils intégrés", "var(--syn-fn)", Long(k, "tokens"), false),
+                var n when n.StartsWith("MCP") => new Row(mcp > 0 ? $"outils MCP · {mcp}" : "outils MCP", "var(--syn-kw)", Long(k, "tokens"), true),
+                "Memory files" => new Row("mémoire, CLAUDE.md", "var(--syn-attr)", Long(k, "tokens"), false),
+                "Custom agents" => new Row("agents", "var(--syn-type)", Long(k, "tokens"), false),
+                "Skills" => new Row("skills", "var(--syn-num)", Long(k, "tokens"), false),
+                "Messages" => new Row("messages", "var(--syn-str)", Long(k, "tokens"), false),
+                var n => new Row(n.ToLowerInvariant(), "var(--fg-3)", Long(k, "tokens"), false),
+            })]
+        : [];
+    }
+
+    static long Long(JsonElement e, string name) => Events.Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? (long)n.GetDouble() : 0;
+
+    protected override void OnParametersSet()
+    {
+        if (!Session.HasProcess || Session.Status != SessionStatus.Idle || (refreshed && refreshedFor == Session.LastResultAt)) return;
+        refreshed = true;
+        refreshedFor = Session.LastResultAt;
+        _ = Session.RefreshContext().ContinueWith(t => Console.Error.WriteLine($"[{Session.Id}] get_context_usage : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    // Plain user text: slash commands run locally in the CLI.
+    async Task Compact()
+    {
+        error = null;
+        try { await Session.Send("/compact"); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+}

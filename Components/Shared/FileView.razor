@@ -1,0 +1,25 @@
+@* A Read tool result ("    12→text" lines) with its line numbers. Callers @key it by tool id: app.js rewrites code.lc. *@
+@using System.Text.RegularExpressions
+
+@if (lines.Count == 0)
+{
+    <pre class="cmdlog">@ReadResultText</pre>
+}
+else
+{
+    <div class="filev" data-hl="@EditDiff.Lang(Path)">
+        @foreach (var (n, text) in lines)
+        {
+            <div><span class="n">@n</span><code class="lc">@text</code></div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public string ReadResultText { get; set; } = "";
+    List<(string N, string Text)> lines = [];
+
+    protected override void OnParametersSet() =>
+        lines = [.. Regex.Matches(ReadResultText, @"^\s*(\d+)[→\t](.*?)\r?$", RegexOptions.Multiline).Select(m => (m.Groups[1].Value, m.Groups[2].Value))];
+}

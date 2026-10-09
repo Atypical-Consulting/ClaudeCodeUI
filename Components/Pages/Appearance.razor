@@ -1,0 +1,89 @@
+@page "/settings/appearance"
+@inject IJSRuntime JS
+
+<PageTitle>Apparence · Claude Code</PageTitle>
+
+<div class="pane">
+    <div class="ph"><span class="ttl">Réglages</span><span class="sub">Apparence</span></div>
+    <div class="settings">
+        <div><h3>Apparence</h3><p class="lead">Le thème change les couleurs de toute l'interface, coloration syntaxique comprise. <kbd>Ctrl K</kbd> puis « thème » pour basculer sans ouvrir les réglages.</p></div>
+        <div class="set-row">
+            <div><b>Thème</b><span>Appliqué tout de suite, retenu pour la prochaine fois.</span></div>
+            <div class="themes">
+                @foreach (var (k, n) in Themes)
+                {
+                    @* data-theme scopes the preview to the card's own tokens *@
+                    <button class="tc @(k == theme ? "on" : null)" data-theme="@k" aria-pressed="@(k == theme ? "true" : "false")" aria-label="Thème @n" @onclick="() => SetTheme(k)">
+                        <div class="pv">
+                            <div class="rl"><i></i><i></i><i></i><i></i></div>
+                            <div class="bd">
+                                <div class="ln"><span style="color:var(--read)">Read</span> <span style="color:var(--fg-2)">Store.cs</span></div>
+                                <div class="ln"><span style="color:var(--edit)">Edit</span> <span style="color:var(--fg-2)">Home.razor</span></div>
+                                <div class="ln"><span style="color:var(--syn-kw)">static</span> <span style="color:var(--syn-type)">Store</span> <span style="color:var(--syn-fn)">Load</span><span style="color:var(--fg-3)">(</span><span style="color:var(--syn-str)">"cwd"</span><span style="color:var(--fg-3)">)</span></div>
+                                <div class="ln" style="color:var(--syn-com);font-style:italic">// @n.ToLowerInvariant()</div>
+                                <span class="btnp">Autoriser</span>
+                            </div>
+                        </div>
+                        <div class="nm"><b>@n</b><span class="sw"><i style="background:var(--syn-kw)"></i><i style="background:var(--syn-str)"></i><i style="background:var(--syn-fn)"></i><i style="background:var(--syn-type)"></i></span></div>
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="set-row">
+            <div><b>Taille du code</b><span>Blocs de code, diffs, inspecteur.</span></div>
+            <div>
+                <div class="seg" role="group" aria-label="Taille du code">
+                    @foreach (var px in Sizes)
+                    {
+                        var v = px + "px";
+                        <button class="@(v == size ? "on" : null)" aria-pressed="@(v == size ? "true" : "false")" @onclick="() => SetSize(v)">@px</button>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="set-row">
+            <div><b>Aperçu</b><span>Le rendu réel avec le thème choisi.</span></div>
+            <div class="sample md">@((MarkupString)Sample)</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    static readonly (string Key, string Name)[] Themes = [("graphite", "Graphite"), ("encre", "Encre"), ("ristretto", "Ristretto"), ("mousse", "Mousse"), ("contraste", "Contraste élevé")];
+    static readonly int[] Sizes = [12, 13, 14, 15];
+    static readonly string Sample = Md.Render("""
+        ```csharp
+        // Le canard change d'humeur selon l'état de la session
+        Mood MoodFor(Session s) => s.State switch
+        {
+            State.WaitingPermission => Mood.Shocked,
+            State.Running           => Mood.Excited,
+            State.Crashed           => Mood.Ko,
+            _                       => Mood.Happy,
+        };
+        ```
+        """);
+
+    string? theme, size;
+
+    // localStorage is only reachable once the circuit is up.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        theme = await JS.InvokeAsync<string>("claudeUi.getTheme");
+        size = await JS.InvokeAsync<string>("claudeUi.getCodeSize");
+        StateHasChanged();
+    }
+
+    async Task SetTheme(string k)
+    {
+        theme = k;
+        await JS.InvokeVoidAsync("claudeUi.setTheme", k);
+    }
+
+    async Task SetSize(string v)
+    {
+        size = v;
+        await JS.InvokeVoidAsync("claudeUi.setCodeSize", v);
+    }
+}

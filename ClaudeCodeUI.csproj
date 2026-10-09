@@ -5,9 +5,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <Version>0.1.0</Version>
+    <DefaultItemExcludes>$(DefaultItemExcludes);desktop/**;publish/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BlazorKawaii" Version="2.2.0" />
     <PackageReference Include="Markdig" Version="1.4.0" />
   </ItemGroup>
 

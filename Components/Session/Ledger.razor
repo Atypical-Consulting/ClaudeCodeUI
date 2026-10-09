@@ -1,0 +1,34 @@
+@* A run of consecutive tools. Expanded is the default (latest run open); clicking the header overrides it. *@
+
+<div class="ledger">
+    <div class="lh" role="button" tabindex="0" aria-expanded="@Open" style="cursor:pointer" @onclick="() => open = !Open"
+         @onkeydown='e => { if (e.Key is "Enter" or " ") open = !Open; }'>
+        <Icon Name="@(Open ? "down" : "right")" Sm />@Head
+    </div>
+    @if (Open)
+    {
+        @foreach (var t in Tools)
+        {
+            <ToolRow @key="t.Id" Session="Session" Tool="t" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public IReadOnlyList<ToolItem> Tools { get; set; } = [];
+    [Parameter] public bool Expanded { get; set; }
+
+    bool? open;
+    bool Open => open ?? Expanded;
+
+    string Head
+    {
+        get
+        {
+            var n = Tools.Count == 1 ? "1 outil" : $"{Tools.Count} outils";
+            var d = Tools.Aggregate(TimeSpan.Zero, (a, t) => a + ((t.EndedAt ?? t.StartedAt) - t.StartedAt));
+            return d.TotalMilliseconds >= 50 ? $"{n} · {Fmt.Dur(d)}" : n;
+        }
+    }
+}

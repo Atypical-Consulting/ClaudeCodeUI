@@ -1,0 +1,314 @@
+@page "/worktrees"
+@implements IDisposable
+@inject WorktreeService Wt
+@inject SessionManager Sessions
+@inject UiState Ui
+@inject NavigationManager Nav
+
+<PageTitle>Worktrees · Claude Code</PageTitle>
+
+<div class="pane">
+    <div class="ph">
+        <span class="ttl">Worktrees</span>
+        @if (rows is not null)
+        {
+            <span class="sub">@Plural(repos.Count, "dépôt") · @Plural(rows.Count, "worktree") · @SizeOf(rows)</span>
+        }
+        <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />Rafraîchir</button></span>
+    </div>
+    <div class="wt">
+        @if (rows is null)
+        {
+            <div class="wt-head"><div><h3>Recherche des worktrees…</h3><p>Lecture des dépôts des sessions récentes.</p></div></div>
+        }
+        else
+        {
+            var safe = rows.Where(w => w.State is WtState.Safe or WtState.Orphan).ToList();
+            var check = rows.Count(w => w.State == WtState.Check);
+            <div class="wt-head"><div>
+                @if (safe.Count == 0)
+                {
+                    <h3>Aucun worktree à nettoyer</h3>
+                }
+                else
+                {
+                    <h3>@(safe.Count == 1 ? "1 worktree peut partir sans risque" : $"{safe.Count} worktrees peuvent partir sans risque")</h3>
+                }
+                <p>@(safe.Count > 0 ? $"{SizeOf(safe)} récupérables. " : "")@(check switch { 0 => "Rien n'attend ta décision", 1 => "Un autre attend ta décision", _ => $"{check} autres attendent ta décision" }), et rien d'actif ne sera touché.</p>
+            </div></div>
+            @foreach (var r in unignored)
+            {
+                <div class="guard"><Icon Name="shield" Sm="true" /><span><code>.claude/worktrees/</code> n'est pas ignoré par git dans <b title="@r">@Path.GetFileName(r)</b> : un <code>git add .</code> y ajouterait les worktrees. Ajoute-le au <code>.gitignore</code>.</span></div>
+            }
+            @foreach (var e in errors)
+            {
+                <div class="errbox">@e</div>
+            }
+            <div class="filters">
+                <button class="chip @(filter is null ? "on" : null)" @onclick="() => filter = null">Tous <b>@rows.Count</b></button>
+                <button class="chip @(filter == WtState.Safe ? "on" : null)" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>Sûrs <b>@Count(WtState.Safe)</b></button>
+                <button class="chip @(filter == WtState.Orphan ? "on" : null)" @onclick="() => filter = WtState.Orphan">Orphelins <b>@Count(WtState.Orphan)</b></button>
+                <button class="chip @(filter == WtState.Check ? "on" : null)" @onclick="() => filter = WtState.Check">À vérifier <b>@Count(WtState.Check)</b></button>
+                <button class="chip @(filter == WtState.Active ? "on" : null)" @onclick="() => filter = WtState.Active">Actifs <b>@Count(WtState.Active)</b></button>
+            </div>
+            <table class="wtt">
+                <thead><tr><th>Worktree</th><th>État</th><th>Pourquoi</th><th class="num">Taille</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var (title, states) in groups)
+                    {
+                        var g = rows.Where(w => states.Contains(w.State) && (filter is null || w.State == filter)).ToList();
+                        if (g.Count == 0) continue;
+                        <tr class="grp-row"><td colspan="5">@title</td></tr>
+                        @foreach (var w in g)
+                        {
+                            <tr class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null)" @key="w.Path">
+                                <td><div class="n">@w.Name</div><div class="branch"><Icon Name="branch" />@(w.Branch ?? (w.State == WtState.Orphan ? "branche introuvable" : "HEAD détachée")) · @Path.GetFileName(w.Repo)</div></td>
+                                <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
+                                <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
+                                <td class="num">@(w.State == WtState.Orphan ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
+                                <td><div class="rowacts">
+                                    @if (WorktreeService.Cleanable(w))
+                                    {
+                                        @if (plan.Contains(w.Path))
+                                        {
+                                            <button class="btn ghost" disabled="@running" @onclick="() => plan.Remove(w.Path)">Retirer</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn" disabled="@running" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? "Élaguer" : "Supprimer")</button>
+                                        }
+                                    }
+                                    else if (w.State == WtState.Active)
+                                    {
+                                        if (SessionOf(w) is { } s)
+                                        {
+                                            <button class="btn" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>Aller</button>
+                                        }
+                                    }
+                                    else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null)
+                                    {
+                                        <button class="btn" disabled="@running" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">Pousser</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>Ouvrir</button>
+                                    }
+                                </div></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (Ui.InspectorOpen)
+{
+    var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
+    <div class="pane insp">
+        <div class="ph"><span class="ttl">Nettoyage</span><span class="sub">@Plural(chosen.Count, "worktree")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
+        @if (push is { } pw)
+        {
+            <div class="section">
+                <h3>Pousser @pw.Name ?</h3>
+                <p>@Plural(pw.Unpushed, "commit") jamais @(pw.Unpushed > 1 ? "poussés" : "poussé") sur <b>@pw.Branch</b>.</p>
+                <div class="cmdlog">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
+                <div class="acts">
+                    @if (pushResult != "ok")
+                    {
+                        <button class="btn primary" disabled="@running" @onclick="() => Push(pw)">Pousser</button>
+                    }
+                    <button class="btn ghost" @onclick="() => { push = null; selected = null; }">@(pushResult == "ok" ? "Fermer" : "Annuler")</button>
+                </div>
+            </div>
+        }
+        <div class="section">
+            <h3>Ce qui va se passer</h3>
+            @if (chosen.Count == 0 && log.Count == 0)
+            {
+                <p>Rien n'est prévu. « Supprimer » ou « Élaguer » ajoute un worktree au nettoyage ; les commandes git s'affichent ici avant d'être lancées.</p>
+                var all = rows?.Where(w => w.State is WtState.Safe or WtState.Orphan).ToList() ?? [];
+                @if (all.Count > 0)
+                {
+                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">Ajouter les @Plural(all.Count, "worktree") sans risque</button></div>
+                }
+            }
+            else
+            {
+                @if (chosen.Count > 0)
+                {
+                    <div class="plan">
+                        @foreach (var w in chosen)
+                        {
+                            <div class="it"><Icon Name="check" Sm="true" /><div><div class="n">@w.Name</div><div class="w">@What(w)</div></div><span class="sz">@(w.State == WtState.Orphan ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</span></div>
+                        }
+                    </div>
+                }
+                <div class="cmdlog">@CmdLog(log.Count > 0 ? log : Preview(chosen))</div>
+                <div class="guard"><Icon Name="shield" Sm="true" /><span><code>git branch -d</code>, jamais <code>-D</code> : git refusera de lui-même toute branche qui n'est pas mergée.</span></div>
+                <div class="acts">
+                    @if (log.Count == 0)
+                    {
+                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">Nettoyer @Plural(chosen.Count, "worktree")</button>
+                        <button class="btn ghost" @onclick="() => plan.Clear()">Annuler</button>
+                    }
+                    else
+                    {
+                        <button class="btn" disabled="@running" @onclick="() => { log.Clear(); plan.Clear(); }">Fermer</button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    static readonly (string, WtState[])[] groups = [("Peuvent partir", [WtState.Safe, WtState.Orphan]), ("À vérifier", [WtState.Check]), ("Actifs", [WtState.Active])];
+
+    record LogLine(string Repo, string Cmd, string? Result);
+
+    List<WorktreeInfo>? rows;
+    IReadOnlyList<string> repos = [];
+    List<string> unignored = [], errors = [];
+    readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> sizes = new();
+    readonly HashSet<string> plan = [];
+    readonly List<LogLine> log = [];
+    WtState? filter;
+    string? selected, pushResult;
+    WorktreeInfo? push;
+    bool scanning, running;
+    readonly CancellationTokenSource cts = new();
+
+    protected override void OnInitialized() => Ui.Changed += Refresh;
+    protected override Task OnInitializedAsync() => Scan(false);
+    void Refresh() => InvokeAsync(StateHasChanged);
+
+    async Task Scan(bool refresh)
+    {
+        if (scanning) return;
+        scanning = true;
+        try
+        {
+            var ct = cts.Token;
+            repos = await Wt.DiscoverReposAsync(refresh, ct);
+            var found = new List<WorktreeInfo>();
+            List<string> bad = [], errs = [];
+            foreach (var r in repos)
+            {
+                try
+                {
+                    var list = await Wt.ScanAsync(r, ct);
+                    found.AddRange(list);
+                    if (list.Count > 0 && !await Wt.IgnoresWorktreesAsync(r, ct)) bad.Add(r);
+                }
+                catch (InvalidOperationException e) { errs.Add($"{Home(r)} : {e.Message}"); }
+            }
+            (rows, unignored, errors) = (found, bad, errs);
+            if (refresh) sizes.Clear();
+            plan.RemoveWhere(p => !found.Any(w => w.Path == p && WorktreeService.Cleanable(w)));
+            foreach (var w in found.Where(w => w.State != WtState.Orphan && !sizes.ContainsKey(w.Path))) _ = Measure(w.Path, ct);
+        }
+        catch (OperationCanceledException) { }
+        finally { scanning = false; }
+    }
+
+    async Task Measure(string path, CancellationToken ct)
+    {
+        try { sizes[path] = await Wt.SizeAsync(path, ct); await InvokeAsync(StateHasChanged); }
+        catch (Exception) { }
+    }
+
+    void Add(WorktreeInfo w)
+    {
+        log.Clear();
+        plan.Add(w.Path);
+    }
+
+    // .cmdlog is white-space:pre: built as one encoded string, "# repo" comments and results dimmed.
+    static MarkupString CmdLog(IEnumerable<LogLine> lines)
+    {
+        var enc = System.Text.Encodings.Web.HtmlEncoder.Default;
+        var sb = new System.Text.StringBuilder();
+        foreach (var g in lines.GroupBy(l => l.Repo))
+        {
+            if (sb.Length > 0) sb.Append('\n');
+            sb.Append($"<span class=\"c\"># {enc.Encode(Short(Home(g.Key)))}</span>");
+            foreach (var l in g)
+            {
+                sb.Append('\n').Append(enc.Encode(l.Cmd));
+                if (l.Result is not null) sb.Append($"\n<span class=\"c\">→ {enc.Encode(l.Result)}</span>");
+            }
+        }
+        return new(sb.ToString());
+    }
+
+    IEnumerable<LogLine> Preview(List<WorktreeInfo> chosen) => Wt.Plan(chosen).Select(s => new LogLine(s.Repo, s.Display, null));
+
+    async Task Run(List<WorktreeInfo> chosen)
+    {
+        var steps = Wt.Plan(chosen);
+        running = true;
+        log.Clear();
+        try
+        {
+            await foreach (var (step, exit, output) in Wt.RunAsync(steps, cts.Token))
+            {
+                var first = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                log.Add(new(step.Repo, step.Display, exit switch
+                {
+                    0 => first.Length > 0 && step.GitArgs[1] == "prune" ? string.Join(" · ", first) : "ok",
+                    -1 => output,
+                    _ => $"exit {exit} : {string.Join(" · ", first)}",
+                }));
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { running = false; }
+        plan.Clear();
+        await Scan(false);
+    }
+
+    async Task Push(WorktreeInfo w)
+    {
+        running = true;
+        pushResult = "…";
+        var exit = await Wt.PushAsync(w);
+        pushResult = exit == 0 ? "ok" : $"exit {exit}";
+        running = false;
+        if (exit == 0) await Scan(false);
+    }
+
+    LiveSession? SessionOf(WorktreeInfo w) => Sessions.All.FirstOrDefault(s => s.HasProcess && Path.GetFullPath(s.Cwd).Replace('\\', '/').StartsWith(w.Path, StringComparison.OrdinalIgnoreCase));
+
+    int Count(WtState s) => rows!.Count(w => w.State == s);
+
+    string SizeOf(IEnumerable<WorktreeInfo> ws)
+    {
+        var known = ws.Where(w => w.State != WtState.Orphan).ToList();
+        return known.All(w => sizes.ContainsKey(w.Path)) ? Fmt.Size(known.Sum(w => sizes[w.Path])) : "…";
+    }
+
+    static string What(WorktreeInfo w) => w.State == WtState.Orphan ? "référence git seulement"
+        : (w.Locked ? "déverrouillage + " : "") + (w.Branch is null ? "dossier (HEAD détachée)"
+        : w.SquashMerged && !w.Merged ? "dossier seulement, branche gardée (squash)" : "dossier + branche locale (mergée)");
+
+    static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
+
+    static string Plural(int n, string word) => $"{n} {word}{(n > 1 ? "s" : "")}";
+
+    static string Short(string path) => path.Length > 48 ? "…" + path[^47..] : path;   // .cmdlog does not wrap
+
+    static string Home(string path)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
+        return path.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
+    }
+
+    public void Dispose()
+    {
+        Ui.Changed -= Refresh;
+        cts.Cancel();
+    }
+}
