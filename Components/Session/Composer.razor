@@ -171,7 +171,8 @@
     TimeSpan? Turn => Session.TurnStartedAt is { } t ? DateTimeOffset.Now - t : Session.LastTurn;
 
     // While a name is being typed after "/" (no space yet).
-    string? SlashQuery => !slashDismissed && text.StartsWith('/') && !text.Any(char.IsWhiteSpace) ? text : null;
+    // A recalled "/command" (history.Index >= 0) must not open the popover that would take the arrows.
+    string? SlashQuery => !slashDismissed && history.Index < 0 && text.StartsWith('/') && !text.Any(char.IsWhiteSpace) ? text : null;
 
     // While a path is being typed after an "@" that starts the last word (FileIndex.Query).
     // Not over an untouched recalled prompt: Send trims, so "fix @src/Foo.cs " comes back as a live query,
@@ -345,7 +346,6 @@
         }
         if (history.Move(step, current) is not { } t) return;
         text = recalled = t;
-        slashDismissed = true;   // a recalled "/command" must not open the popover that would take the arrows
         StateHasChanged();
     }
 
