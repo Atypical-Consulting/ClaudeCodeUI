@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -16,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -308,6 +310,89 @@ public static class CliProbe
         });
     }
 
+    // image: a user message of a text block then image blocks (base64 source), the Composer's shape (Images.Content).
+    // The model must read a random number drawn in a PNG generated here, and the fixed numbers of the JPEG, GIF and WebP
+    // fixtures: reading them proves it sees each image, not just that the CLI accepted the message.
+    // image-only: the same blocks without a text block, as the Composer sends an image with an empty prompt.
+    static async Task<IEnumerable<(string, string, string)>> Image(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["image", "image-only"], async () =>
+        {
+            var n = Random.Shared.Next(100, 1000).ToString();
+            string[] want = [n, .. Fixtures.Select(f => f.Number)];
+            UserImage[] images = [Images.From(DigitsPng(n))!, .. Fixtures.Select(f => Images.From(Convert.FromBase64String(f.Data))!)];
+            var turn = await c.Turn("Each attached image shows a 3-digit number. Reply with the numbers in order, comma-separated, nothing else.", images: images);
+            var reply = Events.Str(turn[^1], "result") ?? "";
+            var types = string.Join("+", images.Select(i => i.MediaType[6..]));
+            var read = want.Count(reply.Contains);
+            var first = read == want.Length && Events.Prop(turn[^1], "is_error") is not { ValueKind: JsonValueKind.True }
+                ? ("PASS", $"{types}: expected {string.Join(",", want)}, model replied \"{Trunc(reply)}\"")
+                : ("FAIL", $"{types}: {read}/{want.Length} read, expected {string.Join(",", want)}, model replied \"{Trunc(reply)}\"");
+
+            var m = Random.Shared.Next(100, 1000).ToString();
+            var alone = await c.Turn("", images: [Images.From(DigitsPng(m))!]);
+            var said = Events.Str(alone[^1], "result") ?? "";
+            return [first, Events.Prop(alone[^1], "is_error") is not { ValueKind: JsonValueKind.True }
+                ? ("PASS", $"accepted, the reply {(said.Contains(m) ? "names" : "does not name")} the drawn {m}: \"{Trunc(said)}\"")
+                : ("FAIL", $"result is_error: \"{Trunc(said)}\"")];
+        });
+        static string Trunc(string s) => (s.Length <= 80 ? s : s[..80] + "…").ReplaceLineEndings(" ");
+    }
+
+    // JPEG and GIF made with sips, WebP with cwebp -lossless, from DigitsPng(n, 8); each decodes back pixel-identical.
+    static readonly (string Number, string Data)[] Fixtures =
+    [
+        ("305", "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/wAALCABIAJgBAREA/8QAFgABAQEAAAAAAAAAAAAAAAAAAAgH/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAAPwDZgAAAAABGYCzARmCzBGYAswAEZrMRmswEZrMRmswAABGazEZrMEZizEZgLMARmCzBGazEZrMRmswARmswAEZrMRmLMEZrMAEZrMABGazEZrMBGazEZrMBGazBGYCzARmCzARmCzAAAAAAAf/Z"),
+        ("718", "R0lGODdhmABIAIAAAAAAAP///yH5BAQAAAAALAAAAACYAEgAAAL/jI+py+0Po5y02ouz3rz7D4biSJbmiabqyrbuC8fyTNPAjef6zvc51yP5hjog8YjEGXfCpG/pjDI3wZGUB71es0qr9kf9arm3phhAPhPTZnFa/QxPRfA3HCsves+1RVUSxZYHJvMXETjYpWEIw/iAuIgXORfj6ACZYVmhycLp5yQ4qVcoeQiaWIaKNuOpgInRakrZWArxehFrW3uSi7tr0Xv5WxK8OUxRzJCs2kaYeTyxLOoMIp1gjYDtO/uhbeAdAI4MPa34zA1MHiL+iW7sPg6/N7qurisPaL9Nj8LuqtZJnwd/1wCuIHiPXzeDKhA+EvjOzUGIoerxmYjPosKB2wxTOBSWEVbHfhSZzfvSzBytkA9ZgtwYkdoLcDRL/nNJzGZBnMp0ZvO5kGc7mPGIRgPKUehNo/mU7mTqEWk4qTWdVqOK1eqBjzFV7pOZTus3qRVFip16lmtRsF1TlXN7DirJtFnltrRroireBnrZBqQLeG/Ps2W/eg0reKhfjImXLm7a+OnjqIEnJ7R8F3NSiW+lpIQ7l3NclCcP57zY+dZmzR3qqFLdmuxR1KPHlAbNa6ThLbdXNdSNmDQd2ZCF1+bdJ7ny5cybO38OPbr06dSrW7+OPbv27SwKAAA7"),
+        ("264", "UklGRkIAAABXRUJQVlA4TDYAAAAvl8ARAA8w//M///MfeBALJvlLz6A7ov8TYGwFBfoQIqARkIC8iCpiRQipyoYgBEELqqKyYiw="),
+    ];
+
+    // A greyscale PNG of the digits in a 5x7 dot font, `scale` px per dot, black on white, one dot of margin.
+    internal static byte[] DigitsPng(string digits, int scale = 12)
+    {
+        string[] font = ["01110100011001110101110011000101110", "00100011000010000100001000010001110", "01110100010000100010001000100011111",
+                         "11110000010000101110000010000111110", "00010001100101010010111110001000010", "11111100001111000001000011000101110",
+                         "00110010001000011110100011000101110", "11111000010001000100010000100001000", "01110100011000101110100011000101110",
+                         "01110100011000101111000010001001100"];
+        int w = (digits.Length * 6 + 1) * scale, h = 9 * scale;
+        var raw = new byte[(w + 1) * h];   // each row: filter byte 0, then w grey pixels
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+            {
+                int gy = y / scale - 1, gx = x / scale - 1;
+                var on = gy is >= 0 and < 7 && gx >= 0 && gx / 6 < digits.Length && gx % 6 < 5 && font[digits[gx / 6] - '0'][gy * 5 + gx % 6] == '1';
+                raw[y * (w + 1) + 1 + x] = on ? (byte)0 : (byte)255;
+            }
+        var idat = new MemoryStream();
+        using (var z = new ZLibStream(idat, CompressionLevel.SmallestSize)) z.Write(raw);
+        var png = new MemoryStream();
+        png.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        Chunk("IHDR", [.. Be(w), .. Be(h), 8, 0, 0, 0, 0]);   // 8-bit greyscale
+        Chunk("IDAT", idat.ToArray());
+        Chunk("IEND", []);
+        return png.ToArray();
+
+        void Chunk(string type, byte[] data)
+        {
+            byte[] body = [.. Encoding.ASCII.GetBytes(type), .. data];
+            png.Write(Be(data.Length));
+            png.Write(body);
+            png.Write(Be((int)Crc32(body)));
+        }
+        static byte[] Be(int v) => [(byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v];
+        static uint Crc32(byte[] b)
+        {
+            var c = ~0u;
+            foreach (var x in b)
+            {
+                c ^= x;
+                for (var k = 0; k < 8; k++) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1)));
+            }
+            return ~c;
+        }
+    }
+
     // ---------- plumbing ----------
 
     // Runs a probe body that yields one (verdict, detail) per id; a throw or timeout fails every id it had not answered.
@@ -374,9 +459,9 @@ public static class CliProbe
 
         // Sends a user turn and collects its events until `result` (included). A can_use_tool goes to onPermission when
         // given (true = handled), else it is allowed as asked, so no probe can hang on an unexpected prompt.
-        public async Task<List<JsonElement>> Turn(string text, Func<JsonElement, Task<bool>>? onPermission = null)
+        public async Task<List<JsonElement>> Turn(string text, Func<JsonElement, Task<bool>>? onPermission = null, IReadOnlyList<UserImage>? images = null)
         {
-            await S.SendUser(text);
+            await S.SendUser(text, images);
             var seen = new List<JsonElement>();
             while (true)
             {
