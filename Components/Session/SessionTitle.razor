@@ -1,0 +1,19 @@
+@* Window title: "(n) " = decisions waiting across all sessions, else a running marker for this one, so the
+   state shows in the taskbar / tab while the user is in another window. *@
+@implements IDisposable
+@inject SessionManager Sessions
+
+<PageTitle>@Prefix@(Session?.Name ?? L["Session.Session"]) · Claude Code</PageTitle>
+
+@code {
+    [Parameter] public LiveSession? Session { get; set; }
+
+    string Prefix => Sessions.DecisionQueue.Count() is > 0 and var n ? $"({n}) "
+        : Session?.Status is SessionStatus.Running or SessionStatus.Starting ? L["Session.TitleRunning"] + " · " : "";
+
+    protected override void OnInitialized() => Sessions.Changed += Refresh;
+
+    void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sessions.Changed -= Refresh;
+}

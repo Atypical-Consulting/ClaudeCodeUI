@@ -42,10 +42,17 @@
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
-                    <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                }
+                else if (untrusted)
+                {
+                    <div role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <span>@L["New.Untrusted"]</span>
+                        <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
+                    </div>
                 }
                 @if (recents.Count > 0)
                 {
@@ -61,7 +68,7 @@
                 <label>Isolation</label>
                 <div class="input" style="font-family:var(--sans)">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
-                            @onclick="() => worktree = !worktree"><span class="sw"></span>@L["New.Worktree"]</button>
+                            @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null)
                     {
                         <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
@@ -95,16 +102,19 @@
             <div class="field">
                 <label>Permissions</label>
                 <div class="modes" role="radiogroup" aria-label="Permissions">
-                    @foreach (var m in Modes)
+                    @foreach (var m in LiveSession.Modes)
                     {
-                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => mode = m"><b>@m</b><span>@L["Mode." + m]</span></button>
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
             </div>
             <div>
                 <div class="box" style="max-width:none">
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
-                    <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">@L["New.Start"] <kbd>Ctrl ⏎</kbd></button></div>
+                    <div class="row">
+                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", mode]</span> }
+                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>Ctrl ⏎</kbd></button>
+                    </div>
                 </div>
             </div>
             <div class="hint"><span><kbd>Ctrl K</kbd> @L["New.HintSwitch"]</span><span><kbd>Alt N</kbd> @L["New.HintNew"]</span><span><kbd>Ctrl I</kbd> @L["New.HintInspector"]</span></div>
@@ -114,8 +124,6 @@
 </div>
 
 @code {
-    // "default" is sent as "manual" by LiveSession. bypassPermissions / dontAsk are deliberately not offered.
-    static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
     // CLI aliases and `claude --effort` levels; "" keeps the CLI / settings default.
     static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["low", "medium", "high", "xhigh", "max"];
 
@@ -124,7 +132,7 @@
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
     string? branch, wtName, lastQuery, shownCwd;
     ElementReference cwdInput;
-    bool exists = true, worktree = true, editing, busy;
+    bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
     bool claudeFound = ClaudeSession.OnPath();
 
@@ -137,8 +145,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Query is { Length: > 0 } q && q != lastQuery) { lastQuery = q; cwd = q; }
+        var link = Query is { Length: > 0 } q && q != lastQuery;
+        if (link) { lastQuery = Query; cwd = Query!; }
         await SetCwd(cwd);
+        // A folder handed over by a URL and never used before: claude would load its .claude settings and hooks, so ask first.
+        if (link) untrusted = exists && !TranscriptStore.Used(cwd) && !TranscriptStore.Used(TranscriptStore.RootOf(cwd));
     }
 
     // A long path shows its distinguishing end, not its start.
@@ -151,7 +162,10 @@
 
     async Task SetCwd(string value)
     {
-        cwd = value.Trim().Trim('"');
+        value = value.Trim().Trim('"');
+        if (value != cwd) untrusted = false;   // the user picked another folder themselves
+        cwd = value;
+        confirmRisk = false;
         exists = Local(cwd);
         branch = exists ? await Branch(cwd) : null;
     }
@@ -204,9 +218,11 @@
     async Task Start()
     {
         if (busy) return;
-        if (!(exists = Local(cwd))) return;
+        if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
+        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, the second Start confirms.
+        if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; busy = false; return; }
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
         var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null);
