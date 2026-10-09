@@ -121,11 +121,13 @@ public sealed class ClaudeSession : IAsyncDisposable
         finally { requests.TryRemove(id, out _); }
     }
 
-    public Task SendUser(string text, IReadOnlyList<UserImage>? images = null) => Write(new JsonObject
+    // uuid: the CLI reports the message's fate as command_lifecycle frames keyed on it (none without one).
+    public Task SendUser(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
     {
-        ["type"] = "user",
-        ["message"] = new JsonObject { ["role"] = "user", ["content"] = Images.Content(text, images) },
-    });
+        var msg = new JsonObject { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = Images.Content(text, images) } };
+        if (uuid is not null) msg["uuid"] = uuid;
+        return Write(msg);
+    }
 
     // Answer a "can_use_tool" control_request. A deny's message reaches the model verbatim as the tool_result.
     public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) => Write(new JsonObject

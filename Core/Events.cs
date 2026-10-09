@@ -26,6 +26,7 @@ public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
+public record QueueEvt(string Uuid, string State) : ClaudeEvent;   // command_lifecycle: queued|started|completed|cancelled|discarded|refused
 
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
 public static class Events
@@ -120,6 +121,10 @@ public static class Events
 
             case "conversation_reset":
                 yield return new ResetEvt();
+                break;
+
+            case "command_lifecycle":
+                if (Str(e, "command_uuid") is { } cu && Str(e, "state") is { } st) yield return new QueueEvt(cu, st);
                 break;
 
             case "rate_limit_event":
@@ -255,5 +260,6 @@ public static class Events
         Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
+        Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");
     }
 }
