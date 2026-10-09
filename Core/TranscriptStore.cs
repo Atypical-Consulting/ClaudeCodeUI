@@ -57,7 +57,8 @@ public static class TranscriptStore
                 s.Apply(ev);
                 if (at is null) continue;
                 if (ev is ToolUseEvt u && Tool(s, u.Id) is { } tu) tu.StartedAt = at.Value;
-                if (ev is ToolResultEvt r && Tool(s, r.ToolUseId) is { } tr) tr.EndedAt = at.Value;
+                if (ev is ToolResultEvt r && Tool(s, r.ToolUseId) is { } tr) tr.EndedAt = tr.Background ? null : at.Value;
+                if (ev is TaskDoneEvt { DurationMs: 0 } td && (Tool(s, td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt) tt.EndedAt = at.Value;
             }
         }
         foreach (var t in s.Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting))
@@ -209,5 +210,13 @@ public static class TranscriptStore
                && t1.EndedAt - t1.StartedAt == TimeSpan.FromSeconds(2) && t2.EndedAt == t2.StartedAt, "replay");
         }
         finally { File.Delete(path); }
+
+        // Background agent: launch receipt, then the task-notification 5 s later (no duration tag → timestamp decides).
+        var bg = Replay([
+            """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_A","name":"Agent","input":{}}]},"timestamp":"2026-10-09T12:00:00Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_A","type":"tool_result","content":"Async agent launched"}]},"toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aa5"},"timestamp":"2026-10-09T12:00:01Z"}""",
+            """{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens></usage>\n</task-notification>"},"timestamp":"2026-10-09T12:00:05Z"}""",
+        ]);
+        Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
     }
 }
