@@ -327,7 +327,7 @@
     if (res.status === 404) return failed(true);
     let rel;
     try { rel = await res.json(); } catch { return failed(false); }
-    const assets = (rel.assets || []).filter(a => !/\.(sig|json)$/i.test(a.name)).sort((a, b) => osOf(a.name).localeCompare(osOf(b.name)) || a.name.localeCompare(b.name));
+    const assets = (rel.assets || []).filter(a => !/\.(sig|json|tar\.gz)$/i.test(a.name)) /* updater files, not installers */.sort((a, b) => osOf(a.name).localeCompare(osOf(b.name)) || a.name.localeCompare(b.name));
     if (!assets.length) return failed(true, rel);
 
     const [p1, p2] = pick(who);

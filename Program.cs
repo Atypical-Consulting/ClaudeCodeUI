@@ -30,6 +30,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     EnvironmentName = desktop ? Environments.Production : null,
 });
 var token = RandomNumberGenerator.GetHexString(64, lowercase: true);
+Shell.Desktop = desktop;
 if (desktop)
 {
     builder.WebHost.UseUrls($"http://127.0.0.1:{int.Parse(port!)}");
@@ -105,6 +106,16 @@ app.MapPost("/culture", ([FromForm] string? c, HttpContext ctx) =>
             new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), SameSite = SameSiteMode.Lax, IsEssential = true });
     return Results.LocalRedirect("~/settings/appearance");
 });
+// Desktop: the shell stops us this way before installing an update (Windows can't replace a running executable).
+// The token must be in the query: only the shell has it there, the cookie alone (any same-site page) is not enough.
+if (desktop)
+    app.MapPost("/quit", (HttpContext ctx) =>
+    {
+        // A body, so the status-code page doesn't re-execute this POST as /not-found.
+        if (!IsToken(ctx.Request.Query["token"])) return Results.Text("Forbidden", statusCode: StatusCodes.Status403Forbidden);
+        app.Lifetime.StopApplication();
+        return Results.NoContent();
+    });
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'none'");
 

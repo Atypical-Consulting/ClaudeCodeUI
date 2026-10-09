@@ -80,6 +80,7 @@
             new(false, L["Nav.Worktrees"], "branch", null, 0, null, null, Go("worktrees")),
             new(false, L["Nav.Extensions"], "plug", null, 0, null, null, Go("extensions")),
             new(false, L["Nav.Appearance"], "palette", null, 0, null, null, Go("settings/appearance")),
+            .. Shell.Desktop ? [new Row(false, L["Appearance.UpdateCheck"], "refresh", null, 0, Shell.Version, null, CheckForUpdates)] : Array.Empty<Row>(),
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
         return rows;
@@ -142,6 +143,13 @@
         Ui.PaletteOpen = false;
         await Sessions.Stop(id);
         Nav.NavigateTo("overview");
+    }
+
+    Task CheckForUpdates()
+    {
+        Ui.PaletteOpen = false;
+        Shell.CheckForUpdates();
+        return Task.CompletedTask;
     }
 
     async Task NextTheme()

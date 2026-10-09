@@ -18,6 +18,8 @@ Download the installer for your system from the [GitHub releases](https://github
 
 **Verify your download.** Each release ships a `SHA256SUMS` file (`shasum -a 256 -c SHA256SUMS`) and GitHub build-provenance attestations: `gh attestation verify <file> -R Atypical-Consulting/ClaudeCodeUI`.
 
+**Updates.** Every version after 0.1.0 updates itself: a few seconds after startup it checks the latest GitHub release and, when there is a new one, offers to install it and restart. You can also check at any time with *Check for Updates…* (app menu on macOS, Help menu on Windows and Linux), or *Check for updates* in Settings › Appearance and the command palette. Updates are signed, and the signature is verified before anything is installed. Version 0.1.0 has no updater: install the next version by hand once. With the `.deb` or `.rpm` package, installing an update asks for your password.
+
 ### Requirement: Claude Code
 
 The Claude Code CLI must be installed and signed in:

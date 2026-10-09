@@ -22,6 +22,8 @@
   // The app itself follows Accept-Language; this splash follows the same OS language.
   var fr = /^fr\b/i.test(navigator.language);
   if (fr) { document.documentElement.lang = 'fr'; document.getElementById('msg').textContent = 'Démarrage…'; }
+  // ?updating: the shell stopped the server to install an update; the app restarts (or the installer opens) next.
+  if (location.search === '?updating') document.getElementById('msg').textContent = fr ? 'Installation de la mise à jour…' : 'Installing the update…';
   // Called by the shell (main.rs) when the server does not come up (stopped = false) or exits later (stopped = true).
   // why is an exit code, or an error the OS worded.
   function fail(why, stopped) {
