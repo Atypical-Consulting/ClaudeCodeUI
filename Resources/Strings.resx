@@ -41,6 +41,7 @@
   <data name="BadRequest.Heading" xml:space="preserve"><value>The app couldn't process this request.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>It was rejected before it reached a page. Go back and try again, or start over from a new session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
+  <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
@@ -96,6 +97,7 @@
   <data name="Error.Text" xml:space="preserve"><value>Reload to try again. If it keeps failing, copy the request ID when you report it.</value></data>
   <data name="Error.Title" xml:space="preserve"><value>Server error</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>The CLI reports this list with the session's first message.</value></data>
+  <data name="Ext.AuthHow" xml:space="preserve"><value>To sign in, run this command in Claude Code in a terminal:</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>The server is waiting for you to sign in. Its tools stay unavailable until then.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentication required</value></data>
   <data name="Ext.Col.Description" xml:space="preserve"><value>Description</value></data>
@@ -114,13 +116,10 @@
   <data name="Ext.Kv.Target" xml:space="preserve"><value>target</value></data>
   <data name="Ext.Lead" xml:space="preserve"><value>{0} MCP servers, {1} skills, {2} agents, {3} plugins, loaded by the CLI when each session starts.</value></data>
   <data name="Ext.NoSession" xml:space="preserve"><value>Start a session to see what the CLI loads.</value></data>
-  <data name="Ext.OpenConfig" xml:space="preserve"><value>Open configuration</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Retry</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
   <data name="Ext.Scope.Project" xml:space="preserve"><value>project</value></data>
   <data name="Ext.Scope.User" xml:space="preserve"><value>user</value></data>
-  <data name="Ext.SignIn" xml:space="preserve"><value>Sign in</value></data>
-  <data name="Ext.Soon" xml:space="preserve"><value>coming soon</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connected</value></data>
   <data name="Ext.State.Disabled" xml:space="preserve"><value>disabled</value></data>
   <data name="Ext.State.Failed" xml:space="preserve"><value>failed</value></data>
@@ -181,10 +180,13 @@
   <data name="New.HintInspector" xml:space="preserve"><value>inspector</value></data>
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
+  <data name="New.Isolation" xml:space="preserve"><value>Isolation</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
+  <data name="New.Ok" xml:space="preserve"><value>OK</value></data>
+  <data name="New.Permissions" xml:space="preserve"><value>Permissions</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Describe the task…</value></data>
   <data name="New.Start" xml:space="preserve"><value>Start</value></data>
   <data name="New.Step1" xml:space="preserve"><value>1. Install Claude Code</value></data>
@@ -215,6 +217,7 @@
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>
   <data name="Palette.NewSessionIn" xml:space="preserve"><value>New session in {0}</value></data>
+  <data name="Palette.NextDecision" xml:space="preserve"><value>Next decision</value></data>
   <data name="Palette.NoResults" xml:space="preserve"><value>No results</value></data>
   <data name="Palette.Open" xml:space="preserve"><value>open</value></data>
   <data name="Palette.Placeholder" xml:space="preserve"><value>Search sessions and actions…</value></data>
@@ -237,6 +240,7 @@
   <data name="Quota.SevenDays" xml:space="preserve"><value>7d</value></data>
   <data name="Quota.Usage" xml:space="preserve"><value>Usage</value></data>
   <data name="Rail.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Rail.Label" xml:space="preserve"><value>Sessions and navigation</value></data>
   <data name="Rail.NewSession" xml:space="preserve"><value>New session</value></data>
   <data name="Rail.Recent" xml:space="preserve"><value>Recent</value></data>
   <data name="Rail.Search" xml:space="preserve"><value>Search</value></data>

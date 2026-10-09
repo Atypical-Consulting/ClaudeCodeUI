@@ -9,7 +9,7 @@
 
 <div class="pane">
     <div class="ph">
-        <span class="ttl">Worktrees</span>
+        <h1 class="ttl">Worktrees</h1>
         @if (rows is not null)
         {
             <span class="sub">@Plural(repos.Count, "Wt.Repos") · @Plural(rows.Count, "Wt.Worktrees") · @SizeOf(rows)</span>
@@ -45,14 +45,14 @@
                 <div class="errbox">@e</div>
             }
             <div class="filters">
-                <button class="chip @(filter is null ? "on" : null)" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
-                <button class="chip @(filter == WtState.Safe ? "on" : null)" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>@L["Wt.Filter.Safe"] <b>@Count(WtState.Safe)</b></button>
-                <button class="chip @(filter == WtState.Orphan ? "on" : null)" @onclick="() => filter = WtState.Orphan">@L["Wt.Filter.Orphan"] <b>@Count(WtState.Orphan)</b></button>
-                <button class="chip @(filter == WtState.Check ? "on" : null)" @onclick="() => filter = WtState.Check">@L["Wt.State.Check"] <b>@Count(WtState.Check)</b></button>
-                <button class="chip @(filter == WtState.Active ? "on" : null)" @onclick="() => filter = WtState.Active">@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
+                <button class="chip @(filter is null ? "on" : null)" aria-pressed="@(filter is null ? "true" : "false")" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
+                <button class="chip @(filter == WtState.Safe ? "on" : null)" aria-pressed="@(filter == WtState.Safe ? "true" : "false")" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>@L["Wt.Filter.Safe"] <b>@Count(WtState.Safe)</b></button>
+                <button class="chip @(filter == WtState.Orphan ? "on" : null)" aria-pressed="@(filter == WtState.Orphan ? "true" : "false")" @onclick="() => filter = WtState.Orphan">@L["Wt.Filter.Orphan"] <b>@Count(WtState.Orphan)</b></button>
+                <button class="chip @(filter == WtState.Check ? "on" : null)" aria-pressed="@(filter == WtState.Check ? "true" : "false")" @onclick="() => filter = WtState.Check">@L["Wt.State.Check"] <b>@Count(WtState.Check)</b></button>
+                <button class="chip @(filter == WtState.Active ? "on" : null)" aria-pressed="@(filter == WtState.Active ? "true" : "false")" @onclick="() => filter = WtState.Active">@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
             </div>
             <table class="wtt">
-                <thead><tr><th>Worktree</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th></th></tr></thead>
+                <thead><tr><th>Worktree</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
                 <tbody>
                     @foreach (var (title, states) in groups)
                     {
@@ -71,27 +71,27 @@
                                     {
                                         @if (plan.Contains(w.Path))
                                         {
-                                            <button class="btn ghost" disabled="@running" @onclick="() => plan.Remove(w.Path)">@L["Wt.Unplan"]</button>
+                                            <button class="btn ghost" disabled="@running" aria-label="@($"{L["Wt.Unplan"]} {w.Name}")" @onclick="() => plan.Remove(w.Path)">@L["Wt.Unplan"]</button>
                                         }
                                         else
                                         {
-                                            <button class="btn" disabled="@running" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])</button>
+                                            <button class="btn" disabled="@running" aria-label="@($"{(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])} {w.Name}")" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])</button>
                                         }
                                     }
                                     else if (w.State == WtState.Active)
                                     {
                                         if (SessionOf(w) is { } s)
                                         {
-                                            <button class="btn" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>@L["Wt.Go"]</button>
+                                            <button class="btn" aria-label="@($"{L["Wt.Go"]} {w.Name}")" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>@L["Wt.Go"]</button>
                                         }
                                     }
                                     else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null && !w.BranchOnly)
                                     {
-                                        <button class="btn" disabled="@running" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">@L["Wt.Push"]</button>
+                                        <button class="btn" disabled="@running" aria-label="@($"{L["Wt.Push"]} {w.Name}")" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">@L["Wt.Push"]</button>
                                     }
                                     else if (!w.BranchOnly)
                                     {
-                                        <button class="btn" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>@L["Action.Open"]</button>
+                                        <button class="btn" aria-label="@($"{L["Action.Open"]} {w.Name}")" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>@L["Action.Open"]</button>
                                     }
                                 </div></td>
                             </tr>
@@ -106,8 +106,8 @@
 @if (Ui.InspectorOpen)
 {
     var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
-    <div class="pane insp">
-        <div class="ph"><span class="ttl">@L["Wt.Cleanup"]</span><span class="sub">@Plural(chosen.Count, "Wt.Worktrees")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
+    <aside class="pane insp" aria-label="@L["Inspector"]">
+        <div class="ph"><h2 class="ttl">@L["Wt.Cleanup"]</h2><span class="sub">@Plural(chosen.Count, "Wt.Worktrees")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
         @if (push is { } pw)
         {
             <div class="section">
@@ -160,7 +160,7 @@
                 </div>
             }
         </div>
-    </div>
+    </aside>
 }
 
 @code {

@@ -3,7 +3,7 @@
 (() => {
     const THEMES = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'], THEME_KEY = 'claude-ui.theme', SIZE_KEY = 'claude-ui.code-size';
     const root = document.documentElement;
-    let net = null, queued = false;
+    let net = null, queued = false, opener = null;
 
     window.claudeUi = {
         getTheme: () => root.dataset.theme || 'graphite',
@@ -21,6 +21,15 @@
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
+        // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
+        // to what had it (unless something, e.g. FocusOnNavigate, already took it).
+        modal(open, el) {
+            if (open) opener = document.activeElement;
+            const app = document.querySelector('.app');
+            if (app) app.inert = open;
+            if (open) el?.focus();
+            else if (opener?.isConnected && (!document.activeElement || document.activeElement === document.body)) opener.focus();
+        },
         // Pin a scroller to its bottom after each render, unless the user scrolled up.
         scrollEnd(el) {
             if (!el) return;
@@ -63,6 +72,26 @@
         label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
         b.classList.add('done');
         setTimeout(() => { label.nodeValue = old; b.classList.remove('done'); }, 1400);
+    });
+
+    // Tabs and radio groups: arrows / Home / End move focus and selection together (roving tabindex in the markup).
+    document.addEventListener('keydown', e => {
+        const item = e.target instanceof Element ? e.target.closest('[role=tab],[role=radio]') : null;
+        const group = item?.closest('[role=tablist],[role=radiogroup]');
+        if (!group || e.ctrlKey || e.metaKey || e.altKey) return;
+        const items = [...group.querySelectorAll('[role=tab],[role=radio]')].filter(x => !x.disabled);
+        const i = items.indexOf(item), n = items.length;
+        const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+        if (j === undefined) return;
+        e.preventDefault();
+        const next = items[(j + n) % n];
+        next.focus();
+        next.click();
+    });
+
+    // Space on a focusable table row selects it (Blazor handler) without also scrolling its scroller.
+    document.addEventListener('keydown', e => {
+        if (e.key === ' ' && e.target instanceof Element && e.target.matches('tr[tabindex]')) e.preventDefault();
     });
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');

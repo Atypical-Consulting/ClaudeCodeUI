@@ -4,7 +4,7 @@
 @inject UiState Ui
 @inject NavigationManager Nav
 
-<div class="ph"><span class="ttl">Permission</span><span class="sub">@Permission.Tool</span>
+<div class="ph"><h2 class="ttl">Permission</h2><span class="sub">@Permission.Tool</span>
     <span class="end"><span class="pill wait">@L["OfN", queue.FindIndex(x => x.P == Permission) + 1, queue.Count]</span></span>
 </div>
 <div style="flex:1;min-height:0;overflow:auto">

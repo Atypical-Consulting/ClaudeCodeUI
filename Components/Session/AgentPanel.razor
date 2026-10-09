@@ -1,7 +1,7 @@
 @* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI: "—". *@
 @inject UiState Ui
 
-<div class="ph"><span class="ttl">Agent</span><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
+<div class="ph"><h2 class="ttl">Agent</h2><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div style="flex:1;min-height:0;overflow:auto">

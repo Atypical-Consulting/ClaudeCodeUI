@@ -4,7 +4,7 @@
 
 @if (Ui.InspectorOpen)
 {
-    <div class="pane insp">
+    <aside class="pane insp" aria-label="@L["Inspector"]">
         @if (Session.Pending.FirstOrDefault() is { } p)
         {
             <PermissionCard @key="p.RequestId" Session="Session" Permission="p" />
@@ -23,10 +23,10 @@
         }
         else
         {
-            <div class="ph"><span class="ttl">@L["Inspector"]</span></div>
+            <div class="ph"><h2 class="ttl">@L["Inspector"]</h2></div>
             <div class="section" style="border-bottom:0"><p>@L["Ctx.SelectRow"]</p></div>
         }
-    </div>
+    </aside>
 }
 
 @code {
