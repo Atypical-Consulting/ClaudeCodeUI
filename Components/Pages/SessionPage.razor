@@ -27,7 +27,8 @@ else
         <Thread @key="S.Id" Session="S" />
         <Composer Session="S" />
     </div>
-    <Inspector @key="S.Id" Session="S" />
+    @* A sibling of the keyed .pane: its key must differ from the pane's, or the diff throws on the next render. *@
+    <Inspector @key="(S.Id, nameof(Inspector))" Session="S" />
 }
 
 @code {
