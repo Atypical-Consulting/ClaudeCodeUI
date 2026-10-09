@@ -99,7 +99,7 @@
           <thead><tr><th>Système</th><th>Fichier</th><th>Remarque</th></tr></thead>
           <tbody>
             <tr><td>Windows 10/11</td><td><code>-setup.exe</code> ou <code>.msi</code></td><td>WebView2 est déjà présent sur Windows 11.</td></tr>
-            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon) ou <code>x64</code> (Intel)</td><td>Signée et notariée par Apple.</td></tr>
+            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon)</td><td>Signée et notariée par Apple. Les Mac Intel ne sont pas pris en charge (macOS 26 est leur dernière version).</td></tr>
             <tr><td>Linux x64</td><td><code>.AppImage</code> ou <code>.deb</code></td><td>Nécessite WebKitGTK 4.1 (<code>libwebkit2gtk-4.1-0</code> sur Debian/Ubuntu, déjà installé sur la plupart des bureaux).</td></tr>
           </tbody>
         </table></div>
@@ -261,7 +261,7 @@ npm run build    <span class="c"># produit les installeurs dans src-tauri/target
         <ol>
           <li>Les commits suivent les <a href="https://www.conventionalcommits.org/fr/">Conventional Commits</a> : <code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>ci:</code>, <code>chore:</code>.</li>
           <li>À chaque push sur <code>main</code>, <a href="https://github.com/googleapis/release-please">release-please</a> ouvre ou met à jour une PR de version : CHANGELOG, et version dans <code>ClaudeCodeUI.csproj</code>, <code>tauri.conf.json</code> et <code>Cargo.toml</code>.</li>
-          <li>Fusionner cette PR crée le tag et la version GitHub. Le workflow <code>release.yml</code> construit alors les installeurs Windows, macOS (arm64 et x64) et Linux, et les attache à la version.</li>
+          <li>Fusionner cette PR crée le tag et la version GitHub. Le workflow <code>release.yml</code> construit alors les installeurs Windows, macOS (Apple Silicon) et Linux, et les attache à la version.</li>
         </ol>
         <p>Ce site est publié sur GitHub Pages par le workflow <code>pages.yml</code> à chaque modification du dossier <code>site/</code> sur <code>main</code>.</p>
       </section>

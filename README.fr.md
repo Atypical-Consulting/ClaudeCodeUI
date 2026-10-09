@@ -13,7 +13,7 @@ Télécharge l'installeur de ton système sur la page des [versions GitHub](http
 | Système | Fichier | Remarque |
 |---|---|---|
 | Windows 10/11 | `.msi` ou `-setup.exe` | Installeur non signé : SmartScreen affiche « Windows a protégé votre ordinateur ». Clique sur « Informations complémentaires » puis « Exécuter quand même ». WebView2 est déjà présent sur Windows 11. |
-| macOS (Apple Silicon ou Intel) | `.dmg` (`aarch64` ou `x64`) | Signée avec un Developer ID et notariée par Apple : elle s'ouvre normalement, sans manipulation. |
+| macOS (Apple Silicon) | `.dmg` (`aarch64`) | Signée avec un Developer ID et notariée par Apple : elle s'ouvre normalement, sans manipulation. Les Mac Intel ne sont pas pris en charge (macOS 26 est leur dernière version). |
 | Linux x64 | `.AppImage` ou `.deb` | Nécessite WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` sur Debian/Ubuntu, déjà installé sur la plupart des bureaux). Pour l'AppImage : `chmod +x` puis lancer. |
 
 **Vérifier le téléchargement.** Chaque version publie un fichier `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`) et des attestations de provenance GitHub : `gh attestation verify <fichier> -R Atypical-Consulting/ClaudeCodeUI`.
@@ -68,7 +68,7 @@ La coque Tauri lance `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTTP su
 
 1. Les commits suivent les [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat:`, `fix:`, `docs:`, `ci:`, `chore:`).
 2. À chaque push sur `main`, [release-please](https://github.com/googleapis/release-please) ouvre ou met à jour une PR de version : CHANGELOG, et version dans `ClaudeCodeUI.csproj`, `tauri.conf.json` et `Cargo.toml`.
-3. Fusionner cette PR crée le tag et la version GitHub. Le workflow `release.yml` construit alors les installeurs Windows, macOS (arm64 et x64) et Linux, et les attache à la version.
+3. Fusionner cette PR crée le tag et la version GitHub. Le workflow `release.yml` construit alors les installeurs Windows, macOS (Apple Silicon) et Linux, et les attache à la version.
 
 ## Licence
 
