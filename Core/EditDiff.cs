@@ -2,14 +2,16 @@ using System.Text.Json;
 
 namespace ClaudeCodeUI;
 
-public enum DiffKind { Ctx, Add, Del, Hunk }
-public record DiffLine(DiffKind Kind, int? N, string Text);   // N: old number for Del, new number otherwise
+public enum DiffKind { Ctx, Add, Del, Hunk, More }
+public record DiffLine(DiffKind Kind, int? N, string Text);   // N: old number for Del, new number otherwise; More: occurrences not shown
 
 // Diff lines for Edit/Write/MultiEdit: before approval (from the tool input) or after (structuredPatch).
 // No LCS: the edited block is cut to whole lines, common leading/trailing lines become context.
 public static class EditDiff
 {
     const int Context = 2;
+    const long MaxRead = 2_000_000;   // bytes: a bigger file is diffed without line numbers
+    const int MaxOccurrences = 20;    // replace_all: each hunk rescans the whole file, so only the first ones are previewed
 
     public static IReadOnlyList<DiffLine> FromInput(string tool, JsonElement input)
     {
@@ -19,14 +21,17 @@ public static class EditDiff
         {
             case "Write":
                 var content = Norm(Events.Str(input, "content") ?? "");
-                if (file is null) return Created(content);
+                if (file is null) return File.Exists(path) ? Edits(null, [("", content)]) : Created(content);   // unreadable: not a new file
                 return Edits(file, [(file, content)]);
             case "MultiEdit" when Events.Prop(input, "edits") is { ValueKind: JsonValueKind.Array } edits:
                 return Edits(file, edits.EnumerateArray().Select(e => (Norm(Events.Str(e, "old_string") ?? ""), Norm(Events.Str(e, "new_string") ?? ""))));
             default:
                 var (old, @new) = (Norm(Events.Str(input, "old_string") ?? ""), Norm(Events.Str(input, "new_string") ?? ""));
                 if (Events.Prop(input, "replace_all") is not { ValueKind: JsonValueKind.True } || file is null || old.Length == 0) return Edits(file, [(old, @new)]);
-                return Edits(file, Enumerable.Repeat((old, @new), Math.Max(1, file.Split(old).Length - 1)), true);   // one hunk per occurrence
+                var count = Math.Max(1, file.Split(old).Length - 1);
+                var res = Edits(file, Enumerable.Repeat((old, @new), Math.Min(count, MaxOccurrences)), true);   // one hunk per occurrence
+                if (count > MaxOccurrences) res.Add(new(DiffKind.More, count - MaxOccurrences, ""));
+                return res;
         }
     }
 
@@ -120,8 +125,15 @@ public static class EditDiff
 
     static string? Read(string path)
     {
-        try { return path.Length > 0 && File.Exists(path) ? Norm(File.ReadAllText(path)) : null; }
+        try
+        {
+            if (path.Length == 0 || new FileInfo(path) is not { Exists: true } fi || fi.Length > MaxRead) return null;
+            // Devices and FIFOs (/dev/zero, a pipe) report length 0 and would block or never end: never open them.
+            // A regular empty file reads as "" anyway.
+            return fi.Length == 0 ? "" : Norm(File.ReadAllText(path));
+        }
         catch (IOException) { return null; }
+        catch (ArgumentException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
     }
 
@@ -174,6 +186,18 @@ public static class EditDiff
 
             var every = FromInput("Edit", J($$"""{"file_path":"{{f}}","old_string":"1","new_string":"1x","replace_all":true}"""));
             Ok(every.Count(l => l.Kind == DiffKind.Add) == 2 && Show(every).Contains("Add1:1x") && Show(every).Contains("Add10:1x0"), "replace_all, every occurrence: " + Show(every));
+
+            File.WriteAllText(Path.Combine(dir, "many.txt"), string.Concat(Enumerable.Repeat("x\n", MaxOccurrences + 5)));
+            var many = Path.Combine(dir, "many.txt").Replace("\\", "\\\\");
+            var capped = FromInput("Edit", J($$"""{"file_path":"{{many}}","old_string":"x","new_string":"y","replace_all":true}"""));
+            Ok(capped.Count(l => l.Kind == DiffKind.Hunk) == MaxOccurrences && capped[^1] is { Kind: DiffKind.More, N: 5 }, "replace_all, capped occurrences: " + Show(capped));
+
+            File.WriteAllText(Path.Combine(dir, "big.txt"), "a\n" + new string('z', (int)MaxRead));
+            var big = Path.Combine(dir, "big.txt").Replace("\\", "\\\\");
+            var bigEdit = FromInput("Edit", J($$"""{"file_path":"{{big}}","old_string":"a","new_string":"b"}"""));
+            Ok(Show(bigEdit) == "Del:a|Add:b", "file too large, block without numbers: " + Show(bigEdit));
+            var bigWrite = FromInput("Write", J($$"""{"file_path":"{{big}}","content":"c"}"""));
+            Ok(Show(bigWrite) == "Add:c", "Write over a file too large is not a creation: " + Show(bigWrite));
 
             var gone = FromInput("Edit", J("""{"file_path":"C:\\nope\\x.cs","old_string":"a","new_string":"b"}"""));
             Ok(Show(gone) == "Del:a|Add:b", "missing file: " + Show(gone));
