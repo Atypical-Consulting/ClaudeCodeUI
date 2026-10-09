@@ -66,7 +66,7 @@
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Action impossible : {0}</value></data>
   <data name="Composer.Attach" xml:space="preserve"><value>Joindre des images (ou les coller ou les déposer ici)</value></data>
-  <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
+  <data name="Composer.CancelQueued" xml:space="preserve"><value>Annuler le message en file : {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort de réflexion</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Rapide</value></data>
@@ -88,12 +88,16 @@
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session arrêtée. Relance-la pour continuer.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Réponds à Claude…</value></data>
   <data name="Composer.PhHistory" xml:space="preserve"><value>Envoie un message pour reprendre cette session…</value></data>
-  <data name="Composer.PhRunning" xml:space="preserve"><value>Claude travaille. Tu peux préparer la suite…</value></data>
+  <data name="Composer.PhRunning" xml:space="preserve"><value>Claude travaille. Ce que tu envoies maintenant part en file…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Ou explique à Claude ce que tu veux à la place…</value></data>
-  <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Tu peux préparer la suite…</value></data>
+  <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Ce que tu envoies maintenant part en file…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Refuser {0} et envoyer</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Les demandes d’autorisation en attente sont d’abord refusées, puis ton message est envoyé.</value></data>
   <data name="Composer.RemoveImage" xml:space="preserve"><value>Retirer l’image {0}</value></data>
+  <data name="Composer.Queue" xml:space="preserve"><value>Mettre en file</value></data>
+  <data name="Composer.QueueHint" xml:space="preserve"><value>Claude le lit au prochain résultat d’outil, ou juste après ce tour</value></data>
+  <data name="Composer.Queued" xml:space="preserve"><value>en file</value></data>
+  <data name="Composer.QueuedList" xml:space="preserve"><value>Messages en file</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Envoyer</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Arrêter le workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>tour</value></data>

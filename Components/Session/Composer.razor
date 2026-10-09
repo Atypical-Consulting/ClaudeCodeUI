@@ -1,5 +1,6 @@
 @* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands,
-   "@" file mentions (the CLI reads the mentioned file itself), ↑ ↓ prompt history (this session, then past sessions of the same folder). *@
+   "@" file mentions (the CLI reads the mentioned file itself), ↑ ↓ prompt history (this session, then past sessions of the same folder).
+   Sent during a turn, a message waits as a chip until the CLI starts it (command_lifecycle), or is cancelled (cancel_async_message). *@
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -24,6 +25,21 @@
            OnReady is a no-op on purpose: invoking an EventCallback built here re-renders the Composer (aria-activedescendant). *@
         <MentionPopover @ref="mention" Session="Session" Query="@mq" OnPick="PickMention" OnReady="() => { }" />
     }
+    <div aria-live="polite">
+        @if (!Session.Queued.IsEmpty)
+        {
+            <ul class="queued" aria-label="@L["Composer.QueuedList"]">
+                @foreach (var q in Session.Queued)
+                {
+                    <li @key="q.Uuid" class="qchip">
+                        <span class="tag" title="@L["Composer.QueueHint"]">@L["Composer.Queued"]</span>
+                        <span class="qt" title="@q.Text">@q.Text</span>
+                        <button type="button" class="btn ghost" aria-label="@L["Composer.CancelQueued", q.Text]" title="@L["Composer.CancelQueued", q.Text]" @onclick="() => Cancel(q)"><Icon Name="x" Sm /></button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
     <div class="box" @ref="box">
         @if (images.Count > 0)
         {
@@ -96,6 +112,10 @@
                 @if (Session.Status == SessionStatus.Running)
                 {
                     @if (ultraTurn) { <span class="tag acc">ultracode</span> }
+                    @if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        <button class="btn go primary" title="@L["Composer.QueueHint"]" @onclick="Send">@L["Composer.Queue"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    }
                     <button class="btn go" @onclick="() => Run(Session.Interrupt)"><Icon Name="stop" Sm />@(ultraTurn ? L["Composer.StopWorkflow"] : L["Composer.Interrupt"]) <kbd>@L["Key.Esc"]</kbd></button>
                 }
                 else if (crashed)
@@ -120,15 +140,11 @@
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
         <span id="composer-history" role="status">@(history.Index >= 0 ? L["Composer.History", history.Index + 1, history.Count] : "")</span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
-        @* One live region, so an error or the busy hint is announced. *@
+        @* One live region, so an error is announced. *@
         <span class="r @(error is not null ? "c-err-fg" : null)" role="status">
             @if (error is not null)
             {
                 @error
-            }
-            else if (busy && Session.Status == SessionStatus.Running)
-            {
-                @L["Composer.Busy"]
             }
             else if (Session.Ultracode && Session.Status != SessionStatus.Running)
             {
@@ -157,7 +173,7 @@
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
     IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
-    bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, busy, reading;
+    bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, reading;
     string? recalled;  // the prompt Recall put in the box, kept to tell an untouched recall from an edit
     bool? ultraAvailable;
     string? appliedEffort, error;
@@ -259,10 +275,7 @@
     async Task Send()
     {
         var t = text.Trim();
-        busy = false;
         if (t.Length == 0 && images.Count == 0 || reading || crashed) return;
-        // The Send button is replaced by Interrupt while running: acknowledge Ctrl+Enter instead of ignoring it.
-        if (Session.Status == SessionStatus.Running) { busy = true; return; }
         var imgs = images;
         text = "";
         images = [];
@@ -319,6 +332,13 @@
     {
         images = [.. images.Where((_, j) => j != i)];
         await JS.InvokeVoidAsync("claudeUi.focus", area);   // the removed button took the focus with it
+    }
+
+    // The chip leaves on the CLI's command_lifecycle frame; the focus goes back to the prompt.
+    async Task Cancel(QueuedMessage q)
+    {
+        await Run(() => Session.Cancel(q));
+        await JS.InvokeVoidAsync("claudeUi.focus", area);
     }
 
     async Task Pick(string name)

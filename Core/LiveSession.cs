@@ -27,6 +27,7 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public int SubToolUses { get; init; }
     public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
 }
+public record QueuedMessage(string Uuid, string Text, DateTimeOffset At);   // written to stdin mid-turn, not started yet
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
 
@@ -40,7 +41,7 @@ public sealed class LiveSession : IAsyncDisposable
     bool stopped;   // set by DisposeAsync (SessionManager.Stop): EnsureProcess refuses to spawn again
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
-    int turns;                                                 // sent and not yet answered by a result (the CLI queues them)
+    bool draining;                                             // a result came with messages still queued: the CLI runs the next one
     long lastNotify;
     int notifyQueued;
     int version;
@@ -68,6 +69,7 @@ public sealed class LiveSession : IAsyncDisposable
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
     public ImmutableList<PendingPermission> Pending { get; private set; } = [];
+    public ImmutableList<QueuedMessage> Queued { get; private set; } = [];
     // Appended per text_delta under gate; the string is only materialized when read (once per render, not per delta).
     readonly System.Text.StringBuilder stream = new();
     string? streamText = "";
@@ -115,11 +117,28 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task Send(string text, IReadOnlyList<UserImage>? images = null)
     {
         var p = EnsureProcess();
-        if (Ultracode) await p.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
-        lock (gate) { turnUltra = Ultracode; BeginTurn(text, images); }
+        var uuid = Guid.NewGuid().ToString();
+        // During a turn the CLI queues the message: it folds it into the turn at the next tool result, or runs it as the
+        // next turn (also after an interrupt). It joins the thread on command_lifecycle `started` (--probe-cli queue).
+        // ponytail: no ultracode for a queued message, its flag would land on the running turn; it stays armed for the next send.
+        bool queued;
+        lock (gate)
+        {
+            queued = Status is SessionStatus.Running or SessionStatus.Waiting;
+            if (queued) Queued = Queued.Add(new(uuid, text, DateTimeOffset.Now));
+        }
+        if (!queued)
+        {
+            if (Ultracode) await p.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
+            lock (gate) { turnUltra = Ultracode; BeginTurn(text, images); }
+        }
         Notify();
-        await p.SendUser(text, images);
+        await p.SendUser(text, images, uuid);
     }
+
+    // cancel_async_message drops a message the CLI has not started; {cancelled:false} = it already did. The chip goes on
+    // the command_lifecycle frame that follows either way (verified by --probe-cli queue).
+    public Task Cancel(QueuedMessage q) => Request("cancel_async_message", new() { ["message_uuid"] = q.Uuid });
 
     // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
     // input: what to allow the tool with instead of its own input (AskUserQuestion's answers, see AskUser).
@@ -333,6 +352,7 @@ public sealed class LiveSession : IAsyncDisposable
             Status = SessionStatus.Crashed;
             ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
+            Queued = []; draining = false;
             TurnStartedAt = null;
             ClearStream();
             EndTools(DateTimeOffset.Now, false);
@@ -373,6 +393,7 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (Status != SessionStatus.Crashed) Status = SessionStatus.Exited;
             Pending = [];
+            Queued = []; draining = false;
             TurnStartedAt = null;
             EndTools(DateTimeOffset.Now, false);
         }
@@ -410,7 +431,6 @@ public sealed class LiveSession : IAsyncDisposable
     {
         Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images));
         Status = SessionStatus.Running;
-        turns++;
         TurnStartedAt = DateTimeOffset.Now;
         ClearStream();
         ThinkingTokens = 0;
@@ -428,7 +448,6 @@ public sealed class LiveSession : IAsyncDisposable
     // Tools still open when the turn or the process ends: they never got a result.
     internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
-        turns = 0;
         Items = Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t && !(keepBackground && t.Background)
             ? t with { State = ToolState.Error, EndedAt = now } : i);
     }
@@ -538,19 +557,16 @@ public sealed class LiveSession : IAsyncDisposable
                 }
                 else LastTurnCostUsd = 0;
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
-                var aborted = r.TerminalReason?.StartsWith("aborted") == true;   // an interrupt also drops the queued messages
-                LastResultSubtype = aborted ? Interrupted : r.Subtype;
+                LastResultSubtype = r.TerminalReason?.StartsWith("aborted") == true ? Interrupted : r.Subtype;
                 LastResultAt = now;
                 if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
                 if (r.ContextWindow is { } w) ContextWindow = w;
                 if (r.FastModeState is { } fs) { FastModeState = fs; FastModeReason = r.FastModeReason; }
-                var left = aborted ? 0 : Math.Max(0, turns - 1);
                 EndTools(now);
-                turns = left;
                 Pending = [];
                 ClearStream();
                 ThinkingTokens = 0;
-                if (left > 0) break;   // a message sent during the turn runs next
+                if (!Queued.IsEmpty) { draining = true; TurnStartedAt = now; break; }   // a queued message runs next, even after an interrupt
                 TurnStartedAt = null;
                 if (Status is SessionStatus.Running or SessionStatus.Waiting or SessionStatus.Starting) Status = SessionStatus.Idle;
                 break;
@@ -578,6 +594,23 @@ public sealed class LiveSession : IAsyncDisposable
                     Tokens = td.Tokens > 0 ? td.Tokens : t.Tokens,
                     SubToolUses = td.ToolUses > 0 ? td.ToolUses : t.SubToolUses,
                 });
+                break;
+
+            // The uuid is ours (Send). A message sent while idle is already in Items: only queued ones are moved here.
+            case QueueEvt { State: not "queued" } q when Queued.FirstOrDefault(m => m.Uuid == q.Uuid) is { } m:
+                Queued = Queued.Remove(m);
+                if (q.State == "started")
+                {
+                    Items = Items.Add(new UserItem(m.Text, now, false));
+                    draining = false;
+                    if (Status == SessionStatus.Idle) { Status = SessionStatus.Running; TurnStartedAt = now; }
+                }
+                else if (draining && Queued.IsEmpty)   // cancelled / discarded / refused before it could start
+                {
+                    draining = false;
+                    TurnStartedAt = null;
+                    if (Status == SessionStatus.Running) Status = SessionStatus.Idle;
+                }
                 break;
 
             case TitleEvt { Title.Length: > 0 } ti:
@@ -653,11 +686,41 @@ public sealed class LiveSession : IAsyncDisposable
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
 
-        s.BeginTurn("un"); s.BeginTurn("deux");   // second message queued by the CLI
-        s.Apply(new ResultEvt("success", false, 0.04m, 10, 1, 0, null, null, null));
-        Ok(s.Status == SessionStatus.Running && s.TurnStartedAt is not null, "queued turn keeps running");
-        s.Apply(new ResultEvt("success", false, 0.05m, 10, 1, 0, null, null, null));
+        // Messages sent mid-turn, replayed as the command_lifecycle frames --probe-cli queue captured.
+        void Enqueue(string uuid, string text) { s.Queued = s.Queued.Add(new(uuid, text, DateTimeOffset.Now)); s.Apply(new QueueEvt(uuid, "queued")); }
+        ResultEvt Done(string? reason = null) => new("success", false, 0.04m, 10, 1, 0, null, null, null, reason);
+        s.BeginTurn("un"); Enqueue("u2", "deux");
+        Ok(s.Queued is [{ Text: "deux" }] && s.Items[^1] is UserItem { Text: "un" }, "queued message waits outside the thread");
+        s.Apply(Done());
+        Ok(s.Status == SessionStatus.Running && s.TurnStartedAt is not null, "text-only turn: queued message runs next");
+        s.Apply(new QueueEvt("u1", "completed")); s.Apply(new QueueEvt("u2", "started"));
+        Ok(s.Queued.IsEmpty && s.Items[^1] is UserItem { Text: "deux" }, "started: joins the thread");
+        s.Apply(Done());
         Ok(s.Status == SessionStatus.Idle && s.TurnStartedAt is null, "queued turn done");
+
+        s.BeginTurn("trois"); Enqueue("u4", "quatre");
+        s.Apply(new ToolUseEvt("t4", "Bash", input, null));
+        s.Apply(new ToolResultEvt("t4", "one", false, null));
+        s.Apply(new QueueEvt("u4", "started"));
+        Ok(s.Items[^2] is ToolItem { Id: "t4" } && s.Items[^1] is UserItem { Text: "quatre" }, "folded after the tool result");
+        s.Apply(new QueueEvt("u4", "completed")); s.Apply(Done());
+        Ok(s.Status == SessionStatus.Idle && s.Queued.IsEmpty, "one result for the folded turn");
+
+        s.BeginTurn("cinq"); Enqueue("u6", "six");
+        s.Apply(new QueueEvt("u6", "cancelled"));
+        Ok(s.Queued.IsEmpty && s.Status == SessionStatus.Running && s.Items[^1] is UserItem { Text: "cinq" }, "cancelled before start");
+        s.Apply(Done());
+        Ok(s.Status == SessionStatus.Idle, "cancelled: no extra turn");
+
+        s.BeginTurn("sept"); Enqueue("u8", "huit");
+        s.Apply(Done("aborted_streaming"));
+        Ok(s.Status == SessionStatus.Running && s.LastResultSubtype == Interrupted && s.Queued.Count == 1, "interrupt keeps the queue");
+        s.Apply(new QueueEvt("u8", "started"));
+        Ok(s.Items[^1] is UserItem { Text: "huit" }, "queued message runs after the interrupt");
+        s.Apply(Done());
+        Enqueue("u9", "neuf");   // a result raced the cancel: the CLI's terminal frame must not leave the session busy
+        s.Status = SessionStatus.Running; s.Apply(Done()); s.Apply(new QueueEvt("u9", "discarded"));
+        Ok(s.Status == SessionStatus.Idle && s.TurnStartedAt is null, "draining ends when the queue empties");
 
         // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
         var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };

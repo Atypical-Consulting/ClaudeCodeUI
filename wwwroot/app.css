@@ -450,6 +450,10 @@ textarea,input{caret-color:var(--accent)}
 
 /* ---------- 9. composer ---------- */
 .composer.rich .box{padding:12px 12px 10px 14px}
+.queued{display:flex;flex-direction:column;gap:6px;margin:0 0 8px;padding:0;list-style:none}
+.qchip{display:flex;align-items:center;gap:8px;min-width:0;border:1px dashed var(--seam-2);border-radius:var(--r);padding:3px 4px 3px 10px;color:var(--fg-2);font-size:13px}
+.qchip .qt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qchip .btn{padding:4px 6px}
 .tools-row{display:flex;align-items:center;gap:6px;margin-top:10px}
 .tools-row .tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
 .pick{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--fg-2);border:1px solid var(--seam-2);border-radius:var(--r);padding:4px 8px;white-space:nowrap}
