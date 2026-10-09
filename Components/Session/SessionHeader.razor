@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 
 <div class="ph">
-    <h1 class="ttl" tabindex="-1">@Session.Name</h1>
+    <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
     <span class="sub">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
     <span class="end">
         @if (Session.Status != SessionStatus.Exited)

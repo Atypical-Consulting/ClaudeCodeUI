@@ -11,14 +11,14 @@ public enum WtState { Safe, Check, Active, Orphan }
 
 public sealed record WorktreeInfo(string Repo, string Path, string Name, string? Branch, string? Head,
     WtState State, string Why, long? SizeBytes, DateTimeOffset LastActivity,
-    bool Locked, string? LockReason, int Dirty, int Unpushed, bool Merged, bool SquashMerged, bool UpstreamGone, bool BranchOnly = false);
+    bool Locked, string? LockReason, int Dirty, int Unpushed, bool Merged, bool SquashMerged, bool UpstreamGone, bool BranchOnly = false, string? Unreadable = null);
 
 public sealed record CleanupStep(string Repo, string Display, string[] GitArgs, bool FailureIsFatal);
 
 // Facts collected by git for one worktree; Classify turns them into a state.
 public sealed record WtFacts(int Dirty = 0, int Ahead = 0, bool Merged = false, bool SquashMerged = false, bool UpstreamGone = false,
     bool Locked = false, int? LockPid = null, bool PidAlive = false, bool Exists = true, bool Prunable = false,
-    string? ActiveSessionName = null, bool Detached = false, bool NoWorktree = false);
+    string? ActiveSessionName = null, bool Detached = false, bool NoWorktree = false, string? Unreadable = null);   // Unreadable: git failed, never Safe
 
 // Scan, classify and safely clean the worktrees of known repos. Never --force, never -D.
 public sealed class WorktreeService(SessionManager sessions)
@@ -94,7 +94,7 @@ public sealed class WorktreeService(SessionManager sessions)
 
     static IEnumerable<string> FromTranscripts()
     {
-        var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+        var dir = TranscriptStore.Root;
         if (!Directory.Exists(dir)) yield break;
         var temp = TranscriptStore.Slug(System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetTempPath()));
         var since = DateTime.Now.AddDays(-30);
@@ -134,7 +134,8 @@ public sealed class WorktreeService(SessionManager sessions)
     }
 
     // Every worktree of the repo but the main one, classified (report §2–§3). SizeBytes stays null: see SizeAsync.
-    public async Task<IReadOnlyList<WorktreeInfo>> ScanAsync(string repoRoot, CancellationToken ct)
+    // only: re-validate that one worktree path (no orphan branches, CleanableCount untouched).
+    public async Task<IReadOnlyList<WorktreeInfo>> ScanAsync(string repoRoot, CancellationToken ct, string? only = null)
     {
         var (exit, list, err) = await Git(repoRoot, ct, "worktree", "list", "--porcelain", "-z");
         if (exit != 0) throw new InvalidOperationException(err.Trim());
@@ -146,23 +147,29 @@ public sealed class WorktreeService(SessionManager sessions)
         var bas = await BaseBranch(repoRoot, records[0], ct);
         var baseTree = (await Git(repoRoot, ct, "rev-parse", bas + "^{tree}")).Out.Trim();
         var hasRemoteBase = (await Git(repoRoot, ct, "rev-parse", "--verify", "-q", "refs/remotes/origin/" + bas)).Exit == 0;
-        var merged = (await Git(repoRoot, ct, ["for-each-ref", "refs/heads", "--merged", bas, .. hasRemoteBase ? ["--merged", "origin/" + bas] : Array.Empty<string>(), "--format=%(refname:short)"]))
-            .Out.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
-        var refs = (await Git(repoRoot, ct, "for-each-ref", "refs/heads", "--format=%(refname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(committerdate:iso-strict)"))
-            .Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r').Split('\0')).Where(p => p.Length == 4).ToDictionary(p => p[0]);
+        var merged = Ok(await Git(repoRoot, ct, ["for-each-ref", "refs/heads", "--merged", bas, .. hasRemoteBase ? ["--merged", "origin/" + bas] : Array.Empty<string>(), "--format=%(refname:short)"]))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+        var refs = Ok(await Git(repoRoot, ct, "for-each-ref", "refs/heads", "--format=%(refname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(committerdate:iso-strict)"))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r').Split('\0')).Where(p => p.Length == 4).ToDictionary(p => p[0]);
         var live = Sessions.All.Where(s => s.HasProcess).ToList();
 
-        var rows = await Task.WhenAll(records.Skip(1).Select(async r =>
+        var rows = await Task.WhenAll(records.Skip(1).Where(r => only is null || string.Equals(Norm(r["worktree"]), only, StringComparison.OrdinalIgnoreCase)).Select(async r =>
         {
             var path = Norm(r["worktree"]);
             var branch = r.TryGetValue("branch", out var b) ? b.Replace("refs/heads/", "") : null;
             var exists = Directory.Exists(path);
-            var dirty = exists ? (await Git(path, ct, "status", "--porcelain=v1", "-uall")).Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length : 0;
+            string? unreadable = null;
+            var dirty = 0;
+            if (exists)
+            {
+                var st = await Git(path, ct, "status", "--porcelain=v1", "-uall");
+                if (st.Exit == 0) dirty = st.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+                else unreadable = st.Err.Trim() is { Length: > 0 } m ? m : $"git status: exit {st.Exit}";
+            }
             refs.TryGetValue(branch ?? "", out var rf);
             var track = rf?[2] ?? "";
-            var ahead = Regex.Match(track, @"ahead (\d+)") is { Success: true } a ? int.Parse(a.Groups[1].Value)
-                : branch is not null && string.IsNullOrEmpty(rf?[1]) ? int.Parse((await Git(repoRoot, ct, "rev-list", "--count", branch, "--not", "--remotes")).Out.Trim() is { Length: > 0 } n ? n : "0")
-                : 0;
+            var (ahead, aheadErr) = branch is null ? (0, null) : await Ahead(repoRoot, branch, rf, ct);
+            unreadable ??= aheadErr;
             var isMerged = branch is not null ? merged.Contains(branch)
                 : r.TryGetValue("HEAD", out var h) && (await Git(repoRoot, ct, "merge-base", "--is-ancestor", h, bas)).Exit == 0;
             var squash = false;
@@ -175,23 +182,22 @@ public sealed class WorktreeService(SessionManager sessions)
             var pid = PidOf(reason);
             var session = live.FirstOrDefault(s => Inside(s.Cwd, path));
             var facts = new WtFacts(dirty, ahead, isMerged, squash, track == "gone", reason is not null, pid, pid is { } p && Alive(p),
-                exists, r.ContainsKey("prunable"), session?.Name, branch is null);
+                exists, r.ContainsKey("prunable"), session?.Name, branch is null, Unreadable: unreadable);
             var (state, why) = Classify(facts);
             if (session?.Status == SessionStatus.Waiting) why = Strings.Get("Wt.Why.Waiting", Enc(session.Name));
             var last = new[] { Activity(path), DateTimeOffset.TryParse(rf?[3], out var cd) ? cd : DateTimeOffset.MinValue }.Max();
             var idle = (int)(DateTimeOffset.Now - last).TotalDays;
             if (state is WtState.Safe or WtState.Check && idle >= 2 && last > DateTimeOffset.MinValue) why += Strings.Get("Wt.Why.Idle", idle);
             return new WorktreeInfo(Norm(repoRoot), path, System.IO.Path.GetFileName(path), branch, r.GetValueOrDefault("HEAD"),
-                state, why.Replace("{base}", Enc(bas)), null, last, reason is not null, reason, dirty, ahead, isMerged, squash, track == "gone");
+                state, why.Replace("{base}", Enc(bas)), null, last, reason is not null, reason, dirty, ahead, isMerged, squash, track == "gone", Unreadable: unreadable);
         }));
         // worktree-* branches that no worktree checks out (main record included) have no row above: surface them.
+        if (only is not null) return rows;
         var orphans = await Task.WhenAll(OrphanBranches(refs.Keys, records.Select(r => r.TryGetValue("branch", out var b) ? b.Replace("refs/heads/", "") : null)).Select(async branch =>
         {
             var rf = refs[branch];
             var track = rf[2];
-            var ahead = Regex.Match(track, @"ahead (\d+)") is { Success: true } a ? int.Parse(a.Groups[1].Value)
-                : string.IsNullOrEmpty(rf[1]) ? int.Parse((await Git(repoRoot, ct, "rev-list", "--count", branch, "--not", "--remotes")).Out.Trim() is { Length: > 0 } n ? n : "0")
-                : 0;
+            var (ahead, aheadErr) = await Ahead(repoRoot, branch, rf, ct);
             var isMerged = merged.Contains(branch);
             var squash = false;
             if (!isMerged)
@@ -199,14 +205,26 @@ public sealed class WorktreeService(SessionManager sessions)
                 var mt = await Git(repoRoot, ct, "merge-tree", "--write-tree", bas, branch);
                 squash = mt.Exit == 0 && mt.Out.Split('\n')[0].Trim() == baseTree;
             }
-            var (state, why) = Classify(new WtFacts(0, ahead, isMerged, squash, track == "gone", NoWorktree: true));
-            return new WorktreeInfo(Norm(repoRoot), $"{Norm(repoRoot)}/refs/heads/{branch}", branch["worktree-".Length..], branch, null,
+            var (state, why) = Classify(new WtFacts(0, ahead, isMerged, squash, track == "gone", NoWorktree: true, Unreadable: aheadErr));
+            // Full branch name: the short one is the folder name of the worktree it came from, which may still be live.
+            return new WorktreeInfo(Norm(repoRoot), $"{Norm(repoRoot)}/refs/heads/{branch}", branch, branch, null,
                 state, why.Replace("{base}", Enc(bas)), null, DateTimeOffset.TryParse(rf[3], out var cd) ? cd : default, false, null, 0, ahead, isMerged, squash, track == "gone", BranchOnly: true);
         }));
         WorktreeInfo[] all = [.. rows, .. orphans];
         SetCleanable(Norm(repoRoot), all.Count(w => w.State is WtState.Safe or WtState.Orphan));
         return all;
     }
+
+    // Commits on the branch that no remote has, or the git error (unknown is not 0).
+    static async Task<(int Ahead, string? Err)> Ahead(string repoRoot, string branch, string[]? rf, CancellationToken ct)
+    {
+        if (Regex.Match(rf?[2] ?? "", @"ahead (\d+)") is { Success: true } a) return (int.Parse(a.Groups[1].Value), null);
+        if (!string.IsNullOrEmpty(rf?[1])) return (0, null);
+        var (exit, o, e) = await Git(repoRoot, ct, "rev-list", "--count", branch, "--not", "--remotes");
+        return exit == 0 && int.TryParse(o.Trim(), out var n) ? (n, null) : (0, e.Trim() is { Length: > 0 } m ? m : $"git rev-list: exit {exit}");
+    }
+
+    static string Ok((int Exit, string Out, string Err) r) => r.Exit == 0 ? r.Out : throw new InvalidOperationException(r.Err.Trim());
 
     static async Task<string> BaseBranch(string repo, Dictionary<string, string> main, CancellationToken ct)
     {
@@ -257,7 +275,7 @@ public sealed class WorktreeService(SessionManager sessions)
     }
 
     static WtFacts FactsOf(WorktreeInfo w) => new(w.Dirty, w.Unpushed, w.Merged, w.SquashMerged, w.UpstreamGone, w.Locked,
-        PidOf(w.LockReason), false, w.State != WtState.Orphan, w.State == WtState.Orphan, null, w.Branch is null);
+        PidOf(w.LockReason), false, w.State != WtState.Orphan, w.State == WtState.Orphan, null, w.Branch is null, Unreadable: w.Unreadable);
 
     public IReadOnlyList<CleanupStep> Plan(IEnumerable<WorktreeInfo> rows)
     {
@@ -301,7 +319,7 @@ public sealed class WorktreeService(SessionManager sessions)
             var target = path ?? (a is ["branch", "-d", var b] ? b : null);
             if (path is not null && checkedPaths.Add(path))
             {
-                row = (await ScanAsync(step.Repo, ct)).FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
+                row = (await ScanAsync(step.Repo, ct, Norm(path))).FirstOrDefault(w => string.Equals(w.Path, path, StringComparison.OrdinalIgnoreCase));
                 if (row is null || !Cleanable(row))
                 {
                     skip.Add(path);
@@ -341,6 +359,7 @@ public sealed class WorktreeService(SessionManager sessions)
     {
         if (f.ActiveSessionName is { } s) return (WtState.Active, Strings.Get("Wt.Why.Running", Enc(s)));
         if (f.Locked && f.LockPid is { } pid && f.PidAlive) return (WtState.Active, Strings.Get("Wt.Why.External", pid));
+        if (f.Unreadable is { } err) return (WtState.Check, Strings.Get("Wt.Why.Unreadable", Enc(err)));
         if (f.NoWorktree) return f.Merged ? (WtState.Orphan, Strings.Get("Wt.Why.BranchMerged")) : (WtState.Check, Strings.Get("Wt.Why.BranchUnmerged"));
         if (!f.Exists || f.Prunable) return (WtState.Orphan, Strings.Get("Wt.Why.Deleted"));
         if (f.Dirty > 0) return (WtState.Check, f.Dirty == 1 ? Strings.Get("Wt.Why.Dirty1") : Strings.Get("Wt.Why.DirtyN", f.Dirty));
@@ -371,6 +390,8 @@ public sealed class WorktreeService(SessionManager sessions)
     static string Norm(string p) => System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(p)).Replace('\\', '/');
     static string Enc(string s) => HtmlEncoder.Default.Encode(s);
 
+    static readonly SemaphoreSlim gate = new(Environment.ProcessorCount);   // caps concurrent git processes across every scan
+
     static Task<(int Exit, string Out, string Err)> Git(string dir, CancellationToken ct, params string[] args) => Git(dir, ct, (IEnumerable<string>)args);
 
     static async Task<(int Exit, string Out, string Err)> Git(string dir, CancellationToken ct, IEnumerable<string> args)
@@ -382,12 +403,20 @@ public sealed class WorktreeService(SessionManager sessions)
         foreach (var a in args) psi.ArgumentList.Add(a);
         psi.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
-        using var p = Process.Start(psi)!;
-        var o = p.StandardOutput.ReadToEndAsync(ct);
-        var e = p.StandardError.ReadToEndAsync(ct);
-        try { await p.WaitForExitAsync(ct); }
-        catch (OperationCanceledException) { try { p.Kill(true); } catch (Exception) { } throw; }
-        return (p.ExitCode, await o, await e);
+        await gate.WaitAsync(ct);
+        try
+        {
+            Process p;
+            try { p = Process.Start(psi)!; }
+            catch (System.ComponentModel.Win32Exception ex) { throw new InvalidOperationException(Strings.Get("Wt.GitMissing", ex.Message), ex); }   // git not on PATH
+            using var _ = p;
+            var o = p.StandardOutput.ReadToEndAsync(ct);
+            var e = p.StandardError.ReadToEndAsync(ct);
+            try { await p.WaitForExitAsync(ct); }
+            catch (OperationCanceledException) { try { p.Kill(true); } catch (Exception) { } throw; }
+            return (p.ExitCode, await o, await e);
+        }
+        finally { gate.Release(); }
     }
 
     internal static void Check()
@@ -409,6 +438,10 @@ public sealed class WorktreeService(SessionManager sessions)
         Is(new(NoWorktree: true, Merged: true), WtState.Orphan, "merged branch without worktree");
         Is(new(NoWorktree: true, Ahead: 2), WtState.Check, "unmerged branch without worktree");
         Is(new(NoWorktree: true, Ahead: 2, SquashMerged: true), WtState.Check, "squash-merged branch without worktree");
+        Is(new(Merged: true, Unreadable: "fatal: detected dubious ownership"), WtState.Check, "git failed on a merged worktree");
+        Is(new(NoWorktree: true, Merged: true, Unreadable: "x"), WtState.Check, "git failed on a merged branch");
+        SelfCheck.Assert(!Cleanable(new("C:/r", "C:/r/u", "u", "bu", "h", WtState.Check, "", null, default, true, "claude session u (pid 7)", 0, 0, true, false, false, Unreadable: "x")),
+            "Cleanable: an unreadable stale-lock row never gets an unlock + remove");
         SelfCheck.Assert(string.Join(',', OrphanBranches(["main", "worktree-a", "worktree-b", "feat/x"], ["main", "worktree-b", null])) == "worktree-a", "OrphanBranches");
 
         WorktreeInfo Row(string name, WtFacts f, string? branch = "b") => new("C:/r", "C:/r/.claude/worktrees/" + name, name, branch is null ? null : branch + name, "h",
@@ -465,6 +498,10 @@ public sealed class WorktreeService(SessionManager sessions)
             var scan = Svc(new SessionManager()).ScanAsync(repo, CancellationToken.None).GetAwaiter().GetResult().Where(w => w.BranchOnly).ToList();
             SelfCheck.Assert(scan.Count == 2 && scan.Any(w => w.Branch == "worktree-foo" && w.State == WtState.Orphan) && scan.Any(w => w.Branch == "worktree-bar" && w.State == WtState.Check),
                 "Scan: worktree-* branches without worktree (foo orphan, bar to check, feat-x ignored)");
+            SelfCheck.Assert(scan.All(w => w.Name == w.Branch), "Scan: a branch without worktree is named by its full branch");
+            var demo = Svc(new SessionManager()).ScanAsync(repo, CancellationToken.None).GetAwaiter().GetResult().Single(w => !w.BranchOnly).Path;
+            var one = Svc(new SessionManager()).ScanAsync(repo, CancellationToken.None, demo).GetAwaiter().GetResult();
+            SelfCheck.Assert(one.Count == 1 && one[0].Path == demo, "Scan only: the one worktree, no branch rows");
             G(repo, "worktree", "remove", ".claude/worktrees/demo");
             SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover: repo of a -w session whose worktree was deleted");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover: repo remembered after restart");

@@ -119,7 +119,7 @@
 @if (Ui.InspectorOpen && tab == "mcp" && Live is { } ls && Servers(ls).FirstOrDefault(x => x.Name == selected) is { } sel)
 {
     <aside class="pane insp" aria-label="@L["Inspector"]">
-        <div class="ph"><h2 class="ttl">@sel.Short</h2><span class="sub">@sel.Origin</span></div>
+        <div class="ph"><h2 class="ttl" title="@sel.Short">@sel.Short</h2><span class="sub">@sel.Origin</span></div>
         @if (sel.Status == "failed")
         {
             <div class="section">
@@ -176,14 +176,15 @@
     {
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
-        _ = Refresh();
+        if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
     }
 
-    void OnChanged()
+    // Sessions.Changed is raised on the claude reader thread: touch component state on the renderer's dispatcher only.
+    void OnChanged() => _ = InvokeAsync(async () =>
     {
-        if (Live?.Id != refreshedFor) _ = Refresh();
-        _ = InvokeAsync(StateHasChanged);
-    }
+        if (Live?.Id != refreshedFor) await Refresh();
+        StateHasChanged();
+    });
 
     async Task Refresh()
     {
