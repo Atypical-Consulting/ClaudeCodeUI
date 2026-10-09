@@ -154,7 +154,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-sessions"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-read">Read</span><span class="p">sessions <span>· overview</span></span><span class="m">Ctrl ⇧ O</span></button>
           <div class="out" id="f-sessions"><div><div class="body">
             <p>Several <b>claude</b> sessions run in parallel, each with its own folder and permission mode. The overview shows their state, last action and cost; the decision queue gathers everything waiting for your answer.</p>
-            <figure class="shot"><a href="../assets/screens/04.png"><img src="../assets/screens/04.png" width="1440" height="900" loading="lazy" alt="Overview: five sessions with their state, mode and last action, and the queue of pending decisions."></a><figcaption><span>Overview and decision queue</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/04.png"><img src="../assets/screens/en/04.png" width="1440" height="900" loading="lazy" alt="Overview: five sessions with their state, mode and last action, and the queue of pending decisions."></a><figcaption><span>Overview and decision queue</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#sessions">Sessions and permissions in the docs</a>
           </div></div></div>
         </div>
@@ -163,7 +163,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-perm"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-edit">Edit</span><span class="p">Home.razor <span>· permission with diff</span></span><span class="m">⏎ · Shift ⏎ · Del</span></button>
           <div class="out" id="f-perm"><div><div class="body">
             <p>When Claude wants to edit a file or run a command, the request opens in the inspector with the full diff or the exact command. <b>Allow</b> <kbd>⏎</kbd>, <b>Deny</b> <kbd>Del</kbd>, or <b>Whole session</b> <kbd>Shift ⏎</kbd> when the CLI offers a rule.</p>
-            <figure class="shot"><a href="../assets/screens/03.png"><img src="../assets/screens/03.png" width="1440" height="900" loading="lazy" alt="Permission request: an edit to Home.razor with its diff, and the Allow, Whole session and Deny buttons."></a><figcaption><span>Permission request</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/03.png"><img src="../assets/screens/en/03.png" width="1440" height="900" loading="lazy" alt="Permission request: an edit to Home.razor with its diff, and the Allow, Whole session and Deny buttons."></a><figcaption><span>Permission request</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#sessions">Responding to permissions</a>
           </div></div></div>
         </div>
@@ -172,7 +172,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-composer"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-grep">Grep</span><span class="p">/ <span>· model, effort, ultracode</span></span><span class="m">Ctrl ⏎</span></button>
           <div class="out" id="f-composer"><div><div class="body">
             <p>Below the input: the model (the list comes from the CLI), the effort level when the model supports it, <b>Fast</b> mode and <b>Ultracode</b>. Typing <code>/</code> opens the session commands, filtered as you type.</p>
-            <figure class="shot"><a href="../assets/screens/09.png"><img src="../assets/screens/09.png" width="1440" height="900" loading="lazy" alt="Composer: model picker, effort, Fast, Ultracode, and the slash command menu."></a><figcaption><span>Composer</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/09.png"><img src="../assets/screens/en/09.png" width="1440" height="900" loading="lazy" alt="Composer: model picker, effort, Fast, Ultracode, and the slash command menu."></a><figcaption><span>Composer</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#composer">The composer in detail</a>
           </div></div></div>
         </div>
@@ -181,7 +181,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-agents"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-agent">Agent</span><span class="p">subagents <span>· workflow</span></span><span class="m">ultracode</span></button>
           <div class="out" id="f-agents"><div><div class="body">
             <p>Every subagent Claude starts gets its own line: open it to read what it writes and the tools it calls. With Ultracode, a turn becomes a multi-agent workflow, with its phases and a button to stop it.</p>
-            <figure class="shot"><a href="../assets/screens/10.png"><img src="../assets/screens/10.png" width="1440" height="900" loading="lazy" alt="Ultracode workflow: Review, Verification and Synthesis phases, six agents and the details of the selected agent."></a><figcaption><span>Ultracode and subagents</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/10.png"><img src="../assets/screens/en/10.png" width="1440" height="900" loading="lazy" alt="Ultracode workflow: Review, Verification and Synthesis phases, six agents and the details of the selected agent."></a><figcaption><span>Ultracode and subagents</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#subagents">Following subagents</a>
           </div></div></div>
         </div>
@@ -190,7 +190,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-wt"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-bash">Bash</span><span class="p">git worktree remove <span>· the cleanup</span></span><span class="m">never --force</span></button>
           <div class="out" id="f-wt"><div><div class="body">
             <p>The Worktrees page sorts each worktree as <b>Safe</b>, <b>Needs review</b>, <b>Active</b> or <b>Orphaned</b>, says why, and shows the git commands before running them. Never <code>--force</code> or <code>branch -D</code>: git itself refuses to delete an unmerged branch.</p>
-            <figure class="shot"><a href="../assets/screens/08.png"><img src="../assets/screens/08.png" width="1440" height="900" loading="lazy" alt="Worktrees: a table ranked by state with the reason, the size, and the cleanup plan in the inspector."></a><figcaption><span>Worktrees: risk-free cleanup</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/08.png"><img src="../assets/screens/en/08.png" width="1440" height="900" loading="lazy" alt="Worktrees: a table ranked by state with the reason, the size, and the cleanup plan in the inspector."></a><figcaption><span>Worktrees: risk-free cleanup</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#worktrees">Ranking and safeguards</a>
           </div></div></div>
         </div>
@@ -199,7 +199,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-mcp"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-grep">Grep</span><span class="p">mcp__* <span>· extensions</span></span><span class="m">per folder</span></button>
           <div class="out" id="f-mcp"><div><div class="body">
             <p>The Extensions page lists the session's MCP servers (connected, needing authentication, failed), plus its skills, agents and plugins. A toggle enables a server for the current folder, and a failed server restarts with "Retry".</p>
-            <figure class="shot"><a href="../assets/screens/11.png"><img src="../assets/screens/11.png" width="1440" height="900" loading="lazy" alt="Extensions: MCP servers with their state, and the Skills, Agents and Plugins tabs."></a><figcaption><span>Extensions</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/11.png"><img src="../assets/screens/en/11.png" width="1440" height="900" loading="lazy" alt="Extensions: MCP servers with their state, and the Skills, Agents and Plugins tabs."></a><figcaption><span>Extensions</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#extensions">MCP extensions</a>
           </div></div></div>
         </div>
@@ -208,7 +208,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-themes"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-write">Write</span><span class="p">appearance <span>· theme</span></span><span class="m">5 dark themes</span></button>
           <div class="out" id="f-themes"><div><div class="body">
             <p>Five dark themes, Graphite, Encre, Ristretto, Mousse and High contrast, and an adjustable code size, remembered from one launch to the next. This page has them too: try the <b>Theme</b> picker.</p>
-            <figure class="shot"><a href="../assets/screens/07.png"><img src="../assets/screens/07.png" width="1440" height="900" loading="lazy" alt="Appearance: the five dark themes and the code size setting."></a><figcaption><span>Appearance</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/07.png"><img src="../assets/screens/en/07.png" width="1440" height="900" loading="lazy" alt="Appearance: the five dark themes and the code size setting."></a><figcaption><span>Appearance</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#themes">Themes</a>
           </div></div></div>
         </div>
@@ -217,7 +217,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           <button class="t" aria-expanded="false" aria-controls="f-md"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind k-read">Read</span><span class="p">reply.md <span>· markdown</span></span><span class="m">Markdig</span></button>
           <div class="out" id="f-md"><div><div class="body">
             <p>Replies are rendered as Markdown with Markdig, raw HTML disabled: headings, tables, task lists, and code blocks highlighted by highlight.js with a copy button.</p>
-            <figure class="shot"><a href="../assets/screens/06.png"><img src="../assets/screens/06.png" width="1440" height="900" loading="lazy" alt="Markdown rendering of a reply: headings, a table, a task list and a syntax-highlighted code block."></a><figcaption><span>Markdown rendering</span><span>mockup, sample data</span></figcaption></figure>
+            <figure class="shot"><a href="../assets/screens/en/06.png"><img src="../assets/screens/en/06.png" width="1440" height="900" loading="lazy" alt="Markdown rendering of a reply: headings, a table, a task list and a syntax-highlighted code block."></a><figcaption><span>Markdown rendering</span><span>mockup, sample data</span></figcaption></figure>
             <a class="more" href="docs.html#security">Why no HTML</a>
           </div></div></div>
         </div>
