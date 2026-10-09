@@ -155,6 +155,16 @@
   <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Dirs.Add" xml:space="preserve"><value>Add</value></data>
+  <data name="Dirs.AddFailed" xml:space="preserve"><value>Couldn't add the folder: {0}</value></data>
+  <data name="Dirs.Count1" xml:space="preserve"><value>+1 folder</value></data>
+  <data name="Dirs.CountN" xml:space="preserve"><value>+{0} folders</value></data>
+  <data name="Dirs.Known" xml:space="preserve"><value>This folder is already open to the session.</value></data>
+  <data name="Dirs.Label" xml:space="preserve"><value>Additional folders</value></data>
+  <data name="Dirs.LiveHint" xml:space="preserve"><value>Claude works there as in the working folder, same permissions. Kept on restart and resume; a folder can't be taken back from a running session.</value></data>
+  <data name="Dirs.NoFolder" xml:space="preserve"><value>No folder at this absolute path.</value></data>
+  <data name="Dirs.Placeholder" xml:space="preserve"><value>Absolute path, then Enter</value></data>
+  <data name="Dirs.Remove" xml:space="preserve"><value>Remove {0}</value></data>
   <data name="Diff.MoreLines" xml:space="preserve"><value>Lines not shown: {0}</value></data>
   <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences not shown: {0}</value></data>
   <data name="Effort.high" xml:space="preserve"><value>high</value></data>

@@ -200,6 +200,21 @@ public static class TranscriptStore
 
     internal static void DeleteCost(string id) { try { File.Delete(Path.Combine(CostDir, id + ".txt")); } catch (IOException) { } }
 
+    // --add-dir folders, one per line: --resume does not bring them back (verified by --probe-cli add-dir-resume).
+    static readonly string DirsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeCodeUI", "dirs");
+
+    public static void RecordDirs(string id, IEnumerable<string> dirs)
+    {
+        try { Directory.CreateDirectory(DirsDir); File.WriteAllLines(Path.Combine(DirsDir, id + ".txt"), dirs); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    public static string[] RecordedDirs(string id)
+    {
+        try { return File.ReadAllLines(Path.Combine(DirsDir, id + ".txt")); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
+    }
+
     internal static decimal? RecordedCost(string id)
     {
         try { return decimal.TryParse(File.ReadAllText(Path.Combine(CostDir, id + ".txt")), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null; }
