@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: rp
+
+  desktop:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            rid: win-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            rid: osx-arm64
+          - os: macos-15-intel # last Intel macOS runner (macos-13 is retired)
+            target: x86_64-apple-darwin
+            rid: osx-x64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rid: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Publish the server (${{ matrix.rid }})
+        run: dotnet publish ClaudeCodeUI.csproj -c Release -r ${{ matrix.rid }} --self-contained -p:PublishSingleFile=true -p:DebugType=none -o desktop/src-tauri/server
+
+      - run: npm ci
+        working-directory: desktop
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tagName: ${{ needs.release-please.outputs.tag_name }}
+          releaseName: Claude Code UI ${{ needs.release-please.outputs.tag_name }}
+          args: --target ${{ matrix.target }}
