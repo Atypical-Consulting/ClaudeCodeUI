@@ -1,20 +1,22 @@
 @page "/session/{Id}"
-@* Stub (WP0). Owner: WP1. *@
 @implements IDisposable
 @inject SessionManager Sessions
+@inject UiState Ui
 
 <PageTitle>@(S?.Name ?? "Session") · Claude Code</PageTitle>
 
 @if (S is null)
 {
-    <div class="pane"><div class="ph"><span class="ttl">Session introuvable</span></div></div>
+    <div class="pane">
+        <div class="ph"><span class="ttl" tabindex="-1">Session introuvable</span></div>
+        <div class="thread"><p class="prose">Aucune session active ni transcript récent avec cet identifiant.</p></div>
+    </div>
 }
 else
 {
     <div class="pane">
         <SessionHeader Session="S" />
         <Thread Session="S" />
-        <CrashBanner Session="S" />
         <Composer Session="S" />
     </div>
     <Inspector Session="S" />
@@ -23,15 +25,42 @@ else
 @code {
     [Parameter] public string Id { get; set; } = "";
     LiveSession? S;
+    Timer? tick;
 
+    protected override void OnInitialized()
+    {
+        Ui.Changed += Refresh;
+        Ui.Key += OnKey;
+        // Elapsed times (status line, running agents) move without events.
+        tick = new Timer(_ => { if (S?.Status is SessionStatus.Running or SessionStatus.Waiting) Refresh(); }, null, 1000, 1000);
+    }
+
+    // A live session, else a past one from the transcripts (history replayed, process started on demand).
     protected override void OnParametersSet()
     {
         if (S?.Id == Id) return;
         if (S is not null) S.Changed -= Refresh;
-        S = Sessions.Get(Id);
+        S = Sessions.Get(Id) ?? (TranscriptStore.Recent().FirstOrDefault(p => p.Id == Id) is { } past ? Sessions.Open(past) : null);
         if (S is not null) S.Changed += Refresh;
     }
 
+    void OnKey(string key)
+    {
+        if (key != "Escape" || S is not { Status: SessionStatus.Running or SessionStatus.Waiting } s) return;
+        _ = InvokeAsync(async () =>
+        {
+            try { await s.Interrupt(); }
+            catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] interruption : {ex.Message}"); }
+        });
+    }
+
     void Refresh() => InvokeAsync(StateHasChanged);
-    public void Dispose() { if (S is not null) S.Changed -= Refresh; }
+
+    public void Dispose()
+    {
+        tick?.Dispose();
+        Ui.Changed -= Refresh;
+        Ui.Key -= OnKey;
+        if (S is not null) S.Changed -= Refresh;
+    }
 }
