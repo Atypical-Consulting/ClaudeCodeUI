@@ -109,7 +109,8 @@
             }
             else
             {
-                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])
+                @* StatusLine announces the turn outcome: shown here, not announced twice. *@
+                <span aria-hidden="true">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])</span>
             }
         </span>
     </div>

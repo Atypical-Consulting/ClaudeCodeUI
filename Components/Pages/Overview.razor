@@ -17,7 +17,6 @@
     <div class="ov">
         @if (all.Count == 0)
         {
-            var recent = TranscriptStore.Recent().Take(3).ToList();
             <div class="empty">
                 <h3>@L["Ov.Empty"]</h3>
                 <p class="lead">@L["Ov.EmptyText"]</p>
@@ -73,7 +72,7 @@
                 <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Input, cs.Cwd)</div>
                 @if (error is not null)
                 {
-                    <div class="errbox" style="margin:10px 16px">@error</div>
+                    <div class="errbox" role="alert" style="margin:10px 16px">@error</div>
                 }
                 @for (var i = 0; i < queue.Count; i++)
                 {
@@ -151,7 +150,7 @@
         if (!s.Pending.Contains(p)) return;   // already answered: a second A/D before the re-render
         error = null;
         try { await s.Answer(p, d); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; }
     }
 
     // Focus the queue once when it has something to triage, so J/K/A/D work without a click first —
@@ -165,7 +164,14 @@
         catch (JSDisconnectedException) { }
     }
 
-    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    IReadOnlyList<PastSession> recent = [];
+
+    // TranscriptStore.Recent can rescan ~4 MB of transcripts: off the render thread (as Rail.LoadRecent).
+    protected override async Task OnInitializedAsync()
+    {
+        Sessions.Changed += Refresh;
+        recent = await Task.Run(() => TranscriptStore.Recent().Take(3).ToList());
+    }
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Sessions.Changed -= Refresh;
 }

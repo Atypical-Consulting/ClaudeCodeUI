@@ -44,7 +44,7 @@ else
     // A live session, else a past one from the transcripts (history replayed, process started on demand).
     protected override void OnParametersSet()
     {
-        if (S?.Id == Id) return;
+        if (S?.Id == Id && Sessions.Get(Id) == S) return;   // a session ended elsewhere is re-opened, never driven
         if (S is not null) S.Changed -= OnSession;
         S = Sessions.Get(Id) ?? (TranscriptStore.ById(Id) is { } past ? Sessions.Open(past) : null);
         if (S is not null) S.Changed += OnSession;

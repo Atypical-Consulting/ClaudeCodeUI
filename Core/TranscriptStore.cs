@@ -216,13 +216,22 @@ public static class TranscriptStore
     }
 
     static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
+    static int refreshing;
 
     // Session ids named by a running claude command line (--session-id / --resume), cached 5 s. Includes this app's own processes.
     // ponytail: `ps` only, so empty on Windows; read Win32_Process command lines if Windows users need the label.
+    // Called per rendered row: once warm, a stale set is returned while `ps` runs in the background.
     public static IReadOnlySet<string> HeldByClaude()
     {
         var c = held;
-        if (c.Ids is not null && DateTimeOffset.Now - c.At < TimeSpan.FromSeconds(5)) return c.Ids;
+        if (c.Ids is null) return ScanHeld();
+        if (DateTimeOffset.Now - c.At >= TimeSpan.FromSeconds(5) && Interlocked.Exchange(ref refreshing, 1) == 0)
+            _ = Task.Run(() => { try { ScanHeld(); } finally { refreshing = 0; } });
+        return c.Ids;
+    }
+
+    static IReadOnlySet<string> ScanHeld()
+    {
         var ids = new HashSet<string>();
         try
         {

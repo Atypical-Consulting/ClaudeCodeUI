@@ -36,6 +36,7 @@ public sealed class LiveSession : IAsyncDisposable
     readonly Lock gate = new();
     readonly HashSet<string> answering = [];   // request ids whose reply is in flight
     ClaudeSession? proc;
+    bool stopped;   // set by DisposeAsync (SessionManager.Stop): EnsureProcess refuses to spawn again
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
     int turns;                                                 // sent and not yet answered by a result (the CLI queues them)
@@ -199,6 +200,8 @@ public sealed class LiveSession : IAsyncDisposable
         lock (gate)
         {
             if (proc is { } p) return p;
+            // Ended by SessionManager.Stop: a late Send (a stale tab, Ctrl Enter during the dispose) must not start an orphan claude.
+            if (stopped) throw new InvalidOperationException(Strings.Get("Session.ProcessStopped"));
             var resume = resumable || TranscriptStore.Find(Id) is not null;
             var args = Args(resume);
             try
@@ -349,8 +352,8 @@ public sealed class LiveSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        var p = proc;
-        proc = null;
+        ClaudeSession? p;
+        lock (gate) { stopped = true; p = proc; proc = null; }
         if (p is not null) await p.DisposeAsync();
         lock (gate)
         {

@@ -68,8 +68,8 @@ code{font-family:var(--mono)}
 .pane{border-right:1px solid var(--seam);display:flex;flex-direction:column;min-width:0;min-height:0}
 .pane:last-child{border-right:0}
 .ph{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--seam)}
-.ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
-.ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;max-width:45%}
+.ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
 .ph .end{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
 .cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
 
@@ -401,9 +401,9 @@ textarea,input{caret-color:var(--accent)}
 .why b{color:var(--fg-2);font-weight:500}
 
 /* ---------- 8. worktrees ---------- */
-.wt{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+.wt{position:relative;flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
 .wt-head{display:flex;align-items:flex-end;gap:24px}
-.filters{display:flex;gap:6px}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
 .filters .chip.on{color:var(--fg);border-color:var(--seam-3);background:var(--raise)}
 .filters .chip b{font-weight:600;margin-left:2px}
 .wtt td{padding:11px 12px}
@@ -553,8 +553,9 @@ button.mode{text-align:left}
 #blazor-error-ui .dismiss{padding:7px}
 
 /* Status pages (404, 4xx, 500): the session .crash card, centred in the thread column; .calm drops the err tint. */
-.oops{flex:1;min-height:0;overflow:auto;display:grid;place-items:center;padding:32px}
-.oops .crash{width:min(600px,100%);padding:22px 24px;gap:22px;align-items:start}
+.oops{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:32px}
+.oops .crash{width:min(600px,100%);grid-template-columns:auto minmax(0,1fr);padding:22px 24px;gap:22px;align-items:start}
+.oops .crash .acts{flex-wrap:wrap}
 .oops .crash h4{font-size:17px;letter-spacing:-.01em;margin-bottom:6px}
 .oops .crash p.code{margin:6px 0 8px;font:12px var(--mono);color:var(--fg-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .oops .crash pre{color:var(--fg-2)}
@@ -595,6 +596,7 @@ button.mode{text-align:left}
   body{overflow:auto}
   .app,.app:not(:has(>main>.insp)),main{display:flex;flex-direction:column;height:auto}
   .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto}
+  .app>.pane .scroll{flex:none;overflow:visible}
   main>.pane:not(.insp){min-height:100vh}
   .set-row{grid-template-columns:minmax(0,1fr);gap:10px}
   .thread,.composer,.dock{padding-left:16px;padding-right:16px}
