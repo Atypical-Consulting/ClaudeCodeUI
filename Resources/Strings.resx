@@ -373,7 +373,7 @@
   <data name="Rewind.ActionLabel" xml:space="preserve"><value>Rewind to here, message of {0}</value></data>
   <data name="Rewind.Confirm" xml:space="preserve"><value>Rewind</value></data>
   <data name="Rewind.Files" xml:space="preserve"><value>Files put back as they were before this message</value></data>
-  <data name="Rewind.FilesFailed" xml:space="preserve"><value>The conversation was rewound, but the files stay as they are: {0}</value></data>
+  <data name="Rewind.FilesFailed" xml:space="preserve"><value>The conversation was rewound, but the files stay as they are: {0}. Rewind again to retry the files only.</value></data>
   <data name="Rewind.FilesUnavailable" xml:space="preserve"><value>Files stay as they are: {0}</value></data>
   <data name="Rewind.Lines" xml:space="preserve"><value>+{0} −{1} lines</value></data>
   <data name="Rewind.Loading" xml:space="preserve"><value>Checking the files…</value></data>

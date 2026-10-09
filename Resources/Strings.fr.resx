@@ -373,7 +373,7 @@
   <data name="Rewind.ActionLabel" xml:space="preserve"><value>Revenir ici, message de {0}</value></data>
   <data name="Rewind.Confirm" xml:space="preserve"><value>Revenir</value></data>
   <data name="Rewind.Files" xml:space="preserve"><value>Fichiers remis comme avant ce message</value></data>
-  <data name="Rewind.FilesFailed" xml:space="preserve"><value>La conversation est revenue en arrière, mais les fichiers restent tels quels : {0}</value></data>
+  <data name="Rewind.FilesFailed" xml:space="preserve"><value>La conversation est revenue en arrière, mais les fichiers restent tels quels : {0}. Revenir à nouveau ne réessaie que les fichiers.</value></data>
   <data name="Rewind.FilesUnavailable" xml:space="preserve"><value>Les fichiers restent tels quels : {0}</value></data>
   <data name="Rewind.Lines" xml:space="preserve"><value>+{0} −{1} lignes</value></data>
   <data name="Rewind.Loading" xml:space="preserve"><value>Vérification des fichiers…</value></data>
