@@ -3,6 +3,7 @@
 // --parent-pid and shuts itself down (killing its claude children) when this process exits.
 // Updates: tauri-plugin-updater, checked silently once the server is up, from the app menu, or when the server prints
 // UPDATE_LINE (the UI's "Check for updates" action); see check_for_updates.
+// The page gets no IPC (no capability): desktop notifications come from the server as `ccui-notify` stdout lines (Notify.cs).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -15,6 +16,7 @@ use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, Url, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
 // Origin of our own server, known once it prints its URL. The window only ever shows it or the bundled splash.
@@ -40,6 +42,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .menu(|app| {
             let check = MenuItem::with_id(app, MENU_CHECK, t("Check for Updates…", "Rechercher des mises à jour…"), true, None::<&str>)?;
             // macOS: in the app menu, under About. Elsewhere there is no default menu bar: a Help menu holds it.
@@ -118,9 +121,12 @@ fn main() {
                     None => return fail(wait_child(), false),
                 }
                 // Keep draining stdout so the server's console logging never blocks; echoed for a terminal launch.
+                // Post the notifications it asks for.
                 for l in lines {
                     if l == UPDATE_LINE {
                         check_for_updates(window.app_handle().clone(), true);
+                    } else if let Some((title, body)) = l.strip_prefix("ccui-notify\t").and_then(|rest| rest.split_once('\t')) {
+                        let _ = window.app_handle().notification().builder().title(title).body(body).show();
                     } else {
                         let _ = writeln!(std::io::stdout(), "{l}");
                     }
