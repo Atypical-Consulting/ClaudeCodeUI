@@ -19,10 +19,14 @@ public sealed class ClaudeSession : IAsyncDisposable
     readonly Task reader;
     readonly SemaphoreSlim writeLock = new(1, 1);
     readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> requests = new();
+    readonly Action<string>? trace;
+    readonly Stopwatch clock = new();
     volatile bool disposing;
 
-    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit)
+    // trace (optional): timestamped boot timeline — spawn, writes, first stdout line, live stderr, late answers.
+    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit, Action<string>? trace = null)
     {
+        this.trace = trace;
         var psi = new ProcessStartInfo("claude")
         {
             WorkingDirectory = cwd,
@@ -36,28 +40,43 @@ public sealed class ClaudeSession : IAsyncDisposable
             psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
+        clock.Start();
         proc = Process.Start(psi)!;
-        var stderr = proc.StandardError.ReadToEndAsync();
+        Trace($"spawn pid={proc.Id}");
+        // Read stderr line by line so what the CLI prints while it is slow shows up live, not only after exit.
+        var errText = new StringBuilder();
+        var stderr = Task.Run(async () =>
+        {
+            while (await proc.StandardError.ReadLineAsync() is { } l)
+            {
+                lock (errText) errText.AppendLine(l);
+                Trace($"stderr {l}");
+            }
+        });
         reader = Task.Run(async () =>
         {
+            var first = true;
             while (await proc.StandardOutput.ReadLineAsync() is { } line)
             {
                 JsonElement evt;
                 try { evt = JsonDocument.Parse(line).RootElement.Clone(); }
                 catch (JsonException) { continue; }
+                if (first) { first = false; Trace($"first stdout {Str(evt, "type")}"); }
                 if (Str(evt, "type") == "control_response") Complete(evt.GetProperty("response"));
                 try { await onEvent(evt); }
                 catch (Exception ex) { Console.Error.WriteLine($"claude event handler failed: {ex}"); }
             }
             await proc.WaitForExitAsync();
             foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException("processus arrêté"));
-            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {await stderr}".Trim());
+            await stderr;
+            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {errText}".Trim());
         });
     }
 
     void Complete(JsonElement r)
     {
-        if (Str(r, "request_id") is not { } id || !requests.TryRemove(id, out var tcs)) return;
+        if (Str(r, "request_id") is not { } id) return;
+        if (!requests.TryRemove(id, out var tcs)) { Trace($"late control_response {id}"); return; }
         if (Str(r, "subtype") == "error") tcs.TrySetException(new ClaudeRequestException(Str(r, "error") ?? "erreur inconnue"));
         else tcs.TrySetResult(r.TryGetProperty("response", out var v) ? v : Empty);
     }
@@ -106,11 +125,17 @@ public sealed class ClaudeSession : IAsyncDisposable
         await writeLock.WaitAsync();
         try
         {
+            if (trace is not null)
+                Trace($"write {msg["type"]}" + (msg["request"]?["subtype"] is { } st ? $"/{st}" : ""));
             await proc.StandardInput.WriteLineAsync(msg.ToJsonString());
             await proc.StandardInput.FlushAsync();
         }
         finally { writeLock.Release(); }
     }
+
+    void Trace(string what) => trace?.Invoke(TraceLine(clock.ElapsedMilliseconds, what));
+
+    internal static string TraceLine(long ms, string what) => $"+{ms} ms {what}";
 
     // Same lookup as Process.Start("claude") with UseShellExecute=false: on Windows CreateProcess only appends ".exe".
     public static bool OnPath() =>

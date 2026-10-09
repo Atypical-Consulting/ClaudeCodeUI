@@ -158,24 +158,17 @@ public sealed class LiveSession : IAsyncDisposable
     internal ClaudeSession EnsureProcess()
     {
         if (proc is { } p) return p;
-        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text" };
         var resume = resumable || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".claude", "projects", TranscriptStore.Slug(Cwd), Id + ".jsonl"));
-        if (resume) args.AddRange(["--resume", Id]);
-        else
-        {
-            args.AddRange(["--session-id", Id, "--name", Name]);
-            if (Worktree is { } w && Init is null) args.AddRange(["-w", w]);
-        }
-        if (Model is { } m) args.AddRange(["--model", m]);
-        if (Effort is { } e) args.AddRange(["--effort", e]);
+        var args = Args(resume);
 
         ClaudeSession s = null!;
         try
         {
             // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
             costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
-            s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text));
+            s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
+                l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
         }
         catch (Exception ex)
         {
@@ -190,16 +183,31 @@ public sealed class LiveSession : IAsyncDisposable
         return s;
     }
 
+    // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
+    internal List<string> Args(bool resume)
+    {
+        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text" };
+        if (resume) args.AddRange(["--resume", Id]);
+        else
+        {
+            args.AddRange(["--session-id", Id, "--name", Name]);
+            if (Worktree is { } w && Init is null) args.AddRange(["-w", w]);
+        }
+        if (Model is { } m) args.AddRange(["--model", m]);
+        if (Effort is { } e) args.AddRange(["--effort", e]);
+        return args;
+    }
+
     // system/init only arrives after the first message: fetch models, commands, effort and quota up front.
     async Task Boot(ClaudeSession p)
     {
         try
         {
-            // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute: retry rather than lose the models list.
-            JsonElement info = default;
-            for (var i = 0; ; i++)
-                try { info = await p.Request("initialize", null, 60); break; }
-                catch (TimeoutException) when (i < 2) { Console.Error.WriteLine($"[{Id}] initialize : pas de réponse, nouvel essai"); }
+            // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute. Wait ONCE on the same
+            // request_id: re-sending under a new id dropped a late answer to the first one.
+            var init = p.Request("initialize", null, 180);
+            if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize : still waiting after 60 s");
+            var info = await init;
             InitializeInfo = info;
             Console.WriteLine($"[{Id}] initialize : {Count(info, "models")} modèles, {Count(info, "commands")} commandes");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
@@ -461,6 +469,12 @@ public sealed class LiveSession : IAsyncDisposable
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
+        var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
+        Ok(fresh is ["--permission-mode", "manual", _, _, "--session-id", "id", "--name", "n"], "fresh args");
+        var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
+        Ok(resumed is ["--permission-mode", "plan", _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
+
         var s = new LiveSession("id", "essai", @"C:\w", "default");
 
         s.BeginTurn("crée b.txt");
