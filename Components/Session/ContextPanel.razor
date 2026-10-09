@@ -5,7 +5,7 @@
     long max = c is { } x1 ? Long(x1, "maxTokens") : Session.ContextWindow ?? 0;
     long total = c is { } x2 ? Long(x2, "totalTokens") : Session.ContextTokens;
 }
-<div class="ph"><span class="ttl">@L["Ctx.Title"]</span>
+<div class="ph"><h2 class="ttl">@L["Ctx.Title"]</h2>
     @if (max > 0)
     {
         <span class="sub">@Fmt.Tokens(total) / @Fmt.Tokens(max) · @Fmt.Pct(total / (double)max)</span>

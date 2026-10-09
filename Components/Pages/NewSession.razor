@@ -7,7 +7,7 @@
 <PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">@L["Rail.NewSession"]</span></div>
+    <div class="ph"><h1 class="ttl">@L["Rail.NewSession"]</h1></div>
     <div class="start">
         @if (!claudeFound)
         {
@@ -17,17 +17,17 @@
                     <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step1"]</label>
+                    <h4 class="lbl">@L["New.Step1"]</h4>
                     <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
                     <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
                     <p>@L["New.Guide"] <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step2"]</label>
+                    <h4 class="lbl">@L["New.Step2"]</h4>
                     <p>@((MarkupString)L["New.Step2Text"].Value)</p>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step3"]</label>
+                    <h4 class="lbl">@L["New.Step3"]</h4>
                     <p>@((MarkupString)L["New.Step3Text"].Value)</p>
                 </div>
                 <div class="row"><button class="btn primary" @onclick="() => claudeFound = ClaudeSession.OnPath()">@L["New.CheckAgain"]</button></div>
@@ -69,8 +69,8 @@
                 }
             </div>
             <div class="field">
-                <label>Isolation</label>
-                <div class="input" style="font-family:var(--sans)">
+                <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
+                <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
                             @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null && RendererInfo.IsInteractive)
@@ -81,7 +81,7 @@
                     {
                         <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
                         <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
-                        <button class="b btn ghost" @onclick="() => editing = false">OK</button>
+                        <button class="b btn ghost" @onclick="() => editing = false">@L["New.Ok"]</button>
                     }
                     else if (Isolated)
                     {
@@ -104,11 +104,11 @@
                 </div>
             </div>
             <div class="field">
-                <label>Permissions</label>
-                <div class="modes" role="radiogroup" aria-label="Permissions">
+                <span class="lbl" id="perm-lbl">@L["New.Permissions"]</span>
+                <div class="modes" role="radiogroup" aria-labelledby="perm-lbl">
                     @foreach (var m in LiveSession.Modes)
                     {
-                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b><span>@L["Mode." + m]</span></button>
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
             </div>

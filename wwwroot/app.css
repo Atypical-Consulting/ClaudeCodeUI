@@ -68,7 +68,7 @@ code{font-family:var(--mono)}
 .pane{border-right:1px solid var(--seam);display:flex;flex-direction:column;min-width:0;min-height:0}
 .pane:last-child{border-right:0}
 .ph{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--seam)}
-.ph .ttl{font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
 .ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ph .end{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
 .cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
@@ -201,7 +201,7 @@ code{font-family:var(--mono)}
 .hello{display:flex;align-items:center;gap:18px}
 .hello h3{margin:0;font:600 24px/1.2 var(--sans);color:var(--fg);letter-spacing:-.02em}
 .hello p{margin:4px 0 0;color:var(--fg-3)}
-.field label{display:block;font:500 13px var(--sans);color:var(--fg-2);margin-bottom:8px}
+.field label,.field .lbl{display:block;margin-top:0;font:500 13px var(--sans);color:var(--fg-2);margin-bottom:8px}
 .input{display:flex;align-items:center;gap:10px;border:1px solid var(--fg-5);border-radius:var(--r);background:var(--field);padding:10px 12px;font:13.5px var(--mono);color:var(--fg)}
 .input .i{color:var(--fg-4)}
 .input .b{margin-left:auto}
@@ -245,13 +245,15 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 
 /* ---------- 5. palette + error ---------- */
 .scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--sunk) 60%,transparent);backdrop-filter:blur(2px);z-index:10}
-.palette{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 160px);background:var(--raise);border:1px solid var(--seam-2);border-radius:12px;box-shadow:0 24px 60px -10px #000c,0 0 0 1px #00000080;z-index:11;overflow-y:auto}
+.palette{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--raise);border:1px solid var(--seam-2);border-radius:12px;box-shadow:0 24px 60px -10px #000c,0 0 0 1px #00000080;z-index:11;overflow:hidden}
 .palette .q-in{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--seam);font-size:15px;color:var(--fg)}
 .palette .q-in .i{color:var(--fg-4)}
 .palette .q-in kbd{margin-left:auto}
 .pg{padding:10px 16px 4px}
-.pi{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0 6px;border-radius:var(--r)}
+.palette [role=listbox]{min-height:0;overflow:auto}
+.pi{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0 6px;border-radius:var(--r)}
 .pi .n{color:var(--fg)}
+.pi .n,.pi .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pi .n mark{background:none;color:var(--accent);font-weight:600}
 .pi .d{font:12px var(--mono);color:var(--fg-4)}
 .pi.on{background:var(--raise-2)}
@@ -268,7 +270,7 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .btn:hover{border-color:var(--seam-3);color:var(--fg);background:var(--raise)}
 .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:var(--accent-ink)}
 .btn.danger:hover{background:color-mix(in srgb,var(--err) 10%,transparent);border-color:color-mix(in srgb,var(--err) 50%,transparent);color:var(--err-fg)}
-.btn[aria-disabled=true],.btn:disabled{opacity:.4;pointer-events:none}
+.btn:disabled{opacity:.4;pointer-events:none}
 .s:not(.on):hover,.pi:not(.on):hover{background:var(--raise)}
 .t:not(.sel):not(.wait):hover{background:var(--raise)}
 .mode:not(.on):hover,.chip:hover{border-color:var(--seam-3);color:var(--fg-2)}
@@ -487,6 +489,7 @@ textarea,input{caret-color:var(--accent)}
 /* ---------- 11. extensions ---------- */
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:16px}
 .ext h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.ext>[role=tabpanel]{display:flex;flex-direction:column;gap:16px}
 .ext .lead{margin:6px 0 0;color:var(--fg-3);font-size:13.5px;max-width:80ch}
 .subtabs{display:flex;gap:2px;border-bottom:1px solid var(--seam)}
 .subtabs>*{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -511,7 +514,10 @@ textarea,input{caret-color:var(--accent)}
 .pick,.effort>*,.filters .chip,.subtabs>*,.agent,.slash .si,.wtt tbody tr:not(.grp-row),.mcp tbody tr,.tc,.toggle{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
 .pick:not(.dis):not(.on):hover,.filters .chip:not(.on):hover{border-color:var(--seam-3);color:var(--fg)}
 .pick.on:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
-.pick.dis{cursor:not-allowed}
+.pick.dis{cursor:not-allowed;position:relative}
+/* A disabled control's reason (its title), shown on focus too: keyboard and touch never get the hover tooltip. */
+.pick.dis[title]:focus{opacity:1}
+.pick.dis[title]:focus::after{content:attr(title);position:absolute;left:0;bottom:calc(100% + 6px);z-index:5;width:max-content;max-width:320px;white-space:normal;padding:6px 8px;border-radius:var(--r);background:var(--raise-2);border:1px solid var(--seam-2);color:var(--fg-2);font:12px/1.4 var(--sans)}
 .effort>*:not(.on):hover,.subtabs>*:not(.on):hover{color:var(--fg-2)}
 .agent:not(.sel):hover,.slash .si:not(.on):hover,.wtt tbody tr:not(.grp-row):not(.sel):hover td,.mcp tbody tr:not(.sel):hover td,table tbody tr:not(.hot):hover td{background:var(--raise)}
 .toggle{cursor:pointer}
@@ -526,13 +532,17 @@ textarea,input{caret-color:var(--accent)}
 html,body{height:100%}
 body{background:var(--ground);overflow:hidden}
 .app{height:100vh}
-.app:not(:has(>.insp)){grid-template-columns:256px minmax(0,1fr)}
+.app:not(:has(>main>.insp)){grid-template-columns:256px minmax(0,1fr)}
+/* The page columns of the .app grid, inside the main landmark. */
+main{grid-column:2/-1;display:grid;grid-template-columns:subgrid;grid-template-rows:minmax(0,1fr);min-width:0;min-height:0}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 :where(button){font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 a.btn{text-decoration:none}
 a.s,a.pi,a.q{color:inherit;text-decoration:none}
 .perm-off{display:none}
 [data-permission]:not(:focus-within) .perm-off{display:inline}
-button.tc{display:block;width:100%}
+button.tc,button.t,button.agent,.ledger button.lh{width:100%}
+button.tc{display:block}
 button.mode{text-align:left}
 /* Modes that act unasked (auto, acceptEdits): warning hue on the name, the composer chip and the confirm line. */
 .risk,.mode b.risk,.slash .si b.risk{color:var(--syn-type)}
@@ -553,7 +563,7 @@ button.mode{text-align:left}
    takes the popover shadow; the err tint and the KO duck carry the meaning. */
 #blazor-error-ui{display:none;position:fixed;left:calc(50% + 128px);bottom:20px;transform:translateX(-50%);z-index:1000;width:min(620px,calc(100vw - 256px - 32px))}
 /* With the 420px inspector open, centre on the thread column instead of rail + thread. */
-.app:has(>.insp)~#blazor-error-ui{left:calc(50% - 82px);width:min(620px,calc(100vw - 676px - 32px))}
+.app:has(>main>.insp)~#blazor-error-ui{left:calc(50% - 82px);width:min(620px,calc(100vw - 676px - 32px))}
 #blazor-error-ui .beu{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:10px 10px 10px 14px;background:color-mix(in srgb,var(--err) 6%,var(--raise));border:1px solid color-mix(in srgb,var(--err) 35%,transparent);border-radius:10px;box-shadow:0 18px 40px -12px #000c}
 #blazor-error-ui p{margin:0;font-size:13px;line-height:1.45;color:var(--fg-3)}
 #blazor-error-ui p b{display:block;font-weight:600;color:var(--fg)}
@@ -586,20 +596,19 @@ button.mode{text-align:left}
    The Tauri shell stops at 1100px; below that is the browser-tab case. Under 1100px the inspector docks under the
    main column instead of taking a third column; under 760px everything stacks and the page scrolls (WCAG 1.4.10). */
 @media (max-width:1099px){
-  .app{grid-template-columns:256px minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,40%)}
-  .app:not(:has(>.insp)){grid-template-rows:minmax(0,1fr)}
-  .app>.pane:first-child{grid-row:1/-1}
-  .app>.insp{grid-column:2;border-top:1px solid var(--seam)}
-  .app:has(>.insp)~#blazor-error-ui{left:calc(50% + 128px);width:min(620px,calc(100vw - 256px - 32px))}
+  .app{grid-template-columns:256px minmax(0,1fr)}
+  main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,40%)}
+  main:not(:has(>.insp)){grid-template-rows:minmax(0,1fr)}
+  main>.insp{border-top:1px solid var(--seam)}
+  .app:has(>main>.insp)~#blazor-error-ui{left:calc(50% + 128px);width:min(620px,calc(100vw - 256px - 32px))}
 }
 @media (max-width:759px){
   body{overflow:auto}
-  .app,.app:not(:has(>.insp)){display:flex;flex-direction:column;height:auto}
-  .app>.pane:first-child{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto}
-  .app>.pane:not(:first-child):not(.insp){min-height:100vh}
-  .app>.insp{border-top:1px solid var(--seam)}
+  .app,.app:not(:has(>main>.insp)),main{display:flex;flex-direction:column;height:auto}
+  .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto}
+  main>.pane:not(.insp){min-height:100vh}
   .set-row{grid-template-columns:minmax(0,1fr);gap:10px}
   .thread,.composer{padding-left:16px;padding-right:16px}
   .pop.slash{left:16px;width:calc(100% - 32px)}
-  #blazor-error-ui,.app:has(>.insp)~#blazor-error-ui{left:50%;width:min(620px,calc(100vw - 32px))}
+  #blazor-error-ui,.app:has(>main>.insp)~#blazor-error-ui{left:50%;width:min(620px,calc(100vw - 32px))}
 }

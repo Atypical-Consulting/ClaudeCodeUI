@@ -1,7 +1,7 @@
 @* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
 @inject IJSRuntime JS
 
-<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
+<section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
     @if (modeOpen)
     {
         <div class="shield" @onclick="() => modeOpen = false"></div>
@@ -10,14 +10,15 @@
     else if (menuOpen)
     {
         <div class="shield" @onclick="() => menuOpen = false"></div>
-        <ModelMenu Session="Session" OnClose="() => menuOpen = false" OnEscape="CloseMenuToTrigger" />
+        <ModelMenu Session="Session" OnClose="CloseMenuToTrigger" OnEscape="CloseMenuToTrigger" />
     }
     else if (SlashQuery is { } sq)
     {
         <SlashPopover @ref="slash" Session="Session" Query="@sq" OnPick="Pick" />
     }
     <div class="box">
-        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
+        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"
+                  aria-controls="@(SlashOpen ? "slash-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : null)"></textarea>
         <div class="tools-row">
             <span class="tools">
             @if (crashed)
@@ -54,11 +55,11 @@
             }
             else
             {
-                <span class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</span>
+                <button type="button" class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</button>
             }
             @if (ultraAvailable == false || crashed)
             {
-                <span class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</span>
+                <button type="button" class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</button>
             }
             else
             {
@@ -112,13 +113,14 @@
             }
         </span>
     </div>
-</div>
+</section>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
 
     ElementReference area;
     SlashPopover? slash;
+    bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
     bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy;

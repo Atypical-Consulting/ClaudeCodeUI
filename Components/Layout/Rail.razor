@@ -3,7 +3,7 @@
 @inject WorktreeService Worktrees
 @inject UiState Ui
 
-<div class="pane">
+<nav class="pane" aria-label="@L["Rail.Label"]">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
         <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>Alt N</kbd></NavLink>
@@ -48,7 +48,7 @@
     </div>
     <QuotaMeter />
     <Mascot />
-</div>
+</nav>
 
 @code {
     int FailedMcp => Sessions.All.LastOrDefault(s => s.Init is not null)?.Init!.Mcp.Count(m => m.Status == "failed") ?? 0;

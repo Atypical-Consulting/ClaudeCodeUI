@@ -2,16 +2,17 @@
 @using System.Text.Encodings.Web
 @inject UiState Ui
 
-<div class="ph"><span class="ttl">@L["Inspector"]</span><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
+<div class="ph"><h2 class="ttl">@L["Inspector"]</h2><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
-<div class="tabs" role="tablist">
+<div class="tabs" role="tablist" aria-label="@L["Inspector"]">
     @foreach (var (t, label) in new[] { (0, edit ? "Diff" : L["Tool.Output"].Value), (1, L["Tool.Input"].Value), (2, L["Tool.RawJson"].Value) })
     {
-        <button class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" @onclick="() => tab = t">@label</button>
+        <button id="td-tab-@t" class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" aria-controls="td-panel"
+                tabindex="@(tab == t ? 0 : -1)" @onclick="() => tab = t">@label</button>
     }
 </div>
-<div style="flex:1;min-height:0;overflow:auto">
+<div id="td-panel" role="tabpanel" aria-labelledby="td-tab-@tab" tabindex="0" style="flex:1;min-height:0;overflow:auto">
     @switch (tab)
     {
         case 0 when edit && Tool.State is not (ToolState.Denied or ToolState.Error):

@@ -8,8 +8,7 @@
     @foreach (var a in Agents)
     {
         var isOpen = open.Contains(a.Id);
-        <div @key="a.Id" class="agent @(Ui.SelectedToolId == a.Id ? "sel" : null)" role="button" tabindex="0" @onclick="() => Click(a)"
-             @onkeydown='e => { if (e.Key is "Enter" or " ") Click(a); }'>
+        <button type="button" @key="a.Id" class="agent @(Ui.SelectedToolId == a.Id ? "sel" : null)" aria-expanded="@(isOpen ? "true" : "false")" @onclick="() => Click(a)">
             <Icon Name="@(isOpen ? "down" : "right")" Sm Class="chev" />
             @if (a.State == ToolState.Done)
             {
@@ -22,7 +21,7 @@
             <span class="nm">@(Events.Str(a.Input, "description") ?? "agent") <small>@Events.Str(a.Input, "subagent_type")</small></span>
             <span class="m">@State(a)</span>
             <span class="m">—</span>
-        </div>
+        </button>
         @if (isOpen && Children(a) is { Count: > 0 } kids)
         {
             <div @key="a.Id + '/'" class="subrun">

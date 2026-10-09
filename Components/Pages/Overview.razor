@@ -12,7 +12,7 @@
     qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));
 }
 <div class="pane">
-    <div class="ph"><span class="ttl">@L["Nav.Overview"]</span><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></span></div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></span></div>
     <div class="ov">
         <div class="ovhead">
             <h3>@(all.Count == 1 ? L["Ov.Sessions1"] : L["Ov.SessionsN", all.Count])@(queue.Count > 0 ? ", " + (queue.Count == 1 ? L["Ov.Decision1"] : L["Ov.DecisionN", queue.Count]) : "")</h3>
