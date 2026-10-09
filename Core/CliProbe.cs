@@ -930,10 +930,16 @@ public static class CliProbe
             {
                 // The CLI may report the temp dir through a symlink (/var is /private/var on macOS): match on the tail.
                 var files = Events.Prop(await c.S.Request("get_context_usage"), "memoryFiles") is { ValueKind: JsonValueKind.Array } a
-                    ? a.EnumerateArray().Select(m => (Path: Events.Str(m, "path") ?? "", Type: Events.Str(m, "type") ?? "?")).ToList() : [];
+                    ? a.EnumerateArray().Select(m => (Path: Events.Str(m, "path") ?? "", Type: Events.Str(m, "type") ?? "?",
+                        Tokens: Events.Prop(m, "tokens") is { ValueKind: JsonValueKind.Number })).ToList() : [];
                 string Missing(string path, string type) =>
                     files.Any(f => f.Type == type && f.Path.EndsWith(Path.DirectorySeparatorChar + Path.GetRelativePath(dir, path))) ? "" : $"missing {type} {Path.GetFileName(path)}; ";
                 var miss = Missing(claudeMd, "Project") + Missing(notes, "Project") + Missing(dotClaude, "Project") + Missing(local, "Local");
+                // MemoryFiles.List drops a relative path and reads tokens as a number: either drift would empty the panel silently.
+                miss += string.Concat(files.Where(f => !Path.IsPathFullyQualified(f.Path) || !f.Tokens).Select(f => $"not absolute or no numeric tokens: {f.Path}; "));
+                // The user file is the machine's own: only checked when there is one.
+                var user = Path.Combine(Path.GetDirectoryName(TranscriptStore.Root)!, "CLAUDE.md");
+                if (File.Exists(user) && !files.Any(f => f.Type == "User")) miss += "missing User CLAUDE.md; ";
                 var listed = "memoryFiles " + string.Join(", ", files.Select(f => $"{f.Type} {Path.GetFileName(Path.GetDirectoryName(f.Path))}/{Path.GetFileName(f.Path)}"));
                 var listing = miss == "" ? ("PASS", listed) : ("FAIL", miss + listed);
 
