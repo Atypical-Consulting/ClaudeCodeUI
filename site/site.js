@@ -81,7 +81,27 @@
     toc.addEventListener('click', e => {
       if (e.target.closest('a') && btn?.getAttribute('aria-expanded') === 'true') btn.click();
     });
-    const mark = id => links.forEach(a => a.hash === '#' + id ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current'));
+    // Right column: the app screen that goes with the section being read.
+    const SHOTS = {
+      installation: ['04', 'Vue d\'ensemble des sessions', 'Vue d\'ensemble : cinq sessions avec leur état, leur mode, leur dernière action, et la file des décisions en attente.'],
+      sessions: ['03', 'Demande de permission', 'Demande de permission : modification de Home.razor avec le diff, et les boutons Autoriser, Toute la session, Refuser.'],
+      composer: ['09', 'Composer', 'Composer : sélecteur de modèle, effort, Rapide, Ultracode, et le menu des commandes slash.'],
+      'sous-agents': ['10', 'Ultracode et sous-agents', 'Workflow ultracode : phases Revue, Vérification, Synthèse, six agents et le détail de l\'agent sélectionné.'],
+      worktrees: ['08', 'Worktrees', 'Worktrees : tableau classé par état avec la raison, la taille, et le plan de nettoyage dans l\'inspecteur.'],
+      extensions: ['11', 'Extensions', 'Extensions : serveurs MCP avec leur état, onglets Skills, Agents, Plugins.'],
+      themes: ['07', 'Apparence', 'Apparence : les cinq thèmes sombres et le réglage de la taille du code.'],
+      raccourcis: ['03', 'Demande de permission', 'Demande de permission : Autoriser ⏎, Toute la session Maj ⏎, Refuser Suppr.'],
+      securite: ['06', 'Rendu Markdown', 'Rendu Markdown d\'une réponse : titres, tableau, liste de tâches et bloc de code coloré.'],
+    };
+    const shot = id => {
+      const v = SHOTS[id], img = $('shot-img');
+      if (!v || !img) return;
+      img.src = $('shot-a').href = `assets/screens/${v[0]}.png`;
+      img.alt = v[2];
+      $('shot-cap').textContent = v[1];
+      $('shot-sub').textContent = byId.get(id).textContent.toLowerCase();
+    };
+    const mark = id => { shot(id); links.forEach(a => a.hash === '#' + id ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current')); };
     const seen = new Set();
     const io = new IntersectionObserver(entries => {
       entries.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
@@ -160,12 +180,18 @@
       $('dl-title').textContent = rel ? `La version ${rel.tag_name} n'a pas encore ses installeurs` : 'Aucune version publiée pour l\'instant';
       $('dl-desc').textContent = rel
         ? 'Les installeurs sont construits après la publication de la version et y sont attachés au bout de quelques minutes. Reviens un peu plus tard, ou suis la page des versions.'
-        : 'Les installeurs Windows, macOS et Linux seront attachés à la première version GitHub dès sa publication. En attendant, l\'application se construit depuis les sources (voir Développement dans la documentation).';
+        : 'Les installeurs Windows, macOS et Linux seront attachés à la première version GitHub dès sa publication. D\'ici là, l\'application se compile depuis les sources.';
       $('dl-ver').textContent = rel ? rel.tag_name : 'aucune';
-      pill('idle', 'rien à télécharger');
-      status('idle', 'Aucun installeur publié : rien à télécharger pour l\'instant.');
-      mood('sleepy', 'Pas encore de version', 'Les installeurs arrivent avec la première');
+      $('dl-pill').hidden = true;
+      status('idle', 'Claude attend la première version publiée pour te proposer l\'installeur.');
+      mood('sleepy', 'Pas encore de version', 'Les installeurs arrivent avec la première version.');
       go(RELEASES, 'Suivre les versions');
+      // Nothing to refuse yet: the third verb becomes the way to get the app today.
+      const no = $('dl-no');
+      no.textContent = 'Compiler depuis les sources';
+      no.href = 'docs.html#developpement';
+      no.classList.remove('danger');
+      $('dl-alt').hidden = true;
     } else {
       $('dl-title').textContent = 'GitHub ne répond pas';
       $('dl-desc').textContent = 'Impossible de lire la dernière version : réseau coupé ou limite de requêtes de l\'API GitHub atteinte. Les installeurs restent disponibles sur la page des versions.';

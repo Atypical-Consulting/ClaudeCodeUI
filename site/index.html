@@ -6,7 +6,7 @@
 <title>Claude Code UI · une console de bureau pour Claude Code</title>
 <meta name="description" content="Claude Code UI pilote le vrai CLI claude et rend la session lisible : journal des outils, permissions avec diff, sessions en parallèle, worktrees. Windows, macOS, Linux.">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#08090A">
+<meta name="theme-color" content="#0E0F11">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/icon-128.png">
 <meta property="og:type" content="website">
@@ -73,6 +73,7 @@
       <h1 class="lead">Le vrai CLI Claude Code, <em>rendu lisible.</em></h1>
       <p class="lede"><span class="sr">Claude Code UI lance le même claude que ton terminal, avec ses outils et ses permissions, et affiche la session comme une console : texte en direct, journal des outils, diffs à approuver, plusieurs sessions côte à côte. Je vérifie trois choses, puis je te demande l'autorisation de télécharger l'installeur.</span><span aria-hidden="true" data-stream>Claude Code UI lance le même claude que ton terminal, avec ses outils et ses permissions, et affiche la session comme une console : texte en direct, journal des outils, diffs à approuver, plusieurs sessions côte à côte. Je vérifie trois choses, puis je te demande l'autorisation de télécharger l'installeur.</span></p>
 
+      <p class="status" id="dl-status" data-s="load"><span class="dot"></span><span id="dl-status-t" role="status">Recherche de la dernière version sur GitHub…</span><a class="jump" href="#dl">Voir la demande</a></p>
       <div class="ledger">
         <h2 class="lh"><b>3 outils</b> · vérifications avant installation</h2>
         <div class="row">
@@ -104,7 +105,6 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
           </div></div></div>
         </div>
       </div>
-      <p class="status" id="dl-status" role="status" data-s="load"><span class="dot"></span><span id="dl-status-t">Recherche de la dernière version sur GitHub…</span></p>
     </div>
   </main>
 
@@ -125,7 +125,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
         <div class="acts">
           <a class="btn primary" id="dl-go" href="https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest"><svg class="i"><use href="#i-dl"/></svg><span id="dl-go-t">Autoriser</span></a>
           <button class="btn" id="dl-more" aria-expanded="false" aria-controls="others">Autres systèmes</button>
-          <a class="btn danger" href="docs.html#installation">Refuser<span class="sr"> et lire la documentation d'installation</span></a>
+          <a class="btn danger" id="dl-no" href="docs.html#installation">Refuser<span class="sr"> et lire la documentation d'installation</span></a>
         </div>
         <ul class="others" id="others" hidden></ul>
         <p class="hint" id="dl-alt">Refuser ouvre la documentation d'installation.</p>
