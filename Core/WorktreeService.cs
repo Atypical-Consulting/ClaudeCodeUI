@@ -177,10 +177,10 @@ public sealed class WorktreeService(SessionManager sessions)
             var facts = new WtFacts(dirty, ahead, isMerged, squash, track == "gone", reason is not null, pid, pid is { } p && Alive(p),
                 exists, r.ContainsKey("prunable"), session?.Name, branch is null);
             var (state, why) = Classify(facts);
-            if (session?.Status == SessionStatus.Waiting) why = $"Session <b>{Enc(session.Name)}</b> attend une décision";
+            if (session?.Status == SessionStatus.Waiting) why = Strings.Get("Wt.Why.Waiting", Enc(session.Name));
             var last = new[] { Activity(path), DateTimeOffset.TryParse(rf?[3], out var cd) ? cd : DateTimeOffset.MinValue }.Max();
             var idle = (int)(DateTimeOffset.Now - last).TotalDays;
-            if (state is WtState.Safe or WtState.Check && idle >= 2 && last > DateTimeOffset.MinValue) why += $", inactif depuis {idle} j";
+            if (state is WtState.Safe or WtState.Check && idle >= 2 && last > DateTimeOffset.MinValue) why += Strings.Get("Wt.Why.Idle", idle);
             return new WorktreeInfo(Norm(repoRoot), path, System.IO.Path.GetFileName(path), branch, r.GetValueOrDefault("HEAD"),
                 state, why.Replace("{base}", Enc(bas)), null, last, reason is not null, reason, dirty, ahead, isMerged, squash, track == "gone");
         }));
@@ -296,7 +296,7 @@ public sealed class WorktreeService(SessionManager sessions)
         foreach (var step in confirmedPlan)
         {
             var a = step.GitArgs;
-            if (a.Any(x => x is "--force" or "-f" or "-D" or "--delete-force")) { yield return (step, -1, "refusé : option interdite"); continue; }
+            if (a.Any(x => x is "--force" or "-f" or "-D" or "--delete-force")) { yield return (step, -1, Strings.Get("Wt.Run.Forbidden")); continue; }
             var path = a is ["worktree", "unlock" or "remove", var p] ? p : null;
             var target = path ?? (a is ["branch", "-d", var b] ? b : null);
             if (path is not null && checkedPaths.Add(path))
@@ -306,14 +306,14 @@ public sealed class WorktreeService(SessionManager sessions)
                 {
                     skip.Add(path);
                     if (row?.Branch is { } rb) skip.Add(rb);
-                    yield return (step, -1, row is null ? "ignoré : worktree introuvable" : $"ignoré : l'état a changé ({Label(row.State)})");
+                    yield return (step, -1, row is null ? Strings.Get("Wt.Run.Missing") : Strings.Get("Wt.Run.Changed", Label(row.State)));
                     continue;
                 }
             }
-            if (target is not null && skip.Contains(target)) { yield return (step, -1, "ignoré"); continue; }
+            if (target is not null && skip.Contains(target)) { yield return (step, -1, Strings.Get("Wt.Run.Skipped")); continue; }
             var (exit, o, e) = await Git(step.Repo, ct, a);
             var output = (o + e).Trim();
-            if (exit != 0 && a is ["branch", "-d", ..]) output = "branche gardée (git a refusé)\n" + output;
+            if (exit != 0 && a is ["branch", "-d", ..]) output = Strings.Get("Wt.Run.BranchKept") + "\n" + output;
             if (exit != 0 && step.FailureIsFatal && path is not null)
             {
                 skip.Add(path);
@@ -333,25 +333,25 @@ public sealed class WorktreeService(SessionManager sessions)
 
     public static string Label(WtState s) => s switch
     {
-        WtState.Safe => "Sûr", WtState.Orphan => "Orphelin", WtState.Active => "Actif", _ => "À vérifier",
+        WtState.Safe => Strings.Get("Wt.State.Safe"), WtState.Orphan => Strings.Get("Wt.State.Orphan"), WtState.Active => Strings.Get("Wt.State.Active"), _ => Strings.Get("Wt.State.Check"),
     };
 
     // Report §3, first match wins. Why is HTML (<b>) with a {base} placeholder filled by ScanAsync.
     public static (WtState State, string Why) Classify(WtFacts f)
     {
-        if (f.ActiveSessionName is { } s) return (WtState.Active, $"Session <b>{Enc(s)}</b> en cours");
-        if (f.Locked && f.LockPid is { } pid && f.PidAlive) return (WtState.Active, $"Session claude externe (pid {pid})");
-        if (f.NoWorktree) return f.Merged ? (WtState.Orphan, "Branche <b>sans worktree</b>, déjà dans <b>{base}</b>") : (WtState.Check, "Branche <b>sans worktree</b>, pas encore dans <b>{base}</b>");
-        if (!f.Exists || f.Prunable) return (WtState.Orphan, "Dossier supprimé à la main, git le référence encore");
-        if (f.Dirty > 0) return (WtState.Check, f.Dirty == 1 ? "<b>1 fichier</b> modifié non commité" : $"<b>{f.Dirty} fichiers</b> modifiés non commités");
-        if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, f.Ahead == 1 ? "<b>1 commit</b> jamais poussé" : $"<b>{f.Ahead} commits</b> jamais poussés");
-        if (f.Locked && f.LockPid is { } dead) return (WtState.Check, $"Verrou périmé (pid {dead}), sinon sûr");
-        if (f.Locked) return (WtState.Check, "Verrouillé sans pid connu");
-        if (f.Detached && !f.Merged) return (WtState.Check, "HEAD détachée, commits hors branche");
-        if (f.Merged && f.UpstreamGone) return (WtState.Safe, "Mergé dans <b>{base}</b>, branche distante supprimée");
-        if (f.Merged) return (WtState.Safe, "Déjà dans <b>{base}</b>, aucun changement local");
-        if (f.SquashMerged) return (WtState.Safe, "Contenu déjà dans <b>{base}</b> (squash), branche gardée");
-        return (WtState.Check, "Pas encore dans <b>{base}</b>, rien à pousser");
+        if (f.ActiveSessionName is { } s) return (WtState.Active, Strings.Get("Wt.Why.Running", Enc(s)));
+        if (f.Locked && f.LockPid is { } pid && f.PidAlive) return (WtState.Active, Strings.Get("Wt.Why.External", pid));
+        if (f.NoWorktree) return f.Merged ? (WtState.Orphan, Strings.Get("Wt.Why.BranchMerged")) : (WtState.Check, Strings.Get("Wt.Why.BranchUnmerged"));
+        if (!f.Exists || f.Prunable) return (WtState.Orphan, Strings.Get("Wt.Why.Deleted"));
+        if (f.Dirty > 0) return (WtState.Check, f.Dirty == 1 ? Strings.Get("Wt.Why.Dirty1") : Strings.Get("Wt.Why.DirtyN", f.Dirty));
+        if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, f.Ahead == 1 ? Strings.Get("Wt.Why.Ahead1") : Strings.Get("Wt.Why.AheadN", f.Ahead));
+        if (f.Locked && f.LockPid is { } dead) return (WtState.Check, Strings.Get("Wt.Why.StaleLock", dead));
+        if (f.Locked) return (WtState.Check, Strings.Get("Wt.Why.Locked"));
+        if (f.Detached && !f.Merged) return (WtState.Check, Strings.Get("Wt.Why.Detached"));
+        if (f.Merged && f.UpstreamGone) return (WtState.Safe, Strings.Get("Wt.Why.MergedGone"));
+        if (f.Merged) return (WtState.Safe, Strings.Get("Wt.Why.Merged"));
+        if (f.SquashMerged) return (WtState.Safe, Strings.Get("Wt.Why.Squashed"));
+        return (WtState.Check, Strings.Get("Wt.Why.NotMerged"));
     }
 
     static int? PidOf(string? lockReason) => lockReason is not null && Regex.Match(lockReason, @"pid (\d+)") is { Success: true } m ? int.Parse(m.Groups[1].Value) : null;

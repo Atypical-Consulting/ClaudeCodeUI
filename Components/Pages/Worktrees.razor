@@ -12,14 +12,14 @@
         <span class="ttl">Worktrees</span>
         @if (rows is not null)
         {
-            <span class="sub">@Plural(repos.Count, "dépôt") · @Plural(rows.Count, "worktree") · @SizeOf(rows)</span>
+            <span class="sub">@Plural(repos.Count, "Wt.Repos") · @Plural(rows.Count, "Wt.Worktrees") · @SizeOf(rows)</span>
         }
-        <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />Rafraîchir</button></span>
+        <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
     </div>
     <div class="wt">
         @if (rows is null)
         {
-            <div class="wt-head"><div><h3>Recherche des worktrees…</h3><p>Lecture des dépôts des sessions récentes.</p></div></div>
+            <div class="wt-head"><div><h3>@L["Wt.Scanning"]</h3><p>@L["Wt.ScanningText"]</p></div></div>
         }
         else
         {
@@ -28,41 +28,41 @@
             <div class="wt-head"><div>
                 @if (safe.Count == 0)
                 {
-                    <h3>Aucun worktree à nettoyer</h3>
+                    <h3>@L["Wt.NothingToClean"]</h3>
                 }
                 else
                 {
-                    <h3>@(safe.Count == 1 ? "1 worktree peut partir sans risque" : $"{safe.Count} worktrees peuvent partir sans risque")</h3>
+                    <h3>@(safe.Count == 1 ? L["Wt.Safe1"] : L["Wt.SafeN", safe.Count])</h3>
                 }
-                <p>@(safe.Count > 0 ? $"{SizeOf(safe)} récupérables. " : "")@(check switch { 0 => "Rien n'attend ta décision", 1 => "Un autre attend ta décision", _ => $"{check} autres attendent ta décision" }), et rien d'actif ne sera touché.</p>
+                <p>@(safe.Count > 0 ? L["Wt.Recoverable", SizeOf(safe)] + " " : "")@(check switch { 0 => L["Wt.Check0"], 1 => L["Wt.Check1"], _ => L["Wt.CheckN", check] })@L["Wt.NothingActive"]</p>
             </div></div>
             @foreach (var r in unignored)
             {
-                <div class="guard"><Icon Name="shield" Sm="true" /><span><code>.claude/worktrees/</code> n'est pas ignoré par git dans <b title="@r">@Path.GetFileName(r)</b> : un <code>git add .</code> y ajouterait les worktrees. Ajoute-le au <code>.gitignore</code>.</span></div>
+                <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.Unignored", $"<b title=\"{Enc(r)}\">{Enc(Path.GetFileName(r))}</b>"].Value)</span></div>
             }
             @foreach (var e in errors)
             {
                 <div class="errbox">@e</div>
             }
             <div class="filters">
-                <button class="chip @(filter is null ? "on" : null)" @onclick="() => filter = null">Tous <b>@rows.Count</b></button>
-                <button class="chip @(filter == WtState.Safe ? "on" : null)" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>Sûrs <b>@Count(WtState.Safe)</b></button>
-                <button class="chip @(filter == WtState.Orphan ? "on" : null)" @onclick="() => filter = WtState.Orphan">Orphelins <b>@Count(WtState.Orphan)</b></button>
-                <button class="chip @(filter == WtState.Check ? "on" : null)" @onclick="() => filter = WtState.Check">À vérifier <b>@Count(WtState.Check)</b></button>
-                <button class="chip @(filter == WtState.Active ? "on" : null)" @onclick="() => filter = WtState.Active">Actifs <b>@Count(WtState.Active)</b></button>
+                <button class="chip @(filter is null ? "on" : null)" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
+                <button class="chip @(filter == WtState.Safe ? "on" : null)" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>@L["Wt.Filter.Safe"] <b>@Count(WtState.Safe)</b></button>
+                <button class="chip @(filter == WtState.Orphan ? "on" : null)" @onclick="() => filter = WtState.Orphan">@L["Wt.Filter.Orphan"] <b>@Count(WtState.Orphan)</b></button>
+                <button class="chip @(filter == WtState.Check ? "on" : null)" @onclick="() => filter = WtState.Check">@L["Wt.State.Check"] <b>@Count(WtState.Check)</b></button>
+                <button class="chip @(filter == WtState.Active ? "on" : null)" @onclick="() => filter = WtState.Active">@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
             </div>
             <table class="wtt">
-                <thead><tr><th>Worktree</th><th>État</th><th>Pourquoi</th><th class="num">Taille</th><th></th></tr></thead>
+                <thead><tr><th>Worktree</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var (title, states) in groups)
                     {
                         var g = rows.Where(w => states.Contains(w.State) && (filter is null || w.State == filter)).ToList();
                         if (g.Count == 0) continue;
-                        <tr class="grp-row"><td colspan="5">@title</td></tr>
+                        <tr class="grp-row"><td colspan="5">@L[title]</td></tr>
                         @foreach (var w in g)
                         {
                             <tr class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null)" @key="w.Path">
-                                <td><div class="n">@w.Name</div><div class="branch"><Icon Name="branch" />@(w.Branch ?? (w.State == WtState.Orphan ? "branche introuvable" : "HEAD détachée")) · @Path.GetFileName(w.Repo)</div></td>
+                                <td><div class="n">@w.Name</div><div class="branch"><Icon Name="branch" />@(w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"])) · @Path.GetFileName(w.Repo)</div></td>
                                 <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
                                 <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
                                 <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
@@ -71,27 +71,27 @@
                                     {
                                         @if (plan.Contains(w.Path))
                                         {
-                                            <button class="btn ghost" disabled="@running" @onclick="() => plan.Remove(w.Path)">Retirer</button>
+                                            <button class="btn ghost" disabled="@running" @onclick="() => plan.Remove(w.Path)">@L["Wt.Unplan"]</button>
                                         }
                                         else
                                         {
-                                            <button class="btn" disabled="@running" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? "Élaguer" : "Supprimer")</button>
+                                            <button class="btn" disabled="@running" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])</button>
                                         }
                                     }
                                     else if (w.State == WtState.Active)
                                     {
                                         if (SessionOf(w) is { } s)
                                         {
-                                            <button class="btn" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>Aller</button>
+                                            <button class="btn" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>@L["Wt.Go"]</button>
                                         }
                                     }
                                     else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null && !w.BranchOnly)
                                     {
-                                        <button class="btn" disabled="@running" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">Pousser</button>
+                                        <button class="btn" disabled="@running" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">@L["Wt.Push"]</button>
                                     }
                                     else if (!w.BranchOnly)
                                     {
-                                        <button class="btn" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>Ouvrir</button>
+                                        <button class="btn" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>@L["Action.Open"]</button>
                                     }
                                 </div></td>
                             </tr>
@@ -107,31 +107,31 @@
 {
     var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
     <div class="pane insp">
-        <div class="ph"><span class="ttl">Nettoyage</span><span class="sub">@Plural(chosen.Count, "worktree")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
+        <div class="ph"><span class="ttl">@L["Wt.Cleanup"]</span><span class="sub">@Plural(chosen.Count, "Wt.Worktrees")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
         @if (push is { } pw)
         {
             <div class="section">
-                <h3>Pousser @pw.Name ?</h3>
-                <p>@Plural(pw.Unpushed, "commit") jamais @(pw.Unpushed > 1 ? "poussés" : "poussé") sur <b>@pw.Branch</b>.</p>
+                <h3>@L["Wt.PushTitle", pw.Name]</h3>
+                <p>@((MarkupString)(pw.Unpushed == 1 ? L["Wt.Unpushed1", Enc(pw.Branch)] : L["Wt.UnpushedN", pw.Unpushed, Enc(pw.Branch)]).Value)</p>
                 <div class="cmdlog">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
                 <div class="acts">
                     @if (pushResult != "ok")
                     {
-                        <button class="btn primary" disabled="@running" @onclick="() => Push(pw)">Pousser</button>
+                        <button class="btn primary" disabled="@running" @onclick="() => Push(pw)">@L["Wt.Push"]</button>
                     }
-                    <button class="btn ghost" @onclick="() => { push = null; selected = null; }">@(pushResult == "ok" ? "Fermer" : "Annuler")</button>
+                    <button class="btn ghost" @onclick="() => { push = null; selected = null; }">@(pushResult == "ok" ? L["Action.Close"] : L["Action.Cancel"])</button>
                 </div>
             </div>
         }
         <div class="section">
-            <h3>Ce qui va se passer</h3>
+            <h3>@L["Wt.WhatHappens"]</h3>
             @if (chosen.Count == 0 && log.Count == 0)
             {
-                <p>Rien n'est prévu. « Supprimer » ou « Élaguer » ajoute un worktree au nettoyage ; les commandes git s'affichent ici avant d'être lancées.</p>
+                <p>@L["Wt.NothingPlanned"]</p>
                 var all = rows?.Where(w => w.State is WtState.Safe or WtState.Orphan).ToList() ?? [];
                 @if (all.Count > 0)
                 {
-                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">Ajouter les @Plural(all.Count, "worktree") sans risque</button></div>
+                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">@L["Wt.AddSafe", Plural(all.Count, "Wt.Worktrees")]</button></div>
                 }
             }
             else
@@ -146,16 +146,16 @@
                     </div>
                 }
                 <div class="cmdlog">@CmdLog(log.Count > 0 ? log : Preview(chosen))</div>
-                <div class="guard"><Icon Name="shield" Sm="true" /><span><code>git branch -d</code>, jamais <code>-D</code> : git refusera de lui-même toute branche qui n'est pas mergée.</span></div>
+                <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.NeverForce"].Value)</span></div>
                 <div class="acts">
                     @if (log.Count == 0)
                     {
-                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">Nettoyer @Plural(chosen.Count, "worktree")</button>
-                        <button class="btn ghost" @onclick="() => plan.Clear()">Annuler</button>
+                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">@L["Wt.CleanN", Plural(chosen.Count, "Wt.Worktrees")]</button>
+                        <button class="btn ghost" @onclick="() => plan.Clear()">@L["Action.Cancel"]</button>
                     }
                     else
                     {
-                        <button class="btn" disabled="@running" @onclick="() => { log.Clear(); plan.Clear(); }">Fermer</button>
+                        <button class="btn" disabled="@running" @onclick="() => { log.Clear(); plan.Clear(); }">@L["Action.Close"]</button>
                     }
                 </div>
             }
@@ -164,7 +164,7 @@
 }
 
 @code {
-    static readonly (string, WtState[])[] groups = [("Peuvent partir", [WtState.Safe, WtState.Orphan]), ("À vérifier", [WtState.Check]), ("Actifs", [WtState.Active])];
+    static readonly (string, WtState[])[] groups = [("Wt.Group.Go", [WtState.Safe, WtState.Orphan]), ("Wt.State.Check", [WtState.Check]), ("Wt.Filter.Active", [WtState.Active])];   // titles are resource keys
 
     record LogLine(string Repo, string Cmd, string? Result);
 
@@ -202,7 +202,7 @@
                     found.AddRange(list);
                     if (list.Count > 0 && !await Wt.IgnoresWorktreesAsync(r, ct)) bad.Add(r);
                 }
-                catch (InvalidOperationException e) { errs.Add($"{Home(r)} : {e.Message}"); }
+                catch (InvalidOperationException e) { errs.Add(L["Wt.RepoError", Home(r), e.Message]); }
             }
             (rows, unignored, errors) = (found, bad, errs);
             if (refresh) sizes.Clear();
@@ -259,7 +259,7 @@
                 {
                     0 => first.Length > 0 && step.GitArgs[1] == "prune" ? string.Join(" · ", first) : "ok",
                     -1 => output,
-                    _ => $"exit {exit} : {string.Join(" · ", first)}",
+                    _ => L["Wt.ExitOutput", exit, string.Join(" · ", first)],
                 }));
                 StateHasChanged();
             }
@@ -290,13 +290,16 @@
         return known.All(w => sizes.ContainsKey(w.Path)) ? Fmt.Size(known.Sum(w => sizes[w.Path])) : "…";
     }
 
-    static string What(WorktreeInfo w) => w.BranchOnly ? "branche locale seulement (mergée)" : w.State == WtState.Orphan ? "référence git seulement"
-        : (w.Locked ? "déverrouillage + " : "") + (w.Branch is null ? "dossier (HEAD détachée)"
-        : w.SquashMerged && !w.Merged ? "dossier seulement, branche gardée (squash)" : "dossier + branche locale (mergée)");
+    string What(WorktreeInfo w) => w.BranchOnly ? L["Wt.What.BranchOnly"] : w.State == WtState.Orphan ? L["Wt.What.RefOnly"]
+        : (w.Locked ? L["Wt.What.Unlock"] : "") + L[w.Branch is null ? "Wt.What.Detached"
+        : w.SquashMerged && !w.Merged ? "Wt.What.FolderOnly" : "Wt.What.FolderAndBranch"];
 
     static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
 
-    static string Plural(int n, string word) => $"{n} {word}{(n > 1 ? "s" : "")}";
+    // <key>1 for one, <key>N otherwise ("0 dépôt" in French is singular, "0 repositories" in English: <key>0).
+    string Plural(int n, string key) => L[key + (n switch { 0 => "0", 1 => "1", _ => "N" }), n];
+
+    static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
 
     static string Short(string path) => path.Length > 48 ? "…" + path[^47..] : path;   // .cmdlog does not wrap
 

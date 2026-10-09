@@ -3,12 +3,12 @@
     <div class="crash">
         <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="72" Color="#FCCC0A" /></div>
         <div>
-            <h4>Le processus Claude s’est arrêté</h4>
-            <p>La session s'est interrompue en plein tour. Le transcript est conservé ; tu peux relancer dans le même dossier.</p>
+            <h4>@L["Crash.Title"]</h4>
+            <p>@L["Crash.Text"]</p>
             <pre>@Session.ExitText</pre>
             <div class="acts" style="justify-content:flex-start">
-                <button class="btn primary" disabled="@restarting" @onclick="Restart"><Icon Name="refresh" Sm />Relancer la session</button>
-                <button class="btn" data-copy="@Session.ExitText">Copier l'erreur</button>
+                <button class="btn primary" disabled="@restarting" @onclick="Restart"><Icon Name="refresh" Sm />@L["Crash.Restart"]</button>
+                <button class="btn" data-copy="@Session.ExitText">@L["Error.Copy"]</button>
             </div>
         </div>
     </div>

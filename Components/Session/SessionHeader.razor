@@ -3,7 +3,7 @@
 <div class="ph">
     <span class="ttl" tabindex="-1">@Session.Name</span>
     <span class="sub">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
-    <span class="end"><button class="btn ghost" title="Inspecteur (Ctrl I)" aria-label="Inspecteur" aria-pressed="@Ui.InspectorOpen" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
+    <span class="end"><button class="btn ghost" title="@L["Inspector"] (Ctrl I)" aria-label="@L["Inspector"]" aria-pressed="@Ui.InspectorOpen" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
 </div>
 
 @code {

@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Action.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Action.Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Action.Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Agent.NoText" xml:space="preserve"><value>No text.</value></data>
+  <data name="Agent.NothingYet" xml:space="preserve"><value>The agent hasn't written anything yet.</value></data>
+  <data name="Agent.Writes" xml:space="preserve"><value>What the agent writes</value></data>
+  <data name="ApiError.Auth.Hint" xml:space="preserve"><value>Sign in again with `claude /login` in a terminal.</value></data>
+  <data name="ApiError.Auth.Title" xml:space="preserve"><value>Authentication with the API failed.</value></data>
+  <data name="ApiError.ContentFilter.Hint" xml:space="preserve"><value>Rephrase the request or remove the sensitive content, then send the message again.</value></data>
+  <data name="ApiError.ContentFilter.Title" xml:space="preserve"><value>The API's content filter blocked the response.</value></data>
+  <data name="ApiError.Generic.Hint" xml:space="preserve"><value>The raw details are below.</value></data>
+  <data name="ApiError.Generic.Title" xml:space="preserve"><value>The Claude API returned an error.</value></data>
+  <data name="ApiError.Network.Hint" xml:space="preserve"><value>Check your network connection, then send the message again.</value></data>
+  <data name="ApiError.Network.Title" xml:space="preserve"><value>Can't reach the Claude API.</value></data>
+  <data name="ApiError.Overloaded.Hint" xml:space="preserve"><value>Try again in a moment.</value></data>
+  <data name="ApiError.Overloaded.Title" xml:space="preserve"><value>The Claude API is overloaded.</value></data>
+  <data name="ApiError.RateLimit.Hint" xml:space="preserve"><value>Wait a moment before sending the message again.</value></data>
+  <data name="ApiError.RateLimit.Title" xml:space="preserve"><value>Rate limit reached.</value></data>
+  <data name="ApiError.Server.Hint" xml:space="preserve"><value>Try again; if the error persists, check status.anthropic.com.</value></data>
+  <data name="ApiError.Server.Title" xml:space="preserve"><value>The Claude API hit an internal error.</value></data>
+  <data name="ApiError.TooLong.Hint" xml:space="preserve"><value>Run `/compact` or start a new session.</value></data>
+  <data name="ApiError.TooLong.Title" xml:space="preserve"><value>The conversation is larger than the model's context window.</value></data>
+  <data name="Appearance.Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Appearance.CodeSize" xml:space="preserve"><value>Code size</value></data>
+  <data name="Appearance.CodeSizeHint" xml:space="preserve"><value>Code blocks, diffs, inspector.</value></data>
+  <data name="Appearance.Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Appearance.LanguageHint" xml:space="preserve"><value>Interface language. Applying it reloads the page.</value></data>
+  <data name="Appearance.Lead" xml:space="preserve"><value>The theme recolors the whole interface, syntax highlighting included. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; then “theme” switches it without opening settings.</value></data>
+  <data name="Appearance.Preview" xml:space="preserve"><value>Preview</value></data>
+  <data name="Appearance.PreviewHint" xml:space="preserve"><value>How it really looks with the chosen theme.</value></data>
+  <data name="Appearance.SampleComment" xml:space="preserve"><value>The duck's mood follows the session state</value></data>
+  <data name="Appearance.Theme" xml:space="preserve"><value>Theme</value></data>
+  <data name="Appearance.ThemeHint" xml:space="preserve"><value>Applied right away, remembered for next time.</value></data>
+  <data name="Appearance.ThemeLabel" xml:space="preserve"><value>{0} theme</value></data>
+  <data name="Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
+  <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
+  <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
+  <data name="Composer.FastMode" xml:space="preserve"><value>Fast mode</value></data>
+  <data name="Composer.FastSdkOptIn" xml:space="preserve"><value>SDK opt-in required</value></data>
+  <data name="Composer.FastUnavailable" xml:space="preserve"><value>Fast mode unavailable</value></data>
+  <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Fast mode unavailable: {0}</value></data>
+  <data name="Composer.Interrupt" xml:space="preserve"><value>Interrupt</value></data>
+  <data name="Composer.Interrupted" xml:space="preserve"><value>interrupted</value></data>
+  <data name="Composer.Label" xml:space="preserve"><value>Message to Claude</value></data>
+  <data name="Composer.PermissionMode" xml:space="preserve"><value>Permission mode</value></data>
+  <data name="Composer.PhCrashed" xml:space="preserve"><value>Session stopped. Restart it to continue.</value></data>
+  <data name="Composer.PhIdle" xml:space="preserve"><value>Reply to Claude…</value></data>
+  <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. You can draft what's next…</value></data>
+  <data name="Composer.PhWaiting" xml:space="preserve"><value>Or tell Claude what you want instead…</value></data>
+  <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. You can draft what's next…</value></data>
+  <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
+  <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
+  <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
+  <data name="Composer.UltraHint" xml:space="preserve"><value>Turns on the CLI's ultracode setting for the next turn</value></data>
+  <data name="Composer.UltraThisTurn" xml:space="preserve"><value>multi-agent for this turn</value></data>
+  <data name="Composer.UltraUnavailable" xml:space="preserve"><value>Ultracode isn't available for this account or model</value></data>
+  <data name="Crash.Restart" xml:space="preserve"><value>Restart the session</value></data>
+  <data name="Crash.Text" xml:space="preserve"><value>The session stopped mid-turn. The transcript is kept; you can restart in the same folder.</value></data>
+  <data name="Crash.Title" xml:space="preserve"><value>The Claude process stopped</value></data>
+  <data name="Ctx.Auto" xml:space="preserve"><value>Auto at {0}</value></data>
+  <data name="Ctx.AutoTitle" xml:space="preserve"><value>The CLI's auto-compact threshold</value></data>
+  <data name="Ctx.Cat.Mcp" xml:space="preserve"><value>MCP tools</value></data>
+  <data name="Ctx.Cat.McpN" xml:space="preserve"><value>MCP tools · {0}</value></data>
+  <data name="Ctx.Cat.Memory" xml:space="preserve"><value>memory, CLAUDE.md</value></data>
+  <data name="Ctx.Cat.SystemPrompt" xml:space="preserve"><value>system prompt</value></data>
+  <data name="Ctx.Cat.SystemTools" xml:space="preserve"><value>built-in tools</value></data>
+  <data name="Ctx.CompactNow" xml:space="preserve"><value>Compact now</value></data>
+  <data name="Ctx.DisableHint" xml:space="preserve"><value>Turning off the ones this session doesn't need frees context on every turn.</value></data>
+  <data name="Ctx.Free" xml:space="preserve"><value>free</value></data>
+  <data name="Ctx.Loaded1" xml:space="preserve"><value>{0} from {1} is loaded.</value></data>
+  <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} from {1} are loaded.</value></data>
+  <data name="Ctx.ManageMcp" xml:space="preserve"><value>Manage MCP servers</value></data>
+  <data name="Ctx.McpWeight" xml:space="preserve"><value>MCP tools weigh {0}</value></data>
+  <data name="Ctx.SelectRow" xml:space="preserve"><value>Select a row in the log to inspect it.</value></data>
+  <data name="Ctx.Servers1" xml:space="preserve"><value>1 server</value></data>
+  <data name="Ctx.ServersN" xml:space="preserve"><value>{0} servers</value></data>
+  <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
+  <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
+  <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Error.Copy" xml:space="preserve"><value>Copy error</value></data>
+  <data name="Error.CopyApi" xml:space="preserve"><value>Copy the API error</value></data>
+  <data name="Error.DevMode" xml:space="preserve"><value>Development Mode</value></data>
+  <data name="Error.DevSwap" xml:space="preserve"><value>Swapping to the &lt;strong&gt;Development&lt;/strong&gt; environment will display more detailed information about the error that occurred.</value></data>
+  <data name="Error.DevWarning" xml:space="preserve"><value>&lt;strong&gt;The Development environment shouldn't be enabled for deployed applications.&lt;/strong&gt; It can result in displaying sensitive information from exceptions to end users. For local debugging, enable the &lt;strong&gt;Development&lt;/strong&gt; environment by setting the &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; environment variable to &lt;strong&gt;Development&lt;/strong&gt; and restarting the app.</value></data>
+  <data name="Error.Heading" xml:space="preserve"><value>Error.</value></data>
+  <data name="Error.Message" xml:space="preserve"><value>An error occurred while processing your request.</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
+  <data name="Error.Title" xml:space="preserve"><value>Error</value></data>
+  <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>The CLI reports this list with the session's first message.</value></data>
+  <data name="Ext.AuthText" xml:space="preserve"><value>The server is waiting for you to sign in. Its tools stay unavailable until then.</value></data>
+  <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentication required</value></data>
+  <data name="Ext.Col.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Ext.Col.McpServers" xml:space="preserve"><value>MCP servers</value></data>
+  <data name="Ext.Col.Server" xml:space="preserve"><value>Server</value></data>
+  <data name="Ext.Col.Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Ext.Col.ThisFolder" xml:space="preserve"><value>For this folder</value></data>
+  <data name="Ext.EnableHere" xml:space="preserve"><value>Enable for this folder</value></data>
+  <data name="Ext.FailedText" xml:space="preserve"><value>Its tools are missing from this session until this is fixed.</value></data>
+  <data name="Ext.FailedTitle" xml:space="preserve"><value>The server couldn't start</value></data>
+  <data name="Ext.Filter.Auth" xml:space="preserve"><value>Authentication</value></data>
+  <data name="Ext.Filter.Connected" xml:space="preserve"><value>Connected</value></data>
+  <data name="Ext.Filter.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Ext.Kv.Scope" xml:space="preserve"><value>scope</value></data>
+  <data name="Ext.Kv.Source" xml:space="preserve"><value>source</value></data>
+  <data name="Ext.Kv.Target" xml:space="preserve"><value>target</value></data>
+  <data name="Ext.Lead" xml:space="preserve"><value>{0} MCP servers, {1} skills, {2} agents, {3} plugins, loaded by the CLI when each session starts.</value></data>
+  <data name="Ext.NoSession" xml:space="preserve"><value>Start a session to see what the CLI loads.</value></data>
+  <data name="Ext.OpenConfig" xml:space="preserve"><value>Open configuration</value></data>
+  <data name="Ext.Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
+  <data name="Ext.Scope.Project" xml:space="preserve"><value>project</value></data>
+  <data name="Ext.Scope.User" xml:space="preserve"><value>user</value></data>
+  <data name="Ext.SignIn" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Ext.Soon" xml:space="preserve"><value>coming soon</value></data>
+  <data name="Ext.State.Connected" xml:space="preserve"><value>connected</value></data>
+  <data name="Ext.State.Disabled" xml:space="preserve"><value>disabled</value></data>
+  <data name="Ext.State.Failed" xml:space="preserve"><value>failed</value></data>
+  <data name="Ext.State.NeedsAuth" xml:space="preserve"><value>authentication required</value></data>
+  <data name="Ext.State.Pending" xml:space="preserve"><value>connecting…</value></data>
+  <data name="Filter.All" xml:space="preserve"><value>All</value></data>
+  <data name="Fmt.Bytes" xml:space="preserve"><value>{0} B</value></data>
+  <data name="Fmt.GB" xml:space="preserve"><value>{0} GB</value></data>
+  <data name="Fmt.HoursMinutes" xml:space="preserve"><value>{0}h {1}m</value></data>
+  <data name="Fmt.KB" xml:space="preserve"><value>{0} KB</value></data>
+  <data name="Fmt.MB" xml:space="preserve"><value>{0} MB</value></data>
+  <data name="Fmt.Minutes" xml:space="preserve"><value>{0}m</value></data>
+  <data name="Fmt.MinutesSeconds" xml:space="preserve"><value>{0}m {1}s</value></data>
+  <data name="Fmt.Pct" xml:space="preserve"><value>{0}%</value></data>
+  <data name="Fmt.Seconds" xml:space="preserve"><value>{0}s</value></data>
+  <data name="Inspector" xml:space="preserve"><value>Inspector</value></data>
+  <data name="Key.Del" xml:space="preserve"><value>Del</value></data>
+  <data name="Key.Esc" xml:space="preserve"><value>Esc</value></data>
+  <data name="Key.ShiftEnter" xml:space="preserve"><value>Shift ⏎</value></data>
+  <data name="Kv.Cost" xml:space="preserve"><value>cost</value></data>
+  <data name="Kv.Tools" xml:space="preserve"><value>tools</value></data>
+  <data name="Layout.Error" xml:space="preserve"><value>Something went wrong.</value></data>
+  <data name="Layout.Reload" xml:space="preserve"><value>Reload</value></data>
+  <data name="Mascot.Calm" xml:space="preserve"><value>All quiet</value></data>
+  <data name="Mascot.Crashed" xml:space="preserve"><value>A session went down</value></data>
+  <data name="Mascot.Decision1" xml:space="preserve"><value>1 decision waiting on you</value></data>
+  <data name="Mascot.DecisionN" xml:space="preserve"><value>{0} decisions waiting on you</value></data>
+  <data name="Mascot.NextDecision" xml:space="preserve"><value>Ctrl ⇧ A for the next one</value></data>
+  <data name="Mascot.NoDecision" xml:space="preserve"><value>No decisions pending</value></data>
+  <data name="Mascot.Running1" xml:space="preserve"><value>1 session running</value></data>
+  <data name="Mascot.RunningN" xml:space="preserve"><value>{0} sessions running</value></data>
+  <data name="Mascot.TurnDone" xml:space="preserve"><value>Turn complete</value></data>
+  <data name="Mascot.Working" xml:space="preserve"><value>Claude is working</value></data>
+  <data name="Md.Alert.Caution" xml:space="preserve"><value>Caution</value></data>
+  <data name="Md.Alert.Important" xml:space="preserve"><value>Important</value></data>
+  <data name="Md.Alert.Note" xml:space="preserve"><value>Note</value></data>
+  <data name="Md.Alert.Tip" xml:space="preserve"><value>Tip</value></data>
+  <data name="Md.Alert.Warning" xml:space="preserve"><value>Warning</value></data>
+  <data name="Md.Copy" xml:space="preserve"><value>Copy</value></data>
+  <data name="Md.PlainText" xml:space="preserve"><value>text</value></data>
+  <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepts edits, asks for the shell</value></data>
+  <data name="Mode.auto" xml:space="preserve"><value>Never interrupts, use with care</value></data>
+  <data name="Mode.default" xml:space="preserve"><value>Asks before every sensitive tool</value></data>
+  <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
+  <data name="Model" xml:space="preserve"><value>Model</value></data>
+  <data name="Model.Current" xml:space="preserve"><value>current</value></data>
+  <data name="Nav.Appearance" xml:space="preserve"><value>Appearance</value></data>
+  <data name="Nav.Overview" xml:space="preserve"><value>Overview</value></data>
+  <data name="New.CheckAgain" xml:space="preserve"><value>Check again</value></data>
+  <data name="New.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="New.FirstMessage" xml:space="preserve"><value>First message</value></data>
+  <data name="New.Folder" xml:space="preserve"><value>Working folder</value></data>
+  <data name="New.Guide" xml:space="preserve"><value>Full guide:</value></data>
+  <data name="New.Hello" xml:space="preserve"><value>What are we working on?</value></data>
+  <data name="New.HelloText" xml:space="preserve"><value>Claude Code will run in this folder, with your tools and permissions.</value></data>
+  <data name="New.HintInspector" xml:space="preserve"><value>inspector</value></data>
+  <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
+  <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
+  <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
+  <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
+  <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
+  <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
+  <data name="New.Placeholder" xml:space="preserve"><value>Describe the task…</value></data>
+  <data name="New.Start" xml:space="preserve"><value>Start</value></data>
+  <data name="New.Step1" xml:space="preserve"><value>1. Install Claude Code</value></data>
+  <data name="New.Step2" xml:space="preserve"><value>2. Sign in</value></data>
+  <data name="New.Step2Text" xml:space="preserve"><value>Run &lt;code&gt;claude&lt;/code&gt; once in a terminal and sign in.</value></data>
+  <data name="New.Step3" xml:space="preserve"><value>3. Restart</value></data>
+  <data name="New.Step3Text" xml:space="preserve"><value>Restart Claude Code UI so it finds &lt;code&gt;claude&lt;/code&gt; on the PATH.</value></data>
+  <data name="New.Unix" xml:space="preserve"><value>macOS, Linux, WSL:</value></data>
+  <data name="New.Windows" xml:space="preserve"><value>Windows (PowerShell):</value></data>
+  <data name="New.Worktree" xml:space="preserve"><value>New worktree</value></data>
+  <data name="New.WorktreeFrom" xml:space="preserve"><value>{0} from {1}</value></data>
+  <data name="New.WorktreeName" xml:space="preserve"><value>Worktree name</value></data>
+  <data name="NotFound.Text" xml:space="preserve"><value>This page doesn't exist.</value></data>
+  <data name="NotFound.Title" xml:space="preserve"><value>Not found</value></data>
+  <data name="OfN" xml:space="preserve"><value>{0} of {1}</value></data>
+  <data name="Ov.Col.Cost" xml:space="preserve"><value>Cost</value></data>
+  <data name="Ov.Col.Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="Ov.Col.Last" xml:space="preserve"><value>Last action</value></data>
+  <data name="Ov.Decision1" xml:space="preserve"><value>1 decision waiting on you</value></data>
+  <data name="Ov.DecisionN" xml:space="preserve"><value>{0} decisions waiting on you</value></data>
+  <data name="Ov.Pending" xml:space="preserve"><value>waiting</value></data>
+  <data name="Ov.Queue" xml:space="preserve"><value>Decision queue</value></data>
+  <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>
+  <data name="Ov.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
+  <data name="Ov.Today" xml:space="preserve"><value>today</value></data>
+  <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
+  <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>
+  <data name="Palette.NewSessionIn" xml:space="preserve"><value>New session in {0}</value></data>
+  <data name="Palette.NoResults" xml:space="preserve"><value>No results</value></data>
+  <data name="Palette.Open" xml:space="preserve"><value>open</value></data>
+  <data name="Palette.Placeholder" xml:space="preserve"><value>Search sessions and actions…</value></data>
+  <data name="Palette.Sessions" xml:space="preserve"><value>Sessions</value></data>
+  <data name="Palette.Theme" xml:space="preserve"><value>Theme: {0}</value></data>
+  <data name="Perm.Allow" xml:space="preserve"><value>Allow</value></data>
+  <data name="Perm.AllowTool" xml:space="preserve"><value>Allow {0}?</value></data>
+  <data name="Perm.AlsoWaiting" xml:space="preserve"><value>Also waiting</value></data>
+  <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
+  <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
+  <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
+  <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
+  <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
+  <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
+  <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
+  <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
+  <data name="Perm.WholeSession" xml:space="preserve"><value>Whole session</value></data>
+  <data name="Quota.FiveHours" xml:space="preserve"><value>5h</value></data>
+  <data name="Quota.Resets" xml:space="preserve"><value>resets {0}</value></data>
+  <data name="Quota.SevenDays" xml:space="preserve"><value>7d</value></data>
+  <data name="Quota.Usage" xml:space="preserve"><value>Usage</value></data>
+  <data name="Rail.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Rail.NewSession" xml:space="preserve"><value>New session</value></data>
+  <data name="Rail.Recent" xml:space="preserve"><value>Recent</value></data>
+  <data name="Rail.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Rail.ToClean" xml:space="preserve"><value>{0} to clean up</value></data>
+  <data name="Reconnect.Failed" xml:space="preserve"><value>Failed to rejoin.&lt;br /&gt;Please retry or reload the page.</value></data>
+  <data name="Reconnect.Paused" xml:space="preserve"><value>The session has been paused by the server.</value></data>
+  <data name="Reconnect.Rejoining" xml:space="preserve"><value>Rejoining the server...</value></data>
+  <data name="Reconnect.Resume" xml:space="preserve"><value>Resume</value></data>
+  <data name="Reconnect.ResumeFailed" xml:space="preserve"><value>Failed to resume the session.&lt;br /&gt;Please retry or reload the page.</value></data>
+  <data name="Reconnect.Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="Reconnect.Retrying" xml:space="preserve"><value>Rejoin failed... trying again in {0} seconds.</value></data>
+  <data name="Session.NoProcess" xml:space="preserve"><value>No claude process for this session.</value></data>
+  <data name="Session.NotFound" xml:space="preserve"><value>Session not found</value></data>
+  <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or recent transcript has this ID.</value></data>
+  <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
+  <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
+  <data name="Session.UnknownError" xml:space="preserve"><value>unknown error</value></data>
+  <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Slash.Builtin" xml:space="preserve"><value>built-in</value></data>
+  <data name="Slash.Title" xml:space="preserve"><value>Commands and skills</value></data>
+  <data name="Status.AgentsWorking" xml:space="preserve"><value>Agents are working…</value></data>
+  <data name="Status.Done" xml:space="preserve"><value>done</value></data>
+  <data name="Status.Interrupted" xml:space="preserve"><value>Interrupted</value></data>
+  <data name="Status.Paused" xml:space="preserve"><value>Claude is paused: {0} needs your approval</value></data>
+  <data name="Status.Running" xml:space="preserve"><value>running</value></data>
+  <data name="Status.Starting" xml:space="preserve"><value>starting</value></data>
+  <data name="Status.StartingClaude" xml:space="preserve"><value>Starting claude…</value></data>
+  <data name="Status.Thinking" xml:space="preserve"><value>thinking {0} tokens</value></data>
+  <data name="Status.ToolRunning" xml:space="preserve"><value>{0} running…</value></data>
+  <data name="Status.TurnError" xml:space="preserve"><value>The turn ended with an error: {0}</value></data>
+  <data name="Status.WaitingOn" xml:space="preserve"><value>waiting · {0}</value></data>
+  <data name="Status.WhatCommand" xml:space="preserve"><value>a command</value></data>
+  <data name="Status.WhatEdit" xml:space="preserve"><value>an edit</value></data>
+  <data name="Status.WhatTool" xml:space="preserve"><value>a tool</value></data>
+  <data name="Status.Writing" xml:space="preserve"><value>Claude is writing…</value></data>
+  <data name="Theme.contraste" xml:space="preserve"><value>High contrast</value></data>
+  <data name="Theme.encre" xml:space="preserve"><value>Encre</value></data>
+  <data name="Theme.graphite" xml:space="preserve"><value>Graphite</value></data>
+  <data name="Theme.mousse" xml:space="preserve"><value>Mousse</value></data>
+  <data name="Theme.ristretto" xml:space="preserve"><value>Ristretto</value></data>
+  <data name="Thread.You" xml:space="preserve"><value>you · {0}</value></data>
+  <data name="Tool.Applied" xml:space="preserve"><value>applied</value></data>
+  <data name="Tool.Created" xml:space="preserve"><value>created</value></data>
+  <data name="Tool.Denied" xml:space="preserve"><value>denied</value></data>
+  <data name="Tool.Done" xml:space="preserve"><value>done</value></data>
+  <data name="Tool.Error" xml:space="preserve"><value>error</value></data>
+  <data name="Tool.Input" xml:space="preserve"><value>Input</value></data>
+  <data name="Tool.Kv.Duration" xml:space="preserve"><value>duration</value></data>
+  <data name="Tool.Kv.File" xml:space="preserve"><value>file</value></data>
+  <data name="Tool.Kv.Lines" xml:space="preserve"><value>lines</value></data>
+  <data name="Tool.Kv.Status" xml:space="preserve"><value>status</value></data>
+  <data name="Tool.Kv.Tool" xml:space="preserve"><value>tool</value></data>
+  <data name="Tool.Lines1" xml:space="preserve"><value>1 line</value></data>
+  <data name="Tool.LinesN" xml:space="preserve"><value>{0} lines</value></data>
+  <data name="Tool.NoChanges" xml:space="preserve"><value>No changes.</value></data>
+  <data name="Tool.Output" xml:space="preserve"><value>Output</value></data>
+  <data name="Tool.RawJson" xml:space="preserve"><value>Raw JSON</value></data>
+  <data name="Tool.Results1" xml:space="preserve"><value>1 result</value></data>
+  <data name="Tool.ResultsN" xml:space="preserve"><value>{0} results</value></data>
+  <data name="Tool.Waiting" xml:space="preserve"><value>waiting for your decision</value></data>
+  <data name="Tools1" xml:space="preserve"><value>1 tool</value></data>
+  <data name="ToolsN" xml:space="preserve"><value>{0} tools</value></data>
+  <data name="Workflow.Subagents" xml:space="preserve"><value>Subagents</value></data>
+  <data name="Wt.AddSafe" xml:space="preserve"><value>Add the safe ones ({0})</value></data>
+  <data name="Wt.BranchMissing" xml:space="preserve"><value>branch not found</value></data>
+  <data name="Wt.Check0" xml:space="preserve"><value>Nothing needs your decision</value></data>
+  <data name="Wt.Check1" xml:space="preserve"><value>One more needs your decision</value></data>
+  <data name="Wt.CheckN" xml:space="preserve"><value>{0} more need your decision</value></data>
+  <data name="Wt.CleanN" xml:space="preserve"><value>Clean up {0}</value></data>
+  <data name="Wt.Cleanup" xml:space="preserve"><value>Cleanup</value></data>
+  <data name="Wt.Col.Size" xml:space="preserve"><value>Size</value></data>
+  <data name="Wt.Col.Why" xml:space="preserve"><value>Why</value></data>
+  <data name="Wt.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Wt.Detached" xml:space="preserve"><value>detached HEAD</value></data>
+  <data name="Wt.ExitOutput" xml:space="preserve"><value>exit {0}: {1}</value></data>
+  <data name="Wt.Filter.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Wt.Filter.Orphan" xml:space="preserve"><value>Orphaned</value></data>
+  <data name="Wt.Filter.Safe" xml:space="preserve"><value>Safe</value></data>
+  <data name="Wt.Go" xml:space="preserve"><value>Go</value></data>
+  <data name="Wt.Group.Go" xml:space="preserve"><value>Can go</value></data>
+  <data name="Wt.NeverForce" xml:space="preserve"><value>&lt;code&gt;git branch -d&lt;/code&gt;, never &lt;code&gt;-D&lt;/code&gt;: git itself refuses any branch that isn't merged.</value></data>
+  <data name="Wt.NothingActive" xml:space="preserve"><value>, and nothing active will be touched.</value></data>
+  <data name="Wt.NothingPlanned" xml:space="preserve"><value>Nothing planned yet. “Delete” or “Prune” adds a worktree to the cleanup; the git commands show up here before they run.</value></data>
+  <data name="Wt.NothingToClean" xml:space="preserve"><value>No worktrees to clean up</value></data>
+  <data name="Wt.Prune" xml:space="preserve"><value>Prune</value></data>
+  <data name="Wt.Push" xml:space="preserve"><value>Push</value></data>
+  <data name="Wt.PushTitle" xml:space="preserve"><value>Push {0}?</value></data>
+  <data name="Wt.Recoverable" xml:space="preserve"><value>{0} to reclaim.</value></data>
+  <data name="Wt.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Wt.RepoError" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="Wt.Repos0" xml:space="preserve"><value>{0} repositories</value></data>
+  <data name="Wt.Repos1" xml:space="preserve"><value>{0} repository</value></data>
+  <data name="Wt.ReposN" xml:space="preserve"><value>{0} repositories</value></data>
+  <data name="Wt.Run.BranchKept" xml:space="preserve"><value>branch kept (git refused)</value></data>
+  <data name="Wt.Run.Changed" xml:space="preserve"><value>skipped: its state changed ({0})</value></data>
+  <data name="Wt.Run.Forbidden" xml:space="preserve"><value>refused: forbidden option</value></data>
+  <data name="Wt.Run.Missing" xml:space="preserve"><value>skipped: worktree not found</value></data>
+  <data name="Wt.Run.Skipped" xml:space="preserve"><value>skipped</value></data>
+  <data name="Wt.Safe1" xml:space="preserve"><value>1 worktree can go safely</value></data>
+  <data name="Wt.SafeN" xml:space="preserve"><value>{0} worktrees can go safely</value></data>
+  <data name="Wt.Scanning" xml:space="preserve"><value>Looking for worktrees…</value></data>
+  <data name="Wt.ScanningText" xml:space="preserve"><value>Reading the repositories of recent sessions.</value></data>
+  <data name="Wt.State.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Wt.State.Check" xml:space="preserve"><value>Needs review</value></data>
+  <data name="Wt.State.Orphan" xml:space="preserve"><value>Orphaned</value></data>
+  <data name="Wt.State.Safe" xml:space="preserve"><value>Safe</value></data>
+  <data name="Wt.Unignored" xml:space="preserve"><value>&lt;code&gt;.claude/worktrees/&lt;/code&gt; isn't ignored by git in {0}: a &lt;code&gt;git add .&lt;/code&gt; there would add the worktrees. Add it to &lt;code&gt;.gitignore&lt;/code&gt;.</value></data>
+  <data name="Wt.Unplan" xml:space="preserve"><value>Remove</value></data>
+  <data name="Wt.Unpushed1" xml:space="preserve"><value>1 commit never pushed to &lt;b&gt;{0}&lt;/b&gt;.</value></data>
+  <data name="Wt.UnpushedN" xml:space="preserve"><value>{0} commits never pushed to &lt;b&gt;{1}&lt;/b&gt;.</value></data>
+  <data name="Wt.What.BranchOnly" xml:space="preserve"><value>local branch only (merged)</value></data>
+  <data name="Wt.What.Detached" xml:space="preserve"><value>folder (detached HEAD)</value></data>
+  <data name="Wt.What.FolderAndBranch" xml:space="preserve"><value>folder + local branch (merged)</value></data>
+  <data name="Wt.What.FolderOnly" xml:space="preserve"><value>folder only, branch kept (squash)</value></data>
+  <data name="Wt.What.RefOnly" xml:space="preserve"><value>git reference only</value></data>
+  <data name="Wt.What.Unlock" xml:space="preserve"><value>unlock + </value></data>
+  <data name="Wt.WhatHappens" xml:space="preserve"><value>What will happen</value></data>
+  <data name="Wt.Why.Ahead1" xml:space="preserve"><value>&lt;b&gt;1 commit&lt;/b&gt; never pushed</value></data>
+  <data name="Wt.Why.AheadN" xml:space="preserve"><value>&lt;b&gt;{0} commits&lt;/b&gt; never pushed</value></data>
+  <data name="Wt.Why.BranchMerged" xml:space="preserve"><value>Branch &lt;b&gt;with no worktree&lt;/b&gt;, already in &lt;b&gt;{base}&lt;/b&gt;</value></data>
+  <data name="Wt.Why.BranchUnmerged" xml:space="preserve"><value>Branch &lt;b&gt;with no worktree&lt;/b&gt;, not in &lt;b&gt;{base}&lt;/b&gt; yet</value></data>
+  <data name="Wt.Why.Deleted" xml:space="preserve"><value>Folder deleted by hand, git still references it</value></data>
+  <data name="Wt.Why.Detached" xml:space="preserve"><value>Detached HEAD, commits outside any branch</value></data>
+  <data name="Wt.Why.Dirty1" xml:space="preserve"><value>&lt;b&gt;1 file&lt;/b&gt; changed, not committed</value></data>
+  <data name="Wt.Why.DirtyN" xml:space="preserve"><value>&lt;b&gt;{0} files&lt;/b&gt; changed, not committed</value></data>
+  <data name="Wt.Why.External" xml:space="preserve"><value>External claude session (pid {0})</value></data>
+  <data name="Wt.Why.Idle" xml:space="preserve"><value>, idle for {0}d</value></data>
+  <data name="Wt.Why.Locked" xml:space="preserve"><value>Locked, no known pid</value></data>
+  <data name="Wt.Why.Merged" xml:space="preserve"><value>Already in &lt;b&gt;{base}&lt;/b&gt;, no local changes</value></data>
+  <data name="Wt.Why.MergedGone" xml:space="preserve"><value>Merged into &lt;b&gt;{base}&lt;/b&gt;, remote branch deleted</value></data>
+  <data name="Wt.Why.NotMerged" xml:space="preserve"><value>Not in &lt;b&gt;{base}&lt;/b&gt; yet, nothing to push</value></data>
+  <data name="Wt.Why.Running" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; is running</value></data>
+  <data name="Wt.Why.Squashed" xml:space="preserve"><value>Content already in &lt;b&gt;{base}&lt;/b&gt; (squash), branch kept</value></data>
+  <data name="Wt.Why.StaleLock" xml:space="preserve"><value>Stale lock (pid {0}), otherwise safe</value></data>
+  <data name="Wt.Why.Waiting" xml:space="preserve"><value>Session &lt;b&gt;{0}&lt;/b&gt; is waiting for a decision</value></data>
+  <data name="Wt.Worktrees0" xml:space="preserve"><value>{0} worktrees</value></data>
+  <data name="Wt.Worktrees1" xml:space="preserve"><value>{0} worktree</value></data>
+  <data name="Wt.WorktreesN" xml:space="preserve"><value>{0} worktrees</value></data>
+</root>

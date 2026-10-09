@@ -5,6 +5,7 @@ Branche `feat/graphite-console`. Cible : remplacer la page unique `Components/Pa
 Sources de vérité, par ordre de priorité :
 1. Le rapport protocole (captures `s1..s7.jsonl` dans le scratchpad). Seuls les points **VÉRIFIÉS** deviennent des fonctionnalités.
 2. `PRODUCT.md` : pas de fonctionnalité inventée, thèmes sombres uniquement, interface en français.
+   *Depuis : interface en anglais et en français.* Textes dans `Resources/Strings.resx` (anglais, neutre) et `Strings.fr.resx` (le français d'origine, inchangé) ; composants via `IStringLocalizer<Strings>`, code de `Core/` via `Strings.Get`. Langue : cookie posé par le sélecteur de la page Apparence (`/culture`, rechargement), sinon `Accept-Language`, sinon anglais ; `<html lang>` suit. `--self-check` vérifie que les deux resx ont les mêmes clés.
 3. `.impeccable/mockups/graphite.src.html` : la seule source CSS (lignes 10–526) et le balisage de référence.
 
 Quand les rapports se contredisent, ce plan tranche en faveur du protocole vérifié. Exemples : le flux partiel est **dans** le périmètre, et `set_model` / `apply_flag_settings` sont vérifiés.

@@ -47,6 +47,9 @@ public sealed class ClaudeSession : IAsyncDisposable
         job = ProcessJob.Attach(proc);
         Trace($"spawn pid={proc.Id}");
         // Read stderr line by line so what the CLI prints while it is slow shows up live, not only after exit.
+        // The readers drop the ExecutionContext of the circuit that started claude: the renders their events trigger
+        // take the app-wide culture (Program.cs) instead of the language that circuit had, possibly switched since.
+        using var noFlow = ExecutionContext.SuppressFlow();
         var errText = new StringBuilder();
         var stderr = Task.Run(async () =>
         {
@@ -71,7 +74,7 @@ public sealed class ClaudeSession : IAsyncDisposable
             }
             await proc.WaitForExitAsync();
             job?.Dispose();   // external kill or crash: take the MCP servers down with it, before onExit
-            foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException("processus arrêté"));
+            foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException(Strings.Get("Session.ProcessStopped")));
             await stderr;
             if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {errText}".Trim());
         });
@@ -81,7 +84,7 @@ public sealed class ClaudeSession : IAsyncDisposable
     {
         if (Str(r, "request_id") is not { } id) return;
         if (!requests.TryRemove(id, out var tcs)) { Trace($"late control_response {id}"); return; }
-        if (Str(r, "subtype") == "error") tcs.TrySetException(new ClaudeRequestException(Str(r, "error") ?? "erreur inconnue"));
+        if (Str(r, "subtype") == "error") tcs.TrySetException(new ClaudeRequestException(Str(r, "error") ?? Strings.Get("Session.UnknownError")));
         else tcs.TrySetResult(r.TryGetProperty("response", out var v) ? v : Empty);
     }
 

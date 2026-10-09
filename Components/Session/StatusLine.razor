@@ -1,25 +1,25 @@
 @switch (Session.Status)
 {
     case SessionStatus.Starting:
-        <div class="status"><span class="spin"></span>Démarrage de claude…</div>
+        <div class="status"><span class="spin"></span>@L["Status.StartingClaude"]</div>
         break;
     case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
-        <div class="status"><span class="spin"></span>Les agents travaillent… <small>@agents.Count(a => a.State == ToolState.Done) sur @agents.Count</small></div>
+        <div class="status"><span class="spin"></span>@L["Status.AgentsWorking"] <small>@L["OfN", agents.Count(a => a.State == ToolState.Done), agents.Count]</small></div>
         break;
     case SessionStatus.Running when Session.Items.LastOrDefault() is ToolItem { State: ToolState.Running } tool:
-        <div class="status"><span class="spin"></span>@tool.Name en cours… <small>@Elapsed</small></div>
+        <div class="status"><span class="spin"></span>@L["Status.ToolRunning", tool.Name] <small>@Elapsed</small></div>
         break;
     case SessionStatus.Running:
-        <div class="status"><span class="spin"></span>Claude écrit… <small>@Elapsed@(Session.ThinkingTokens > 0 ? $" · réflexion {Fmt.Tokens(Session.ThinkingTokens)} tokens" : "")</small></div>
+        <div class="status"><span class="spin"></span>@L["Status.Writing"] <small>@Elapsed@(Session.ThinkingTokens > 0 ? " · " + L["Status.Thinking", Fmt.Tokens(Session.ThinkingTokens)] : "")</small></div>
         break;
     case SessionStatus.Waiting:
-        <div class="status wait"><span class="dot wait"></span>Claude est en pause : @What attend ton accord</div>
+        <div class="status wait"><span class="dot wait"></span>@L["Status.Paused", What]</div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype == "interrompu":
-        <div class="status"><Icon Name="stop" Sm />Interrompu <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>
+        <div class="status"><Icon Name="stop" Sm />@L["Status.Interrupted"] <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype?.StartsWith("error") == true:
-        <div class="status" style="color:var(--err-fg)">Le tour s'est terminé en erreur : @Session.LastResultSubtype</div>
+        <div class="status" style="color:var(--err-fg)">@L["Status.TurnError", Session.LastResultSubtype ?? ""]</div>
         break;
 }
 
@@ -30,9 +30,9 @@
 
     string What => Session.Pending.FirstOrDefault()?.Tool switch
     {
-        { } n when ToolKinds.IsEdit(n) => "une édition",
-        { } n when ToolKinds.IsShell(n) => "une commande",
-        _ => "un outil",
+        { } n when ToolKinds.IsEdit(n) => L["Status.WhatEdit"],
+        { } n when ToolKinds.IsShell(n) => L["Status.WhatCommand"],
+        _ => L["Status.WhatTool"],
     };
 
     // Agent calls of the current turn (after the last user message).

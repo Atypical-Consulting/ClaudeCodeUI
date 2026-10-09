@@ -7,25 +7,25 @@
             <div></div>
         </div>
         <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
+            @L["Reconnect.Rejoining"]
         </p>
         <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+            @((MarkupString)L["Reconnect.Retrying", "<span id=\"components-seconds-to-next-attempt\"></span>"].Value)
         </p>
         <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
+            @((MarkupString)L["Reconnect.Failed"].Value)
         </p>
         <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
+            @L["Reconnect.Retry"]
         </button>
         <p class="components-pause-visible">
-            The session has been paused by the server.
+            @L["Reconnect.Paused"]
         </p>
         <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please retry or reload the page.
+            @((MarkupString)L["Reconnect.ResumeFailed"].Value)
         </p>
         <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
-            Resume
+            @L["Reconnect.Resume"]
         </button>
     </div>
 </dialog>

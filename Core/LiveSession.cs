@@ -101,7 +101,7 @@ public sealed class LiveSession : IAsyncDisposable
 
     public async Task Answer(PendingPermission p, Decision d)
     {
-        var c = proc ?? throw new InvalidOperationException("Aucun processus claude pour cette session.");
+        var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         lock (gate) Resolve(p, d);
         Notify();
         if (d == Decision.Deny) { await c.Respond(p.RequestId, false, p.Input); return; }
@@ -174,7 +174,7 @@ public sealed class LiveSession : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            OnExit(null, -1, $"claude n'a pas pu démarrer : {ex.Message}");
+            OnExit(null, -1, Strings.Get("Session.StartFailed", ex.Message));
             throw;
         }
         proc = s;

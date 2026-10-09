@@ -6,13 +6,13 @@
 <div class="pane">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
-        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />Nouvelle session<kbd>Alt N</kbd></NavLink>
-        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />Rechercher<kbd>Ctrl K</kbd></button>
-        <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />Vue d'ensemble</NavLink>
+        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>Alt N</kbd></NavLink>
+        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>Ctrl K</kbd></button>
+        <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
         <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees
             @if (Worktrees.CleanableCount is > 0)
             {
-                <span class="tag" style="margin-left:auto">@Worktrees.CleanableCount à nettoyer</span>
+                <span class="tag" style="margin-left:auto">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
         <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions
@@ -25,7 +25,7 @@
     <div style="flex:1;min-height:0;overflow:auto">
     @if (Sessions.All.Count > 0)
     {
-        <div class="grp"><span class="cap">Actives</span></div>
+        <div class="grp"><span class="cap">@L["Rail.Active"]</span></div>
         <div class="list">
             @foreach (var s in Sessions.All)
             {
@@ -36,7 +36,7 @@
     @{ var past = TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null).Take(8).ToList(); }   @* the palette searches the full list *@
     @if (past.Count > 0)
     {
-        <div class="grp"><span class="cap">Récentes</span></div>
+        <div class="grp"><span class="cap">@L["Rail.Recent"]</span></div>
         <div class="list">
             @foreach (var p in past)
             {

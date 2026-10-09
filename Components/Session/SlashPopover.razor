@@ -2,8 +2,8 @@
 
 @if (matches.Count > 0)
 {
-    <div class="pop slash" role="listbox" aria-label="Commandes et skills">
-        <div class="sh"><span>Commandes et skills</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
+    <div class="pop slash" role="listbox" aria-label="@L["Slash.Title"]">
+        <div class="sh"><span>@L["Slash.Title"]</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
         @for (var i = 0; i < matches.Count; i++)
         {
             var (c, n) = (matches[i], i);
@@ -40,7 +40,7 @@
         q = nq;
         // Plugin commands ("plugin:cmd") are matched and shown by their command part, the plugin goes in the tag. Built-ins first.
         matches = [.. Commands().Where(c => c.Show.StartsWith(q, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(c => c.Tag == "intégrée" ? 0 : c.Name.Contains(':') ? 2 : 1).Take(8)];
+            .OrderBy(c => c.Tag == L["Slash.Builtin"] ? 0 : c.Name.Contains(':') ? 2 : 1).Take(8)];
         if (sel >= matches.Count) sel = 0;
     }
 
@@ -48,7 +48,7 @@
     {
         if (Session.InitializeInfo is { } info && Events.Prop(info, "commands") is { ValueKind: JsonValueKind.Array } cmds)
             return cmds.EnumerateArray().Select(c => Events.Str(c, "name") is { } name
-                ? new Cmd(name, Events.Str(c, "description") ?? "", Events.Prop(c, "builtin") is { ValueKind: JsonValueKind.True } ? "intégrée" : name.Contains(':') ? name[..name.IndexOf(':')] : null)
+                ? new Cmd(name, Events.Str(c, "description") ?? "", Events.Prop(c, "builtin") is { ValueKind: JsonValueKind.True } ? L["Slash.Builtin"] : name.Contains(':') ? name[..name.IndexOf(':')] : null)
                 : null).OfType<Cmd>();
         return (Session.Init?.SlashCommands ?? []).Select(n => new Cmd(n, "", n.Contains(':') ? n[..n.IndexOf(':')] : null));
     }
