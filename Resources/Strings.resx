@@ -66,7 +66,7 @@
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Couldn't apply that: {0}</value></data>
   <data name="Composer.Attach" xml:space="preserve"><value>Attach images (or paste or drop them here)</value></data>
-  <data name="Composer.Busy" xml:space="preserve"><value>Claude is still working. Press Esc to interrupt, or send when the turn ends.</value></data>
+  <data name="Composer.CancelQueued" xml:space="preserve"><value>Cancel the queued message: {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
@@ -88,12 +88,16 @@
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session stopped. Restart it to continue.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Reply to Claude…</value></data>
   <data name="Composer.PhHistory" xml:space="preserve"><value>Send a message to resume this session…</value></data>
-  <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. You can draft what's next…</value></data>
+  <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. What you send now is queued…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Or tell Claude what you want instead…</value></data>
-  <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. You can draft what's next…</value></data>
+  <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. What you send now is queued…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Deny {0} and send</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Pending permission requests are denied first, then your message is sent.</value></data>
   <data name="Composer.RemoveImage" xml:space="preserve"><value>Remove image {0}</value></data>
+  <data name="Composer.Queue" xml:space="preserve"><value>Queue</value></data>
+  <data name="Composer.QueueHint" xml:space="preserve"><value>Claude reads it at the next tool result, or right after this turn</value></data>
+  <data name="Composer.Queued" xml:space="preserve"><value>queued</value></data>
+  <data name="Composer.QueuedList" xml:space="preserve"><value>Queued messages</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
