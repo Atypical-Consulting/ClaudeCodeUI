@@ -1,5 +1,5 @@
-@* Top-level items only; subagent items (ParentToolUseId set) live under their Workflow row.
-   Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
+@* Top-level items only, grouped by ThreadBlocks: consecutive tools form a Ledger (the latest one open),
+   consecutive Agent calls a Workflow, consecutive hooks one row. *@
 @inject IJSRuntime JS
 @inject SessionManager Sessions
 @inject NavigationManager Nav
@@ -8,7 +8,7 @@
    until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
 <div class="thread" @ref="el">
 <div role="log" aria-live="polite" aria-relevant="additions">
-    @{ var blocks = Blocks(); var last = blocks.OfType<Run>().LastOrDefault(r => !r.Agents); }
+    @{ var blocks = Blocks(); var last = blocks.OfType<ThreadBlocks.Run>().LastOrDefault(r => !r.Agents); }
     @foreach (var b in blocks)
     {
         switch (b)
@@ -51,13 +51,13 @@
             case ApiErrorItem e:
                 <ApiErrorCard Error="e.Error" />
                 break;
-            case Hooks h:
+            case ThreadBlocks.Hooks h:
                 <HookActivity Hooks="h.Items" />
                 break;
-            case Run { Agents: true } r:
+            case ThreadBlocks.Run { Agents: true } r:
                 <Workflow @key="r.Tools[0].Id" Session="Session" Agents="r.Tools" />
                 break;
-            case Run r:
+            case ThreadBlocks.Run r:
                 <Ledger @key="r.Tools[0].Id" Session="Session" Tools="r.Tools" Expanded="r == last" />
                 break;
         }
@@ -79,9 +79,6 @@
     int prompts;
     RewindDialog? rewind;
 
-    sealed record Run(List<ToolItem> Tools, bool Agents);
-    sealed record Hooks(List<HookItem> Items);   // consecutive hooks share one row (SessionStart fires several at once)
-
     // Rebuilt only when Items is replaced: tool state changes in place and does not move blocks.
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;
     List<object> blocks = [];
@@ -101,35 +98,7 @@
         var items = Session.Items;
         if (blocksOf == items) return blocks;
         blocksOf = items;
-        blocks = [];
-        foreach (var item in items)
-        {
-            switch (item)
-            {
-                case ToolItem { ParentToolUseId: null } t:
-                    var agent = ToolKinds.IsAgent(t.Name);
-                    if (OpenRun() is { } r && r.Agents == agent) r.Tools.Add(t);
-                    else blocks.Add(new Run([t], agent));
-                    break;
-                case HookItem h:
-                    if (blocks.LastOrDefault() is Hooks hs) hs.Items.Add(h);
-                    else blocks.Add(new Hooks([h]));
-                    break;
-                case UserItem or ApiErrorItem or TextItem { ParentToolUseId: null }:
-                    blocks.Add(item);
-                    break;
-            }
-        }
-        return blocks;
-
-        // A Pre/PostToolUse hook that prints lands between a tool_use and its result: its row follows the ledger
-        // without closing it, so the next tool still joins the same Run instead of opening a ledger per tool.
-        Run? OpenRun() => blocks switch
-        {
-            [.., Run r] => r,
-            [.., Run r, Hooks hs] when hs.Items.All(h => h.Hook.Name.StartsWith("PreToolUse") || h.Hook.Name.StartsWith("PostToolUse")) => r,
-            _ => null,
-        };
+        return blocks = ThreadBlocks.Of(items);
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).

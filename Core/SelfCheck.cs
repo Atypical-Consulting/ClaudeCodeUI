@@ -16,6 +16,7 @@ public static class SelfCheck
             ApiErrors.Check();
             LiveSession.Check();
             TodoList.Check();
+            ThreadBlocks.Check();
             Md.Check();
             EditDiff.Check();
             WorktreeService.Check();

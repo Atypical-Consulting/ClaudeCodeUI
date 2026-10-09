@@ -32,7 +32,8 @@ public record QueueEvt(string Uuid, string State) : ClaudeEvent;   // command_li
 // system/hook_response, streamed with --include-hook-events. Output = stdout + stderr; exit 2 is the CLI's blocking error.
 public record HookEvt(string Name, string Outcome, int? ExitCode, string Output) : ClaudeEvent;
 // One configured hook from the get_hooks_listing control response (read-only: the CLI owns the settings files).
-public record HookRow(string Event, string Matcher, string Type, string Command, string? Display, string Source, string? SourceLabel, string? Plugin, int? Timeout);
+// Disabled is the row's own flag (claude 2.1.296 sets it on every row under disableAllHooks), not inferred from the policy.
+public record HookRow(string Event, string Matcher, string Type, string Command, string? Display, string Source, string? SourceLabel, string? Plugin, int? Timeout, bool Disabled = false);
 
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
 public static class Events
@@ -178,10 +179,28 @@ public static class Events
                 var display = Str(h, "displayText");
                 return new HookRow(Str(h, "event") ?? "", Str(h, "matcher") ?? "", Str(h, "type") ?? "", cmd, display == cmd ? null : display,
                     Str(h, "source") ?? "", Str(h, "sourceLabel"), Str(h, "pluginName"),
-                    Prop(h, "timeout") is { ValueKind: JsonValueKind.Number } t ? (int)t.GetDouble() : null);
+                    Prop(h, "timeout") is { ValueKind: JsonValueKind.Number } t ? (int)t.GetDouble() : null, Bool(h, "disabled"));
             }).ToList()
             : [];
         return (rows, Prop(listing, "policy") is { } p && (Bool(p, "allDisabled") || Bool(p, "disabledByPolicy")));
+    }
+
+    // A hook output that is only {"hookSpecificOutput":{"hookEventName":…,"additionalContext":…}}: context the CLI injects
+    // into the prompt (SubagentStart, SessionStart and UserPromptSubmit plugins), for the model rather than the reader.
+    // Anything else in it (a decision, a reason, a permission verdict) is worth showing.
+    internal static bool ContextOnly(string output)
+    {
+        if (!output.TrimStart().StartsWith('{')) return false;
+        try
+        {
+            using var d = JsonDocument.Parse(output);
+            var r = d.RootElement;
+            return r.ValueKind == JsonValueKind.Object
+                   && r.EnumerateObject().All(p => p.Name is "hookSpecificOutput" or "suppressOutput")
+                   && Prop(r, "hookSpecificOutput") is { ValueKind: JsonValueKind.Object } o
+                   && o.EnumerateObject().All(p => p.Name is "hookEventName" or "additionalContext");
+        }
+        catch (JsonException) { return false; }
     }
 
     // A background agent's outcome arrives as a user message: <task-notification><task-id>…<result>…</result><usage>…</usage>.
@@ -255,6 +274,14 @@ public static class Events
         Ok(!off && hooks is [{ Event: "PreToolUse", Matcher: "Bash|PowerShell", Type: "command", Command: "echo ok", Display: null, Source: "projectSettings", Plugin: null, Timeout: 5 },
                              { Event: "Stop", Matcher: "", Command: "impeccable hook", Display: "Design deep pass", Source: "pluginHook", Plugin: "impeccable@impeccable", Timeout: null }], "get_hooks_listing");
         Ok(Hooks(JsonDocument.Parse("""{"hooks":[],"policy":{"allDisabled":true}}""").RootElement).Disabled, "hooks disabled by policy");
+        // claude 2.1.296, project settings with "disableAllHooks": true: every row carries "disabled": true.
+        Ok(Hooks(JsonDocument.Parse("""{"hooks":[{"event":"Stop","matcher":"","source":"projectSettings","type":"command","displayText":"echo a","commandText":"echo a","disabled":true}],"policy":{"allDisabled":true}}""").RootElement).Rows is [{ Disabled: true }]
+           && hooks.All(h => !h.Disabled), "hook row disabled flag");
+        // claude 2.1.296: a SubagentStart hook's output (compact), a SessionStart plugin's (pretty-printed).
+        Ok(ContextOnly("""{"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": "ccui-probe-subagent-ctx"}}"""), "context-only hook output");
+        Ok(ContextOnly("{\n  \"hookSpecificOutput\": {\n    \"hookEventName\": \"SessionStart\",\n    \"additionalContext\": \"x\"\n  }\n}"), "context-only, pretty-printed");
+        Ok(!ContextOnly("""{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"no"}}"""), "a decision is not context");
+        Ok(!ContextOnly("""{"decision":"block","reason":"tests fail"}""") && !ContextOnly("ccui-probe-pre") && !ContextOnly("{oops"), "plain or other output is not context");
         Ok(P("""{"type":"system","subtype":"thinking_tokens","estimated_tokens":250,"estimated_tokens_delta":200}""") is ThinkingEvt { EstimatedTokens: 250 }, "thinking_tokens");
         Ok(P("""{"type":"system","subtype":"status","status":null,"permissionMode":"acceptEdits"}""") is StatusEvt { Status: null, PermissionMode: "acceptEdits" }, "status");
 
