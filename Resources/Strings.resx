@@ -170,9 +170,11 @@
   <data name="Error.Title" xml:space="preserve"><value>Server error</value></data>
   <data name="Ext.ActionFailed" xml:space="preserve"><value>The MCP action failed: {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>The CLI reports this list with the session's first message.</value></data>
-  <data name="Ext.AuthHow" xml:space="preserve"><value>To sign in, run this command in Claude Code in a terminal:</value></data>
+  <data name="Ext.AuthHow" xml:space="preserve"><value>Or sign in from Claude Code in a terminal, with this command:</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>The server is waiting for you to sign in. Its tools stay unavailable until then.</value></data>
+  <data name="Ext.AuthTimeout" xml:space="preserve"><value>{0} is still not connected after 5 minutes. Sign in again to start over.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentication required</value></data>
+  <data name="Ext.AuthWaiting" xml:space="preserve"><value>Finish signing in in your browser. This page updates once the server connects.</value></data>
   <data name="Ext.Col.Description" xml:space="preserve"><value>Description</value></data>
   <data name="Ext.Col.McpServers" xml:space="preserve"><value>MCP servers</value></data>
   <data name="Ext.Col.Plugin" xml:space="preserve"><value>Plugin</value></data>
@@ -205,11 +207,13 @@
   <data name="Ext.Kv.Version" xml:space="preserve"><value>version</value></data>
   <data name="Ext.Lead" xml:space="preserve"><value>MCP servers, skills, agents and plugins the CLI loads when each session starts.</value></data>
   <data name="Ext.NoSession" xml:space="preserve"><value>Start a session to see what the CLI loads.</value></data>
+  <data name="Ext.OpenSignIn" xml:space="preserve"><value>Open the sign-in page</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Retry</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
   <data name="Ext.Scope.Plugin" xml:space="preserve"><value>plugin</value></data>
   <data name="Ext.Scope.Project" xml:space="preserve"><value>project</value></data>
   <data name="Ext.Scope.User" xml:space="preserve"><value>user</value></data>
+  <data name="Ext.SignIn" xml:space="preserve"><value>Sign in</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connected</value></data>
   <data name="Ext.State.Disabled" xml:space="preserve"><value>disabled</value></data>
   <data name="Ext.State.Failed" xml:space="preserve"><value>failed</value></data>
