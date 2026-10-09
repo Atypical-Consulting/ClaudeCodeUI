@@ -70,7 +70,7 @@
             </div>
             <div class="field">
                 <label for="add-dir">@L["Dirs.Label"]</label>
-                <ExtraDirs Id="add-dir" Dirs="addDirs" Cwd="@cwd" OnAdd="d => addDirs = addDirs.Add(d)" OnRemove="d => addDirs = addDirs.Remove(d)" />
+                <ExtraDirs @ref="extraDirs" Id="add-dir" Dirs="addDirs" Cwd="@cwd" OnAdd="d => { addDirs = addDirs.Add(d); confirmRisk = false; }" OnRemove="d => { addDirs = addDirs.Remove(d); confirmRisk = false; }" />
             </div>
             <div class="field">
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
@@ -120,7 +120,7 @@
                 <div class="box" style="max-width:none">
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
                     <div class="row">
-                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
+                        @if (confirmRisk) { <span class="risk" role="alert">@L[addDirs.Count > 0 ? "Dirs.ConfirmRisky" : "New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
                         <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                     </div>
                 </div>
@@ -143,6 +143,7 @@
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
     System.Collections.Immutable.ImmutableList<string> addDirs = [];
+    ExtraDirs? extraDirs;
     bool claudeFound = true;   // probed once interactive, not during the prerender
 
     bool Isolated => worktree && branch is not null;
@@ -236,9 +237,10 @@
         if (busy) return;
         if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
+        if (extraDirs is not null && !await extraDirs.Commit()) { busy = false; return; }   // a typed folder is not dropped
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
-        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, the second Start confirms.
-        if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; busy = false; return; }
+        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, or with an extra folder (never isolated), the second Start confirms.
+        if (LiveSession.Risky(mode) && (addDirs.Count > 0 || !Isolated && TranscriptStore.RootOf(cwd) == cwd) && !confirmRisk) { confirmRisk = true; busy = false; return; }
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
         var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
