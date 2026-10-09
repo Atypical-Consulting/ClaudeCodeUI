@@ -26,7 +26,7 @@
     {
         get
         {
-            string n = Tools.Count == 1 ? L["Tools1"] : L["ToolsN", Tools.Count];
+            var n = Strings.Plural(Tools.Count, "Tools");
             var d = Tools.Aggregate(TimeSpan.Zero, (a, t) => a + ((t.EndedAt ?? t.StartedAt) - t.StartedAt));
             return d.TotalMilliseconds >= 50 ? $"{n} · {Fmt.Dur(d)}" : n;
         }

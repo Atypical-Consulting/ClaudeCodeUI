@@ -14,7 +14,7 @@
     <div class="box">
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
         <div class="tools-row">
-            <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+            <span class="chip" title="@L["Composer.PermissionMode"]">@Strings.Name("Mode.Name.", Session.Mode)</span>
             @if (models.Count > 0 && !crashed)
             {
                 <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">
@@ -27,10 +27,10 @@
             }
             @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
             {
-                <span class="effort" title="Effort" role="group" aria-label="Effort">
+                <span class="effort" title="@L["Composer.Effort"]" role="group" aria-label="@L["Composer.Effort"]">
                     @foreach (var l in levels.EnumerateArray().Select(x => x.GetString() ?? ""))
                     {
-                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@l</button>
+                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@Strings.Name("Effort.", l)</button>
                     }
                 </span>
             }
@@ -62,7 +62,7 @@
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>Ctrl ⏎</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
             </span>
         </div>
@@ -82,7 +82,7 @@
         }
         else
         {
-            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)</span>
+            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)</span>
         }
     </div>
 </div>

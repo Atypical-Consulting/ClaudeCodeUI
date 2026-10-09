@@ -16,10 +16,10 @@
             var all = Sessions.All;
             var pending = Sessions.DecisionQueue.Count();
             if (pending > 0)
-                return (Mood.Shocked, pending == 1 ? L["Mascot.Decision1"] : L["Mascot.DecisionN", pending], L["Mascot.NextDecision"]);
+                return (Mood.Shocked, Strings.Plural(pending, "Mascot.Decision"), Strings.Kbd(L["Mascot.NextDecision"]));
             var running = all.Count(s => s.Status == SessionStatus.Running);
             if (running > 0)
-                return (Mood.Excited, L["Mascot.Working"], running == 1 ? L["Mascot.Running1"] : L["Mascot.RunningN", running]);
+                return (Mood.Excited, L["Mascot.Working"], Strings.Plural(running, "Mascot.Running"));
             if (all.LastOrDefault(s => s.Status == SessionStatus.Crashed) is { } c)
                 return (Mood.Sad, L["Mascot.Crashed"], $"{c.Name} · exit {c.ExitCode}");
             // ponytail: re-evaluated on the next session event, not by a timer at the 5-minute mark

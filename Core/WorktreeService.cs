@@ -343,8 +343,8 @@ public sealed class WorktreeService(SessionManager sessions)
         if (f.Locked && f.LockPid is { } pid && f.PidAlive) return (WtState.Active, Strings.Get("Wt.Why.External", pid));
         if (f.NoWorktree) return f.Merged ? (WtState.Orphan, Strings.Get("Wt.Why.BranchMerged")) : (WtState.Check, Strings.Get("Wt.Why.BranchUnmerged"));
         if (!f.Exists || f.Prunable) return (WtState.Orphan, Strings.Get("Wt.Why.Deleted"));
-        if (f.Dirty > 0) return (WtState.Check, f.Dirty == 1 ? Strings.Get("Wt.Why.Dirty1") : Strings.Get("Wt.Why.DirtyN", f.Dirty));
-        if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, f.Ahead == 1 ? Strings.Get("Wt.Why.Ahead1") : Strings.Get("Wt.Why.AheadN", f.Ahead));
+        if (f.Dirty > 0) return (WtState.Check, Strings.Plural(f.Dirty, "Wt.Why.Dirty"));
+        if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, Strings.Plural(f.Ahead, "Wt.Why.Ahead"));
         if (f.Locked && f.LockPid is { } dead) return (WtState.Check, Strings.Get("Wt.Why.StaleLock", dead));
         if (f.Locked) return (WtState.Check, Strings.Get("Wt.Why.Locked"));
         if (f.Detached && !f.Merged) return (WtState.Check, Strings.Get("Wt.Why.Detached"));

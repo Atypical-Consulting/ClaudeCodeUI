@@ -38,11 +38,11 @@
         {
             case "Read":
                 var n = Num(Events.Prop(s, "file") ?? default, "numLines") ?? t.ResultText?.TrimEnd('\n').Split('\n').Length ?? 0;
-                return n == 1 ? Strings.Get("Tool.Lines1") : Strings.Get("Tool.LinesN", n);
+                return Strings.Plural(n, "Tool.Lines");
             case "Grep" or "Glob":
                 var r = (Events.Str(s, "mode") switch { "content" => Num(s, "numLines"), "count" => Num(s, "numMatches"), _ => Num(s, "numFiles") })
                         ?? t.ResultText?.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length ?? 0;
-                return r == 1 ? Strings.Get("Tool.Results1") : Strings.Get("Tool.ResultsN", r);
+                return Strings.Plural(r, "Tool.Results");
             case "Edit" or "MultiEdit" or "Write" when Events.Prop(s, "structuredPatch") is { ValueKind: JsonValueKind.Array } patch:
                 var lines = patch.EnumerateArray().Where(h => Events.Prop(h, "lines") is { ValueKind: JsonValueKind.Array }).SelectMany(h => h.GetProperty("lines").EnumerateArray()).Select(l => l.GetString() ?? "").ToList();
                 return $"+{lines.Count(l => l.StartsWith('+'))} −{lines.Count(l => l.StartsWith('-'))}";

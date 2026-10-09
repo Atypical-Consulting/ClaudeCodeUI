@@ -5,14 +5,14 @@
 @inject UiState Ui
 @inject NavigationManager Nav
 
-<PageTitle>Worktrees · Claude Code</PageTitle>
+<PageTitle>@L["Nav.Worktrees"] · Claude Code</PageTitle>
 
 <div class="pane">
     <div class="ph">
-        <span class="ttl">Worktrees</span>
+        <span class="ttl">@L["Nav.Worktrees"]</span>
         @if (rows is not null)
         {
-            <span class="sub">@Plural(repos.Count, "Wt.Repos") · @Plural(rows.Count, "Wt.Worktrees") · @SizeOf(rows)</span>
+            <span class="sub">@Strings.Plural(repos.Count, "Wt.Repos") · @Strings.Plural(rows.Count, "Wt.Worktrees") · @SizeOf(rows)</span>
         }
         <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
     </div>
@@ -32,9 +32,9 @@
                 }
                 else
                 {
-                    <h3>@(safe.Count == 1 ? L["Wt.Safe1"] : L["Wt.SafeN", safe.Count])</h3>
+                    <h3>@Strings.Plural(safe.Count, "Wt.Safe")</h3>
                 }
-                <p>@(safe.Count > 0 ? L["Wt.Recoverable", SizeOf(safe)] + " " : "")@(check switch { 0 => L["Wt.Check0"], 1 => L["Wt.Check1"], _ => L["Wt.CheckN", check] })@L["Wt.NothingActive"]</p>
+                <p>@(safe.Count == 0 ? Strings.Plural(check, "Wt.CheckOnly") : L["Wt.Recoverable", SizeOf(safe)] + " " + Strings.Plural(check, "Wt.Check") + L["Wt.NothingActive"])</p>
             </div></div>
             @foreach (var r in unignored)
             {
@@ -52,7 +52,7 @@
                 <button class="chip @(filter == WtState.Active ? "on" : null)" @onclick="() => filter = WtState.Active">@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
             </div>
             <table class="wtt">
-                <thead><tr><th>Worktree</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th></th></tr></thead>
+                <thead><tr><th>@L["Wt.Col.Worktree"]</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var (title, states) in groups)
                     {
@@ -107,7 +107,7 @@
 {
     var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
     <div class="pane insp">
-        <div class="ph"><span class="ttl">@L["Wt.Cleanup"]</span><span class="sub">@Plural(chosen.Count, "Wt.Worktrees")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
+        <div class="ph"><span class="ttl">@L["Wt.Cleanup"]</span><span class="sub">@Strings.Plural(chosen.Count, "Wt.Worktrees")@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
         @if (push is { } pw)
         {
             <div class="section">
@@ -131,7 +131,7 @@
                 var all = rows?.Where(w => w.State is WtState.Safe or WtState.Orphan).ToList() ?? [];
                 @if (all.Count > 0)
                 {
-                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">@L["Wt.AddSafe", Plural(all.Count, "Wt.Worktrees")]</button></div>
+                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">@Strings.Plural(all.Count, "Wt.AddSafe")</button></div>
                 }
             }
             else
@@ -150,7 +150,7 @@
                 <div class="acts">
                     @if (log.Count == 0)
                     {
-                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">@L["Wt.CleanN", Plural(chosen.Count, "Wt.Worktrees")]</button>
+                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">@L["Wt.CleanN", Strings.Plural(chosen.Count, "Wt.Worktrees")]</button>
                         <button class="btn ghost" @onclick="() => plan.Clear()">@L["Action.Cancel"]</button>
                     }
                     else
@@ -296,8 +296,6 @@
 
     static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
 
-    // <key>1 for one, <key>N otherwise ("0 dépôt" in French is singular, "0 repositories" in English: <key>0).
-    string Plural(int n, string key) => L[key + (n switch { 0 => "0", 1 => "1", _ => "N" }), n];
 
     static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
 

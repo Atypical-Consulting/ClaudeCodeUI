@@ -57,12 +57,12 @@
         var cwd = CurrentCwd();
         Row[] actions =
         [
-            new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, "Alt N",
+            new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, Strings.Kbd("Alt N"),
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
-            new(false, L["Nav.Overview"], "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
+            new(false, L["Nav.Overview"], "grid", null, 0, null, Strings.Kbd("Ctrl ⇧ O"), Go("overview")),
             new(false, L["Palette.Theme", L["Theme." + theme]], "palette", null, 0, L["Palette.ChangeTheme"], null, NextTheme),
-            new(false, "Worktrees", "branch", null, 0, null, null, Go("worktrees")),
-            new(false, "Extensions", "plug", null, 0, null, null, Go("extensions")),
+            new(false, L["Nav.Worktrees"], "branch", null, 0, null, null, Go("worktrees")),
+            new(false, L["Nav.Extensions"], "plug", null, 0, null, null, Go("extensions")),
             new(false, L["Nav.Appearance"], "palette", null, 0, null, null, Go("settings/appearance")),
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
