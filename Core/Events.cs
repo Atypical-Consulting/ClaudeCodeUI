@@ -22,7 +22,7 @@ public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int 
 public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
 public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType) : ClaudeEvent;
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs) : ClaudeEvent;
-public record TaskDoneEvt(string TaskId, string ToolUseId, string Status) : ClaudeEvent;
+public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
 
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
@@ -67,7 +67,7 @@ public static class Events
                     var content = e.GetProperty("message").GetProperty("content");
                     if (content.ValueKind == JsonValueKind.String)
                     {
-                        if (parent is null) yield return new UserTextEvt(content.GetString()!, at);
+                        if (parent is null) yield return Notification(content.GetString()!) ?? (ClaudeEvent)new UserTextEvt(content.GetString()!, at);
                         break;
                     }
                     if (content.ValueKind != JsonValueKind.Array) break;
@@ -80,7 +80,7 @@ public static class Events
                                     Bool(c, "is_error"), structured);
                                 break;
                             case "text" when parent is null:
-                                yield return new UserTextEvt(Str(c, "text") ?? "", at);
+                                yield return Notification(Str(c, "text") ?? "") ?? (ClaudeEvent)new UserTextEvt(Str(c, "text") ?? "", at);
                                 break;
                         }
                     break;
@@ -132,10 +132,29 @@ public static class Events
         "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? ""),
         "task_progress" => Prop(e, "usage") is { } u
             ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms")) : null,
-        "task_notification" => new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? ""),
+        "task_notification" => Prop(e, "usage") is { } nu
+            ? new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? "", null, Long(nu, "total_tokens"), (int)Long(nu, "tool_uses"), (int)Long(nu, "duration_ms"))
+            : new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? ""),
         "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
         _ => null,
     };
+
+    // A background agent's outcome arrives as a user message: <task-notification><task-id>…<result>…</result><usage>…</usage>.
+    internal static TaskDoneEvt? Notification(string text)
+    {
+        if (!text.StartsWith("<task-notification>")) return null;
+        static string? Tag(string t, string n) =>
+            System.Text.RegularExpressions.Regex.Match(t, $"<{n}>(.*?)</{n}>", System.Text.RegularExpressions.RegexOptions.Singleline) is { Success: true } m ? m.Groups[1].Value : null;
+        var r = text.IndexOf("<result>", StringComparison.Ordinal);
+        var re = text.LastIndexOf("</result>", StringComparison.Ordinal);
+        var hasResult = r >= 0 && re > r;
+        var result = hasResult ? text[(r + 8)..re] : null;
+        var rest = hasResult ? text[..r] + text[(re + 9)..] : text;   // tags below must not match inside the result
+        return new TaskDoneEvt(Tag(rest, "task-id") ?? "", Tag(rest, "tool-use-id") ?? "", Tag(rest, "status") ?? "", result,
+            long.TryParse(Tag(rest, "subagent_tokens"), out var tok) ? tok : 0,
+            int.TryParse(Tag(rest, "tool_uses"), out var tu) ? tu : 0,
+            int.TryParse(Tag(rest, "duration_ms"), out var d) ? d : 0);
+    }
 
     // tool_result content is a string or an array of blocks.
     public static string ResultText(JsonElement content) => content.ValueKind switch
@@ -199,7 +218,9 @@ public static class Events
 
         Ok(P("""{"type":"system","subtype":"task_started","task_id":"ab1","tool_use_id":"toolu_B","description":"Reply pong","subagent_type":"general-purpose","is_backgrounded":false}""") is TaskStartedEvt { TaskId: "ab1", ToolUseId: "toolu_B", Description: "Reply pong", SubagentType: "general-purpose" }, "task_started");
         Ok(P("""{"type":"system","subtype":"task_progress","task_id":"ab1","usage":{"total_tokens":26511,"tool_uses":1,"duration_ms":2092}}""") is TaskProgressEvt { TotalTokens: 26511, ToolUses: 1, DurationMs: 2092 }, "task_progress");
-        Ok(P("""{"type":"system","subtype":"task_notification","task_id":"ab1","tool_use_id":"toolu_B","status":"completed","usage":{"total_tokens":26702}}""") is TaskDoneEvt { TaskId: "ab1", ToolUseId: "toolu_B", Status: "completed" }, "task_notification");
+        Ok(P("""{"type":"system","subtype":"task_notification","task_id":"ab1","tool_use_id":"toolu_B","status":"completed","usage":{"total_tokens":26702,"tool_uses":1,"duration_ms":3000}}""") is TaskDoneEvt { TaskId: "ab1", ToolUseId: "toolu_B", Status: "completed", Tokens: 26702, DurationMs: 3000 }, "task_notification");
+        var notif = P("""{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5aab0eece92a372</task-id>\n<tool-use-id>toolu_01TEgqvrrwU4RMLtNJYrEavF</tool-use-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens><tool_uses>1</tool_uses><duration_ms>5088</duration_ms></usage>\n</task-notification>"},"parent_tool_use_id":null}""");
+        Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
     }
 }
