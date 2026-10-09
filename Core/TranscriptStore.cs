@@ -199,9 +199,7 @@ public static class TranscriptStore
         query = query.Trim();
         List<TranscriptHit> hits = [];
         if (query.Length == 0) return (hits, true);
-        // JSON escapes only quotes, backslashes and control chars: any other query appears verbatim in a matching raw line,
-        // so the raw text is a cheap superset filter before parsing.
-        var raw = !query.Any(c => c is '"' or '\\' || char.IsControl(c));
+        var raw = Raw(query);   // a cheap superset filter on the raw line, before parsing it
         FileInfo[] files;
         try { files = [.. new DirectoryInfo(Root).EnumerateDirectories().SelectMany(d => d.EnumerateFiles("*.jsonl")).OrderByDescending(f => f.LastWriteTimeUtc)]; }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return (hits, true); }
@@ -214,7 +212,7 @@ public static class TranscriptStore
                 while (reader.ReadLine() is { } line)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if ((raw && !line.Contains(query, StringComparison.OrdinalIgnoreCase)) || Match(line, query) is not { } m) continue;
+                    if ((raw is not null && !line.Contains(raw, StringComparison.OrdinalIgnoreCase)) || Match(line, query) is not { } m) continue;
                     if (Read(f) is { } p) hits.Add(new(p, m.Snippet, m.At ?? p.LastWrite));
                     break;
                 }
@@ -223,6 +221,10 @@ public static class TranscriptStore
         }
         return (hits, true);
     }
+
+    // The query as written inside a raw transcript line that contains it: the CLI's JSON escapes quotes and backslashes,
+    // control characters in forms not guessed here (null: no prefilter, every line is parsed). Anything else is verbatim.
+    internal static string? Raw(string query) => query.Any(char.IsControl) ? null : query.Replace(@"\", @"\\").Replace("\"", "\\\"");
 
     // The user or assistant text of one transcript line that contains the query, as a snippet.
     internal static (string Snippet, DateTimeOffset? At)? Match(string line, string query)
@@ -389,7 +391,8 @@ public static class TranscriptStore
     static string? Field(string text, string name)
     {
         var m = Regex.Match(text, $"\"{name}\":(\"(?:[^\"\\\\]|\\\\.)*\")");
-        return m.Success ? JsonSerializer.Deserialize<string>(m.Groups[1].Value) is { Length: > 0 } v ? v : null : null;
+        try { return m.Success ? JsonSerializer.Deserialize<string>(m.Groups[1].Value) is { Length: > 0 } v ? v : null : null; }
+        catch (JsonException) { return null; }   // a bad escape in a cut or corrupt chunk
     }
 
     static string? Trunc(string? s)
@@ -563,6 +566,11 @@ public static class TranscriptStore
         Ok(Match("""{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"text","text":"auth"}]}}""", "auth") is null, "sub-agent skipped");
         Ok(Match("""{"type":"last-prompt","lastPrompt":"auth"}""", "auth") is null, "metadata skipped");
         Ok(Snippet("a  b\nauth c", 6, 4) == "a b auth c", "snippet whole, whitespace collapsed");
+        const string quoted = """{"type":"user","message":{"role":"user","content":"run \"make\" in C:\\src"}}""";
+        Ok(quoted.Contains(Raw("\"MAKE\" in c:\\")!, StringComparison.OrdinalIgnoreCase) && Match(quoted, "\"make\" in C:\\") is not null,
+           "quote and backslash query prefilters on its escaped form");
+        Ok(Raw("a\tb") is null, "control char query: no prefilter");
+        Ok(Field("""{"cwd":"\q"}""", "cwd") is null, "bad escape in a chunk: no field, no throw");
         var longText = new string('x', 100) + "auth" + new string('y', 100);
         Ok(Snippet(longText, 100, 4, 3) == "…xxxauthyyy…", "snippet cut both sides");
     }
