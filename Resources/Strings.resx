@@ -182,6 +182,8 @@
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Trust this folder</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>This folder came from a link and you haven't used it before. Claude will load its .claude settings and hooks.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
