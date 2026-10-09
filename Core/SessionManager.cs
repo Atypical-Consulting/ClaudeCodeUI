@@ -37,9 +37,13 @@ public sealed class SessionManager : IAsyncDisposable
         return Add(s);
     }
 
-    public async Task Stop(string id)
+    // Kills the process and forgets the session, so its transcript stops holding memory; it stays in the recent list.
+    public async Task Close(string id)
     {
-        if (Get(id) is { } s) await s.DisposeAsync();
+        if (Get(id) is not { } s) return;
+        ImmutableInterlocked.Update(ref all, l => l.Remove(s));
+        await s.DisposeAsync();
+        Changed?.Invoke();
     }
 
     LiveSession Add(LiveSession s)
@@ -52,6 +56,6 @@ public sealed class SessionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var s in all) await s.DisposeAsync();
+        await Task.WhenAll(all.Select(s => s.DisposeAsync().AsTask()));   // in parallel: each may wait 2 s for its process
     }
 }

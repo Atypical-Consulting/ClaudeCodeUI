@@ -65,6 +65,8 @@
             new(false, "Extensions", "plug", null, 0, null, null, Go("extensions")),
             new(false, L["Nav.Appearance"], "palette", null, 0, null, null, Go("settings/appearance")),
         ];
+        if (Current() is { } open)
+            actions = [new(false, L["Palette.CloseSession"], "x", open.Name, 0, null, null, () => Close(open.Id)), .. actions];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
         return rows;
     }
@@ -104,13 +106,21 @@
         return new(i < 0 ? e.Encode(s) : $"{e.Encode(s[..i])}<mark>{e.Encode(s.Substring(i, t.Length))}</mark>{e.Encode(s[(i + t.Length)..])}");
     }
 
+    // The live session on screen, if any.
+    LiveSession? Current() => Nav.ToBaseRelativePath(Nav.Uri) is var path && path.StartsWith("session/") ? Sessions.Get(path[8..].Split('?', '#')[0]) : null;
+
     // The session on screen, else the most recent one; a worktree cwd gives its repo.
     string? CurrentCwd()
     {
-        var path = Nav.ToBaseRelativePath(Nav.Uri);
-        var cwd = (path.StartsWith("session/") ? Sessions.Get(path[8..].Split('?', '#')[0])?.Cwd : null)
-                  ?? Sessions.All.LastOrDefault()?.Cwd ?? TranscriptStore.Recent().FirstOrDefault()?.Cwd;
+        var cwd = Current()?.Cwd ?? Sessions.All.LastOrDefault()?.Cwd ?? TranscriptStore.Recent().FirstOrDefault()?.Cwd;
         return cwd is null ? null : TranscriptStore.RootOf(cwd);
+    }
+
+    // Leave the page first, then free the session: its transcript stays in the recent list.
+    async Task Close(string id)
+    {
+        await Go("overview")();
+        await Sessions.Close(id);
     }
 
     Func<Task> Go(string url) => () =>

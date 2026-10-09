@@ -213,6 +213,7 @@
   <data name="Ov.Today" xml:space="preserve"><value>today</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
+  <data name="Palette.CloseSession" xml:space="preserve"><value>Close this session</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>
   <data name="Palette.NewSessionIn" xml:space="preserve"><value>New session in {0}</value></data>
   <data name="Palette.NoResults" xml:space="preserve"><value>No results</value></data>
