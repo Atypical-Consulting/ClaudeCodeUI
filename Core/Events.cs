@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ClaudeCodeUI;
 
@@ -47,15 +48,16 @@ public static class Events
 
             case "assistant":
                 {
-                    var msg = e.GetProperty("message");
+                    // Malformed lines (missing message, id or input) are skipped, never thrown: a throw aborts the whole message.
+                    if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { ValueKind: JsonValueKind.Array } content) break;
                     var parent = Str(e, "parent_tool_use_id");
                     var synthetic = Str(msg, "model") == "<synthetic>";
-                    if (!msg.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array) break;
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
                             case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic); break;
-                            case "tool_use": yield return new ToolUseEvt(Str(c, "id")!, Str(c, "name")!, c.GetProperty("input"), parent); break;
+                            case "tool_use" when Str(c, "id") is { } id && Prop(c, "input") is { } input:
+                                yield return new ToolUseEvt(id, Str(c, "name") ?? "", input, parent); break;
                         }
                     break;
                 }
@@ -64,19 +66,19 @@ public static class Events
                 {
                     var parent = Str(e, "parent_tool_use_id");
                     DateTimeOffset? at = Str(e, "timestamp") is { } ts && DateTimeOffset.TryParse(ts, out var t) ? t : null;
-                    var content = e.GetProperty("message").GetProperty("content");
+                    if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { } content) break;
                     if (content.ValueKind == JsonValueKind.String)
                     {
                         if (parent is null) yield return Notification(content.GetString()!) ?? (ClaudeEvent)new UserTextEvt(content.GetString()!, at);
                         break;
                     }
                     if (content.ValueKind != JsonValueKind.Array) break;
-                    JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? tur : null;
+                    JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? Slim(tur) : null;
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
-                            case "tool_result":
-                                yield return new ToolResultEvt(Str(c, "tool_use_id")!, ResultText(c.TryGetProperty("content", out var rc) ? rc : default),
+                            case "tool_result" when Str(c, "tool_use_id") is { } toolUseId:
+                                yield return new ToolResultEvt(toolUseId, ResultText(c.TryGetProperty("content", out var rc) ? rc : default),
                                     Bool(c, "is_error"), structured);
                                 break;
                             case "text" when parent is null:
@@ -87,8 +89,9 @@ public static class Events
                 }
 
             case "control_request":
-                if (e.TryGetProperty("request", out var r) && Str(r, "subtype") == "can_use_tool")
-                    yield return new PermissionEvt(Str(e, "request_id")!, Str(r, "tool_name")!, r.GetProperty("input"),
+                if (e.TryGetProperty("request", out var r) && Str(r, "subtype") == "can_use_tool"
+                    && Str(e, "request_id") is { } requestId && Prop(r, "input") is { } permInput)
+                    yield return new PermissionEvt(requestId, Str(r, "tool_name") ?? "", permInput,
                         Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"));
                 break;
 
@@ -156,6 +159,16 @@ public static class Events
             int.TryParse(Tag(rest, "duration_ms"), out var d) ? d : 0);
     }
 
+    // tool_use_result minus the whole files the UI never reads (Edit's originalFile, Read's file.content), copied into its
+    // own small document: kept on every ToolItem, the original would pin the full stdout line for the session's lifetime.
+    static JsonElement Slim(JsonElement tur)
+    {
+        var o = JsonObject.Create(tur)!;
+        o.Remove("originalFile");
+        (o["file"] as JsonObject)?.Remove("content");
+        return JsonSerializer.SerializeToElement(o);
+    }
+
     // tool_result content is a string or an array of blocks.
     public static string ResultText(JsonElement content) => content.ValueKind switch
     {
@@ -200,8 +213,16 @@ public static class Events
         Ok(tu is { Id: "toolu_01Y", Name: "Write", ParentToolUseId: null } && Str(tu.Input, "file_path") == @"C:\w\b.txt", "tool_use");
         Ok(P("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"Total cost"}]},"parent_tool_use_id":null}""") is AssistantTextEvt { Synthetic: true, Text: "Total cost", MessageId: "m" }, "synthetic text");
 
+        static List<ClaudeEvent> All(string json) => ParseAll(JsonDocument.Parse(json).RootElement.Clone()).ToList();
+        Ok(All("""{"type":"assistant"}""") is [] && All("""{"type":"user","message":"x"}""") is []
+           && All("""{"type":"control_request","request_id":"r","request":{"subtype":"can_use_tool","tool_name":"Write"}}""") is [], "malformed lines skipped");
+        Ok(All("""{"type":"assistant","message":{"id":"m","content":[{"type":"tool_use","id":"t","name":"Read"},{"type":"text","text":"ok"}]}}""") is [AssistantTextEvt { Text: "ok" }], "block without input skipped, next kept");
+
         var tr = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_E","type":"tool_result","content":"The file a.txt has been updated."}]},"parent_tool_use_id":null,"tool_use_result":{"filePath":"C:\\w\\a.txt","oldString":"hello","newString":"bye","originalFile":"hello\n","structuredPatch":[{"oldStart":1,"oldLines":1,"newStart":1,"newLines":1,"lines":["-hello","+bye"]}]}}""") as ToolResultEvt;
         Ok(tr is { ToolUseId: "toolu_E", IsError: false, Structured: { } st } && st.GetProperty("structuredPatch")[0].GetProperty("lines")[1].GetString() == "+bye", "tool_result + tool_use_result");
+        Ok(tr?.Structured is { } ts && Prop(ts, "originalFile") is null && Str(ts, "filePath") == @"C:\w\a.txt", "tool_use_result drops originalFile");
+        var rd = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"r","type":"tool_result","content":"1→x"}]},"tool_use_result":{"type":"text","file":{"filePath":"a","content":"x","numLines":1}}}""") as ToolResultEvt;
+        Ok(rd?.Structured is { } rs && Prop(rs.GetProperty("file"), "content") is null && rs.GetProperty("file").GetProperty("numLines").GetInt32() == 1, "tool_use_result drops file.content");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null }, "tool_result error");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null,"timestamp":"2026-10-09T12:41:34.602Z"}""") is UserTextEvt { Text: "[Request interrupted by user]", At: not null }, "user text");
 

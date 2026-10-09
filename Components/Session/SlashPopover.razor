@@ -2,12 +2,12 @@
 
 @if (matches.Count > 0)
 {
-    <div class="pop slash" role="listbox" aria-label="@L["Slash.Title"]">
+    <div class="pop slash" id="slash-list" role="listbox" aria-label="@L["Slash.Title"]">
         <div class="sh"><span>@L["Slash.Title"]</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
         @for (var i = 0; i < matches.Count; i++)
         {
             var (c, n) = (matches[i], i);
-            <div class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(c.Name)">
+            <div id="slash-opt-@n" class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(c.Name)">
                 <b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="/@c.Name">/<mark>@(c.Show[..q.Length])</mark>@(c.Show[q.Length..])</b>
                 <span title="@c.Description">@c.Description</span>
                 @if (c.Tag is { } tag) { <span class="tag">@tag</span> } else { <span></span> }
@@ -30,6 +30,7 @@
     int sel;
 
     public bool Open => matches.Count > 0;
+    public string ActiveId => $"slash-opt-{sel}";
     public void Move(int d) { if (matches.Count > 0) sel = (sel + d + matches.Count) % matches.Count; StateHasChanged(); }
     public Task Pick() => matches.Count > 0 ? OnPick.InvokeAsync(matches[sel].Name) : Task.CompletedTask;
 

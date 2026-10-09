@@ -22,11 +22,15 @@
   // The app itself follows Accept-Language; this splash follows the same OS language.
   var fr = /^fr\b/i.test(navigator.language);
   if (fr) { document.documentElement.lang = 'fr'; document.getElementById('msg').textContent = 'Démarrage…'; }
-  // Called by the shell (main.rs) when the server does not come up.
-  function fail(why) {
+  // Called by the shell (main.rs) when the server does not come up (stopped = false) or exits later (stopped = true).
+  // why is an exit code, or an error the OS worded.
+  function fail(why, stopped) {
     var m = document.getElementById('msg');
+    if (/^-?\d+$/.test(why)) why = (fr ? 'code de sortie ' : 'exit code ') + why;
     m.className = 'err';
-    m.textContent = (fr ? "Le serveur n'a pas démarré : " : 'The server did not start: ') + why;
+    m.textContent = fr
+      ? (stopped ? "Le serveur s'est arrêté" : "Le serveur n'a pas démarré") + ' (' + why + "). Quitte et rouvre l'application ; si ça se reproduit, lance-la depuis un terminal pour voir le journal."
+      : (stopped ? 'The server stopped' : 'The server did not start') + ' (' + why + '). Quit and reopen the app; if it keeps happening, run it from a terminal to see the log.';
   }
 </script>
 </body>

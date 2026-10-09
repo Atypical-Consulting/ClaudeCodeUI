@@ -1,4 +1,5 @@
-@* Ctrl K: sessions (live + recent) and actions, filtered. Escape is handled by MainLayout. *@
+@* Ctrl K: sessions (live + recent) and actions, filtered. Escape is handled by MainLayout.
+   A modal combobox: the input owns focus and points at the active option; the app behind is inert while open. *@
 @implements IDisposable
 @using System.Text.Encodings.Web
 @inject UiState Ui
@@ -11,26 +12,36 @@
     var rows = Rows();
     sel = Math.Clamp(sel, 0, Math.Max(0, rows.Count - 1));
     <div class="scrim" @onclick="() => Ui.PaletteOpen = false"></div>
-    <div class="palette" role="dialog" aria-label="@L["Rail.Search"]">
-        <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="@L["Palette.Placeholder"]" aria-label="@L["Rail.Search"]" /><kbd>@L["Key.Esc"]</kbd></div>
-        @for (var i = 0; i < rows.Count; i++)
-        {
-            var r = rows[i];
-            var on = i == sel;
-            if (i == 0 && r.Session) { <div class="pg cap">@L["Palette.Sessions"]</div> }
-            if (!r.Session && (i == 0 || rows[i - 1].Session)) { <div class="pg cap">@L["Palette.Actions"]</div> }
-            <div class="pi @(on ? "on" : null)" @onclick="r.Run">
-                @if (r.Session) { <span class="dot @r.Dot"></span> } else { <span class="ic"><Icon Name="@r.Dot" Sm /></span> }
-                <div><div class="n">@Mark(r.Name)</div>@if (r.Detail is { Length: > 0 } d) { <div class="d">@d</div> }</div>
-                <span class="r">
-                    @if (r.Pill > 0) { <span class="pill wait">@r.Pill</span> }
-                    @if (on && r.Session) { <kbd>⏎</kbd> }
-                    else if (r.Kbd is { } k) { <kbd>@k</kbd> }
-                    else { @r.Right }
-                </span>
-            </div>
-        }
-        @if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
+    <div class="palette" role="dialog" aria-modal="true" aria-label="@L["Rail.Search"]">
+        <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="@L["Palette.Placeholder"]" aria-label="@L["Rail.Search"]"
+            role="combobox" aria-expanded="@(rows.Count > 0 ? "true" : "false")" aria-controls="pal-list" aria-autocomplete="list" aria-activedescendant="@(rows.Count > 0 ? $"pal-{sel}" : null)" /><kbd>@L["Key.Esc"]</kbd></div>
+        <div id="pal-list" role="listbox" aria-label="@L["Rail.Search"]" @ref="list">
+            @foreach (var session in new[] { true, false })
+            {
+                if (!rows.Any(r => r.Session == session)) continue;
+                var gid = session ? "pal-g-s" : "pal-g-a";
+                <div role="group" aria-labelledby="@gid">
+                    <div class="pg cap" id="@gid" role="presentation">@(session ? L["Palette.Sessions"] : L["Palette.Actions"])</div>
+                    @for (var i = 0; i < rows.Count; i++)
+                    {
+                        if (rows[i].Session != session) continue;
+                        var r = rows[i];
+                        var on = i == sel;
+                        <div id="pal-@i" class="pi @(on ? "on" : null)" role="option" aria-selected="@(on ? "true" : "false")" @onclick="r.Run">
+                            @if (r.Session) { <span class="dot @r.Dot"></span> } else { <span class="ic"><Icon Name="@r.Dot" Sm /></span> }
+                            <div><div class="n">@Mark(r.Name)</div>@if (r.Detail is { Length: > 0 } d) { <div class="d">@d</div> }</div>
+                            <span class="r">
+                                @if (r.Pill > 0) { <span class="pill wait">@r.Pill</span> }
+                                @if (on && r.Session) { <kbd>⏎</kbd> }
+                                else if (r.Kbd is { } k) { <kbd>@k</kbd> }
+                                else { @r.Right }
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div role="status">@if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }</div>
         <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
     </div>
 }
@@ -41,25 +52,30 @@
     // Dot = dot class for a session, icon name for an action.
     sealed record Row(bool Session, string Name, string Dot, string? Detail, int Pill, string? Right, string? Kbd, Func<Task> Run);
 
-    ElementReference input;
+    ElementReference input, list;
     string q = "", theme = "graphite";
     int sel;
-    bool wasOpen, focus;
+    bool wasOpen;
+    bool? modal;   // the open/close transition claudeUi.modal still has to apply after the render
 
     List<Row> Rows()
     {
-        var all = Sessions.All.Reverse()
+        // Sessions that need you first (waiting, then running), newest first within each.
+        var all = Sessions.Active.Reverse().OrderBy(s => s.Status switch { SessionStatus.Waiting => 0, SessionStatus.Running => 1, _ => 2 })
             .Select(s => (Name: s.Name, s.Branch, s.Repo, Row: SessionRow(s)))
-            .Concat(TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null)
+            .Concat(TranscriptStore.Recent().Where(p => !Sessions.IsActive(p.Id))
                 .Select(p => (Name: p.Title, p.Branch, Repo: (string?)TranscriptStore.RepoName(p.Cwd), Row: PastRow(p))));
         var rows = all.Where(x => Hit(x.Name) || Hit(x.Branch) || Hit(x.Repo)).Take(q.Length > 0 ? 8 : 5).Select(x => x.Row).ToList();
 
         var cwd = CurrentCwd();
+        var next = Sessions.DecisionQueue.FirstOrDefault().S;
         Row[] actions =
         [
+            .. next is null ? [] : new Row[] { new(false, L["Palette.NextDecision"], "shield", next.Name, Sessions.DecisionQueue.Count(), null, "Ctrl ⇧ A", Go($"session/{next.Id}")) },
             new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, "Alt N",
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
             new(false, L["Nav.Overview"], "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
+            .. CurrentId() is { } id && Sessions.IsActive(id) ? [new Row(false, L["Session.Stop"], "x", Sessions.Get(id)!.Name, 0, null, null, () => StopSession(id))] : Array.Empty<Row>(),
             new(false, L["Palette.Theme", L["Theme." + theme]], "palette", null, 0, L["Palette.ChangeTheme"], null, NextTheme),
             new(false, "Worktrees", "branch", null, 0, null, null, Go("worktrees")),
             new(false, "Extensions", "plug", null, 0, null, null, Go("extensions")),
@@ -80,9 +96,9 @@
         s.Status switch { SessionStatus.Running => L["Status.Running"], SessionStatus.Crashed => $"exit {s.ExitCode}", SessionStatus.Waiting => null, _ => L["Status.Done"] },
         null, Go($"session/{s.Id}"));
 
-    Row PastRow(PastSession p) => new(true, p.Title, "idle",
+    Row PastRow(PastSession p) => new(true, p.Title, "exited",
         Join(p.Branch, TranscriptStore.RepoName(p.Cwd), Day(p.LastWrite), p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : null),
-        0, L["Status.Done"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
+        0, Sessions.RunningElsewhere(p.Id) ? L["Status.Elsewhere"] : L["Status.History"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
 
     string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
     {
@@ -104,11 +120,12 @@
         return new(i < 0 ? e.Encode(s) : $"{e.Encode(s[..i])}<mark>{e.Encode(s.Substring(i, t.Length))}</mark>{e.Encode(s[(i + t.Length)..])}");
     }
 
+    string? CurrentId() => Nav.ToBaseRelativePath(Nav.Uri) is var path && path.StartsWith("session/") ? path[8..].Split('?', '#')[0] : null;
+
     // The session on screen, else the most recent one; a worktree cwd gives its repo.
     string? CurrentCwd()
     {
-        var path = Nav.ToBaseRelativePath(Nav.Uri);
-        var cwd = (path.StartsWith("session/") ? Sessions.Get(path[8..].Split('?', '#')[0])?.Cwd : null)
+        var cwd = (CurrentId() is { } id ? Sessions.Get(id)?.Cwd : null)
                   ?? Sessions.All.LastOrDefault()?.Cwd ?? TranscriptStore.Recent().FirstOrDefault()?.Cwd;
         return cwd is null ? null : TranscriptStore.RootOf(cwd);
     }
@@ -119,6 +136,13 @@
         Nav.NavigateTo(url);
         return Task.CompletedTask;
     };
+
+    async Task StopSession(string id)
+    {
+        Ui.PaletteOpen = false;
+        await Sessions.Stop(id);
+        Nav.NavigateTo("overview");
+    }
 
     async Task NextTheme()
     {
@@ -143,27 +167,29 @@
         }
     }
 
-    async void Changed()
+    void Changed() => _ = InvokeAsync(async () =>
     {
-        await InvokeAsync(async () =>
+        if (Ui.PaletteOpen && !wasOpen)
         {
-            if (Ui.PaletteOpen && !wasOpen)
-            {
-                q = ""; sel = 0; focus = true;
-                try { theme = await JS.InvokeAsync<string>("claudeUi.getTheme"); } catch (JSException) { }
-            }
-            wasOpen = Ui.PaletteOpen;
-            StateHasChanged();
-        });
-    }
+            q = ""; sel = 0; modal = true;
+            try { theme = await JS.InvokeAsync<string>("claudeUi.getTheme"); }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+        }
+        else if (!Ui.PaletteOpen && wasOpen) modal = false;
+        wasOpen = Ui.PaletteOpen;
+        StateHasChanged();
+    });
 
     void SessionsChanged() { if (Ui.PaletteOpen) InvokeAsync(StateHasChanged); }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!focus || !Ui.PaletteOpen) return;
-        focus = false;
-        await JS.InvokeVoidAsync("claudeUi.focus", input);
+        if (modal is { } open)
+        {
+            modal = null;
+            await JS.InvokeVoidAsync("claudeUi.modal", open, input);
+        }
+        if (Ui.PaletteOpen) await JS.InvokeVoidAsync("claudeUi.reveal", list, $"pal-{sel}");
     }
 
     protected override void OnInitialized()
