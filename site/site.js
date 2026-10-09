@@ -184,7 +184,7 @@
     const shot = id => {
       const v = SHOTS[id], img = $('shot-img');
       if (!v || !img) return;
-      img.src = $('shot-a').href = `${A}assets/screens/${v[0]}.png`;
+      img.src = $('shot-a').href = `${A}assets/screens/${EN ? 'en/' : ''}${v[0]}.png`;
       img.alt = v[2];
       $('shot-cap').textContent = v[1];
       $('shot-sub').textContent = byId.get(id).textContent.toLowerCase();
