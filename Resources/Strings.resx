@@ -389,6 +389,7 @@
   <data name="Palette.Messages" xml:space="preserve"><value>Messages</value></data>
   <data name="Palette.OlderNotSearched" xml:space="preserve"><value>Older sessions were not searched.</value></data>
   <data name="Palette.Placeholder" xml:space="preserve"><value>Search sessions, messages and actions…</value></data>
+  <data name="Palette.SearchFailed" xml:space="preserve"><value>Message search failed.</value></data>
   <data name="Palette.SearchingMessages" xml:space="preserve"><value>Searching messages…</value></data>
   <data name="Palette.Sessions" xml:space="preserve"><value>Sessions</value></data>
   <data name="Palette.Theme" xml:space="preserve"><value>Theme: {0}</value></data>

@@ -46,7 +46,8 @@
             {
                 if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
                 @* A stopped scan is never a definitive "no results". *@
-                if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
+                if (failed) { <div class="pg" style="color:var(--fg-4)">@L["Palette.SearchFailed"]</div> }
+                else if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
             }
         </div>
         <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
@@ -66,7 +67,7 @@
     // Message search: from MinChars, debounced, cancelled by the next keystroke or by closing, scanned off the circuit's thread.
     const int MinChars = 3, MaxHits = 20;
     IReadOnlyList<TranscriptHit> hits = [];
-    bool searching, partial;
+    bool searching, partial, failed;
     CancellationTokenSource? cts;
 
     ElementReference input, list;
@@ -137,6 +138,8 @@
     MarkupString Mark(string s)
     {
         var t = q.Trim();
+        // A message snippet has its whitespace collapsed (TranscriptStore.Snippet): so does the query when it is not found as typed.
+        if (t.Length > 0 && !s.Contains(t, StringComparison.OrdinalIgnoreCase)) t = string.Join(' ', t.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         var i = t.Length > 0 ? s.IndexOf(t, StringComparison.OrdinalIgnoreCase) : -1;
         var e = HtmlEncoder.Default;
         return new(i < 0 ? e.Encode(s) : $"{e.Encode(s[..i])}<mark>{e.Encode(s.Substring(i, t.Length))}</mark>{e.Encode(s[(i + t.Length)..])}");
@@ -189,7 +192,7 @@
     async Task FindMessages(string t)
     {
         cts?.Cancel();
-        (hits, partial, searching) = ([], false, t.Length >= MinChars);
+        (hits, partial, failed, searching) = ([], false, false, t.Length >= MinChars);
         if (!searching) return;
         var c = cts = new CancellationTokenSource();
         try
@@ -203,7 +206,7 @@
         catch (OperationCanceledException) { }
         catch (Exception) when (!c.IsCancellationRequested)   // fire-and-forget: never leave "Searching messages…" up
         {
-            (partial, searching) = (true, false);
+            (failed, searching) = (true, false);
             StateHasChanged();
         }
     }
