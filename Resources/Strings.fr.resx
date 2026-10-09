@@ -67,15 +67,18 @@
   <data name="BadRequest.Heading" xml:space="preserve"><value>L’application n’a pas pu traiter cette requête.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>Elle a été refusée avant d’atteindre une page. Reviens en arrière et réessaie, ou repars d’une nouvelle session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
+  <data name="Bg.Clear" xml:space="preserve"><value>Effacer les terminées</value></data>
   <data name="Bg.Command" xml:space="preserve"><value>Commande</value></data>
   <data name="Bg.Completed" xml:space="preserve"><value>terminée</value></data>
+  <data name="Bg.Ended" xml:space="preserve"><value>finie</value></data>
   <data name="Bg.Failed" xml:space="preserve"><value>échouée</value></data>
   <data name="Bg.NoOutput" xml:space="preserve"><value>Pas encore de sortie.</value></data>
   <data name="Bg.Output" xml:space="preserve"><value>Dernières lignes de sortie</value></data>
+  <data name="Bg.Paused" xml:space="preserve"><value>en pause</value></data>
   <data name="Bg.Running" xml:space="preserve"><value>en cours</value></data>
   <data name="Bg.RunningN" xml:space="preserve"><value>{0} en cours</value></data>
   <data name="Bg.Stop" xml:space="preserve"><value>Arrêter</value></data>
-  <data name="Bg.StopLabel" xml:space="preserve"><value>Arrêter la tâche en arrière-plan : {0}</value></data>
+  <data name="Bg.StopLabel" xml:space="preserve"><value>Arrêter la tâche en arrière-plan : {0}</value></data>
   <data name="Bg.Stopped" xml:space="preserve"><value>arrêtée</value></data>
   <data name="Bg.Title" xml:space="preserve"><value>Tâches en arrière-plan</value></data>
   <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
