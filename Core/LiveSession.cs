@@ -759,9 +759,7 @@ public sealed class LiveSession : IAsyncDisposable
                 }
                 break;
 
-            // A silent success is the common case (and most of the stream's hook events): nothing to show. A successful
-            // SessionStart prints context injected into the prompt (plugins: ~11 KB per start), not something to read: dropped too.
-            case HookEvt h when h.Outcome != "success" || (h.Output.Length > 0 && !h.Name.StartsWith("SessionStart")):
+            case HookEvt h when Shown(h):
                 Items = Items.Add(new HookItem(h));
                 break;
 
@@ -781,6 +779,13 @@ public sealed class LiveSession : IAsyncDisposable
         var i = at is null ? -1 : items.ToList().FindIndex(x => x is TextItem t && t.Uuid == at);
         return [.. i < 0 ? items : items.Take(i + 1)];
     }
+
+    // A silent success is the common case (and most of the stream's hook events): nothing to show. Context a hook injects
+    // into the prompt is for the model, not to read: a successful SessionStart (plugins: ~11 KB per start) or SubagentStart
+    // (~5 KB per Agent call, measured on 2.1.296), and any output that is only hookSpecificOutput.additionalContext.
+    internal static bool Shown(HookEvt h) =>
+        h.Outcome != "success"
+        || h.Output.Length > 0 && !h.Name.StartsWith("SessionStart") && !h.Name.StartsWith("SubagentStart") && !Events.ContextOnly(h.Output);
 
     // send → tool_use → permission → deny → result, replayed on the reducer only.
     internal static void Check()
@@ -817,6 +822,24 @@ public sealed class LiveSession : IAsyncDisposable
         hk.Apply(new HookEvt("SessionStart:resume", "error", 1, "boom"));
         Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }, HookItem { Hook.ExitCode: 1 }],
             "silent hooks and successful SessionStart hidden, output and errors kept");
+
+        // claude 2.1.296, two Agent calls in a row: each streams a successful SubagentStart (plugin context, plain or JSON)
+        // between its tool_use and its result, then a silent PostToolBatch. None of it is shown, the agents share one Workflow.
+        var sa = new LiveSession("sa", "sa", @"C:\w", "default");
+        const string ctx = """{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":"PONYTAIL MODE ACTIVE"}}""";
+        foreach (var id in new[] { "a1", "a2" })
+        {
+            sa.Apply(new ToolUseEvt(id, "Agent", input, null));
+            sa.Apply(new HookEvt("SubagentStart:general-purpose", "success", 0, ctx));
+            sa.Apply(new HookEvt("SubagentStart:general-purpose", "success", 0, "plain context"));
+            sa.Apply(new ToolResultEvt(id, "ok", false, null));
+            sa.Apply(new HookEvt("PostToolBatch", "success", 0, ""));
+        }
+        sa.Apply(new HookEvt("UserPromptSubmit", "success", 0, ctx.Replace("SubagentStart", "UserPromptSubmit")));
+        sa.Apply(new HookEvt("SubagentStart:Explore", "error", 1, "boom"));
+        Ok(sa.Items is [ToolItem, ToolItem, HookItem { Hook.Name: "SubagentStart:Explore" }]
+           && ThreadBlocks.Of(sa.Items) is [ThreadBlocks.Run { Agents: true, Tools.Count: 2 }, ThreadBlocks.Hooks],
+            "successful SubagentStart and context-only output hidden, a failing one kept");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try
