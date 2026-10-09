@@ -20,6 +20,7 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body) el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // Pin a scroller to its bottom after each render, unless the user scrolled up; then new output
         // reveals the sibling .dock .jump button, which scrolls back down and pins again.

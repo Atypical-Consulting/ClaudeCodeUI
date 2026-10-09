@@ -207,7 +207,7 @@
   <data name="Ov.Decision1" xml:space="preserve"><value>1 décision t'attend</value></data>
   <data name="Ov.DecisionN" xml:space="preserve"><value>{0} décisions t'attendent</value></data>
   <data name="Ov.Empty" xml:space="preserve"><value>Aucune session en cours</value></data>
-  <data name="Ov.EmptyText" xml:space="preserve"><value>Démarre-en une pour voir ici son état, son coût et les décisions en attente.</value></data>
+  <data name="Ov.EmptyText" xml:space="preserve"><value>Démarres-en une pour voir ici son état, son coût et les décisions en attente.</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>en attente</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>File des décisions</value></data>
   <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>

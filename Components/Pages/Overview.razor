@@ -135,6 +135,7 @@
 
     async Task QueueKey(KeyboardEventArgs e, List<(LiveSession S, PendingPermission P)> queue)
     {
+        if (e.CtrlKey || e.MetaKey || e.AltKey) return;   // Ctrl Shift A, Ctrl A, Cmd D… are not answers
         switch (e.Key)
         {
             case "j" or "J" or "ArrowDown": qi = (qi + 1) % queue.Count; break;
@@ -153,12 +154,13 @@
         catch (Exception ex) { error = ex.Message; }
     }
 
-    // Focus the queue once when it has something to triage, so J/K/A/D work without a click first.
+    // Focus the queue once when it has something to triage, so J/K/A/D work without a click first —
+    // unless focus is already somewhere (the Ctrl K palette, a field).
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (autofocused || !Sessions.DecisionQueue.Any()) return;
         autofocused = true;
-        try { await JS.InvokeVoidAsync("claudeUi.focus", queueEl); }
+        try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", queueEl); }
         catch (JSException) { }
         catch (JSDisconnectedException) { }
     }

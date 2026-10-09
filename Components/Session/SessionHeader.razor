@@ -6,7 +6,7 @@
     <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { TranscriptStore.Short(Session.Cwd), Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
     @if (Session.Cwd.Length > 0)
     {
-        <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm /></button>
+        <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Error.Copy"]</button>
     }
     <span class="end"><button class="btn ghost" title="@L["Inspector"] (Ctrl I)" aria-label="@L["Inspector"]" aria-pressed="@Ui.InspectorOpen" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
 </div>
