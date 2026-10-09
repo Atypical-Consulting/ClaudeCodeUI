@@ -201,6 +201,7 @@ Concurrence et rendu :
 
 Démarrage :
 - Une session neuve lance le processus tout de suite, puis envoie `initialize`, `get_settings` et `get_usage`. Cela remplit le modèle, les commandes, l'effort et le quota avant le premier message ; `system/init` n'arrive qu'après ce premier message.
+- `initialize` est attendu **une seule fois** (même `request_id`, 180 s, ligne « still waiting » à 60 s) : renvoyer sous un nouvel id perdait la réponse tardive au premier. Pendant `Starting`, la chronologie du démarrage (spawn, écritures, stderr en direct, réponses tardives) part sur la console en `[<id>] boot …`. `dotnet run -- --boot-probe <dossier> [s]` rejoue un démarrage à froid hors de l'UI ; la cause du blocage de 60 s n'est pas reproduite par la sonde (issue #6).
 - Une session passée (reprise) est créée avec `Items` chargés par `TranscriptStore.Load(id)`. Son processus `--resume` n'est lancé qu'au premier `Send` ou au clic sur « Reprendre ».
 
 Ultracode « pour ce tour » :
