@@ -36,7 +36,9 @@ if (desktop)
 
 builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    // The composer binds oninput, so a paste ships the whole prompt in one hub message; the 32 KB default dropped the circuit. Local-only app.
+    .AddHubOptions(o => o.MaximumReceiveMessageSize = 4 * 1024 * 1024);
 builder.Services.AddSingleton<SessionManager>();   // IAsyncDisposable: kills the claude processes on shutdown
 builder.Services.AddSingleton<WorktreeService>();
 builder.Services.AddScoped<UiState>();
