@@ -248,7 +248,7 @@ public static class TranscriptStore
     }
 
     // Head and tail (64 KB each) are enough: metadata lines are rewritten near the end, cwd/branch sit in the first user line.
-    static PastSession? Read(FileInfo f, bool ledger = true)
+    internal static PastSession? Read(FileInfo f, bool ledger = true)
     {
         string text;
         try

@@ -69,9 +69,11 @@
 
         var cwd = CurrentCwd();
         var next = Sessions.DecisionQueue.FirstOrDefault().S;
+        var here = CurrentId() is { } cur ? Sessions.Get(cur) : null;
         Row[] actions =
         [
             .. next is null ? [] : new Row[] { new(false, L["Palette.NextDecision"], "shield", next.Name, Sessions.DecisionQueue.Count(), null, Strings.Kbd("Ctrl ⇧ A"), Go($"session/{next.Id}")) },
+            .. here is { CanFork: true } ? new Row[] { new(false, L["Session.Fork"], "branch", here.Name, 0, null, null, () => Go($"session/{Sessions.Fork(here).Id}")()) } : [],
             new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, Strings.Kbd("Alt N"),
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
             new(false, L["Nav.Overview"], "grid", null, 0, null, Strings.Kbd("Ctrl ⇧ O"), Go("overview")),
