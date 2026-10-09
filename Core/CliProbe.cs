@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -1043,6 +1043,35 @@ public static class CliProbe
         Events.Prop(await c.S.Request("list_permission_rules"), "state") is { } st
         && Events.Prop(st, "workspaceDirectories") is { ValueKind: JsonValueKind.Array } a
         && a.EnumerateArray().Any(d => Events.Str(d, "path")?.EndsWith(Path.GetFileName(folder)) == true);
+
+    // transcript-search: the CLI writes the turn to ~/.claude/projects/<slug>/<session_id>.jsonl in the shape
+    // TranscriptStore.Search reads: the user prompt as user text, the reply as an assistant text block.
+    // The reply's token is not in the prompt (the prompt splits it), so a hit on it can only come from assistant text.
+    // search-bounds: a query matching nothing scans the transcripts within the byte budget and returns.
+    static Task<IEnumerable<(string, string, string)>> TranscriptSearch(string dir) => Guard(["transcript-search", "search-bounds"], async () =>
+    {
+        var token = "ccuiprobe" + Guid.NewGuid().ToString("N")[..10];
+        string? id;
+        await using (var c = await Cli.Start(dir))   // exited before searching: the file is complete
+        {
+            var turn = await c.Turn($"Join the two words {token[..9]} and {token[9..]} without any space or other character. Reply with the joined word only.");
+            id = turn.Select(e => Events.Str(e, "session_id")).LastOrDefault(s => s is not null);
+        }
+        if (id is null) return [("FAIL", "no session_id in the turn"), ("SKIP", "no session")];
+
+        string Found(string q) =>
+            TranscriptStore.Search(q, 5, CancellationToken.None).Hits.FirstOrDefault(h => h.Session.Id == id) is { } h ? $"\"{h.Snippet}\"" : "none";
+        var user = Found($"{token[..9]} and {token[9..]}");
+        var assistant = Found(token);
+        var detail = $"{Path.GetFileName(TranscriptStore.Find(id))}: user hit {user}; assistant hit {assistant}";
+
+        var watch = Stopwatch.StartNew();
+        var (none, complete) = TranscriptStore.Search("ccui-no-such-text-" + Guid.NewGuid().ToString("N"), 20, CancellationToken.None);
+        return [(user != "none" && assistant != "none" ? "PASS" : "FAIL", detail),
+            none.Count == 0
+                ? ("PASS", $"0 hits in {watch.ElapsedMilliseconds} ms, {(complete ? "every transcript read" : "stopped at the byte budget")}")
+                : ("FAIL", $"{none.Count} hits for a random token")];
+    });
 
     // ---------- plumbing ----------
 

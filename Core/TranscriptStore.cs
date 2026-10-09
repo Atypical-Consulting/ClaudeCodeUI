@@ -5,6 +5,8 @@ using System.Text.RegularExpressions;
 
 namespace ClaudeCodeUI;
 
+public record TranscriptHit(PastSession Session, string Snippet, DateTimeOffset At);
+
 public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath, string? Mode = null);
 
 // Past sessions read from ~/.claude/projects/<slug>/<id>.jsonl (top-level files only; <id>/subagents are excluded).
@@ -94,6 +96,7 @@ public static class TranscriptStore
         static ToolItem? Tool(LiveSession s, string id) => s.Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
     }
 
+    // Lines the terminal does not show as a conversation turn: sub-agent, injected context, compaction summary.
     static bool Hidden(JsonElement e) => Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
         || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isCompactSummary") is { ValueKind: JsonValueKind.True }
         || Events.Prop(e, "isVisibleInTranscriptOnly") is { ValueKind: JsonValueKind.True };
@@ -142,6 +145,7 @@ public static class TranscriptStore
         }
         catch (IOException) { return path; }
     }
+
     // After a rewind, the uuids on the branch the CLI resumes; null when the file holds no rewind (replayed whole). A
     // rewind (rewind_conversation) leaves the dropped messages in the file: a {"type":"last-prompt","rewound":true,
     // "leafUuid"} line marks the new end (no leafUuid: back to the very first message) and the next message links to it
@@ -184,6 +188,70 @@ public static class TranscriptStore
         && Events.Prop(m, "content") is { } c
         && (c.ValueKind == JsonValueKind.String
             || c.ValueKind == JsonValueKind.Array && !c.EnumerateArray().Any(b => Events.Str(b, "type") == "tool_result"));
+
+    // ---------- full-text search (Ctrl K) ----------
+
+    // Newest transcripts first, one hit per session (its first matching user/assistant text), until `take` sessions or
+    // `budget` bytes of files. Streams line by line on the caller's thread: run it off the UI thread.
+    // Complete = every transcript was read. ponytail: linear scan bounded by the budget, no index; add one if searches keep stopping short.
+    public static (IReadOnlyList<TranscriptHit> Hits, bool Complete) Search(string query, int take, CancellationToken ct, long budget = 256L << 20)
+    {
+        query = query.Trim();
+        List<TranscriptHit> hits = [];
+        if (query.Length == 0) return (hits, true);
+        // JSON escapes only quotes, backslashes and control chars: any other query appears verbatim in a matching raw line,
+        // so the raw text is a cheap superset filter before parsing.
+        var raw = !query.Any(c => c is '"' or '\\' || char.IsControl(c));
+        FileInfo[] files;
+        try { files = [.. new DirectoryInfo(Root).EnumerateDirectories().SelectMany(d => d.EnumerateFiles("*.jsonl")).OrderByDescending(f => f.LastWriteTimeUtc)]; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return (hits, true); }
+        foreach (var f in files)
+        {
+            if (hits.Count >= take || (budget -= f.Length) < 0) return (hits, false);
+            try
+            {
+                using var reader = new StreamReader(new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete));
+                while (reader.ReadLine() is { } line)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if ((raw && !line.Contains(query, StringComparison.OrdinalIgnoreCase)) || Match(line, query) is not { } m) continue;
+                    if (Read(f) is { } p) hits.Add(new(p, m.Snippet, m.At ?? p.LastWrite));
+                    break;
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // skip this file, keep scanning
+        }
+        return (hits, true);
+    }
+
+    // The user or assistant text of one transcript line that contains the query, as a snippet.
+    internal static (string Snippet, DateTimeOffset? At)? Match(string line, string query)
+    {
+        if (Parse(line) is not { } e || Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e) || Events.Prop(e, "message") is not { } m) return null;
+        var assistant = Events.Str(e, "type") == "assistant";
+        IEnumerable<string?> texts = Events.Prop(m, "content") switch
+        {
+            { ValueKind: JsonValueKind.String } c when !assistant => [c.GetString()],
+            { ValueKind: JsonValueKind.Array } c => c.EnumerateArray().Where(b => Events.Str(b, "type") == "text").Select(b => Events.Str(b, "text")),
+            _ => [],
+        };
+        foreach (var t in texts)
+        {
+            // Tagged texts are the CLI's own (slash commands, task notifications, IDE context), not what was said.
+            if (t is null || t.StartsWith('<')) continue;
+            var i = t.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+            if (i >= 0) return (Snippet(t, i, query.Length), DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var at) ? at : null);
+        }
+        return null;
+    }
+
+    // ~ctx chars each side of the match, whitespace collapsed, "…" where cut.
+    internal static string Snippet(string text, int at, int length, int ctx = 40)
+    {
+        int from = Math.Max(0, at - ctx), to = Math.Min(text.Length, at + length + ctx);
+        var s = string.Join(' ', text[from..to].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return (from > 0 ? "…" : "") + s + (to < text.Length ? "…" : "");
+    }
 
     // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
     // Raw cost-state: what the CLI restores on --resume (EnsureProcess subtracts it).
@@ -483,5 +551,19 @@ public static class TranscriptStore
             """{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"The user answered: \"Which color do you prefer?\"=\"Chartreuse\".","tool_use_id":"toolu_Q"}]},"toolUseResult":{"questions":[{"question":"Which color do you prefer?","header":"Color","options":[{"label":"Red","description":"Choose red"},{"label":"Blue","description":"Choose blue"}],"multiSelect":false}],"answers":{"Which color do you prefer?":"Chartreuse"}},"timestamp":"2026-10-09T12:00:09Z"}""",
         ]);
         Ok(ask is [ToolItem { State: ToolState.Done } q] && AskUser.Answered(q.Structured) is [("Which color do you prefer?", "Chartreuse")], "replay AskUserQuestion answers");
+
+        // Search: user string and text blocks, assistant text blocks; never tool results, CLI tags or sub-agents.
+        Ok(Match("""{"type":"user","message":{"role":"user","content":"corrige le test d'AUTH"},"timestamp":"2026-10-09T12:00:01Z"}""", "auth")
+           is { Snippet: "corrige le test d'AUTH" } u && u.At == DateTimeOffset.Parse("2026-10-09T12:00:01Z"), "match user text");
+        Ok(Match("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"see auth"}]}}""", "auth") is { At: null }, "match user text block");
+        Ok(Match("""{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Read","input":{"file_path":"auth.cs"}},{"type":"text","text":"Fixed auth."}]}}""", "auth")
+           is { Snippet: "Fixed auth." }, "match assistant text, not tool input");
+        Ok(Match("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"t","type":"tool_result","content":"auth ok"}]}}""", "auth") is null, "tool result skipped");
+        Ok(Match("""{"type":"user","message":{"role":"user","content":"<command-name>/auth</command-name>"}}""", "auth") is null, "CLI tag skipped");
+        Ok(Match("""{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"text","text":"auth"}]}}""", "auth") is null, "sub-agent skipped");
+        Ok(Match("""{"type":"last-prompt","lastPrompt":"auth"}""", "auth") is null, "metadata skipped");
+        Ok(Snippet("a  b\nauth c", 6, 4) == "a b auth c", "snippet whole, whitespace collapsed");
+        var longText = new string('x', 100) + "auth" + new string('y', 100);
+        Ok(Snippet(longText, 100, 4, 3) == "…xxxauthyyy…", "snippet cut both sides");
     }
 }
