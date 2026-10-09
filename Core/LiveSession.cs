@@ -12,6 +12,7 @@ public enum Decision { Allow, AllowSession, Deny }
 public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
+public record ApiErrorItem(ApiError Error) : Item;
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
     public ToolState State { get; set; }
@@ -387,6 +388,11 @@ public sealed class LiveSession : IAsyncDisposable
                 StreamingText += d.Text;
                 break;
 
+            case AssistantTextEvt { Synthetic: true, ParentToolUseId: null } a when ApiErrors.Parse(a.Text) is { } err:
+                StreamingText = "";
+                Items = Items.Add(new ApiErrorItem(err));
+                break;
+
             case AssistantTextEvt a:
                 if (a.ParentToolUseId is null) StreamingText = "";
                 Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId));
@@ -489,6 +495,13 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
+
+        const string apiErr = "API Error: Output blocked by content filtering policy";
+        var ae = new LiveSession("ae", "ae", @"C:\w", "default");
+        ae.Apply(new AssistantTextEvt("m", apiErr, null, true));
+        ae.Apply(new AssistantTextEvt("m", apiErr, null, false));
+        ae.Apply(new AssistantTextEvt("m", "Total cost: $0.01", null, true));
+        Ok(ae.Items is [ApiErrorItem { Error.Raw: apiErr }, TextItem, TextItem], "api error item only for synthetic API Error text");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try
