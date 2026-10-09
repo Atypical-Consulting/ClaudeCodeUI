@@ -964,8 +964,10 @@ public static class CliProbe
 
     // add-dir: `--add-dir <folder>` lets Read open a file there with 0 can_use_tool, and list_permission_rules lists it.
     // add-dir-live: mid-session, apply_flag_settings {permissions:{additionalDirectories}} does the same, and a later
-    // apply_flag_settings for another key (SetEffort) keeps it. ("/add-dir" as user text answers "isn't available in this
+    // apply_flag_settings for another key (SetEffort) keeps it; the payload is the whole list, as the UI sends it. ("/add-dir" as user text answers "isn't available in this
     // environment" on 2.1.296; the add_directory control request is for cloud containers: mount_path under /uploads/.)
+    // add-dir-edits: after set_permission_mode acceptEdits, Write creates a file in an --add-dir folder with 0 can_use_tool:
+    // an extra folder is never isolated, so a risky mode with one is confirmed (LiveSession.Isolated).
     // add-dir-resume: --resume alone forgets the folders (the CLI asks again), --resume with one --add-dir each keeps them.
     static async Task<IEnumerable<(string, string, string)>> AddDir(string dir)
     {
@@ -979,15 +981,28 @@ public static class CliProbe
         {
             IEnumerable<(string, string, string)> first;
             await using (var c = await Cli.Start(dir, "--session-id", id, "--add-dir", a))
-                first = await Guard(["add-dir", "add-dir-live"], async () =>
+                first = await Guard(["add-dir", "add-dir-live", "add-dir-edits"], async () =>
                 {
                     var (ran, asked, word) = await ReadNote(c, a, "PELICAN");
                     var start = Verdict(ran, asked, word, await Listed(c, a));
 
-                    await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["permissions"] = new JsonObject { ["additionalDirectories"] = new JsonArray(b) } } });
+                    await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["permissions"] = new JsonObject { ["additionalDirectories"] = new JsonArray(a, b) } } });
                     await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["effortLevel"] = "low" } });
                     (ran, asked, word) = await ReadNote(c, b, "HERON");
-                    return [start, Verdict(ran, asked, word, await Listed(c, b))];
+                    var live = Verdict(ran, asked, word, await Listed(c, b) && await Listed(c, a));
+
+                    await c.S.Request("set_permission_mode", new() { ["mode"] = "acceptEdits" });
+                    var target = Path.Combine(a, "edited.txt");
+                    var prompts = 0;
+                    var turn = await c.Turn($"Use the Write tool to create {target} containing the word OSPREY. Reply done.", e =>
+                    {
+                        if (Events.Str(e.GetProperty("request"), "tool_name") is "Write" or "Edit") prompts++;
+                        return Task.FromResult(false);
+                    });
+                    var writes = turn.Sum(e => ToolUses(e).Count(n => n == "Write"));
+                    var written = File.Exists(target) && File.ReadAllText(target).Contains("OSPREY");
+                    var edits = $"acceptEdits: {writes} Write, {prompts} prompt(s), file {(written ? "written" : "absent")}";
+                    return [start, live, writes == 0 ? ("FAIL", "inconclusive: no Write tool_use") : prompts == 0 && written ? ("PASS", edits) : ("FAIL", edits)];
                 });
 
             var resume = await Guard(["add-dir-resume"], async () =>
