@@ -33,7 +33,7 @@ public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Ins
 {
     public static RewindPreview Parse(JsonElement r) => new(
         Events.Prop(r, "canRewind") is { ValueKind: JsonValueKind.True },
-        Events.Prop(r, "filesChanged") is { ValueKind: JsonValueKind.Array } f ? [.. f.EnumerateArray().Select(x => x.GetString() ?? "")] : [],
+        Events.Prop(r, "filesChanged") is { ValueKind: JsonValueKind.Array } f ? [.. f.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : null).OfType<string>().Where(x => x.Length > 0)] : [],
         Events.Prop(r, "insertions") is { ValueKind: JsonValueKind.Number } i ? i.GetInt32() : 0,
         Events.Prop(r, "deletions") is { ValueKind: JsonValueKind.Number } d ? d.GetInt32() : 0,
         Events.Str(r, "error"));
@@ -157,24 +157,52 @@ public sealed class LiveSession : IAsyncDisposable
         }
     }
 
-    // "Rewind to here": only between turns, and only to a message this very process received (its uuid dies with it).
-    public bool CanRewind(UserItem u) => u.Uuid is { } id && sent.Contains(id) && proc is not null && Status == SessionStatus.Idle;
+    // "Rewind to here": only between turns with no background agent still writing files, and only to a message this very
+    // process received (its uuid dies with it).
+    public bool CanRewind(UserItem u) => u.Uuid is { } id && sent.Contains(id) && proc is not null && Status == SessionStatus.Idle
+                                         && !Items.Any(i => i is ToolItem { Background: true, State: ToolState.Running });
 
     public async Task<RewindPreview> PreviewRewind(UserItem u) =>
         RewindPreview.Parse(await Request("rewind_files", new() { ["user_message_id"] = u.Uuid, ["dry_run"] = true }));
 
-    // Files first (verified by --probe-cli rewind-files), then the conversation (rewind-conversation): the message and
-    // everything after it leave the thread, and its text goes back to the Composer.
+    // The conversation first: rewind_conversation only takes the latest message ("stale target" otherwise), so it goes
+    // back one message at a time from the newest to the target; a refusal leaves the files untouched and the thread cut
+    // where the CLI's is. Then the files (rewind_files still answers after rewind_conversation). Both verified by
+    // --probe-cli rewind-files / rewind-conversation. The message's text goes back to the Composer.
     public async Task Rewind(UserItem u, bool files)
     {
-        if (files) await Request("rewind_files", new() { ["user_message_id"] = u.Uuid });
-        var r = await Request("rewind_conversation", new() { ["target_message_uuid"] = u.Uuid });
-        if (Events.Prop(r, "rewound") is not { ValueKind: JsonValueKind.True })
-            throw new ClaudeRequestException(Strings.Get("Rewind.Refused", r.GetRawText()));
-        lock (gate) Truncate(u.Uuid!);
-        Draft = Events.Str(r, "prefillText") ?? u.Text;
-        Notify();
+        if (!CanRewind(u)) throw new ClaudeRequestException(Strings.Get("Rewind.Unavailable"));
+        string? cut = null, prefill = null;
+        try
+        {
+            foreach (var id in RewindSteps(u.Uuid!))
+            {
+                var r = await Request("rewind_conversation", new() { ["target_message_uuid"] = id });
+                if (Events.Prop(r, "rewound") is not { ValueKind: JsonValueKind.True })
+                    throw new ClaudeRequestException(Strings.Get("Rewind.Refused", Events.Str(r, "error") ?? Events.Str(r, "reason") ?? r.GetRawText()));
+                (cut, prefill) = (id, Events.Str(r, "prefillText"));
+            }
+        }
+        finally
+        {
+            if (cut is not null)
+            {
+                lock (gate)
+                {
+                    Draft = prefill ?? Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == cut)?.Text ?? "";
+                    Truncate(cut);
+                }
+                Notify();
+            }
+        }
+        if (!files) return;
+        try { await Request("rewind_files", new() { ["user_message_id"] = u.Uuid }); }
+        catch (ClaudeRequestException ex) { throw new ClaudeRequestException(Strings.Get("Rewind.FilesFailed", ex.Message)); }
     }
+
+    // The rewind_conversation targets for a rewind to `uuid`: it and every message sent after it, newest first.
+    internal IReadOnlyList<string> RewindSteps(string uuid) =>
+        [.. Items.OfType<UserItem>().SkipWhile(x => x.Uuid != uuid).Select(x => x.Uuid).OfType<string>().Reverse()];
 
     // cancel_async_message drops a message the CLI has not started: {cancelled:true}, then a `cancelled` frame removes the
     // chip (verified by --probe-cli queue). A cancel that loses the race to `started` is not probed: the chip leaves on that frame.
@@ -810,9 +838,15 @@ public sealed class LiveSession : IAsyncDisposable
         rw.Apply(new AssistantTextEvt("m", "ok", null, false));
         rw.BeginTurn("deux", uuid: "u2");
         rw.Apply(new ToolUseEvt("t9", "Write", input, null));
+        rw.Apply(new ResultEvt("success", false, 0.01m, 10, 1, 0, null, null, null));
+        rw.BeginTurn("trois", uuid: "u3");
+        Ok(rw.RewindSteps("u2") is ["u3", "u2"] && rw.RewindSteps("u1") is ["u3", "u2", "u1"] && rw.RewindSteps("u3") is ["u3"],
+            "rewind_conversation steps: newest back to the target");
         rw.Truncate("u2");
         Ok(rw.Items is [UserItem { Uuid: "u1" }, TextItem], "rewind cuts from the target message");
         Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
+        Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
+            "rewind preview drops empty paths");
 
         // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
         var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };
