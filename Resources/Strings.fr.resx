@@ -212,6 +212,9 @@
   <data name="Mascot.RunningN" xml:space="preserve"><value>{0} sessions en cours</value></data>
   <data name="Mascot.TurnDone" xml:space="preserve"><value>Tour terminé</value></data>
   <data name="Mascot.Working" xml:space="preserve"><value>Claude travaille</value></data>
+  <data name="Mention.Scanning" xml:space="preserve"><value>Analyse…</value></data>
+  <data name="Mention.Title" xml:space="preserve"><value>Fichiers et dossiers</value></data>
+  <data name="Mention.Truncated" xml:space="preserve"><value>{0:N0} premières entrées</value></data>
   <data name="Md.Alert.Caution" xml:space="preserve"><value>Prudence</value></data>
   <data name="Md.Alert.Important" xml:space="preserve"><value>Important</value></data>
   <data name="Md.Alert.Note" xml:space="preserve"><value>Note</value></data>
