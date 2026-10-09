@@ -24,7 +24,7 @@
         <div class="status wait"><span class="dot wait"></span>@L["Status.ElsewhereLine"]</div>
         break;
     case SessionStatus.Exited:
-        <div class="status"><span class="dot exited"></span>@L["Status.HistoryLine", Session.Mode]</div>
+        <div class="status"><span class="dot exited"></span>@L["Status.HistoryLine", Strings.Name("Mode.Name.", Session.Mode)]</div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype == LiveSession.Interrupted:
         <div class="status"><Icon Name="stop" Sm />@L["Status.Interrupted"] <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>

@@ -240,7 +240,7 @@
         if (prompt.Trim() is { Length: > 0 } text)
         {
             try { await s.Send(text); }
-            catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] premier message : {ex.Message}"); }   // the session page shows the crash
+            catch (Exception ex) { s.Draft = text; Console.Error.WriteLine($"[{s.Id}] premier message : {ex.Message}"); }   // the session page shows the crash, and the prompt back in its composer
         }
         Nav.NavigateTo($"session/{s.Id}");
     }
