@@ -26,7 +26,7 @@ public static class CliProbe
             Git(dir, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "-q", "-m", "init");
 
             var fails = 0;
-            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode })
+            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession })
                 foreach (var (verdict, id, detail) in await probe(dir))
                 {
                     Console.WriteLine($"{verdict} {id}: {detail}");
@@ -67,6 +67,44 @@ public static class CliProbe
             return [on, after is { ValueKind: JsonValueKind.False } or null
                 ? ("PASS", $"accepted, applied.ultracode={(after is null ? "absent" : "false")}")
                 : ("FAIL", $"accepted, but applied.ultracode={after.Value.GetRawText()}")];
+        });
+    }
+
+    // permission-session: answering a can_use_tool with updatedPermissions = its non-setMode suggestions stops the CLI
+    // from asking again for the same request. The command must write: 2.1.295 auto-allows read-only ones like
+    // `git status` (the issue's original prompt), which never reach can_use_tool.
+    const string Cmd = "touch probe.txt";
+    static async Task<IEnumerable<(string, string, string)>> PermissionSession(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["permission-session"], async () =>
+        {
+            string? tool = null, types = null;
+            await c.Turn($"Run the shell command: {Cmd}", async e =>
+            {
+                var r = e.GetProperty("request");
+                if (tool is not null || Events.Prop(r, "permission_suggestions") is not { ValueKind: JsonValueKind.Array } sg) return false;
+                tool = Events.Str(r, "tool_name");
+                // 2.1.295 offers setMode next to addRules/addDirectories for a write: send only the latter, which is
+                // exactly what LiveSession.Answer() sends when no setMode is offered.
+                var rules = new JsonArray([.. sg.EnumerateArray().Where(x => Events.Str(x, "type") != "setMode").Select(x => JsonNode.Parse(x.GetRawText()))]);
+                types = string.Join("+", rules.Select(x => (string?)x!["type"]));
+                if (rules.Count == 0) return false;
+                await c.S.Respond(Events.Str(e, "request_id")!, true, r.GetProperty("input"), rules);
+                return true;
+            });
+            if (tool is null) return [("SKIP", "no can_use_tool with suggestions in the first turn")];
+            if (types is "") return [("SKIP", "only a setMode suggestion: that path is already verified")];
+            var asked = 0;
+            var second = await c.Turn($"Run the shell command again: {Cmd}", e =>
+            {
+                if (Events.Str(e.GetProperty("request"), "tool_name") == tool) asked++;
+                return Task.FromResult(false);
+            });
+            var ran = second.Count(e => ToolUse(e) == tool);
+            return [ran == 0 ? ("FAIL", $"inconclusive: no {tool} tool_use in the second turn")
+                : asked == 0 ? ("PASS", $"{types} honoured, {tool} ran again with 0 re-prompts")
+                : ("FAIL", $"{types} not honoured, {asked} re-prompt(s) for {tool}")];
         });
     }
 
