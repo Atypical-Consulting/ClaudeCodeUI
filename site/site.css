@@ -342,3 +342,7 @@ kbd{font:500 11px var(--mono);color:var(--fg-3);border:1px solid var(--seam-2);b
   .caret{display:none}
 }
 .copyable .cmd{padding-right:84px}
+.nav .lang{display:flex;gap:4px;margin-top:6px}
+.nav .lang a{flex:1;justify-content:center;font-weight:600;letter-spacing:.04em}
+.nav .lang a[aria-current="true"]{background:var(--raise-2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--seam-2)}
+@media (max-width:860px){.nav .lang{margin:0 0 0 4px}}

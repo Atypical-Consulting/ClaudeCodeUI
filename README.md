@@ -1,22 +1,24 @@
+**English** · [Français](README.fr.md)
+
 # Claude Code UI
 
-Une console de bureau pour [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). L'application pilote le vrai CLI `claude` (protocole stream-json, les mêmes options que le SDK et l'extension VS Code) et affiche les sessions de façon plus lisible qu'un terminal : texte en direct, journal des outils, permissions avec diff, plusieurs sessions en parallèle, worktrees git. Interface en français, thèmes sombres uniquement.
+A desktop console for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). The app drives the real `claude` CLI (stream-json protocol, the same options as the SDK and the VS Code extension) and shows sessions more readably than a terminal: live text, a tool log, permissions with diffs, several sessions in parallel, git worktrees. The interface is available in French and English; dark themes only.
 
-![Session en cours](docs/mockups/screens/02.png)
+![Session in progress](docs/mockups/screens/02.png)
 
 ## Installation
 
-Télécharge l'installeur de ton système sur la page des [versions GitHub](https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest). Aucun SDK .NET ni navigateur particulier n'est nécessaire : l'application embarque son serveur et utilise la vue web du système.
+Download the installer for your system from the [GitHub releases](https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest) page. No .NET SDK or particular browser is needed: the app bundles its own server and uses the system web view.
 
-| Système | Fichier | Remarque |
+| System | File | Note |
 |---|---|---|
-| Windows 10/11 | `.msi` ou `-setup.exe` | Installeur non signé : SmartScreen affiche « Windows a protégé votre ordinateur ». Clique sur « Informations complémentaires » puis « Exécuter quand même ». WebView2 est déjà présent sur Windows 11. |
-| macOS (Apple Silicon ou Intel) | `.dmg` (`aarch64` ou `x64`) | Application non signée : Gatekeeper la bloque au premier lancement. Clic droit sur l'app, « Ouvrir », puis confirmer. Ou : `xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"`. |
-| Linux x64 | `.AppImage` ou `.deb` | Nécessite WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` sur Debian/Ubuntu, déjà installé sur la plupart des bureaux). Pour l'AppImage : `chmod +x` puis lancer. |
+| Windows 10/11 | `.msi` or `-setup.exe` | Unsigned installer: SmartScreen shows "Windows protected your PC". Click "More info", then "Run anyway". WebView2 is already included in Windows 11. |
+| macOS (Apple Silicon or Intel) | `.dmg` (`aarch64` or `x64`) | Unsigned app: Gatekeeper blocks it on first launch. Right-click the app, choose "Open", then confirm. Or: `xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"`. |
+| Linux x64 | `.AppImage` or `.deb` | Requires WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` on Debian/Ubuntu, already installed on most desktops). For the AppImage: `chmod +x`, then run it. |
 
-### Prérequis : Claude Code
+### Requirement: Claude Code
 
-Le CLI Claude Code doit être installé et connecté :
+The Claude Code CLI must be installed and signed in:
 
 ```sh
 # macOS, Linux, WSL
@@ -25,47 +27,47 @@ curl -fsSL https://claude.ai/install.sh | bash
 irm https://claude.ai/install.ps1 | iex
 ```
 
-Lance ensuite `claude` une fois dans un terminal pour te connecter. Si `claude` n'est pas trouvé dans le PATH, l'application affiche un écran d'aide au lieu de l'écran de démarrage. Sur macOS, l'application lit le PATH de ton shell de connexion, donc une installation faite dans `~/.zshrc` est bien prise en compte.
+Then run `claude` once in a terminal to sign in. If `claude` is not found in the PATH, the app shows a help screen instead of the start screen. On macOS, the app reads the PATH of your login shell, so an installation done through `~/.zshrc` is picked up.
 
-## Fonctionnalités
+## Features
 
-- Nouvelle session : dossier, worktree isolé, mode de permission, premier message.
-- Texte en direct, indicateur de réflexion, journal d'outils avec inspecteur (sortie, entrée, JSON).
-- Demandes de permission avec diff : autoriser, refuser, ou autoriser pour toute la session.
-- Vue d'ensemble de toutes les sessions et file des décisions en attente (Ctrl ⇧ A).
-- Palette de commandes (Ctrl K), reprise des sessions récentes avec historique.
-- Modèle, effort, sous-agents, contexte, serveurs MCP, skills et plugins.
-- Quota 5 h / 7 jours, coût par tour.
-- Worktrees : classement et nettoyage sûr.
-- Cinq thèmes sombres et taille du code réglable.
+- New session: folder, isolated worktree, permission mode, first message.
+- Live text, thinking indicator, tool log with an inspector (output, input, JSON).
+- Permission requests with diffs: allow, deny, or allow for the whole session.
+- Overview of all sessions and a queue of pending decisions (Ctrl ⇧ A).
+- Command palette (Ctrl K), resume recent sessions with their history.
+- Model, effort, subagents, context, MCP servers, skills and plugins.
+- 5 h / 7 day quota, cost per turn.
+- Worktrees: ranking and safe cleanup.
+- Five dark themes and an adjustable code size.
 
-## Développement
+## Development
 
-Prérequis : SDK .NET 10. Pour l'application de bureau : Rust (stable), Node 20+ et les [prérequis Tauri](https://v2.tauri.app/start/prerequisites/) de ton système.
+Requirements: .NET 10 SDK. For the desktop app: Rust (stable), Node 20+ and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system.
 
 ```sh
-dotnet run                     # serveur web seul sur http://localhost:5284
-dotnet run -- --self-check     # vérifications intégrées, code de sortie non nul en cas d'échec
+dotnet run                     # web server alone on http://localhost:5284
+dotnet run -- --self-check     # built-in checks, non-zero exit code on failure
 ```
 
-Application de bureau (dossier `desktop/`) :
+Desktop app (`desktop/` folder):
 
 ```sh
 cd desktop
 npm install
-npm run server                 # publie le serveur autonome pour ta machine dans src-tauri/server
-npm run dev                    # lance la fenêtre Tauri (équivaut à cargo tauri dev)
-npm run build                  # produit les installeurs dans src-tauri/target/release/bundle
+npm run server                 # publishes the self-contained server for your machine into src-tauri/server
+npm run dev                    # launches the Tauri window (same as cargo tauri dev)
+npm run build                  # builds the installers into src-tauri/target/release/bundle
 ```
 
-La coque Tauri lance `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTTP sur 127.0.0.1 uniquement, environnement Production, accès protégé par un jeton à usage local transmis sur la sortie standard), affiche un écran de chargement, puis ouvre l'interface. Le serveur s'arrête tout seul quand la fenêtre se ferme, et arrête avec lui les processus `claude`. Relance `npm run server` après chaque modification du code .NET.
+The Tauri shell launches `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTTP on 127.0.0.1 only, Production environment, access protected by a local-use token passed over standard output), shows a loading screen, then opens the interface. The server stops on its own when the window closes, and takes the `claude` processes down with it. Re-run `npm run server` after every change to the .NET code.
 
-## Publication
+## Releasing
 
-1. Les commits suivent les [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat:`, `fix:`, `docs:`, `ci:`, `chore:`).
-2. À chaque push sur `main`, [release-please](https://github.com/googleapis/release-please) ouvre ou met à jour une PR de version : CHANGELOG, et version dans `ClaudeCodeUI.csproj`, `tauri.conf.json` et `Cargo.toml`.
-3. Fusionner cette PR crée le tag et la version GitHub. Le workflow `release.yml` construit alors les installeurs Windows, macOS (arm64 et x64) et Linux, et les attache à la version.
+1. Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/) (`feat:`, `fix:`, `docs:`, `ci:`, `chore:`).
+2. On every push to `main`, [release-please](https://github.com/googleapis/release-please) opens or updates a release PR: CHANGELOG, and the version in `ClaudeCodeUI.csproj`, `tauri.conf.json` and `Cargo.toml`.
+3. Merging that PR creates the tag and the GitHub release. The `release.yml` workflow then builds the Windows, macOS (arm64 and x64) and Linux installers and attaches them to the release.
 
-## Licence
+## License
 
 [MIT](LICENSE) © 2026 Atypical Consulting
