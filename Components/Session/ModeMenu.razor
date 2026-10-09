@@ -5,13 +5,13 @@
 
 <div class="pop slash menu" role="listbox" aria-label="@L["Composer.PermissionMode"]" @ref="list" tabindex="0" aria-activedescendant="pm-opt-@sel"
      @onkeydown="Key" @onkeydown:preventDefault>
-    <div class="sh"><span>@L["Composer.PermissionMode"]</span><span role="status" class="@(confirm is null ? null : "risk")">@(error ?? (confirm is { } c ? L["Mode.ConfirmAgain", c] : ""))</span></div>
+    <div class="sh"><span>@L["Composer.PermissionMode"]</span><span role="status" class="@(confirm is null ? null : "risk")">@(error ?? (confirm is { } c ? L["Mode.ConfirmAgain", Strings.Name("Mode.Name.", c)] : ""))</span></div>
     @for (var i = 0; i < LiveSession.Modes.Length; i++)
     {
         var m = LiveSession.Modes[i];
         var current = m == Session.Mode;
         <div id="pm-opt-@i" class="si @(current ? "on" : null) @(i == sel ? "kb" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(m)">
-            <b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b>
+            <b class="@(LiveSession.Risky(m) ? "risk" : null)">@Strings.Name("Mode.Name.", m)</b>
             <span>@L["Mode." + m]</span>
             @if (current) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
         </div>
