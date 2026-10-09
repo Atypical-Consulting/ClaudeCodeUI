@@ -6,23 +6,23 @@
 <div class="pane">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
-        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>Alt N</kbd></NavLink>
+        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>Alt N</kbd></NavLink>
         <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>Ctrl K</kbd></button>
-        <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
-        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees
+        <NavLink class="btn block ghost" href="overview" ActiveClass="cur"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
+        <NavLink class="btn block ghost" href="worktrees" ActiveClass="cur"><Icon Name="branch" Sm />Worktrees
             @if (Worktrees.CleanableCount is > 0)
             {
                 <span class="tag" style="margin-left:auto">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions
+        <NavLink class="btn block ghost" href="extensions" ActiveClass="cur"><Icon Name="plug" Sm />Extensions
             @if (FailedMcp > 0)
             {
                 <span class="pill err" style="margin-left:auto">@FailedMcp</span>
             }
         </NavLink>
     </div>
-    <div style="flex:1;min-height:0;overflow:auto">
+    <div class="scroll">
     @if (Sessions.All.Count > 0)
     {
         <div class="grp"><span class="cap">@L["Rail.Active"]</span></div>

@@ -11,7 +11,7 @@
         <span class="sub">@Fmt.Tokens(total) / @Fmt.Tokens(max) · @Fmt.Pct(total / (double)max)</span>
     }
 </div>
-<div style="flex:1;min-height:0;overflow:auto">
+<div class="scroll">
     @if (c is { } ctx && max > 0)
     {
         var rows = Rows(ctx);
@@ -37,7 +37,7 @@
                 <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
-                    <span class="btn ghost" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
+                    <span class="why" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
                 }
             </div>
             @if (error is not null)
@@ -47,7 +47,7 @@
         </div>
         @if (mcpTools.Count > 0)
         {
-            <div class="section" style="border-bottom:0">
+            <div class="section last">
                 <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
                 <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", n == 1 ? L["Tools1"] : L["ToolsN", n], k == 1 ? L["Ctx.Servers1"] : L["Ctx.ServersN", k]] @L["Ctx.DisableHint"]</p>
@@ -57,7 +57,7 @@
     }
     else
     {
-        <div class="section" style="border-bottom:0"><p>@L["Ctx.SelectRow"]</p></div>
+        <div class="section last"><p>@L["Ctx.SelectRow"]</p></div>
     }
 </div>
 

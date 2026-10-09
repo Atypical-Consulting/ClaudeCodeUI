@@ -40,10 +40,10 @@
     margin: 22vh auto auto;
     padding: 0;
     border: 1px solid var(--seam-2);
-    border-radius: 12px;
+    border-radius: var(--r-overlay);
     background: var(--raise);
     color: var(--fg-2);
-    box-shadow: 0 24px 60px -10px #000c, 0 0 0 1px #00000080;
+    box-shadow: var(--shadow-overlay);
 }
 
 #components-reconnect-modal[open] {
@@ -102,7 +102,7 @@
     position: relative;
     height: 2px;
     margin-top: 12px;
-    border-radius: 999px;
+    border-radius: var(--r-full);
     background: var(--seam-2);
     overflow: hidden;
 }

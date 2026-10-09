@@ -11,7 +11,7 @@
         <button class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" @onclick="() => tab = t">@label</button>
     }
 </div>
-<div style="flex:1;min-height:0;overflow:auto">
+<div class="scroll">
     @switch (tab)
     {
         case 0 when edit && Tool.State is not (ToolState.Denied or ToolState.Error):
@@ -61,10 +61,10 @@
         <span>@L["Tool.Kv.Status"]</span>
         @switch (Tool.State)
         {
-            case ToolState.Done: <span style="color:var(--ok)">@(edit ? L["Tool.Applied"] : L["Tool.Done"])</span> break;
-            case ToolState.Denied: <span style="color:var(--err)">@L["Tool.Denied"]</span> break;
-            case ToolState.Error: <span style="color:var(--err)">@L["Tool.Error"]</span> break;
-            case ToolState.Waiting: <span style="color:var(--accent)">@L["Tool.Waiting"]</span> break;
+            case ToolState.Done: <span class="c-ok">@(edit ? L["Tool.Applied"] : L["Tool.Done"])</span> break;
+            case ToolState.Denied: <span class="c-err">@L["Tool.Denied"]</span> break;
+            case ToolState.Error: <span class="c-err">@L["Tool.Error"]</span> break;
+            case ToolState.Waiting: <span class="c-wait">@L["Tool.Waiting"]</span> break;
             default: <span>@L["Status.Running"]</span> break;
         }
         @if (Tool.EndedAt is { } end)

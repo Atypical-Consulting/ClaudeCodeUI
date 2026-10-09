@@ -1,0 +1,7 @@
+@* The mascot, in its one colour (DESIGN.md allows the hex as the duck's own colour). Sizes stay per screen. *@
+<BlazorKawaii.Components.RubberDuck Mood="Mood" Size="Size" Color="#FCCC0A" />
+
+@code {
+    [Parameter] public Mood Mood { get; set; }
+    [Parameter] public int Size { get; set; } = 48;
+}

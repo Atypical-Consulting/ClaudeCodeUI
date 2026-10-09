@@ -19,7 +19,7 @@
         <div class="status"><Icon Name="stop" Sm />@L["Status.Interrupted"] <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype?.StartsWith("error") == true:
-        <div class="status" style="color:var(--err-fg)">@L["Status.TurnError", Session.LastResultSubtype ?? ""]</div>
+        <div class="status c-err-fg">@L["Status.TurnError", Session.LastResultSubtype ?? ""]</div>
         break;
 }
 

@@ -74,7 +74,7 @@
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
         @if (error is not null)
         {
-            <span class="r" style="color:var(--err-fg)">@error</span>
+            <span class="r c-err-fg">@error</span>
         }
         else if (Session.Ultracode && Session.Status != SessionStatus.Running)
         {
