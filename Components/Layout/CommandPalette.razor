@@ -16,7 +16,7 @@
         <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="@L["Palette.Placeholder"]" aria-label="@L["Rail.Search"]"
             role="combobox" aria-expanded="@(rows.Count > 0 ? "true" : "false")" aria-controls="pal-list" aria-autocomplete="list" aria-activedescendant="@(rows.Count > 0 ? $"pal-{sel}" : null)" /><kbd>@L["Key.Esc"]</kbd></div>
         <div id="pal-list" role="listbox" aria-label="@L["Rail.Search"]" @ref="list">
-            @foreach (var (kind, gid, title) in new[] { (0, "pal-g-s", L["Palette.Sessions"]), (1, "pal-g-m", L["Palette.Messages"]), (2, "pal-g-a", L["Palette.Actions"]) })
+            @foreach (var (kind, gid, title) in new[] { (0, "pal-g-s", L["Palette.Sessions"]), (1, "pal-g-a", L["Palette.Actions"]), (2, "pal-g-m", L["Palette.Messages"]) })
             {
                 if (!rows.Any(r => Kind(r) == kind)) continue;
                 <div role="group" aria-labelledby="@gid">
@@ -42,8 +42,12 @@
         </div>
         <div role="status">
             @if (searching) { <div class="pg" style="color:var(--fg-4)">@L["Palette.SearchingMessages"]</div> }
-            else if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
-            else if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
+            else
+            {
+                if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
+                @* A stopped scan is never a definitive "no results". *@
+                if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
+            }
         </div>
         <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
     </div>
@@ -55,7 +59,9 @@
     // Dot = dot class for a session, icon name for an action. Msg = a message hit (Name is its snippet).
     sealed record Row(bool Session, string Name, string Dot, string? Detail, int Pill, string? Right, string? Kbd, Func<Task> Run, bool Msg = false);
 
-    static int Kind(Row r) => r.Msg ? 1 : r.Session ? 0 : 2;   // display order = rows order, so ↑/↓ follow the screen
+    // Display order = rows order, so ↑/↓ follow the screen. Message hits arrive late and go last: appending never moves
+    // the row under `sel`, so "type an action, press Enter" still runs that action.
+    static int Kind(Row r) => r.Msg ? 2 : r.Session ? 0 : 1;
 
     // Message search: from MinChars, debounced, cancelled by the next keystroke or by closing, scanned off the circuit's thread.
     const int MinChars = 3, MaxHits = 20;
@@ -77,8 +83,6 @@
             .Concat(TranscriptStore.Recent().Where(p => !Sessions.IsActive(p.Id))
                 .Select(p => (Name: p.Title, p.Branch, Repo: (string?)TranscriptStore.RepoName(p.Cwd), Row: PastRow(p))));
         var rows = all.Where(x => Hit(x.Name) || Hit(x.Branch) || Hit(x.Repo)).Take(q.Length > 0 ? 8 : 5).Select(x => x.Row).ToList();
-        rows.AddRange(hits.Select(h => new Row(true, h.Snippet, Sessions.Get(h.Session.Id) is { } live ? RailSessionRow.Dot(live) : "exited",
-            Join(h.Session.Title, TranscriptStore.RepoName(h.Session.Cwd)), 0, Day(h.At), null, PastRow(h.Session).Run, Msg: true)));
 
         var cwd = CurrentCwd();
         var next = Sessions.DecisionQueue.FirstOrDefault().S;
@@ -98,6 +102,8 @@
             .. Shell.Desktop ? [new Row(false, L["Appearance.UpdateCheck"], "refresh", null, 0, Shell.Version, null, CheckForUpdates)] : Array.Empty<Row>(),
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
+        rows.AddRange(hits.Select(h => new Row(true, h.Snippet, Sessions.Get(h.Session.Id) is { } live ? RailSessionRow.Dot(live) : "exited",
+            Join(h.Session.Title, TranscriptStore.RepoName(h.Session.Cwd)), 0, Day(h.At), null, PastRow(h.Session).Run, Msg: true)));
         return rows;
     }
 
@@ -195,6 +201,11 @@
             StateHasChanged();
         }
         catch (OperationCanceledException) { }
+        catch (Exception) when (!c.IsCancellationRequested)   // fire-and-forget: never leave "Searching messages…" up
+        {
+            (partial, searching) = (true, false);
+            StateHasChanged();
+        }
     }
 
     async Task Key(KeyboardEventArgs e, List<Row> rows)
