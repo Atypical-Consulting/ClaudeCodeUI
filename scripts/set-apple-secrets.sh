@@ -37,7 +37,8 @@ gh api "repos/$repo" --jq .permissions.admin 2>/dev/null | grep -qx true || fail
 
 # --- .p12 ------------------------------------------------------------------------------------------
 [[ -f "$p12" ]] || fail "certificate not found: $p12"
-read -rsp "Password of $(basename "$p12"): " P12_PASSWORD; echo
+# read fails at EOF without a trailing newline (password piped from a file): keep what it read.
+read -rsp "Password of $(basename "$p12"): " P12_PASSWORD || [[ -n "${P12_PASSWORD:-}" ]] || fail "no password given"; echo
 export P12_PASSWORD
 pk12() {   # Keychain exports use legacy ciphers that OpenSSL 3 only reads with -legacy
   openssl pkcs12 -in "$p12" -passin env:P12_PASSWORD "$@" 2>/dev/null \
