@@ -50,7 +50,7 @@ public sealed class WorktreeService(SessionManager sessions)
 
     public async Task<IReadOnlyList<string>> DiscoverReposAsync(bool refresh, CancellationToken ct)
     {
-        var live = Sessions.All.Select(s => StripWorktree(s.Cwd)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var live = Sessions.All.Select(s => Norm(StripWorktree(s.Cwd))).ToHashSet(StringComparer.OrdinalIgnoreCase);
         string[] mem;
         lock (rememberedGate) mem = [.. remembered ??= LoadRemembered()];
         if (repos is null || refresh) repos = await Task.Run(() => FromTranscripts().ToList(), ct);
@@ -62,7 +62,7 @@ public sealed class WorktreeService(SessionManager sessions)
             var r = await RootOf(cwd, ct);
             if (r is null) { dead.TryAdd(Norm(cwd), 0); return; }
             roots.TryAdd(r, 0);
-            if (live.Contains(cwd)) liveRoots.TryAdd(r, 0);
+            if (live.Contains(Norm(cwd))) liveRoots.TryAdd(r, 0);
         });
         lock (rememberedGate)
         {
@@ -476,6 +476,11 @@ public sealed class WorktreeService(SessionManager sessions)
             File.WriteAllText(file, JsonSerializer.Serialize(new[] { Norm(plain) }));
             Disc(Svc(new SessionManager()));
             SelfCheck.Assert(File.ReadAllText(file).Contains("plain"), "Discover : dossier existant sans racine git reste mémorisé");
+            var gone = System.IO.Path.Combine(tmp, "gone");   // never created; a live session still points at it (trailing slash)
+            File.WriteAllText(file, JsonSerializer.Serialize(new[] { Norm(gone) }));
+            var smGone = new SessionManager(); smGone.Open(new PastSession(Guid.NewGuid().ToString(), gone + "/", "g", "t", null, DateTimeOffset.Now, null));
+            Disc(Svc(smGone));
+            SelfCheck.Assert(File.ReadAllText(file).Contains("gone"), "Discover : cwd de session vivante comparé normalisé");
         }
         finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
     }
