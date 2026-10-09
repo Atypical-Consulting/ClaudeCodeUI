@@ -2,7 +2,10 @@
    Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
 @inject IJSRuntime JS
 
+@* role=log wraps the blocks only: finished blocks are announced as they are added; the token-by-token stream is hidden
+   until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
 <div class="thread" @ref="el">
+<div role="log" aria-live="polite" aria-relevant="additions">
     @{ var blocks = Blocks(); var last = blocks.OfType<Run>().LastOrDefault(r => !r.Agents); }
     @foreach (var b in blocks)
     {
@@ -28,24 +31,31 @@
                 break;
         }
     }
-    @if (Session.StreamingText.Length > 0)
-    {
-        <div class="prose md"><p style="white-space:pre-wrap">@Session.StreamingText<span class="caret"></span></p></div>
-    }
-    <StatusLine Session="Session" />
+    <StreamingTail Session="Session" />
+</div>
+    <Ticker Active="Session.Status == SessionStatus.Running"><StatusLine Session="Session" /></Ticker>
     <CrashBanner Session="Session" />
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     ElementReference el;
+    int prompts;
 
     sealed record Run(List<ToolItem> Tools, bool Agents);
 
+    // Rebuilt only when Items is replaced: tool state changes in place and does not move blocks.
+    System.Collections.Immutable.ImmutableList<Item>? blocksOf;
+    List<object> blocks = [];
+    (LiveSession, int)? scrolled;
+
     List<object> Blocks()
     {
-        var blocks = new List<object>();
-        foreach (var item in Session.Items)
+        var items = Session.Items;
+        if (blocksOf == items) return blocks;
+        blocksOf = items;
+        blocks = [];
+        foreach (var item in items)
         {
             switch (item)
             {
@@ -63,9 +73,16 @@
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).
+    // StreamingTail pins it while text streams; here only after a change of the session, not after a selection.
+    // A new prompt brings it back down: the user wants to see what they just sent and the reply.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el); }
+        if (scrolled == (Session, Session.Version)) return;
+        scrolled = (Session, Session.Version);
+        var n = Session.Items.Count(i => i is UserItem);
+        var force = n > prompts;
+        prompts = n;
+        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el, force); }
         catch (JSException) { }
         catch (JSDisconnectedException) { }
     }

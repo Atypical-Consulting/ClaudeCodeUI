@@ -19,9 +19,16 @@
 else if (Past is { } p)
 {
     <a class="s" href="@($"session/{p.Id}")" @onclick="Open" @onclick:preventDefault>
-        <span class="dot idle"></span>
+        <span class="dot exited"></span>
         <div><div class="n">@p.Title</div>@Where(p.Branch, TranscriptStore.RepoName(p.Cwd))</div>
-        <span class="c">@(p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : "")</span>
+        @if (Sessions.RunningElsewhere(p.Id))
+        {
+            <span class="c" style="color:var(--ok)">@L["Status.Elsewhere"]</span>
+        }
+        else
+        {
+            <span class="c">@(p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : "")</span>
+        }
     </a>
 }
 
@@ -34,6 +41,7 @@ else if (Past is { } p)
         SessionStatus.Waiting => "wait",
         SessionStatus.Running => "run",
         SessionStatus.Crashed => "err",
+        SessionStatus.Exited => "exited",
         _ => "idle",
     };
 

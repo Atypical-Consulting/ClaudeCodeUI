@@ -29,7 +29,7 @@
             {
                 @if (note is not null)
                 {
-                    <div class="errbox">@note</div>
+                    <div class="errbox" role="alert">@note</div>
                 }
                 <div class="filters">
                     @Filter("", L["Filter.All"], servers.Count)
@@ -177,7 +177,7 @@
     {
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
-        _ = Refresh();
+        if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
     }
 
     void OnChanged()

@@ -1,7 +1,6 @@
 @inject UiState Ui
 
-<div class="t @Class" role="button" tabindex="0" @onclick="() => Ui.SelectedToolId = Tool.Id"
-     @onkeydown='e => { if (e.Key is "Enter" or " ") Ui.SelectedToolId = Tool.Id; }'>
+<div class="t @Class" role="button" tabindex="0" @onclick="Select" @onkeydown='e => { if (e.Key is "Enter" or " ") Select(); }'>
     <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
     <span class="kind" style="color:@ToolKinds.Color(Tool.Name)" title="@Tool.Name">@ToolKinds.Label(Tool.Name)</span>
     <span class="p">@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
@@ -13,6 +12,25 @@
     [Parameter] public ToolItem Tool { get; set; } = null!;
 
     bool Selected => Ui.SelectedToolId == Tool.Id;
+
+    // A row only changes with its tool's state, its selection or the session cwd, not on every page render.
+    // Structured/ResultText (read by Meta) are left out on purpose: LiveSession sets them in the same reducer step as
+    // State + EndedAt (the only earlier write, an async launch receipt, lands while Running, where Meta shows "…").
+    // If a result ever arrives as a separate event, add it to this key and to the Done() cache key.
+    (ToolState, DateTimeOffset?, bool, string)? drawn;
+    protected override bool ShouldRender()
+    {
+        var k = (Tool.State, Tool.EndedAt, Selected, Session.Cwd);
+        if (drawn == k) return false;
+        drawn = k;
+        return true;
+    }
+
+    void Select()
+    {
+        Ui.SelectedToolId = Tool.Id;
+        Ui.InspectorOpen = true;   // the row's only effect is the Inspector: a closed one would swallow the click
+    }
     string? Class => Tool.State switch
     {
         ToolState.Waiting => "wait",
@@ -31,7 +49,18 @@
         _ => Done(t) is { Length: > 0 } m ? @<span class="m">@m</span> : _ => { },
     };
 
+    // Computed once per finished tool, keyed on EndedAt (a background agent can finish again).
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ToolItem, Tuple<DateTimeOffset?, string>> metas = new();
+
     static string Done(ToolItem t)
+    {
+        if (metas.TryGetValue(t, out var c) && c.Item1 == t.EndedAt) return c.Item2;
+        var m = Compute(t);
+        metas.AddOrUpdate(t, Tuple.Create(t.EndedAt, m));
+        return m;
+    }
+
+    static string Compute(ToolItem t)
     {
         var s = t.Structured ?? default;
         switch (t.Name)
