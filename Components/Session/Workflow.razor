@@ -2,13 +2,13 @@
    No phases, workflow name or per-agent cost: the CLI does not provide them. *@
 @inject UiState Ui
 
+<Ticker Active="Agents.Any(a => a.EndedAt is null)">
 <div class="wf">
     <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">@L["Workflow.Tag"]</span><span class="r">@Head</span></div>
     @foreach (var a in Agents)
     {
         var isOpen = open.Contains(a.Id);
-        <div @key="a.Id" class="agent @(Ui.SelectedToolId == a.Id ? "sel" : null)" role="button" tabindex="0" @onclick="() => Click(a)"
-             @onkeydown='e => { if (e.Key is "Enter" or " ") Click(a); }'>
+        <button type="button" @key="a.Id" class="agent @(Ui.SelectedToolId == a.Id ? "sel" : null)" aria-expanded="@(isOpen ? "true" : "false")" @onclick="() => Click(a)">
             <Icon Name="@(isOpen ? "down" : "right")" Sm Class="chev" />
             @if (a.State == ToolState.Done)
             {
@@ -21,7 +21,7 @@
             <span class="nm">@(Events.Str(a.Input, "description") ?? L["Agent.Title"]) <small>@Events.Str(a.Input, "subagent_type")</small></span>
             <span class="m">@State(a)</span>
             <span class="m">—</span>
-        </div>
+        </button>
         @if (isOpen && Children(a) is { Count: > 0 } kids)
         {
             <div @key="a.Id + '/'" class="subrun">
@@ -33,6 +33,7 @@
         }
     }
 </div>
+</Ticker>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
@@ -47,7 +48,7 @@
     }
 
     List<ToolItem> Children(ToolItem a) =>
-        Session.Items.OfType<ToolItem>().Where(t => t.ParentToolUseId == a.Id && t.Name != "SubagentHandback").ToList();
+        Session.Children[a.Id].OfType<ToolItem>().Where(t => t.Name != "SubagentHandback").ToList();
 
     static TimeSpan Elapsed(ToolItem t) => (t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt;
 

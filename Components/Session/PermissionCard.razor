@@ -1,14 +1,14 @@
-@* can_use_tool for this session. ⏎ / Maj ⏎ / Suppr arrive through UiState.Key (app.js forwards them while [data-permission] is shown). *@
+@* can_use_tool for this session. ⏎ / Maj ⏎ / Suppr arrive through UiState.Key (app.js forwards them while focus is inside [data-permission]). *@
 @implements IDisposable
 @inject SessionManager Sessions
 @inject UiState Ui
-@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="ph"><span class="ttl">@L["Perm.Title"]</span><span class="sub">@Permission.Tool</span>
+<div class="ph"><h2 class="ttl">@L["Perm.Title"]</h2><span class="sub">@Permission.Tool</span>
     <span class="end"><span class="pill wait">@L["OfN", queue.FindIndex(x => x.P == Permission) + 1, queue.Count]</span></span>
 </div>
 <div style="flex:1;min-height:0;overflow:auto">
-    <div class="section" data-permission>
+    <div class="section" data-permission tabindex="-1" role="group" aria-label="@Title" @ref="card">
         <h3>@Title</h3>
         @if (Events.Str(Permission.Input, "description") is { Length: > 0 } d)
         {
@@ -34,11 +34,15 @@
             }
             <button class="btn danger" disabled="@answered" @onclick="() => Answer(Decision.Deny)">@L["Perm.Deny"]</button>
         </div>
+        @if (CanAllowSession)
+        {
+            <p style="font-size:12px">@L["Perm.WholeSession"] · @SessionGrant</p>
+        }
         @if (error is not null)
         {
-            <div class="errbox">@error</div>
+            <div class="errbox" role="alert">@error</div>
         }
-        <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]</p>
+        <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
     </div>
     @if (queue.Where(x => x.P != Permission).ToList() is { Count: > 0 } others)
     {
@@ -46,11 +50,11 @@
             <span class="cap">@L["Perm.AlsoWaiting"]</span>
             @foreach (var (s, p) in others)
             {
-                <div class="q" style="grid-template-columns:auto 52px minmax(0,1fr);padding:0;border:0;cursor:pointer" @onclick="() => Open(s)">
+                <a class="q" href="session/@s.Id" style="grid-template-columns:auto 84px minmax(0,1fr);padding:0;border:0">
                     <span class="dot wait"></span>
-                    <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                    <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
                     <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Input, s.Cwd)</span></span>
-                </div>
+                </a>
             }
         </div>
     }
@@ -61,9 +65,11 @@
     [Parameter] public PendingPermission Permission { get; set; } = null!;
 
     List<(LiveSession S, PendingPermission P)> queue = [];
+    List<string> names = [];
     IReadOnlyList<DiffLine>? diff;
     PendingPermission? shown;
-    bool answered;
+    ElementReference card;
+    bool answered, arm, exists;
     string? error;
 
     // "Toute la session": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions.
@@ -73,7 +79,7 @@
     string Title => Permission.Tool switch
     {
         "Edit" or "MultiEdit" => L["Perm.Edit", File],
-        "Write" => System.IO.File.Exists(Events.Str(Permission.Input, "file_path")) ? L["Perm.Overwrite", File] : L["Perm.Create", File],
+        "Write" => exists ? L["Perm.Overwrite", File] : L["Perm.Create", File],
         var t when ToolKinds.IsShell(t) => L["Perm.Run"],
         var t => L["Perm.AllowTool", t],
     };
@@ -86,12 +92,36 @@
 
     protected override void OnParametersSet()
     {
-        queue = [.. Sessions.DecisionQueue];
+        Load();
         if (shown == Permission) return;
         shown = Permission;
         answered = false;
+        arm = true;
         error = null;
+        exists = Permission.Tool == "Write" && System.IO.File.Exists(Events.Str(Permission.Input, "file_path"));   // once, not per render
         diff = ToolKinds.IsEdit(Permission.Tool) ? EditDiff.FromInput(Permission.Tool, Permission.Input) : null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!arm) return;
+        arm = false;
+        await JS.InvokeVoidAsync("claudeUi.armPermission", card);
+    }
+
+    // What "Whole session" grants, as LiveSession.Answer sends it: a setMode wins, else the rules and directories.
+    string SessionGrant
+    {
+        get
+        {
+            var sg = Permission.Suggestions!.Value.EnumerateArray().ToList();
+            if (Events.Str(sg.FirstOrDefault(x => Events.Str(x, "type") == "setMode"), "mode") is { } mode) return L["Perm.GrantMode", mode];
+            var parts = sg.SelectMany(x => Events.Prop(x, Events.Str(x, "type") == "addDirectories" ? "directories" : "rules") is { ValueKind: JsonValueKind.Array } a
+                ? a.EnumerateArray().Select(v => v.ValueKind == JsonValueKind.String ? v.GetString()!
+                    : Events.Str(v, "toolName") + (Events.Str(v, "ruleContent") is { Length: > 0 } c ? $"({c})" : ""))
+                : []);
+            return L["Perm.GrantRules", string.Join(", ", parts)];
+        }
     }
 
     async Task Answer(Decision d)
@@ -99,7 +129,7 @@
         if (answered || (d == Decision.AllowSession && !CanAllowSession)) return;
         answered = true;
         try { await Session.Answer(Permission, d); }
-        catch (Exception ex) { error = ex.Message; answered = false; }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 
     void OnKey(string key) => InvokeAsync(async () =>
@@ -114,9 +144,17 @@
         StateHasChanged();
     });
 
-    void Open(LiveSession s) => Nav.NavigateTo("session/" + s.Id);
+    // Re-render only when the queue (or a listed session name or cwd) changed, not on every event of every session.
+    void Refresh() => InvokeAsync(() => { if (Load()) StateHasChanged(); });
 
-    void Refresh() => InvokeAsync(() => { queue = [.. Sessions.DecisionQueue]; StateHasChanged(); });
+    bool Load()
+    {
+        List<(LiveSession S, PendingPermission P)> q = [.. Sessions.DecisionQueue];
+        var n = q.ConvertAll(x => x.S.Name + "\0" + x.S.Cwd);   // rows show the name and a cwd-relative target
+        if (q.SequenceEqual(queue) && n.SequenceEqual(names)) return false;
+        (queue, names) = (q, n);
+        return true;
+    }
 
     public void Dispose()
     {

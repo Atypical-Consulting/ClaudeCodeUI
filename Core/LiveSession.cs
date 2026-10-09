@@ -13,32 +13,41 @@ public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
+// Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
-    public ToolState State { get; set; }
-    public string? ResultText { get; set; }
-    public JsonElement? Structured { get; set; }
-    public DateTimeOffset StartedAt { get; set; }
-    public DateTimeOffset? EndedAt { get; set; }
-    public string? TaskId { get; set; }          // Agent only
-    public long Tokens { get; set; }
-    public int SubToolUses { get; set; }
-    public bool Background { get; set; }         // Agent launched async: outlives its turn, ends on its task-notification
+    public ToolState State { get; init; }
+    public string? ResultText { get; init; }
+    public JsonElement? Structured { get; init; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset? EndedAt { get; init; }
+    public string? TaskId { get; init; }          // Agent only
+    public long Tokens { get; init; }
+    public int SubToolUses { get; init; }
+    public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
 }
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
 
-// One claude process and its state. The reducer (Apply) runs on the process reader thread; lists are
+// One claude process and its state. The reducer (Apply) runs on the process reader thread; lists and their items are
 // immutable snapshots replaced on write, so components read them without locking.
 public sealed class LiveSession : IAsyncDisposable
 {
     readonly Lock gate = new();
+    readonly HashSet<string> answering = [];   // request ids whose reply is in flight
     ClaudeSession? proc;
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
     int turns;                                                 // sent and not yet answered by a result (the CLI queues them)
     long lastNotify;
     int notifyQueued;
+    int version;
+
+    // Modes the UI offers. bypassPermissions / dontAsk are deliberately not offered.
+    public static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
+    // Modes that change files without asking: confirmed when the folder is not an isolated worktree.
+    public static bool Risky(string mode) => mode is "auto" or "acceptEdits";
+    public bool Isolated => Worktree is not null || TranscriptStore.RootOf(Cwd) != Cwd;
 
     public LiveSession(string id, string name, string cwd, string mode, string? worktree = null, string? model = null, string? effort = null, bool resumable = false)
     {
@@ -57,22 +66,30 @@ public sealed class LiveSession : IAsyncDisposable
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
     public ImmutableList<PendingPermission> Pending { get; private set; } = [];
-    public string StreamingText { get; private set; } = "";
+    // Appended per text_delta under gate; the string is only materialized when read (once per render, not per delta).
+    readonly System.Text.StringBuilder stream = new();
+    string? streamText = "";
+    public string StreamingText { get { lock (gate) return streamText ??= stream.ToString(); } }
+    void ClearStream() { stream.Clear(); streamText = ""; }
     public int ThinkingTokens { get; private set; }
     public decimal CostUsd { get; internal set; }
     public decimal LastTurnCostUsd { get; private set; }
     decimal costBase;                                          // cost of earlier processes, minus what --resume restores
+    public decimal CostAtOpen { get; init; }                   // lifetime cost already in the transcript when opened: not spent in this run
     public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
-    public DateTimeOffset StartedAt { get; }
-    public DateTimeOffset LastEventAt { get; private set; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset LastEventAt { get; internal set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public TimeSpan? LastTurn { get; private set; }
-    public string? LastResultSubtype { get; private set; }   // "interrompu" after an interrupt
+    public const string Interrupted = "interrupted";   // protocol sentinel, never shown: display text lives in the resx
+    public string? LastResultSubtype { get; private set; }   // Interrupted after an interrupt
     public DateTimeOffset? LastResultAt { get; private set; }
     public int? ExitCode { get; private set; }
     public string? ExitText { get; private set; }
+    public bool StartFailed { get; private set; }   // the claude process never spawned: no turn ran
+    public string ExitLabel => StartFailed ? Strings.Get("Session.NotStarted") : Strings.Get("Session.ExitShort", ExitCode);
     public InitEvt? Init { get; private set; }
     public JsonElement? InitializeInfo { get; private set; }  // "initialize" response: models, commands, agents, account
     public string? Model { get; private set; }
@@ -85,6 +102,7 @@ public sealed class LiveSession : IAsyncDisposable
     public RateLimitEvt? Limits { get; private set; }
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
+    public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
 
     public event Action? Changed;
 
@@ -102,17 +120,26 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task Answer(PendingPermission p, Decision d)
     {
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
-        lock (gate) Resolve(p, d);
-        Notify();
-        if (d == Decision.Deny) { await c.Respond(p.RequestId, false, p.Input); return; }
-        JsonNode? updated = null;
-        if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+        // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
+        lock (gate) if (!answering.Add(p.RequestId)) return;
+        try
         {
-            var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
-            if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
-            else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input);
+            else
+            {
+                JsonNode? updated = null;
+                if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+                {
+                    var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
+                    if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
+                    else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+                }
+                await c.Respond(p.RequestId, true, p.Input, updated);
+            }
+            lock (gate) Resolve(p, d);
+            Notify();
         }
-        await c.Respond(p.RequestId, true, p.Input, updated);
+        finally { lock (gate) answering.Remove(p.RequestId); }
     }
 
     public async Task Interrupt()
@@ -125,6 +152,14 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (proc is { } old) { proc = null; await old.DisposeAsync(); }
         EnsureProcess();
+    }
+
+    // Before the first send of a resumed session there is no process yet: the mode goes into --permission-mode.
+    public async Task SetMode(string m)
+    {
+        if (proc is { } p) await p.Request("set_permission_mode", new() { ["mode"] = m });
+        Mode = m;
+        Notify();
     }
 
     public async Task SetModel(string m)
@@ -157,29 +192,31 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- process ----------
 
+    // Locked check-then-spawn: two circuits (or Boot and the reader thread) would otherwise start two claude with one --session-id.
     internal ClaudeSession EnsureProcess()
     {
-        if (proc is { } p) return p;
-        var resume = resumable || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".claude", "projects", TranscriptStore.Slug(Cwd), Id + ".jsonl"));
-        var args = Args(resume);
-
         ClaudeSession s = null!;
-        try
+        lock (gate)
         {
-            // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
-            costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
-            s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
-                l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+            if (proc is { } p) return p;
+            var resume = resumable || TranscriptStore.Find(Id) is not null;
+            var args = Args(resume);
+            try
+            {
+                // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
+                costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
+                s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
+                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+            }
+            catch (Exception ex)
+            {
+                OnExit(null, -1, Strings.Get("Session.StartFailed", ex.Message));
+                throw;
+            }
+            proc = s;
+            ExitCode = null; ExitText = null;
+            Status = SessionStatus.Starting;
         }
-        catch (Exception ex)
-        {
-            OnExit(null, -1, Strings.Get("Session.StartFailed", ex.Message));
-            throw;
-        }
-        proc = s;
-        ExitCode = null; ExitText = null;
-        Status = SessionStatus.Starting;
         Notify();
         _ = Boot(s);
         return s;
@@ -207,9 +244,19 @@ public sealed class LiveSession : IAsyncDisposable
         {
             // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute. Wait ONCE on the same
             // request_id: re-sending under a new id dropped a late answer to the first one.
-            var init = p.Request("initialize", null, 180);
+            const int initSeconds = 180;
+            var init = p.Request("initialize", null, initSeconds);
             if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize: still waiting after 60 s");
-            var info = await init;
+            JsonElement info;
+            try { info = await init; }
+            catch (TimeoutException)
+            {
+                // A CLI that never answered initialize will not run a turn either: rather than a ready-looking Idle session,
+                // stop it and show the reason in the crash banner, whose Restart button relaunches it.
+                Console.Error.WriteLine($"[{Id}] initialize: no answer after {initSeconds} s, stopping claude");
+                if (OnExit(p, -1, Strings.Get("Session.InitTimeout", initSeconds))) await p.DisposeAsync();   // false: p already exited or was replaced
+                return;
+            }
             InitializeInfo = info;
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
@@ -234,14 +281,18 @@ public sealed class LiveSession : IAsyncDisposable
         static DateTimeOffset Reset(JsonElement w) => DateTimeOffset.TryParse(Events.Str(w, "resets_at"), out var t) ? t : default;
     }
 
+    // One notification per batch, coalesced to 50 ms; a permission or a result is shown at once.
     internal Task OnEvent(JsonElement raw)
     {
+        bool any = false, urgent = false;
         foreach (var e in Events.ParseAll(raw))
         {
             var cwd = Cwd;
             Apply(e);
+            any = true;
+            if (e is PermissionEvt or ResultEvt) urgent = true;
+            else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
-            if (e is TextDeltaEvt) Throttled(); else Notify();
             if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
             if (e is ResultEvt && turnUltra)
             {
@@ -251,23 +302,26 @@ public sealed class LiveSession : IAsyncDisposable
                     .ContinueWith(t => Console.Error.WriteLine($"[{Id}] ultracode off : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
             }
         }
+        if (urgent) Notify(); else if (any) Throttled();
         return Task.CompletedTask;
     }
 
-    void OnExit(ClaudeSession? s, int code, string text)
+    // false when s is no longer this session's process (already exited or replaced): nothing changed.
+    bool OnExit(ClaudeSession? s, int code, string text)
     {
         lock (gate)
         {
-            if (s is not null && proc != s) return;
+            if (s is not null && proc != s) return false;
             proc = null;
             Status = SessionStatus.Crashed;
-            ExitCode = code; ExitText = text;
+            ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
             TurnStartedAt = null;
-            StreamingText = "";
+            ClearStream();
             EndTools(DateTimeOffset.Now, false);
         }
         Notify();
+        return true;
     }
 
     internal async Task RefreshGit()
@@ -308,9 +362,18 @@ public sealed class LiveSession : IAsyncDisposable
         Notify();
     }
 
-    // ---------- notifications: at most one per 50 ms while text streams ----------
+    // ---------- notifications: at most one per 50 ms while events stream ----------
+
+    // Bumped by every change except streamed text: views that do not show StreamingText skip renders where only it moved.
+    public int Version => Volatile.Read(ref version);
 
     void Notify()
+    {
+        Interlocked.Increment(ref version);
+        Raise();
+    }
+
+    void Raise()
     {
         Interlocked.Exchange(ref lastNotify, Environment.TickCount64);
         Changed?.Invoke();
@@ -319,9 +382,9 @@ public sealed class LiveSession : IAsyncDisposable
     void Throttled()
     {
         var wait = 50 - (Environment.TickCount64 - Interlocked.Read(ref lastNotify));
-        if (wait <= 0) { Notify(); return; }
+        if (wait <= 0) { Raise(); return; }
         if (Interlocked.Exchange(ref notifyQueued, 1) == 1) return;
-        _ = Task.Delay((int)wait).ContinueWith(_ => { Interlocked.Exchange(ref notifyQueued, 0); Notify(); });
+        _ = Task.Delay((int)wait).ContinueWith(_ => { Interlocked.Exchange(ref notifyQueued, 0); Raise(); });
     }
 
     // ---------- reducer ----------
@@ -332,14 +395,16 @@ public sealed class LiveSession : IAsyncDisposable
         Status = SessionStatus.Running;
         turns++;
         TurnStartedAt = DateTimeOffset.Now;
-        StreamingText = "";
+        ClearStream();
         ThinkingTokens = 0;
     }
 
+    // Runs after the reply was sent, so the CLI may already have moved the tool on (result, end of turn): only a Waiting tool changes.
     internal void Resolve(PendingPermission p, Decision d)
     {
+        if (!Pending.Contains(p)) return;
         Pending = Pending.Remove(p);
-        if (Tool(p.ToolUseId) is { } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
+        if (Tool(p.ToolUseId) is { State: ToolState.Waiting } t) Set(t, t with { State = d == Decision.Deny ? ToolState.Denied : ToolState.Running });
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
     }
 
@@ -347,14 +412,30 @@ public sealed class LiveSession : IAsyncDisposable
     internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
         turns = 0;
-        foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting && !(keepBackground && t.Background)))
+        Items = Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t && !(keepBackground && t.Background)
+            ? t with { State = ToolState.Error, EndedAt = now } : i);
+    }
+
+    public ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+
+    // Subagent items by parent tool id, in order; rebuilt once per Items snapshot (ids and parents never change in place).
+    sealed record ChildIndex(ImmutableList<Item> Of, ILookup<string, Item> By);
+    ChildIndex? children;
+    public ILookup<string, Item> Children
+    {
+        get
         {
-            t.State = ToolState.Error;
-            t.EndedAt = now;
+            var items = Items;
+            if (children is { } c && c.Of == items) return c.By;
+            var by = items.Select(i => (P: i switch { ToolItem t => t.ParentToolUseId, TextItem x => x.ParentToolUseId, _ => null }, I: i))
+                          .Where(x => x.P is not null).ToLookup(x => x.P!, x => x.I);
+            children = new(items, by);
+            return by;
         }
     }
 
-    ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+    // Replaces one tool row (by reference: two rows never share an instance). Callers hold the gate, or own the session (replay).
+    internal void Set(ToolItem old, ToolItem now) => Items = Items.Replace(old, now, ReferenceEqualityComparer.Instance);
 
     internal void Apply(ClaudeEvent e)
     {
@@ -385,38 +466,41 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case TextDeltaEvt { ParentToolUseId: null } d:
-                StreamingText += d.Text;
+                stream.Append(d.Text);
+                streamText = null;
                 break;
 
             case AssistantTextEvt { Synthetic: true, ParentToolUseId: null } a when ApiErrors.Parse(a.Text) is { } err:
-                StreamingText = "";
+                ClearStream();
                 Items = Items.Add(new ApiErrorItem(err));
                 break;
 
             case AssistantTextEvt a:
-                if (a.ParentToolUseId is null) StreamingText = "";
+                if (a.ParentToolUseId is null) ClearStream();
                 Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId));
                 break;
 
             case ToolUseEvt u:
-                if (u.ParentToolUseId is null) StreamingText = "";
+                if (u.ParentToolUseId is null) ClearStream();
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
                 break;
 
             case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && ToolKinds.IsAgent(t.Name)
                                                               && Events.Str(rs, "status") == "async_launched":
-                t.Background = true;   // launch receipt, not the outcome: stays Running until the task-notification
-                t.TaskId = Events.Str(rs, "agentId") ?? t.TaskId;
-                t.Structured = rs;
+                // launch receipt, not the outcome: stays Running until the task-notification
+                Set(t, t with { Background = true, TaskId = Events.Str(rs, "agentId") ?? t.TaskId, Structured = rs });
                 break;
 
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
-                t.State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done;
-                t.ResultText = r.Text;
-                t.Structured = r.Structured;
-                t.EndedAt = now;
-                if (r.Structured is { } s && Events.Prop(s, "totalTokens") is { ValueKind: JsonValueKind.Number } tok) t.Tokens = tok.GetInt64();
+                Set(t, t with
+                {
+                    State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
+                    ResultText = r.Text,
+                    Structured = r.Structured,
+                    EndedAt = now,
+                    Tokens = r.Structured is { } st && Events.Prop(st, "totalTokens") is { ValueKind: JsonValueKind.Number } tok ? tok.GetInt64() : t.Tokens,
+                });
                 break;
 
             case UserTextEvt u when UserText(u.Text) is { } text:
@@ -425,7 +509,7 @@ public sealed class LiveSession : IAsyncDisposable
 
             case PermissionEvt p:
                 Pending = Pending.Add(new(p.RequestId, p.Tool, p.Input, p.Description, p.ToolUseId, p.Suggestions, now));
-                if (Tool(p.ToolUseId) is { } wt) wt.State = ToolState.Waiting;
+                if (Tool(p.ToolUseId) is { } wt) Set(wt, wt with { State = ToolState.Waiting });
                 Status = SessionStatus.Waiting;
                 break;
 
@@ -438,7 +522,7 @@ public sealed class LiveSession : IAsyncDisposable
                 else LastTurnCostUsd = 0;
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
                 var aborted = r.TerminalReason?.StartsWith("aborted") == true;   // an interrupt also drops the queued messages
-                LastResultSubtype = aborted ? "interrompu" : r.Subtype;
+                LastResultSubtype = aborted ? Interrupted : r.Subtype;
                 LastResultAt = now;
                 if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
                 if (r.ContextWindow is { } w) ContextWindow = w;
@@ -447,7 +531,7 @@ public sealed class LiveSession : IAsyncDisposable
                 EndTools(now);
                 turns = left;
                 Pending = [];
-                StreamingText = "";
+                ClearStream();
                 ThinkingTokens = 0;
                 if (left > 0) break;   // a message sent during the turn runs next
                 TurnStartedAt = null;
@@ -460,21 +544,23 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case TaskStartedEvt ts when Tool(ts.ToolUseId) is { } t:
-                t.TaskId = ts.TaskId;
+                Set(t, t with { TaskId = ts.TaskId });
                 break;
 
-            case TaskProgressEvt tp when Items.OfType<ToolItem>().LastOrDefault(t => t.TaskId == tp.TaskId) is { } t:
-                t.Tokens = tp.TotalTokens;
-                t.SubToolUses = tp.ToolUses;
+            case TaskProgressEvt tp when Items.LastOrDefault(i => i is ToolItem t && t.TaskId == tp.TaskId) is ToolItem t:   // IList: scans from the end
+                Set(t, t with { Tokens = tp.TotalTokens, SubToolUses = tp.ToolUses });
                 break;
 
-            case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.OfType<ToolItem>().LastOrDefault(x => td.TaskId.Length > 0 && x.TaskId == td.TaskId)) is { } t
+            case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.LastOrDefault(i => i is ToolItem x && td.TaskId.Length > 0 && x.TaskId == td.TaskId) as ToolItem) is { } t
                                      && (t.State == ToolState.Running || t.Background):   // a resumed background agent notifies again
-                t.State = td.Status == "completed" ? ToolState.Done : ToolState.Error;
-                t.EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now;
-                if (td.Result is not null) t.ResultText = td.Result;
-                if (td.Tokens > 0) t.Tokens = td.Tokens;
-                if (td.ToolUses > 0) t.SubToolUses = td.ToolUses;
+                Set(t, t with
+                {
+                    State = td.Status == "completed" ? ToolState.Done : ToolState.Error,
+                    EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now,
+                    ResultText = td.Result ?? t.ResultText,
+                    Tokens = td.Tokens > 0 ? td.Tokens : t.Tokens,
+                    SubToolUses = td.ToolUses > 0 ? td.ToolUses : t.SubToolUses,
+                });
                 break;
 
             case TitleEvt { Title.Length: > 0 } ti:
@@ -519,6 +605,9 @@ public sealed class LiveSession : IAsyncDisposable
         s.Apply(new TextDeltaEvt("je ", null));
         s.Apply(new TextDeltaEvt("crée", null));
         Ok(s.StreamingText == "je crée", "streaming text");
+        var v = s.Version;
+        s.OnEvent(JsonDocument.Parse("""{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"!"}}}""").RootElement);
+        Ok(s.StreamingText == "je crée!" && s.Version == v, "text delta leaves Version unchanged");
         s.Apply(new AssistantTextEvt("m1", "je crée", null, false));
         Ok(s.StreamingText == "" && s.Items[^1] is TextItem { Markdown: "je crée" }, "text block replaces stream");
         s.Apply(new ToolUseEvt("t1", "Write", input, null));
@@ -527,16 +616,19 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Status == SessionStatus.Waiting && s.Pending.Count == 1 && s.Items[^1] is ToolItem { State: ToolState.Waiting }, "permission");
         s.Resolve(s.Pending[0], Decision.Deny);
         Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty && s.Items[^1] is ToolItem { State: ToolState.Denied }, "deny");
-        s.Apply(new ToolResultEvt("t1", "Refusé par l’utilisateur", true, null));
-        Ok(s.Items[^1] is ToolItem { State: ToolState.Denied, ResultText: "Refusé par l’utilisateur" }, "denied stays denied");
+        s.Apply(new ToolResultEvt("t1", "The user denied this tool use.", true, null));
+        Ok(s.Items[^1] is ToolItem { State: ToolState.Denied, ResultText: "The user denied this tool use." }, "denied stays denied");
         s.Apply(new ResultEvt("success", false, 0.01m, 2400, 2, 41878, 1000000, "off", "sdk_opt_in_required"));
         Ok(s.Status == SessionStatus.Idle && s.CostUsd == 0.01m && s.LastTurn == TimeSpan.FromMilliseconds(2400) && s.ContextTokens == 41878, "result");
 
         s.BeginTurn("encore");
         s.Apply(new PermissionEvt("r2", "Edit", input, null, "nope", null));
+        var r2 = s.Pending[0];
         s.Apply(new ResultEvt("error_during_execution", true, 0.03m, 900, 1, 0, null, null, null, "aborted_streaming"));
         Ok(s.CostUsd == 0.03m && s.LastTurnCostUsd == 0.02m, "cost assigned, not added");
-        Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == "interrompu" && s.ContextTokens == 41878, "interrupted turn");
+        Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == Interrupted && s.ContextTokens == 41878, "interrupted turn");
+        s.Resolve(r2, Decision.Allow);   // the reply landed after the turn ended
+        Ok(s.Status == SessionStatus.Idle && s.Pending.IsEmpty, "late resolve is a no-op");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
 
