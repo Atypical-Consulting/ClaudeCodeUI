@@ -759,8 +759,9 @@ public sealed class LiveSession : IAsyncDisposable
                 }
                 break;
 
-            // A silent success is the common case (and most of the stream's hook events): nothing to show.
-            case HookEvt h when h.Outcome != "success" || h.Output.Length > 0:
+            // A silent success is the common case (and most of the stream's hook events): nothing to show. A successful
+            // SessionStart prints context injected into the prompt (plugins: ~11 KB per start), not something to read: dropped too.
+            case HookEvt h when h.Outcome != "success" || (h.Output.Length > 0 && !h.Name.StartsWith("SessionStart")):
                 Items = Items.Add(new HookItem(h));
                 break;
 
@@ -811,8 +812,11 @@ public sealed class LiveSession : IAsyncDisposable
         var hk = new LiveSession("hk", "hk", @"C:\w", "default");
         hk.Apply(new HookEvt("Stop", "success", 0, ""));
         hk.Apply(new HookEvt("UserPromptSubmit", "success", 0, "context"));
+        hk.Apply(new HookEvt("SessionStart:startup", "success", 0, "plugin prompt"));
         hk.Apply(new HookEvt("PreToolUse:Write", "error", 2, "nope"));
-        Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }], "silent hooks hidden, output and errors kept");
+        hk.Apply(new HookEvt("SessionStart:resume", "error", 1, "boom"));
+        Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }, HookItem { Hook.ExitCode: 1 }],
+            "silent hooks and successful SessionStart hidden, output and errors kept");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try

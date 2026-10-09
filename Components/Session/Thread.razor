@@ -108,7 +108,7 @@
             {
                 case ToolItem { ParentToolUseId: null } t:
                     var agent = ToolKinds.IsAgent(t.Name);
-                    if (blocks.LastOrDefault() is Run r && r.Agents == agent) r.Tools.Add(t);
+                    if (OpenRun() is { } r && r.Agents == agent) r.Tools.Add(t);
                     else blocks.Add(new Run([t], agent));
                     break;
                 case HookItem h:
@@ -121,6 +121,15 @@
             }
         }
         return blocks;
+
+        // A Pre/PostToolUse hook that prints lands between a tool_use and its result: its row follows the ledger
+        // without closing it, so the next tool still joins the same Run instead of opening a ledger per tool.
+        Run? OpenRun() => blocks switch
+        {
+            [.., Run r] => r,
+            [.., Run r, Hooks hs] when hs.Items.All(h => h.Hook.Name.StartsWith("PreToolUse") || h.Hook.Name.StartsWith("PostToolUse")) => r,
+            _ => null,
+        };
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).

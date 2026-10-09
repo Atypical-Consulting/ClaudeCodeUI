@@ -1,7 +1,7 @@
 @* Hooks that failed, blocked or printed something (system/hook_response, --include-hook-events); consecutive ones share
-   this row. Folded by default: SessionStart hooks print whole prompts. Opened when one failed, since a blocking hook
+   this row. Folded by default: hook output can run long. Opened when one failed, since a blocking hook
    changed what the agent could do. Silent successes never reach here (LiveSession drops them). *@
-@{ var bad = Hooks.Any(h => h.Hook.Outcome != "success"); }
+@{ var bad = Hooks.Any(h => h.Hook.Outcome == "error"); }
 <details class="hooks @(bad ? "bad" : null)" open="@bad">
     <summary>
         <Icon Name="zap" Sm />
@@ -9,7 +9,7 @@
         <span class="hs">@string.Join(", ", Hooks.GroupBy(h => h.Hook.Name).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key))</span>
         @if (bad)
         {
-            <span class="badge no">@Label(Hooks.First(h => h.Hook.Outcome != "success").Hook)</span>
+            <span class="badge no">@Label(Hooks.First(h => h.Hook.Outcome == "error").Hook)</span>
         }
     </summary>
     @foreach (var h in Hooks)
@@ -30,7 +30,8 @@
     string Label(HookEvt h) => h switch
     {
         { Outcome: "success" } => L["Hook.Output"],
-        { ExitCode: 2 } => L["Hook.Blocking"],
-        _ => L["Hook.Failed", h.ExitCode?.ToString() ?? "—"],
+        { Outcome: "error", ExitCode: 2 } => L["Hook.Blocking"],
+        { Outcome: "error" } => L["Hook.Failed", h.ExitCode?.ToString() ?? "—"],
+        _ => h.Outcome,   // only success and error were observed: anything else (a cancelled hook?) as the CLI names it, not as a failure
     };
 }
