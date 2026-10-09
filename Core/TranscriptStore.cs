@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace ClaudeCodeUI;
 
-public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath);
+public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath, string? Mode = null);
 
 // Past sessions read from ~/.claude/projects/<slug>/<id>.jsonl (top-level files only; <id>/subagents are excluded).
 public static class TranscriptStore
@@ -162,7 +162,9 @@ public static class TranscriptStore
         var title = custom ?? agent ?? ai ?? Trunc(last) ?? Trunc(firstUser) ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
         var id = Path.GetFileNameWithoutExtension(f.Name);
         if (ledger && RecordedCost(id) is { } rec) cost = Math.Max(cost ?? 0, rec);
-        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree);
+        // Latest permissionMode of the file (permission-mode records and user lines both carry it).
+        var modes = Regex.Matches(text, "\"permissionMode\":\"([A-Za-z]+)\"");
+        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree, modes.Count > 0 ? modes[^1].Groups[1].Value : null);
     }
 
     static string ReadAt(FileStream fs, long at, int count)
@@ -222,7 +224,9 @@ public static class TranscriptStore
         try
         {
             var p = Read(new FileInfo(path));
-            Ok(p is { Cwd: @"C:\repo\api", Branch: "main", Title: "corrige le test d'auth", CostUsd: 0.66m, WorktreePath: null }, "Read last-prompt + cost");
+            Ok(p is { Cwd: @"C:\repo\api", Branch: "main", Title: "corrige le test d'auth", CostUsd: 0.66m, WorktreePath: null, Mode: "default" }, "Read last-prompt + cost");
+            File.AppendAllLines(path, ["""{"type":"permission-mode","permissionMode":"plan","sessionId":"s"}"""]);
+            Ok(Read(new FileInfo(path)) is { Mode: "plan" }, "latest permission mode");
             File.AppendAllLines(path, ["""{"type":"custom-title","customTitle":"auth-fix","sessionId":"s"}"""]);
             Ok(Read(new FileInfo(path)) is { Title: "auth-fix" }, "custom-title wins");
             File.WriteAllLines(path, File.ReadAllLines(path).Where(l => !l.Contains("-title") && !l.Contains("last-prompt")));

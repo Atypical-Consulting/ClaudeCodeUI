@@ -31,7 +31,9 @@ public sealed class SessionManager : IAsyncDisposable
     public LiveSession Open(PastSession p)
     {
         if (Get(p.Id) is { } live) return live;
-        var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
+        // The transcript's mode, if the UI offers it (bypassPermissions / dontAsk fall back to default).
+        var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
+        var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
         s.ToolCount = s.Items.OfType<ToolItem>().Count();
         _ = s.RefreshGit();
         return Add(s);

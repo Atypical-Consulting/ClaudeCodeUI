@@ -1,8 +1,13 @@
-@* Prompt box with the per-turn settings: model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
+@* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
 @inject IJSRuntime JS
 
-<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = false; }'>
-    @if (menuOpen)
+<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
+    @if (modeOpen)
+    {
+        <div class="shield" @onclick="() => modeOpen = false"></div>
+        <ModeMenu Session="Session" OnClose="() => modeOpen = false" OnEscape="CloseModeToTrigger" />
+    }
+    else if (menuOpen)
     {
         <div class="shield" @onclick="() => menuOpen = false"></div>
         <ModelMenu Session="Session" OnClose="() => menuOpen = false" OnEscape="CloseMenuToTrigger" />
@@ -14,10 +19,18 @@
     <div class="box">
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
         <div class="tools-row">
-            <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+            @if (crashed)
+            {
+                <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+            }
+            else
+            {
+                <button class="chip @(LiveSession.Risky(Session.Mode) ? "risk" : null)" @ref="modeBtn" title="@L["Composer.PermissionMode"]" aria-label="@L["Composer.PermissionMode"]: @Session.Mode"
+                        aria-haspopup="listbox" aria-expanded="@(modeOpen ? "true" : "false")" @onclick="() => { modeOpen = !modeOpen; menuOpen = false; }">@Session.Mode<Icon Name="down" /></button>
+            }
             @if (models.Count > 0 && !crashed)
             {
-                <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">
+                <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
                     <Icon Name="cpu" />@ModelLabel @if (Session.ContextWindow is { } w) {<small>@Fmt.Tokens(w)</small>}<Icon Name="down" />
                 </button>
             }
@@ -93,7 +106,7 @@
     ElementReference area;
     SlashPopover? slash;
     string text = "";
-    bool menuOpen, slashDismissed, settingsAsked;
+    bool menuOpen, modeOpen, slashDismissed, settingsAsked;
     bool? ultraAvailable;
     string? appliedEffort, error;
     List<JsonElement> models = [];
@@ -167,7 +180,14 @@
         catch (Exception ex) { error = ex.Message; }
     }
 
-    ElementReference pickBtn;
+    ElementReference pickBtn, modeBtn;
+
+    async Task CloseModeToTrigger()
+    {
+        modeOpen = false;
+        StateHasChanged();
+        await JS.InvokeVoidAsync("claudeUi.focus", modeBtn);
+    }
 
     async Task CloseMenuToTrigger()
     {
@@ -181,7 +201,7 @@
         var t = text.Trim();
         if (t.Length == 0 || Session.Status is SessionStatus.Running or SessionStatus.Crashed) return;
         text = "";
-        menuOpen = false;
+        menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
         {

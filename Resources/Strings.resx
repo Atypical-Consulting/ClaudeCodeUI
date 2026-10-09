@@ -165,6 +165,7 @@
   <data name="Md.PlainText" xml:space="preserve"><value>text</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepts edits, asks for the shell</value></data>
   <data name="Mode.auto" xml:space="preserve"><value>Never interrupts, use with care</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} edits files without asking. Pick it again to confirm.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Asks before every sensitive tool</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
@@ -186,7 +187,9 @@
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Describe the task…</value></data>
+  <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} edits this folder without asking, outside an isolated worktree.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Start</value></data>
+  <data name="New.StartAnyway" xml:space="preserve"><value>Start anyway</value></data>
   <data name="New.Step1" xml:space="preserve"><value>1. Install Claude Code</value></data>
   <data name="New.Step2" xml:space="preserve"><value>2. Sign in</value></data>
   <data name="New.Step2Text" xml:space="preserve"><value>Run &lt;code&gt;claude&lt;/code&gt; once in a terminal and sign in.</value></data>
