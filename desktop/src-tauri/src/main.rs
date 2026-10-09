@@ -133,6 +133,9 @@ fn main() {
                         // A thread per notification: on macOS it waits for the click. Clicked: bring the window up on that session.
                         std::thread::spawn(move || {
                             if notify(&window, &title, &body) {
+                                // set_focus alone is a no-op on a minimized or hidden window (tao, macOS): restore it first.
+                                let _ = window.unminimize();
+                                let _ = window.show();
                                 let _ = window.set_focus();
                                 let _ = window.eval(format!("Blazor.navigateTo({:?})", format!("session/{id}")));
                             }
@@ -385,7 +388,9 @@ fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
     use mac_notification_sys::{set_application, Notification, NotificationResponse};
     // Posted as this app (as Terminal under `tauri dev`, like tauri-plugin-notification); only the first call sets it.
     let _ = set_application(if tauri::is_dev() { "com.apple.Terminal" } else { &window.config().identifier });
-    // ponytail: the thread parks until the click or until the notification is cleared from Notification Center.
+    // ponytail: until the click, or until the notification is cleared from Notification Center, this thread parks and the
+    // crate polls deliveredNotifications every 0.5 s on the main run loop: N unclicked notifications cost N threads and N
+    // timers. The crate has no call to withdraw one; replacing the previous one per session needs that (or UNUserNotificationCenter).
     matches!(Notification::new().title(title).message(body).wait_for_click(true).send(), Ok(NotificationResponse::Click))
 }
 
