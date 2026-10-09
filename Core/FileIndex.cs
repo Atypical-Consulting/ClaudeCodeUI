@@ -70,7 +70,7 @@ public static class FileIndex
             IEnumerable<FileSystemInfo> entries;
             try { entries = new DirectoryInfo(Path.Combine(cwd, rel)).EnumerateFileSystemInfos("*", opts); }
             catch (Exception) { continue; }
-            foreach (var e in entries.OrderBy(e => e.Name, StringComparer.Ordinal))
+            foreach (var e in entries.Take(MaxEntries).OrderBy(e => e.Name, StringComparer.Ordinal))   // a huge folder is cut before the sort
             {
                 if (set.Count >= MaxEntries) return true;
                 if (e is DirectoryInfo d)

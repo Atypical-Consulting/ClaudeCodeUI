@@ -209,6 +209,12 @@
         if (e.key === ' ' && e.target instanceof Element && e.target.matches('tr[tabindex]')) e.preventDefault();
     });
 
+    // ↑ ↓ over an open Composer popover move its selection (relayed by the server), not the caret of a multi-line prompt.
+    document.addEventListener('keydown', e => {
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.isComposing && e.target instanceof Element && e.target.matches('.composer textarea')
+            && e.target.closest('.composer').querySelector('.pop [role=option]')) e.preventDefault();
+    });
+
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');
 
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
