@@ -14,4 +14,9 @@
     <PackageReference Include="Markdig" Version="1.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Repo tooling and dev-only settings: not part of the shipped server. -->
+    <Content Update="renovate.json;release-please-config.json;.release-please-manifest.json;appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>
