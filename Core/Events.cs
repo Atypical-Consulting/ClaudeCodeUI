@@ -152,7 +152,7 @@ public static class Events
             Str(e, "task_type"), Bool(e, "is_backgrounded")),
         "task_updated" => Prop(e, "patch") is { } patch
             ? new TaskUpdatedEvt(Str(e, "task_id") ?? "", Str(patch, "status"),
-                Prop(patch, "end_time") is { ValueKind: JsonValueKind.Number } end ? DateTimeOffset.FromUnixTimeMilliseconds(end.GetInt64()) : null) : null,
+                Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null) : null,   // out of range = unknown: the reducer uses now
         "task_progress" => Prop(e, "usage") is { } u
             ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms")) : null,
         "task_notification" => Prop(e, "usage") is { } nu
@@ -270,6 +270,9 @@ public static class Events
         var upd = P("""{"type":"system","subtype":"task_updated","task_id":"b69el8u68","run_id":"0mv1jw258-f850d2f1","patch":{"status":"killed","end_time":1791585746931}}""") as TaskUpdatedEvt;
         Ok(upd is { TaskId: "b69el8u68", Status: "killed", EndedAt: { } end } && end.ToUnixTimeMilliseconds() == 1791585746931, "task_updated");
         Ok(P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"is_backgrounded":true}}""") is TaskUpdatedEvt { Status: null, EndedAt: null }, "task_updated without status");
+        Ok(P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"status":"failed","end_time":1e300}}""") is TaskUpdatedEvt { Status: "failed", EndedAt: null }
+            && P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"status":"failed","end_time":1791585746931.5}}""") is TaskUpdatedEvt { EndedAt: { } fe } && fe.ToUnixTimeMilliseconds() == 1791585746931,
+            "task_updated with a fractional or out-of-range end_time");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
         Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");

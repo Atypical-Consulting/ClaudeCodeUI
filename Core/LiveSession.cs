@@ -332,7 +332,7 @@ public sealed class LiveSession : IAsyncDisposable
     public void ClearEndedTasks()
     {
         lock (gate) Tasks = Tasks.RemoveAll(t => !t.Running);
-        Raise();
+        Notify();   // bumps Version: the Inspector must re-render to drop the panel once no task is left
     }
 
     // ---------- process ----------
@@ -572,7 +572,7 @@ public sealed class LiveSession : IAsyncDisposable
     }
 
     // Tools still open when the turn or the process ends: they never got a result. The process's end also ends its
-    // background shells (ProcessJob kills the whole tree), which no task_updated will report.
+    // background shells (ProcessJob kills its process group; --probe-cli exit-ends-tasks), which no task_updated will report.
     internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
         Items = Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t && !(keepBackground && t.Background)
@@ -995,8 +995,9 @@ public sealed class LiveSession : IAsyncDisposable
         bg.EndTools(DateTimeOffset.Now, false);
         Ok(bg.Tasks is [{ Status: "killed" }, { Id: "b2", Status: "killed", EndedAt: not null }], "process exit ends running tasks, foreground shells not listed");
         bg.Apply(new TaskStartedEvt("b4", "toolu_V", "live", "", "local_bash", true));
+        var cv = bg.Version;
         bg.ClearEndedTasks();
-        Ok(bg.Tasks is [{ Id: "b4", Running: true }], "clear drops ended tasks only");
+        Ok(bg.Tasks is [{ Id: "b4", Running: true }] && bg.Version != cv, "clear drops ended tasks only and bumps Version");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
