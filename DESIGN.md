@@ -234,8 +234,8 @@ Rhythm runs on 4px with 8/12/16/24/32 doing most of the work; list rows are 8-11
 Flat and tonal. Depth is read from the neutral steps (`page` < `sunk` < `ground` < `field` < `raise` < `raise-2`) and from 1px seams between panes, never from shadows on resting surfaces. Inset box-shadows are used as strokes and state markers, not as elevation: the 2px accent left bar on a selected row, the 1px `seam-2` ring on the active rail item, 3px `accent-soft` halos on waiting dots, focused composer and selected theme card.
 
 ### Shadow Vocabulary
-- **Overlay** (`box-shadow: 0 24px 60px -10px #000c, 0 0 0 1px #00000080`): the command palette, over a blurred `sunk` scrim.
-- **Popover** (`box-shadow: 0 18px 40px -12px #000c`): slash-command and model menus.
+- **Overlay** (`box-shadow: 0 24px 60px -10px #000c, 0 0 0 1px #00000080`): the command palette and the reconnect dialog, over a blurred `sunk` scrim.
+- **Popover** (`box-shadow: 0 18px 40px -12px #000c`): slash-command and model menus, and the unhandled-error toast.
 
 ### Named Rules
 **The Seam Rule.** Resting surfaces separate by tone and a 1px seam. A drop shadow means the element floats above the workbench and will go away.
@@ -282,6 +282,12 @@ Bordered 8px container with a `sunk` header line ("3 outils · ..."). Each row i
 ### Permission Card (signature)
 Inspector section on `sunk`: pane header "Permission" with a waiting pill ("1 sur N"), a 17px question, a one-line description, then the exact diff, command well or JSON, then the action row Autoriser (primary, `⏎`) · Toute la session (secondary, `Maj ⏎`) · Refuser (danger, `Suppr`, isolated right). On the site the same card performs the download; with no release published its third verb reads « Compiler depuis les sources ».
 
+### Crash Card and Status Screens
+The `.crash` card (8px, 25% `err` stroke over a 5% `err` tint, duck left, text right) says "something broke" everywhere: a crashed session, a failed API turn, and the HTTP status pages. `StatusScreen` centres it in the thread column under a normal pane header: a mono `code · path` line, a 17px heading, one sentence naming the recovery, then the action row (primary New session or Reload, secondary Overview, ghost Copy request ID). A 404 is not a failure, so it takes `.crash.calm` (`seam` stroke on `sunk`, no tint). Duck moods: Sad for 404, Shocked for other 4xx, Ko for 5xx and crashes. Status pages render as static SSR (`[ExcludeFromInteractiveRouting]`) so a re-executed status keeps its copy. Requests refused before the pipeline (desktop token 403, host filter 400) stay bare by design.
+
+### Reconnect Dialog and Error Toast
+The reconnect dialog is the one modal that interrupts: the UI is dead until the circuit returns. Overlay vocabulary (raise, `seam-2`, 12px, Overlay shadow), duck plus a 17px title per state (Connection lost, Can't reach the server, Page paused, Couldn't resume), one sentence, and either a 2px `fg-3` sweep on a `seam-2` track while rejoining or the state's actions (Retry or Resume primary, Reload secondary). Focus moves to the action, else the title; Escape does not dismiss it. The unhandled-error toast floats over the thread column with the Popover shadow, a 6% `err` tint and a KO duck, Reload primary and an icon dismiss. `.blazor-error-boundary` uses the crash tint with an `err` dot.
+
 ### Prompt Block and Stream
 The user's turn is a `raise` block with a mono meta line ("toi · maintenant"). Assistant text streams in `prose` behind an accent block caret blinking at 1s steps; the stream plays once and is removed under reduced motion.
 
@@ -301,7 +307,7 @@ The user's turn is a `raise` block with a mono meta line ("toi · maintenant"). 
 - **Don't** put drop shadows on resting cards, rows or panes; shadows belong to the palette and popovers only.
 - **Don't** spend the accent on decoration, headings or emphasised words.
 - **Don't** introduce a hue outside the token set for a new tool, state or chart.
-- **Don't** hard-code hex values in components (app glue such as `.blazor-error-boundary` is Blazor's stock template, not a pattern).
+- **Don't** hard-code hex values in components (the duck's `#FCCC0A` body is the mascot's own colour, not a token).
 
 ## Raster provenance
 

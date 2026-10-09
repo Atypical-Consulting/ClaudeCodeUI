@@ -1,9 +1,30 @@
 @page "/not-found"
+@attribute [ExcludeFromInteractiveRouting]
+@* Re-execution keeps the method: a rejected POST arrives here as a POST. No form lives on this page, so it has no
+   token to check; the original request was already refused. *@
+@attribute [Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryToken(required: false)]
 @layout MainLayout
+@using Microsoft.AspNetCore.Diagnostics
+@inject NavigationManager Nav
 
-<PageTitle>@L["NotFound.Title"] · Claude Code</PageTitle>
+@* Also the target of UseStatusCodePagesWithReExecute, so it renders any 4xx/5xx with an empty body, not only 404. *@
+<StatusScreen Code="code" Path="@path" />
 
-<div class="pane">
-    <div class="ph"><span class="ttl">@L["NotFound.Title"]</span></div>
-    <div class="section"><p>@L["NotFound.Text"] <a href="">@L["Rail.NewSession"]</a></p></div>
-</div>
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    int code = 404;
+    string? path;
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext?.Features.Get<IStatusCodeReExecuteFeature>() is { } re)
+        {
+            code = re.OriginalStatusCode;
+            path = re.OriginalPath;
+        }
+        else if (HttpContext is null)   // interactive navigation to an unknown route (Router NotFoundPage)
+            path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
+    }
+}
