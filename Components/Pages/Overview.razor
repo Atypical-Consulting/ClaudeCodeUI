@@ -38,7 +38,7 @@
         else
         {
         <div class="ovhead">
-            <h3>@(all.Count == 1 ? L["Ov.Sessions1"] : L["Ov.SessionsN", all.Count])@(queue.Count > 0 ? ", " + (queue.Count == 1 ? L["Ov.Decision1"] : L["Ov.DecisionN", queue.Count]) : "")</h3>
+            <h3>@Strings.Plural(all.Count, "Ov.Sessions")@(queue.Count > 0 ? ", " + Strings.Plural(queue.Count, "Ov.Decision") : "")</h3>
             <div class="tot">
                 <div class="@(queue.Count > 0 ? "w" : null)"><b>@queue.Count</b>@L["Ov.Pending"]</div>
                 <div><b>@all.Count(s => s.Status == SessionStatus.Running)</b>@L["Status.Running"]</div>
@@ -47,7 +47,7 @@
             </div>
         </div>
         <table class="ovt">
-            <thead><tr><th>Session</th><th>@L["Col.State"]</th><th>Mode</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
+            <thead><tr><th>@L["Session.Session"]</th><th>@L["Col.State"]</th><th>@L["Col.Mode"]</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
             <tbody>
                 @foreach (var s in all)
                 {
@@ -55,7 +55,7 @@
                     <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
                         <td><div class="n" title="@s.Name"><a href="@Url(s)" style="color:inherit;text-decoration:none" @onclick:stopPropagation>@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
                         <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
-                        <td><span class="mtag">@s.Mode</span></td>
+                        <td><span class="mtag">@Strings.Name("Mode.Name.", s.Mode)</span></td>
                         <td>@Last(s)</td>
                         <td class="num">@s.ToolCount</td>
                         <td class="num">@Fmt.Dur(s.LastEventAt - s.StartedAt)</td>

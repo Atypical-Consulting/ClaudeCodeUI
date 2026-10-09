@@ -23,12 +23,12 @@
             <span class="tools">
             @if (crashed)
             {
-                <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
+                <span class="chip" title="@L["Composer.PermissionMode"]">@Strings.Name("Mode.Name.", Session.Mode)</span>
             }
             else
             {
-                <button class="chip @(LiveSession.Risky(Session.Mode) ? "risk" : null)" @ref="modeBtn" title="@L["Composer.PermissionMode"]" aria-label="@L["Composer.PermissionMode"]: @Session.Mode"
-                        aria-haspopup="listbox" aria-expanded="@(modeOpen ? "true" : "false")" @onclick="() => { modeOpen = !modeOpen; menuOpen = false; }">@Session.Mode<Icon Name="down" /></button>
+                <button class="chip @(LiveSession.Risky(Session.Mode) ? "risk" : null)" @ref="modeBtn" title="@L["Composer.PermissionMode"]" aria-label="@L["Composer.PermissionMode"]: @Strings.Name("Mode.Name.", Session.Mode)"
+                        aria-haspopup="listbox" aria-expanded="@(modeOpen ? "true" : "false")" @onclick="() => { modeOpen = !modeOpen; menuOpen = false; }">@Strings.Name("Mode.Name.", Session.Mode)<Icon Name="down" /></button>
             }
             @if (models.Count > 0 && !crashed)
             {
@@ -42,10 +42,10 @@
             }
             @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
             {
-                <span class="effort" title="Effort" role="group" aria-label="Effort">
+                <span class="effort" title="@L["Composer.Effort"]" role="group" aria-label="@L["Composer.Effort"]">
                     @foreach (var l in levels.EnumerateArray().Select(x => x.GetString() ?? ""))
                     {
-                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@l</button>
+                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@Strings.Name("Effort.", l)</button>
                     }
                 </span>
             }
@@ -79,11 +79,11 @@
                 else if (Session.Pending.Count is var n and > 0)
                 {
                     @* Sending answers the pending requests with a denial first: say so on the button itself. *@
-                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>Ctrl ⏎</kbd></button>
+                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>Ctrl ⏎</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
             </span>
         </div>
@@ -109,7 +109,7 @@
             }
             else
             {
-                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])
+                @(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])
             }
         </span>
     </div>

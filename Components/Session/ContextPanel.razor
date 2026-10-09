@@ -50,7 +50,7 @@
             <div class="section" style="border-bottom:0">
                 <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
-                <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", n == 1 ? L["Tools1"] : L["ToolsN", n], k == 1 ? L["Ctx.Servers1"] : L["Ctx.ServersN", k]] @L["Ctx.DisableHint"]</p>
+                <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", Strings.Plural(n, "Tools"), Strings.Plural(k, "Ctx.Servers")] @L["Ctx.DisableHint"]</p>
                 <div><a class="btn" href="extensions">@L["Ctx.ManageMcp"]</a></div>
             </div>
         }
@@ -80,10 +80,10 @@
                 "System tools" => new Row(Strings.Get("Ctx.Cat.SystemTools"), "var(--syn-fn)", Long(k, "tokens"), false),
                 var n when n.StartsWith("MCP") => new Row(mcp > 0 ? Strings.Get("Ctx.Cat.McpN", mcp) : Strings.Get("Ctx.Cat.Mcp"), "var(--syn-kw)", Long(k, "tokens"), true),
                 "Memory files" => new Row(Strings.Get("Ctx.Cat.Memory"), "var(--syn-attr)", Long(k, "tokens"), false),
-                "Custom agents" => new Row("agents", "var(--syn-type)", Long(k, "tokens"), false),
-                "Skills" => new Row("skills", "var(--syn-num)", Long(k, "tokens"), false),
-                "Messages" => new Row("messages", "var(--syn-str)", Long(k, "tokens"), false),
-                var n => new Row(n.ToLowerInvariant(), "var(--fg-3)", Long(k, "tokens"), false),
+                "Custom agents" => new Row(Strings.Get("Ctx.Cat.Agents"), "var(--syn-type)", Long(k, "tokens"), false),
+                "Skills" => new Row(Strings.Get("Ctx.Cat.Skills"), "var(--syn-num)", Long(k, "tokens"), false),
+                "Messages" => new Row(Strings.Get("Ctx.Cat.Messages"), "var(--syn-str)", Long(k, "tokens"), false),
+                var n => new Row(n, "var(--fg-3)", Long(k, "tokens"), false),
             })]
         : [];
     }

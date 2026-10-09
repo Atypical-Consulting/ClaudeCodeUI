@@ -3,14 +3,14 @@
 @inject SessionManager Sessions
 @inject UiState Ui
 
-<PageTitle>Extensions · Claude Code</PageTitle>
+<PageTitle>@L["Nav.Extensions"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">Extensions</span></div>
+    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Extensions"]</span></div>
     <div class="ext">
         @if (Live is not { } s)
         {
-            <div><h3>Extensions</h3><p class="lead">@L["Ext.NoSession"]</p>
+            <div><h3>@L["Nav.Extensions"]</h3><p class="lead">@L["Ext.NoSession"]</p>
                 <div class="acts" style="margin-top:14px"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></div></div>
         }
         else
@@ -19,12 +19,12 @@
             var skills = s.Init?.Skills ?? [];
             var agents = Agents(s);
             var plugins = s.Init?.Plugins ?? [];
-            <div><h3>Extensions</h3><p class="lead">@L["Ext.Lead", servers.Count, skills.Length, agents.Count, plugins.Length]</p></div>
-            <div class="subtabs" role="tablist" aria-label="Extensions">
+            <div><h3>@L["Nav.Extensions"]</h3><p class="lead">@L["Ext.Lead"]</p></div>
+            <div class="subtabs" role="tablist" aria-label="@L["Nav.Extensions"]">
                 @Tab("mcp", "MCP", servers.Count)
-                @Tab("skills", "Skills", skills.Length)
-                @Tab("agents", "Agents", agents.Count)
-                @Tab("plugins", "Plugins", plugins.Length)
+                @Tab("skills", L["Ext.Tab.Skills"], skills.Length)
+                @Tab("agents", L["Ext.Tab.Agents"], agents.Count)
+                @Tab("plugins", L["Ext.Tab.Plugins"], plugins.Length)
             </div>
             <div id="ext-panel" role="tabpanel" aria-labelledby="ext-tab-@tab">
             @if (tab == "mcp")
@@ -74,7 +74,7 @@
             else if (tab == "skills")
             {
                 <table class="mcp">
-                    <thead><tr><th>Skill</th><th>@L["Ext.Col.Description"]</th></tr></thead>
+                    <thead><tr><th>@L["Ext.Col.Skill"]</th><th>@L["Ext.Col.Description"]</th></tr></thead>
                     <tbody>
                         @foreach (var k in skills)
                         {
@@ -87,7 +87,7 @@
             else if (tab == "agents")
             {
                 <table class="mcp">
-                    <thead><tr><th>Agent</th><th>@L["Ext.Col.Description"]</th><th>@L["Model"]</th></tr></thead>
+                    <thead><tr><th>@L["Agent.Title"]</th><th>@L["Ext.Col.Description"]</th><th>@L["Model"]</th></tr></thead>
                     <tbody>
                         @foreach (var (name, desc, model) in agents)
                         {
@@ -99,7 +99,7 @@
             else
             {
                 <table class="mcp">
-                    <thead><tr><th>Plugin</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">Skills</th></tr></thead>
+                    <thead><tr><th>@L["Ext.Col.Plugin"]</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">@L["Ext.Tab.Skills"]</th></tr></thead>
                     <tbody>
                         @foreach (var p in plugins)
                         {
@@ -147,7 +147,7 @@
         <div class="section" style="border-bottom:0">
             <div class="kv">
                 <span>@L["Ext.Kv.Source"]</span><span>@sel.Origin</span>
-                <span>transport</span><span>@(sel.Transport ?? "—")</span>
+                <span>@L["Ext.Kv.Transport"]</span><span>@(sel.Transport ?? "—")</span>
                 @if (sel.Target is { } t)
                 {
                     <span>@L["Ext.Kv.Target"]</span><span>@t</span>
@@ -156,7 +156,7 @@
                 <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope ?? "—")</span>
                 @if (sel.Version is { } v)
                 {
-                    <span>version</span><span>@v</span>
+                    <span>@L["Ext.Kv.Version"]</span><span>@v</span>
                 }
             </div>
         </div>
@@ -251,7 +251,7 @@
         if (name.StartsWith("plugin:") && name.Split(':', 3) is [_, var p, var rest]) return (rest, "plugin:" + p, "plugin");
         if (name.StartsWith("claude.ai ")) return (name[10..], "claude.ai", "claude.ai");
         var origin = scope switch { "user" => Strings.Get("Ext.Scope.User"), "project" => Strings.Get("Ext.Scope.Project"), "local" => Strings.Get("Ext.Scope.Local"), _ => scope ?? source ?? "" };
-        return (name, origin, source switch { null or "user" => "user", "claudeai" => "claude.ai", _ => source });
+        return (name, origin, source switch { null or "user" => Strings.Get("Ext.Scope.User"), "claudeai" => "claude.ai", _ => source });
     }
 
     static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>

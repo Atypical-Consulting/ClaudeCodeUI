@@ -6,16 +6,16 @@
 <nav class="pane" aria-label="@L["Rail.Label"]">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
-        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>Alt N</kbd></NavLink>
-        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>Ctrl K</kbd></button>
+        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
+        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
         <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
-        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees
+        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
             @if (Worktrees.CleanableCount is > 0)
             {
                 <span class="tag" style="margin-left:auto">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions
+        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />@L["Nav.Extensions"]
             @if (FailedMcp > 0)
             {
                 <span class="pill err" style="margin-left:auto">@FailedMcp</span>

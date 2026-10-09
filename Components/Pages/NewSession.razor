@@ -20,7 +20,7 @@
                     <h4 class="lbl">@L["New.Step1"]</h4>
                     <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
                     <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
-                    <p>@L["New.Guide"] <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
+                    <p>@L["New.Guide"] <a href="@L["New.GuideUrl"]" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
                 </div>
                 <div class="field">
                     <h4 class="lbl">@L["New.Step2"]</h4>
@@ -81,7 +81,7 @@
                     {
                         <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
                         <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
-                        <button class="b btn ghost" @onclick="() => editing = false">@L["New.Ok"]</button>
+                        <button class="b btn ghost" @onclick="() => editing = false">@L["Action.Ok"]</button>
                     }
                     else if (Isolated)
                     {
@@ -99,7 +99,7 @@
                     </select>
                     <select @bind="effort" aria-label="@L["New.Effort"]">
                         <option value="">@L["New.DefaultEffort"]</option>
-                        @foreach (var e in Efforts) { <option value="@e">@e</option> }
+                        @foreach (var e in Efforts) { <option value="@e">@Strings.Name("Effort.", e)</option> }
                     </select>
                 </div>
             </div>
@@ -108,7 +108,7 @@
                 <div class="modes" role="radiogroup" aria-labelledby="perm-lbl">
                     @foreach (var m in LiveSession.Modes)
                     {
-                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b><span>@L["Mode." + m]</span></button>
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@Strings.Name("Mode.Name.", m)</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
             </div>
@@ -116,12 +116,12 @@
                 <div class="box" style="max-width:none">
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
                     <div class="row">
-                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", mode]</span> }
-                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>Ctrl ⏎</kbd></button>
+                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
+                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                     </div>
                 </div>
             </div>
-            <div class="hint"><span><kbd>Ctrl K</kbd> @L["New.HintSwitch"]</span><span><kbd>Alt N</kbd> @L["New.HintNew"]</span><span><kbd>Ctrl I</kbd> @L["New.HintInspector"]</span></div>
+            <div class="hint"><span><kbd>@Strings.Kbd("Ctrl K")</kbd> @L["New.HintSwitch"]</span><span><kbd>@Strings.Kbd("Alt N")</kbd> @L["New.HintNew"]</span><span><kbd>@Strings.Kbd("Ctrl I")</kbd> @L["New.HintInspector"]</span></div>
         </div>
         }
     </div>

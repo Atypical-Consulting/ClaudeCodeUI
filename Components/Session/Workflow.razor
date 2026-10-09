@@ -4,7 +4,7 @@
 
 <Ticker Active="Agents.Any(a => a.EndedAt is null)">
 <div class="wf">
-    <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">workflow</span><span class="r">@Head</span></div>
+    <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">@L["Workflow.Tag"]</span><span class="r">@Head</span></div>
     @foreach (var a in Agents)
     {
         var isOpen = open.Contains(a.Id);
@@ -18,7 +18,7 @@
             {
                 <span class="dot @(a.State switch { ToolState.Running => "run", ToolState.Waiting => "wait", _ => "err" })"></span>
             }
-            <span class="nm">@(Events.Str(a.Input, "description") ?? "agent") <small>@Events.Str(a.Input, "subagent_type")</small></span>
+            <span class="nm">@(Events.Str(a.Input, "description") ?? L["Agent.Title"]) <small>@Events.Str(a.Input, "subagent_type")</small></span>
             <span class="m">@State(a)</span>
             <span class="m">—</span>
         </button>
@@ -56,7 +56,7 @@
     {
         get
         {
-            var n = Agents.Count == 1 ? "1 agent" : $"{Agents.Count} agents";
+            var n = Strings.Plural(Agents.Count, "Agents");
             var d = Agents.Max(a => a.EndedAt ?? DateTimeOffset.Now) - Agents.Min(a => a.StartedAt);
             return $"{n} · {Fmt.Dur(d)}";
         }
@@ -64,7 +64,7 @@
 
     static string State(ToolItem a)
     {
-        var tokens = a.Tokens > 0 ? $"{Fmt.Tokens(a.Tokens)} tokens · " : "";
+        var tokens = a.Tokens > 0 ? Strings.Get("Workflow.Tokens", Fmt.Tokens(a.Tokens)) + " · " : "";
         return tokens + a.State switch
         {
             ToolState.Running => Strings.Get("Status.Running") + " · " + Fmt.Dur(Elapsed(a)),
