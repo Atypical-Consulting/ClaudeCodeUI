@@ -199,6 +199,22 @@
     byId.forEach((_, id) => { const s = $(id); if (s) io.observe(s); });
   }
 
+  // Docs, known limitations: the open issues, read live so a fixed one leaves the list on its own.
+  // The static link in the HTML stays if GitHub is unreachable or rate-limited.
+  const issues = $('issues');
+  if (issues) fetch('https://api.github.com/repos/Atypical-Consulting/ClaudeCodeUI/issues?state=open&per_page=50', {
+    headers: { Accept: 'application/vnd.github+json' },
+  }).then(r => r.ok ? r.json() : Promise.reject())
+    .then(list => {
+      const open = list.filter(i => !i.pull_request && i.user?.type !== 'Bot');
+      issues.replaceChildren(...(open.length ? open.map(i => {
+        const li = document.createElement('li');
+        li.append(Object.assign(document.createElement('span'), { textContent: '#' + i.number }),
+                  Object.assign(document.createElement('a'), { href: i.html_url, textContent: i.title }));
+        return li;
+      }) : [Object.assign(document.createElement('li'), { textContent: EN ? 'No known open issue.' : 'Aucun problème ouvert connu.' })]));
+    }, () => {});
+
   // Index: the permission card does the download.
   if (!$('dl')) return;
   const REPO = 'https://github.com/Atypical-Consulting/ClaudeCodeUI', RELEASES = REPO + '/releases';
