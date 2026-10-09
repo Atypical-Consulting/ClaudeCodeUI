@@ -75,6 +75,7 @@
   <data name="Composer.FastSdkOptIn" xml:space="preserve"><value>SDK opt-in required</value></data>
   <data name="Composer.FastUnavailable" xml:space="preserve"><value>Fast mode unavailable</value></data>
   <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Fast mode unavailable: {0}</value></data>
+  <data name="Composer.History" xml:space="preserve"><value>history {0}/{1}</value></data>
   <data name="Composer.ImageAlt" xml:space="preserve"><value>Image {0}</value></data>
   <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} is {1}: images are limited to {2} each</value></data>
   <data name="Composer.ImageTooMany" xml:space="preserve"><value>At most {0} images per message</value></data>
