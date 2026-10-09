@@ -120,7 +120,7 @@
 @if (Ui.InspectorOpen && tab == "mcp" && Live is { } ls && Servers(ls).FirstOrDefault(x => x.Name == selected) is { } sel)
 {
     <div class="pane insp">
-        <div class="ph"><span class="ttl">@sel.Short</span><span class="sub">@sel.Origin</span></div>
+        <div class="ph"><span class="ttl" title="@sel.Short">@sel.Short</span><span class="sub">@sel.Origin</span></div>
         @if (sel.Status == "failed")
         {
             <div class="section">

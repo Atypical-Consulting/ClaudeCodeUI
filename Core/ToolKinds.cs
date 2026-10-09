@@ -26,8 +26,17 @@ public static class ToolKinds
         if (Events.Str(input, "command") is { } c) return c;
         if (Events.Str(input, "pattern") is { } p)
             return (Events.Str(input, "glob") ?? Events.Str(input, "path")) is { } where && Relative(where, cwd) is var w && w != "." ? $"{p} · {w}" : p;
-        return Events.Str(input, "description") ?? Events.Str(input, "url") ?? Events.Str(input, "query") ?? "";
+        return Events.Str(input, "description") ?? Events.Str(input, "url") ?? Events.Str(input, "query") ?? FirstString(input) ?? "";
     }
+
+    // "mcp__server__tool" -> "tool"; the full name stays in the title. Other names are returned as is.
+    public static string Label(string name) =>
+        name.StartsWith("mcp__", StringComparison.Ordinal) && name.LastIndexOf("__", StringComparison.Ordinal) is var i && i > 3 ? name[(i + 2)..] : name;
+
+    // MCP and other unknown tools: the first string argument is the best one-line target there is.
+    static string? FirstString(JsonElement input) =>
+        input.ValueKind == JsonValueKind.Object && input.EnumerateObject().Select(p => p.Value).FirstOrDefault(v => v.ValueKind == JsonValueKind.String) is { ValueKind: JsonValueKind.String } v
+            ? v.GetString() : null;
 
     static string Relative(string path, string cwd) =>
         (cwd.Length > 0 && path.StartsWith(cwd, StringComparison.OrdinalIgnoreCase) ? Path.GetRelativePath(cwd, path) : path).Replace('\\', '/');

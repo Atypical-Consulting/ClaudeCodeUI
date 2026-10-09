@@ -19,6 +19,7 @@
     <div class="box">
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
         <div class="tools-row">
+            <span class="tools">
             @if (crashed)
             {
                 <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
@@ -63,7 +64,8 @@
             {
                 <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="@L["Composer.UltraHint"]" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
             }
-            <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
+            </span>
+            <span style="margin-left:auto;flex:none;display:inline-flex;gap:8px;align-items:center">
                 @if (Session.Status == SessionStatus.Running)
                 {
                     @if (ultraTurn) { <span class="tag acc">ultracode</span> }
