@@ -306,6 +306,8 @@
     });
 
     // mcp_status every 2 s until the server leaves needs-auth/pending, 5 minutes at most. Runs on the renderer's dispatcher.
+    // Stops once the session has no process (stopped or crashed): RefreshMcp would spawn a new claude for it, without
+    // the callback listener this sign-in waits on.
     async Task AwaitConnected(LiveSession s, string name, CancellationToken ct)
     {
         try
@@ -313,6 +315,7 @@
             for (var i = 0; i < 150; i++)
             {
                 await Task.Delay(2000, ct);
+                if (!s.HasProcess) { auth = null; return; }
                 await s.RefreshMcp();
                 if (Servers(s).FirstOrDefault(x => x.Name == name)?.Status is not ("needs-auth" or "pending")) { auth = null; return; }
             }
