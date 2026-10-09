@@ -1,13 +1,14 @@
 @* Memory (CLAUDE.md) files of the session, the /memory equivalent: the CLI's list (get_context_usage.memoryFiles) plus
    the standard locations it did not load. A row opens the file rendered; Edit swaps in a textarea, Save writes it back
-   unless it changed on disk since it was read. Only a listed path is ever written (MemoryFiles.Save checks). *@
+   unless it changed on disk since it was read. Only a listed path is ever written (MemoryFiles.Save checks).
+   The open file and the draft live on the session (Session.Memory): a permission request unmounts this panel. *@
 
 <div class="section last">
     <span class="cap" id="mem-cap">@L["Mem.Title"]</span>
     <ul class="mem" aria-labelledby="mem-cap">
         @foreach (var f in files)
         {
-            var on = f.Path == open;
+            var on = f.Path == M.Open;
             <li>
                 <button type="button" class="@(on ? "on" : null)" title="@f.Path" aria-expanded="@(on ? "true" : "false")" aria-controls="@(on ? "mem-file" : null)" @onclick="() => Open(f.Path)">
                     <span class="n">@MemoryFiles.Display(f.Path, Session.Cwd, Home)</span>
@@ -19,19 +20,20 @@
         }
     </ul>
     <p class="why">@L["Mem.Hint"]</p>
-    @if (open is not null)
+    @if (M.Open is { } open)
     {
         var name = MemoryFiles.Display(open, Session.Cwd, Home);
         <div id="mem-file" class="ctx">
-            @if (editing)
+            @if (M.Editing)
             {
                 <label class="sr-only" for="mem-text">@L["Mem.EditLabel", name]</label>
-                <div class="input"><textarea id="mem-text" @ref="area" @bind="draft" rows="14" spellcheck="false"></textarea></div>
+                @* oninput: every keystroke reaches Session.Memory, so an unmount loses nothing. *@
+                <div class="input"><textarea id="mem-text" @ref="area" @bind="M.Draft" @bind:event="oninput" rows="14" spellcheck="false"></textarea></div>
                 <div class="acts">
                     <button type="button" class="btn primary" disabled="@busy" @onclick="() => Save(false)">@L["Mem.Save"]</button>
                     <button type="button" class="btn" @onclick="Cancel">@L["Action.Cancel"]</button>
                 </div>
-                @if (conflict)
+                @if (M.Conflict)
                 {
                     <div class="errbox" role="alert">@L["Mem.Conflict", name]</div>
                     <div class="acts">
@@ -42,19 +44,19 @@
             }
             else if (error is null)
             {
-                @if (loaded is null)
+                @if (M.Loaded is null)
                 {
                     <p>@L["Mem.Missing"]</p>
                 }
-                else if (loaded.Trim().Length == 0)
+                else if (M.Loaded.Trim().Length == 0)
                 {
                     <p>@L["Mem.Empty"]</p>
                 }
                 else
                 {
-                    <Markdown Text="@loaded" />
+                    <Markdown Text="@M.Loaded" />
                 }
-                <div class="acts"><button type="button" class="btn" @onclick="Edit">@(loaded is null ? L["Mem.Create"] : L["Mem.Edit"])</button></div>
+                <div class="acts"><button type="button" class="btn" @onclick="Edit">@(M.Loaded is null ? L["Mem.Create"] : L["Mem.Edit"])</button></div>
             }
             @if (error is not null)
             {
@@ -71,10 +73,17 @@
     static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     static readonly string UserDir = Path.GetDirectoryName(TranscriptStore.Root)!;   // ~/.claude or CLAUDE_CONFIG_DIR
 
+    MemoryEdit M => Session.Memory;
     IReadOnlyList<MemoryFile> files = [];
-    string? open, loaded, draft, error;   // loaded: the file as read (null = absent), the baseline of the conflict check
-    bool editing, conflict, busy, saved, focus;
+    string? error;
+    bool busy, saved, focus;
     ElementReference area;
+
+    // Back from an unmount: a file only viewed is re-read (it may have changed), an edit keeps its baseline and draft.
+    protected override void OnInitialized()
+    {
+        if (M.Open is not null && !M.Editing) Load();
+    }
 
     // A handful of File.Exists per render: cheap, and a file created outside the app shows up without a refresh.
     protected override void OnParametersSet() => files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
@@ -89,46 +98,51 @@
     void Open(string path)
     {
         // Re-clicking the open row closes it; an unsaved draft goes with it, as with Cancel.
-        (open, editing, conflict, saved) = (open == path ? null : path, false, false, false);
-        if (open is not null) Load();
+        (M.Open, M.Editing, M.Conflict, saved) = (M.Open == path ? null : path, false, false, false);
+        if (M.Open is not null) Load();
     }
 
     void Load()
     {
         error = null;
-        try { loaded = MemoryFiles.Read(open!); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { loaded = null; error = L["Mem.ReadFailed", ex.Message]; }
+        try { M.Loaded = MemoryFiles.Read(M.Open!); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { M.Loaded = null; error = L["Mem.ReadFailed", ex.Message]; }
     }
 
-    void Edit() => (draft, editing, saved, focus) = (loaded ?? "", true, false, true);
+    void Edit() => (M.Draft, M.Editing, saved, focus) = (M.Loaded ?? "", true, false, true);
 
-    void Cancel() => (editing, conflict) = (false, false);
+    // Back to the view of what is on disk now, not of the baseline the edit started from.
+    void Cancel()
+    {
+        (M.Editing, M.Conflict, M.Draft) = (false, false, null);
+        Load();
+    }
 
     // Discard the draft for what is on disk now.
     void Reload()
     {
         Load();
-        (draft, conflict, focus) = (loaded ?? "", false, true);
+        (M.Draft, M.Conflict, focus) = (M.Loaded ?? "", false, true);
     }
 
     // overwrite: the user saw the conflict and keeps their version, so the baseline becomes what is on disk now.
     void Save(bool overwrite)
     {
-        if (busy || open is null) return;
+        if (busy || M.Open is not { } open) return;
         busy = true;
         error = null;
         try
         {
-            if (overwrite) loaded = MemoryFiles.Read(open);
-            switch (MemoryFiles.Save(files, open, loaded, draft ?? ""))
+            if (overwrite) M.Loaded = MemoryFiles.Read(open);
+            switch (MemoryFiles.Save(files, open, M.Loaded, M.Draft ?? ""))
             {
                 case MemorySave.Saved:
                     Load();
-                    (editing, conflict, saved) = (false, false, true);
+                    (M.Editing, M.Conflict, M.Draft, saved) = (false, false, null, true);
                     files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
                     break;
                 case MemorySave.Conflict:
-                    conflict = true;
+                    M.Conflict = true;
                     break;
                 default:
                     error = L["Mem.NotAllowed"];
