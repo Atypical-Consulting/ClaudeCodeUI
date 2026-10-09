@@ -82,8 +82,11 @@ public sealed class SessionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var s in all)   // one failure must not leave the other claude trees running
+        // in parallel (each may wait 2 s for its process); one failure must not leave the other claude trees running
+        await Task.WhenAll(all.Select(async s =>
+        {
             try { await s.DisposeAsync(); }
             catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] shutdown: {ex.Message}"); }
+        }));
     }
 }
