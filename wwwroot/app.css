@@ -537,6 +537,9 @@ button.mode{text-align:left}
 }
 
     .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+    :lang(fr) .blazor-error-boundary::after {
         content: "Une erreur est survenue."
     }
 
