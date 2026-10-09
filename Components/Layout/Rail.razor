@@ -33,7 +33,7 @@
             }
         </div>
     }
-    @{ var past = TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null).Take(8).ToList(); }   @* the palette searches the full list *@
+    @{ var past = recent.Where(p => Sessions.Get(p.Id) is null).Take(8).ToList(); }   @* the palette searches the full list *@
     @if (past.Count > 0)
     {
         <div class="grp"><span class="cap">@L["Rail.Recent"]</span></div>
@@ -52,7 +52,19 @@
 @code {
     int FailedMcp => Sessions.All.LastOrDefault(s => s.Init is not null)?.Init!.Mcp.Count(m => m.Status == "failed") ?? 0;
 
-    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; }
-    void Refresh() => InvokeAsync(StateHasChanged);
+    IReadOnlyList<PastSession> recent = [];
+    Task loading = Task.CompletedTask;
+    DateTimeOffset loadedAt;
+
+    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; LoadRecent(); }
+    void Refresh() { LoadRecent(); InvokeAsync(StateHasChanged); }
+
+    // TranscriptStore.Recent reads up to ~4 MB of transcripts when its 30 s cache expires: off the render thread, at most every 30 s.
+    void LoadRecent()
+    {
+        if (!RendererInfo.IsInteractive || !loading.IsCompleted || DateTimeOffset.Now - loadedAt < TimeSpan.FromSeconds(30)) return;
+        loadedAt = DateTimeOffset.Now;
+        loading = Task.Run(async () => { recent = TranscriptStore.Recent(); await InvokeAsync(StateHasChanged); });
+    }
     public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; }
 }
