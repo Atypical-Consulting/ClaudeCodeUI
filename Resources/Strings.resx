@@ -181,6 +181,7 @@
   <data name="New.HintInspector" xml:space="preserve"><value>inspector</value></data>
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
+  <data name="New.HomeFolder" xml:space="preserve"><value>This is your home folder: Claude can read and edit everything in it, and there's no worktree to isolate it. Prefer a project folder.</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
