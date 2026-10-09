@@ -1,6 +1,7 @@
 @* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands,
-   "@" file mentions (the CLI reads the mentioned file itself). *@
+   "@" file mentions (the CLI reads the mentioned file itself), ↑ ↓ prompt history (this session, then past sessions of the same folder). *@
 @inject IJSRuntime JS
+@implements IDisposable
 
 <section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
     @if (modeOpen)
@@ -37,7 +38,8 @@
                 }
             </ul>
         }
-        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"
+        <textarea @ref="area" @bind="text" @bind:event="oninput" @bind:after="history.Reset" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed"
+                  aria-label="@L["Composer.Label"]" aria-keyshortcuts="ArrowUp ArrowDown" aria-describedby="composer-history"
                   aria-autocomplete="@(SlashOpen || MentionOpen ? "list" : null)" aria-controls="@(SlashOpen ? "slash-list" : MentionOpen ? "mention-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : MentionOpen ? mention!.ActiveId : null)"></textarea>
         <div class="tools-row">
             <span class="tools">
@@ -116,6 +118,7 @@
         <Ticker Active="Session.TurnStartedAt is not null">@if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }</Ticker>
         <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
+        <span id="composer-history" role="status">@(history.Index >= 0 ? L["Composer.History", history.Index + 1, history.Count] : "")</span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
         @* One live region, so an error or the busy hint is announced. *@
         <span class="r @(error is not null ? "c-err-fg" : null)" role="status">
@@ -145,6 +148,9 @@
 
     ElementReference area, box, attachBtn;
     InputFile? picker;
+    readonly PromptHistory history = new();
+    DotNetObjectReference<Composer>? self;
+    (string Id, IReadOnlyList<string> Prompts)? past;
     SlashPopover? slash;
     MentionPopover? mention;
     bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
@@ -152,7 +158,6 @@
     string text { get => Session.Draft; set => Session.Draft = value; }
     IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
     bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, busy, reading;
-    int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
     string? recalled;  // the prompt Recall put in the box, kept to tell an untouched recall from an edit
     bool? ultraAvailable;
     string? appliedEffort, error;
@@ -260,8 +265,8 @@
         var imgs = images;
         text = "";
         images = [];
-        recall = -1;
         recalled = null;
+        history.Reset();
         menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
@@ -278,7 +283,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await JS.InvokeVoidAsync("claudeUi.images", box, picker?.Element, attachBtn);
+        if (!firstRender) return;
+        self = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("claudeUi.images", box, picker?.Element, attachBtn);
+        await JS.InvokeVoidAsync("claudeUi.history", area, self);
     }
 
     // Picked, pasted or dropped files. The type comes from the bytes (Images.Sniff); each one is read whole, up to MaxBytes.
@@ -312,24 +320,6 @@
         await JS.InvokeVoidAsync("claudeUi.focus", area);   // the removed button took the focus with it
     }
 
-    // CLI-style recall: ArrowUp in an empty box shows the last prompt, then older ones; ArrowDown goes back.
-    // Only while the box still holds the recalled prompt untouched.
-    bool Recall(int dir)
-    {
-        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).ToList();   // image-only messages have no text to recall
-        if (recall < 0 || recall >= past.Count || text != past[recall])
-        {
-            recall = -1;
-            if (dir > 0 || text.Length > 0 || past.Count == 0) return false;
-            recall = past.Count;
-        }
-        var n = recall + dir;
-        if (n < 0) return true;
-        (recall, text) = n < past.Count ? (n, past[n]) : (-1, "");
-        recalled = text;
-        return true;
-    }
-
     async Task Pick(string name)
     {
         text = $"/{name} ";
@@ -342,11 +332,29 @@
         await JS.InvokeVoidAsync("claudeUi.focus", area);
     }
 
+    // ↑ (step 1) / ↓ (step -1) from app.js, caret on the first / last line and no popover open.
+    [JSInvokable]
+    public void Recall(int step, string current)
+    {
+        if (history.Index == -1 && step > 0)
+        {
+            // ponytail: past prompts read once per session (≤ 10 transcripts, synchronous); re-read if they go stale.
+            if (past?.Id != Session.Id) past = (Session.Id, TranscriptStore.Prompts(Session.Cwd, Session.Id));
+            // image-only messages have no text to recall
+            history.Load(Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).Reverse().Concat(past.Value.Prompts));
+        }
+        if (history.Move(step, current) is not { } t) return;
+        text = recalled = t;
+        slashDismissed = true;   // a recalled "/command" must not open the popover that would take the arrows
+        StateHasChanged();
+    }
+
+    public void Dispose() => self?.Dispose();
+
     async Task Key(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
         if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; mentionDismissed = MentionQuery is not null; return; }   // the menu closes on .composer
-        if (e.Key is "ArrowUp" or "ArrowDown" && !(e.ShiftKey || e.AltKey || e.CtrlKey || e.MetaKey) && !MentionOpen && Recall(e.Key == "ArrowUp" ? -1 : 1)) return;
         if (!text.StartsWith('/')) slashDismissed = false;
         if (FileIndex.Query(text) is null) mentionDismissed = false;
         if (MentionOpen)

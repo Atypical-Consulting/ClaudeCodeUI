@@ -43,6 +43,26 @@
                 if (dragging(e)) { e.preventDefault(); give(e.dataTransfer.files); }
             });
         },
+        // Composer prompt history: ↑ on the first line (↓ on the last) asks Composer.Recall, unless a popover
+        // (slash commands, mentions) owns the arrows. The browser moves the caret first: on the first/last visual line
+        // it stays put or jumps to the start/end; anywhere else it changes line, wrapped lines included, and no recall.
+        // Blazor then renders the recalled text, caret at the end.
+        history(el, ref) {
+            if (!el || el._history) return;
+            el._history = true;
+            el.addEventListener('keydown', e => {
+                const up = e.key === 'ArrowUp';
+                if ((!up && e.key !== 'ArrowDown') || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+                if (el.closest('.composer')?.querySelector('.pop') || el.selectionStart !== el.selectionEnd) return;
+                const at = el.selectionStart, v = el.value;
+                if ((up ? v.slice(0, at) : v.slice(at)).includes('\n')) return;
+                setTimeout(() => {
+                    const now = el.selectionStart;
+                    if (now !== at && now !== (up ? 0 : el.value.length)) return;
+                    ref.invokeMethodAsync('Recall', up ? 1 : -1, el.value).catch(() => { });
+                });
+            });
+        },
         scrollToEnd(el) { if (el) el.scrollLeft = el.scrollWidth; },
         // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
         // read), then focus moves to the card unless the user is typing a draft or using a dialog.

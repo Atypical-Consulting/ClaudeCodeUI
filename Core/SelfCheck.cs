@@ -23,6 +23,7 @@ public static class SelfCheck
             ListNav.Check();
             AskUser.Check();
             FileIndex.Check();
+            PromptHistory.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }
