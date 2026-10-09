@@ -3,7 +3,7 @@
 @inject SessionManager Sessions
 @inject UiState Ui
 
-<PageTitle>@(S?.Name ?? L["Session.Session"]) · Claude Code</PageTitle>
+<SessionTitle Session="S" />
 
 @if (S is null)
 {

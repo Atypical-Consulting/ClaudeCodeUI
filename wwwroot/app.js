@@ -52,6 +52,11 @@
     highlight();
 
     // Copy buttons: code blocks and [data-copy]. The label's text node is edited in place, not replaced.
+    // The confirmation is also written to a shared visually hidden status node, so screen readers hear it.
+    const copied = document.createElement('div');
+    copied.className = 'sr-only';
+    copied.setAttribute('role', 'status');
+    document.body.append(copied);
     document.addEventListener('click', e => {
         const b = e.target.closest('.cb .copy, [data-copy]');
         if (!b) return;
@@ -60,9 +65,9 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        label.nodeValue = copied.textContent = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
         b.classList.add('done');
-        setTimeout(() => { label.nodeValue = old; b.classList.remove('done'); }, 1400);
+        setTimeout(() => { label.nodeValue = old; copied.textContent = ''; b.classList.remove('done'); }, 1400);
     });
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');

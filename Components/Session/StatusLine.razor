@@ -1,3 +1,6 @@
+@* Always-present live region: its text changes are announced. Ticking counters are aria-hidden so the
+   reader is not interrupted every second; with nothing to show it stays in the tree, visually hidden. *@
+<div role="status" class="@(Shown ? null : "sr-only")">
 @switch (Session.Status)
 {
     case SessionStatus.Starting:
@@ -7,10 +10,10 @@
         <div class="status"><span class="spin"></span>@L["Status.AgentsWorking"] <small>@L["OfN", agents.Count(a => a.State == ToolState.Done), agents.Count]</small></div>
         break;
     case SessionStatus.Running when Session.Items.LastOrDefault() is ToolItem { State: ToolState.Running } tool:
-        <div class="status"><span class="spin"></span>@L["Status.ToolRunning", tool.Name] <small>@Elapsed</small></div>
+        <div class="status"><span class="spin"></span>@L["Status.ToolRunning", tool.Name] <small aria-hidden="true">@Elapsed</small></div>
         break;
     case SessionStatus.Running:
-        <div class="status"><span class="spin"></span>@L["Status.Writing"] <small>@Elapsed@(Session.ThinkingTokens > 0 ? " · " + L["Status.Thinking", Fmt.Tokens(Session.ThinkingTokens)] : "")</small></div>
+        <div class="status"><span class="spin"></span>@L["Status.Writing"] <small aria-hidden="true">@Elapsed@(Session.ThinkingTokens > 0 ? " · " + L["Status.Thinking", Fmt.Tokens(Session.ThinkingTokens)] : "")</small></div>
         break;
     case SessionStatus.Waiting:
         <div class="status wait"><span class="dot wait"></span>@L["Status.Paused", What]</div>
@@ -21,10 +24,17 @@
     case SessionStatus.Idle when Session.LastResultSubtype?.StartsWith("error") == true:
         <div class="status" style="color:var(--err-fg)">@L["Status.TurnError", Session.LastResultSubtype ?? ""]</div>
         break;
+    case SessionStatus.Idle when Session.LastTurn is not null:
+        @L["Status.TurnDone"]
+        break;
 }
+</div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    bool Shown => Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting
+        || Session.Status == SessionStatus.Idle && (Session.LastResultSubtype == "interrompu" || Session.LastResultSubtype?.StartsWith("error") == true);
 
     string Elapsed => Session.TurnStartedAt is { } t ? Fmt.Dur(DateTimeOffset.Now - t) : "";
 

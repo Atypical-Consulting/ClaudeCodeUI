@@ -2,7 +2,8 @@
    Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
 @inject IJSRuntime JS
 
-<div class="thread" @ref="el">
+@* role=log: finished blocks are announced as they are added; the token-by-token stream is hidden until it lands as a TextItem. *@
+<div class="thread" role="log" aria-live="polite" aria-relevant="additions" @ref="el">
     @{ var blocks = Blocks(); var last = blocks.OfType<Run>().LastOrDefault(r => !r.Agents); }
     @foreach (var b in blocks)
     {
@@ -30,7 +31,7 @@
     }
     @if (Session.StreamingText.Length > 0)
     {
-        <div class="prose md"><p style="white-space:pre-wrap">@Session.StreamingText<span class="caret"></span></p></div>
+        <div class="prose md" aria-hidden="true"><p style="white-space:pre-wrap">@Session.StreamingText<span class="caret"></span></p></div>
     }
     <StatusLine Session="Session" />
     <CrashBanner Session="Session" />

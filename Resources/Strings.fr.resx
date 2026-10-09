@@ -89,7 +89,6 @@
   <data name="Day.Ago" xml:space="preserve"><value>il y a {0} j</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>hier</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copier l'erreur</value></data>
-  <data name="Error.CopyApi" xml:space="preserve"><value>Copier l'erreur API</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copier l'ID de requête</value></data>
   <data name="Error.Heading" xml:space="preserve"><value>Une erreur est survenue côté serveur.</value></data>
   <data name="Error.RequestId" xml:space="preserve"><value>ID de requête :</value></data>
@@ -257,6 +256,7 @@
   <data name="Session.NotFoundText" xml:space="preserve"><value>Aucune session active ni transcript récent avec cet identifiant.</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>processus arrêté</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Session.TitleRunning" xml:space="preserve"><value>En cours</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude n'a pas pu démarrer : {0}</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>erreur inconnue</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Réglages</value></data>
@@ -271,6 +271,7 @@
   <data name="Status.StartingClaude" xml:space="preserve"><value>Démarrage de claude…</value></data>
   <data name="Status.Thinking" xml:space="preserve"><value>réflexion {0} tokens</value></data>
   <data name="Status.ToolRunning" xml:space="preserve"><value>{0} en cours…</value></data>
+  <data name="Status.TurnDone" xml:space="preserve"><value>Claude a terminé</value></data>
   <data name="Status.TurnError" xml:space="preserve"><value>Le tour s'est terminé en erreur : {0}</value></data>
   <data name="Status.WaitingOn" xml:space="preserve"><value>attend · {0}</value></data>
   <data name="Status.WhatCommand" xml:space="preserve"><value>une commande</value></data>

@@ -89,7 +89,6 @@
   <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copy error</value></data>
-  <data name="Error.CopyApi" xml:space="preserve"><value>Copy the API error</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copy request ID</value></data>
   <data name="Error.Heading" xml:space="preserve"><value>Something went wrong on the server.</value></data>
   <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
@@ -257,6 +256,7 @@
   <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or recent transcript has this ID.</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Session.TitleRunning" xml:space="preserve"><value>Running</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>unknown error</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
@@ -271,6 +271,7 @@
   <data name="Status.StartingClaude" xml:space="preserve"><value>Starting claude…</value></data>
   <data name="Status.Thinking" xml:space="preserve"><value>thinking {0} tokens</value></data>
   <data name="Status.ToolRunning" xml:space="preserve"><value>{0} running…</value></data>
+  <data name="Status.TurnDone" xml:space="preserve"><value>Claude finished</value></data>
   <data name="Status.TurnError" xml:space="preserve"><value>The turn ended with an error: {0}</value></data>
   <data name="Status.WaitingOn" xml:space="preserve"><value>waiting · {0}</value></data>
   <data name="Status.WhatCommand" xml:space="preserve"><value>a command</value></data>
