@@ -6,6 +6,7 @@ using ClaudeCodeUI.Components;
 using Microsoft.AspNetCore.Localization;
 
 if (args is ["--self-check"]) { Environment.ExitCode = SelfCheck.Run(); return; }
+if (args is ["--probe-cli"]) { Environment.ExitCode = await CliProbe.Run(); return; }
 if (args is ["--boot-probe", var probeDir, ..])
 {
     Environment.ExitCode = await BootProbe.Run(Path.GetFullPath(probeDir), args is [_, _, var sec] && int.TryParse(sec, out var n) ? n : 90);
