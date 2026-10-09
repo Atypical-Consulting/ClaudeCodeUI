@@ -32,6 +32,7 @@ public sealed class SessionManager : IAsyncDisposable
     {
         if (Get(p.Id) is { } live) return live;
         var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
+        s.ToolCount = s.Items.OfType<ToolItem>().Count();
         _ = s.RefreshGit();
         return Add(s);
     }

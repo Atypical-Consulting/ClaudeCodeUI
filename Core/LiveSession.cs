@@ -34,6 +34,7 @@ public sealed class LiveSession : IAsyncDisposable
     ClaudeSession? proc;
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
+    int turns;                                                 // sent and not yet answered by a result (the CLI queues them)
     long lastNotify;
     int notifyQueued;
 
@@ -58,8 +59,8 @@ public sealed class LiveSession : IAsyncDisposable
     public int ThinkingTokens { get; private set; }
     public decimal CostUsd { get; internal set; }
     public decimal LastTurnCostUsd { get; private set; }
-    decimal costBase;                                          // cost of earlier processes of this session
-    public int ToolCount { get; private set; }
+    decimal costBase;                                          // cost of earlier processes, minus what --resume restores
+    public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
     public DateTimeOffset StartedAt { get; }
@@ -158,9 +159,9 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (proc is { } p) return p;
         var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text" };
-        if (resumable || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".claude", "projects", TranscriptStore.Slug(Cwd), Id + ".jsonl")))
-            args.AddRange(["--resume", Id]);
+        var resume = resumable || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".claude", "projects", TranscriptStore.Slug(Cwd), Id + ".jsonl"));
+        if (resume) args.AddRange(["--resume", Id]);
         else
         {
             args.AddRange(["--session-id", Id, "--name", Name]);
@@ -172,7 +173,8 @@ public sealed class LiveSession : IAsyncDisposable
         ClaudeSession s = null!;
         try
         {
-            costBase = CostUsd;
+            // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
+            costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
             s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text));
         }
         catch (Exception ex)
@@ -252,6 +254,7 @@ public sealed class LiveSession : IAsyncDisposable
             Pending = [];
             TurnStartedAt = null;
             StreamingText = "";
+            EndTools(DateTimeOffset.Now);
         }
         Notify();
     }
@@ -288,6 +291,8 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (Status != SessionStatus.Crashed) Status = SessionStatus.Exited;
             Pending = [];
+            TurnStartedAt = null;
+            EndTools(DateTimeOffset.Now);
         }
         Notify();
     }
@@ -314,6 +319,7 @@ public sealed class LiveSession : IAsyncDisposable
     {
         Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode));
         Status = SessionStatus.Running;
+        turns++;
         TurnStartedAt = DateTimeOffset.Now;
         StreamingText = "";
         ThinkingTokens = 0;
@@ -324,6 +330,17 @@ public sealed class LiveSession : IAsyncDisposable
         Pending = Pending.Remove(p);
         if (Tool(p.ToolUseId) is { } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
+    }
+
+    // Tools still open when the turn or the process ends: they never got a result.
+    void EndTools(DateTimeOffset now)
+    {
+        turns = 0;
+        foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting))
+        {
+            t.State = ToolState.Error;
+            t.EndedAt = now;
+        }
     }
 
     ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
@@ -397,19 +414,19 @@ public sealed class LiveSession : IAsyncDisposable
                 }
                 else LastTurnCostUsd = 0;
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
-                LastResultSubtype = r.TerminalReason?.StartsWith("aborted") == true ? "interrompu" : r.Subtype;
+                var aborted = r.TerminalReason?.StartsWith("aborted") == true;   // an interrupt also drops the queued messages
+                LastResultSubtype = aborted ? "interrompu" : r.Subtype;
                 LastResultAt = now;
                 if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
                 if (r.ContextWindow is { } w) ContextWindow = w;
                 if (r.FastModeState is { } fs) { FastModeState = fs; FastModeReason = r.FastModeReason; }
-                foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting))
-                {
-                    t.State = ToolState.Error;
-                    t.EndedAt = now;
-                }
+                var left = aborted ? 0 : Math.Max(0, turns - 1);
+                EndTools(now);
+                turns = left;
                 Pending = [];
                 StreamingText = "";
                 ThinkingTokens = 0;
+                if (left > 0) break;   // a message sent during the turn runs next
                 TurnStartedAt = null;
                 if (Status is SessionStatus.Running or SessionStatus.Waiting or SessionStatus.Starting) Status = SessionStatus.Idle;
                 break;
@@ -471,6 +488,18 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Pending.IsEmpty && s.Status == SessionStatus.Idle && s.LastResultSubtype == "interrompu" && s.ContextTokens == 41878, "interrupted turn");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
+
+        s.BeginTurn("un"); s.BeginTurn("deux");   // second message queued by the CLI
+        s.Apply(new ResultEvt("success", false, 0.04m, 10, 1, 0, null, null, null));
+        Ok(s.Status == SessionStatus.Running && s.TurnStartedAt is not null, "queued turn keeps running");
+        s.Apply(new ResultEvt("success", false, 0.05m, 10, 1, 0, null, null, null));
+        Ok(s.Status == SessionStatus.Idle && s.TurnStartedAt is null, "queued turn done");
+
+        // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
+        var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };
+        o.costBase = o.CostUsd - 0.0127m;
+        o.Apply(new ResultEvt("success", false, 0.0165m, 10, 1, 0, null, null, null));
+        Ok(o.CostUsd == 0.0165m && o.LastTurnCostUsd == 0.0038m, "resumed cost not counted twice");
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
     }

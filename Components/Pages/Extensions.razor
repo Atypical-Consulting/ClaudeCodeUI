@@ -42,7 +42,7 @@
                     <tbody>
                         @foreach (var m in servers.Where(x => filter == "" || x.Status == filter))
                         {
-                            <tr class="@(m.Name == selected ? "sel" : null)" @onclick="() => Select(m.Name)">
+                            <tr class="@(m.Name == selected ? "sel" : null)" tabindex="0" @onclick="() => Select(m.Name)" @onkeydown='e => { if (e.Key is "Enter" or " ") Select(m.Name); }'>
                                 <td><div class="n">@m.Short</div><div class="d">@m.Origin</div></td>
                                 <td><span class="tag">@m.Tag</span></td>
                                 <td>@State(m.Status)</td>

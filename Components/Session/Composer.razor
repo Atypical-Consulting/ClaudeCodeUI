@@ -1,7 +1,7 @@
 @* Prompt box with the per-turn settings: model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
 @inject IJSRuntime JS
 
-<div class="composer rich">
+<div class="composer rich" @onkeydown='e => { if (e.Key == "Escape") menuOpen = false; }'>
     @if (menuOpen)
     {
         <ModelMenu Session="Session" OnClose="() => menuOpen = false" />
@@ -189,7 +189,7 @@
     async Task Key(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
-        if (e.Key == "Escape") { menuOpen = false; slashDismissed = SlashQuery is not null; return; }
+        if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; return; }   // the menu closes on .composer
         if (!text.StartsWith('/')) slashDismissed = false;
         if (slash is not { Open: true } || SlashQuery is null) return;
         switch (e.Key)

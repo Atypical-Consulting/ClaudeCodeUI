@@ -49,7 +49,8 @@ public static class TranscriptStore
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
             catch (JsonException) { continue; }
             if (Events.Str(e, "type") is not ("user" or "assistant") || Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
-                || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True }) continue;
+                || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isCompactSummary") is { ValueKind: JsonValueKind.True }
+                || Events.Prop(e, "isVisibleInTranscriptOnly") is { ValueKind: JsonValueKind.True }) continue;
             DateTimeOffset? at = DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var t) ? t : null;
             foreach (var ev in Events.ParseAll(e))
             {
@@ -68,6 +69,9 @@ public static class TranscriptStore
 
         static ToolItem? Tool(LiveSession s, string id) => s.Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
     }
+
+    // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
+    public static decimal PersistedCost(string id) => Find(id) is { } path ? Read(new FileInfo(path))?.CostUsd ?? 0 : 0;
 
     public static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 

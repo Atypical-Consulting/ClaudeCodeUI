@@ -1,7 +1,8 @@
 @* A run of consecutive tools. Expanded is the default (latest run open); clicking the header overrides it. *@
 
 <div class="ledger">
-    <div class="lh" role="button" aria-expanded="@Open" style="cursor:pointer" @onclick="() => open = !Open">
+    <div class="lh" role="button" tabindex="0" aria-expanded="@Open" style="cursor:pointer" @onclick="() => open = !Open"
+         @onkeydown='e => { if (e.Key is "Enter" or " ") open = !Open; }'>
         <Icon Name="@(Open ? "down" : "right")" Sm />@Head
     </div>
     @if (Open)

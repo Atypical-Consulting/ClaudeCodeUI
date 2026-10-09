@@ -1,6 +1,7 @@
 @inject UiState Ui
 
-<div class="t @Class" @onclick="() => Ui.SelectedToolId = Tool.Id">
+<div class="t @Class" role="button" tabindex="0" @onclick="() => Ui.SelectedToolId = Tool.Id"
+     @onkeydown='e => { if (e.Key is "Enter" or " ") Ui.SelectedToolId = Tool.Id; }'>
     <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
     <span class="kind" style="color:@ToolKinds.Color(Tool.Name)" title="@Tool.Name">@Tool.Name</span>
     <span class="p">@ToolKinds.Target(Tool.Input, Session.Cwd)</span>

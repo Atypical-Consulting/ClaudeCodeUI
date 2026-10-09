@@ -64,7 +64,7 @@
         setTimeout(() => { label.nodeValue = old; b.classList.remove('done'); }, 1400);
     });
 
-    const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[contenteditable]:not([contenteditable=false])');
+    const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');
 
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
     document.addEventListener('keydown', e => {
@@ -75,7 +75,7 @@
         if (ctrl && !e.altKey && e.shiftKey && (letter === 'A' || letter === 'O')) key = 'Ctrl+Shift+' + letter;
         else if (ctrl && !e.altKey && !e.shiftKey && (letter === 'K' || letter === 'I' || letter === 'N')) key = 'Ctrl+' + letter;
         else if (e.altKey && !ctrl && !e.shiftKey && letter === 'N') key = 'Ctrl+N';
-        else if (e.key === 'Escape') key = 'Escape';
+        else if (e.key === 'Escape' && !(e.target instanceof Element && e.target.closest('.composer:has(.pop)'))) key = 'Escape';   // the Composer closes its popover
         else if (!ctrl && !e.altKey && (e.key === 'Enter' || e.key === 'Delete') && !isField(e.target) && document.querySelector('[data-permission]'))
             key = e.key === 'Enter' && e.shiftKey ? 'Shift+Enter' : e.key;
         if (!key) return;

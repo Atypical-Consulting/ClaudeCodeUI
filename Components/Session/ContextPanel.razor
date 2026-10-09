@@ -49,7 +49,8 @@
         {
             <div class="section" style="border-bottom:0">
                 <span class="cap">Les outils MCP pèsent @Fmt.Tokens(mcpTokens)</span>
-                <p>@mcpTools.Count outils de @mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count() serveurs sont chargés. Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</p>
+                @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
+                <p>@(n == 1 ? "1 outil" : $"{n} outils") de @(k == 1 ? "1 serveur" : $"{k} serveurs") @(n == 1 ? "est chargé" : "sont chargés"). Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</p>
                 <div><a class="btn" href="extensions">Gérer les serveurs MCP</a></div>
             </div>
         }

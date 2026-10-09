@@ -24,7 +24,9 @@ public static class EditDiff
             case "MultiEdit" when Events.Prop(input, "edits") is { ValueKind: JsonValueKind.Array } edits:
                 return Edits(file, edits.EnumerateArray().Select(e => (Norm(Events.Str(e, "old_string") ?? ""), Norm(Events.Str(e, "new_string") ?? ""))));
             default:
-                return Edits(file, [(Norm(Events.Str(input, "old_string") ?? ""), Norm(Events.Str(input, "new_string") ?? ""))]);
+                var (old, @new) = (Norm(Events.Str(input, "old_string") ?? ""), Norm(Events.Str(input, "new_string") ?? ""));
+                if (Events.Prop(input, "replace_all") is not { ValueKind: JsonValueKind.True } || file is null || old.Length == 0) return Edits(file, [(old, @new)]);
+                return Edits(file, Enumerable.Repeat((old, @new), Math.Max(1, file.Split(old).Length - 1)), true);   // one hunk per occurrence
         }
     }
 
@@ -60,15 +62,17 @@ public static class EditDiff
     // Successive replacements on one file. Each hunk is located in the text as already edited by the previous ones
     // (new numbering); its old start is shifted back by the lines added so far. When the file is missing or the
     // text is not found (already applied, or edited since), the block is shown without numbers.
-    static List<DiffLine> Edits(string? file, IEnumerable<(string Old, string New)> edits)
+    // replaceAll: each edit searches after the previous replacement.
+    static List<DiffLine> Edits(string? file, IEnumerable<(string Old, string New)> edits, bool replaceAll = false)
     {
         var res = new List<DiffLine>();
         var text = file;
-        var shift = 0;
+        int shift = 0, from = 0;
         foreach (var (old, @new) in edits)
         {
-            var pos = text is null ? -1 : old.Length == 0 ? 0 : text.IndexOf(old, StringComparison.Ordinal);
-            if (pos < 0 && text is not null && @new.Length > 0 && text.IndexOf(@new, StringComparison.Ordinal) is >= 0 and var p)
+            if (!replaceAll) from = 0;
+            var pos = text is null ? -1 : old.Length == 0 ? 0 : text.IndexOf(old, from, StringComparison.Ordinal);
+            if (pos < 0 && text is not null && @new.Length > 0 && text.IndexOf(@new, from, StringComparison.Ordinal) is >= 0 and var p)
             {
                 text = text[..p] + old + text[(p + @new.Length)..];   // already applied: rebuild the text before the edit
                 pos = p;
@@ -109,6 +113,7 @@ public static class EditDiff
             for (int i = 1; i <= ctxAfter; i++) res.Add(new(DiffKind.Ctx, delTo + i + 1 + delta, all[delTo + i]));
             shift += delta;
             text = edited;
+            from = pos + @new.Length;
         }
         return res;
     }
@@ -166,6 +171,9 @@ public static class EditDiff
             var multi = FromInput("MultiEdit", J($$"""{"file_path":"{{f}}","edits":[{"old_string":"2","new_string":"deux\ndeux bis"},{"old_string":"9","new_string":"neuf"}]}"""));
             Ok(multi.Count(l => l.Kind == DiffKind.Hunk) == 2 && Show(multi).Contains("Del2:2|Add2:deux|Add3:deux bis") && Show(multi).Contains("Hunk:@@ -7,4 +8,4 @@|Ctx8:7|Ctx9:8|Del9:9|Add10:neuf"),
                "MultiEdit, two hunks: " + Show(multi));
+
+            var every = FromInput("Edit", J($$"""{"file_path":"{{f}}","old_string":"1","new_string":"1x","replace_all":true}"""));
+            Ok(every.Count(l => l.Kind == DiffKind.Add) == 2 && Show(every).Contains("Add1:1x") && Show(every).Contains("Add10:1x0"), "replace_all, every occurrence: " + Show(every));
 
             var gone = FromInput("Edit", J("""{"file_path":"C:\\nope\\x.cs","old_string":"a","new_string":"b"}"""));
             Ok(Show(gone) == "Del:a|Add:b", "missing file: " + Show(gone));

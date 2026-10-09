@@ -1,13 +1,26 @@
 using System.Text.RegularExpressions;
 using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 
 namespace ClaudeCodeUI;
 
-// Markdown to HTML. Raw HTML disabled: model output is rendered as markdown only, never as live markup.
+// Markdown to HTML. Raw HTML and {attributes} disabled: model output is rendered as markdown only, never as live markup.
+// Links keep http(s)/mailto only and images become links: nothing the model writes makes the browser fetch or run anything.
 // Code blocks are wrapped in .cb here (server side: Blazor must own every top-level node), alert titles are French.
 public static partial class Md
 {
-    static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
+    static readonly MarkdownPipeline Pipeline = Build();
+
+    static MarkdownPipeline Build()
+    {
+        var b = new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml();
+        b.Extensions.RemoveAll(e => e is Markdig.Extensions.GenericAttributes.GenericAttributesExtension);
+        return b.Build();
+    }
+
+    static string Safe(string? url) =>
+        url is null || !url.Contains(':') || Uri.TryCreate(url.Trim(), UriKind.Absolute, out var u) && u.Scheme is "http" or "https" or "mailto" ? url ?? "" : "#";
 
     static readonly Dictionary<string, string> Lang = new()
     {
@@ -24,7 +37,10 @@ public static partial class Md
 
     public static string Render(string markdown)
     {
-        var html = Markdown.ToHtml(markdown, Pipeline);
+        var doc = Markdown.Parse(markdown, Pipeline);
+        foreach (var l in doc.Descendants<LinkInline>()) { l.IsImage = false; l.Url = Safe(l.Url); }
+        foreach (var l in doc.Descendants<AutolinkInline>()) l.Url = Safe(l.Url);
+        var html = doc.ToHtml(Pipeline);
         html = CodeOpen().Replace(html, m =>
         {
             var lang = m.Groups[1].Success ? m.Groups[1].Value : null;   // already HTML-encoded by Markdig
@@ -45,6 +61,12 @@ public static partial class Md
         var warn = Render("> [!WARNING]\n> attention ici");
         Ok(warn.Contains("markdown-alert-warning") && warn.Contains("Attention</p>") && !warn.Contains("Warning</p>"), "[!WARNING] → « Attention » : " + warn);
         Ok(Render("<script>x</script>").Contains("&lt;script&gt;"), "HTML brut désactivé");
+        var at = Render("# a {onclick=x}") + Render("[x](https://a){onmouseover=\"y\"}");
+        Ok(!at.Contains(" onclick=\"") && !at.Contains(" onmouseover=\""), "attributs génériques désactivés : " + at);
+        var js = Render("[x](javascript:alert(1)) <javascript:alert(2)> [y](data:text/html,z) [r][1]\n\n[1]: javascript:alert(3)");
+        Ok(!js.Contains("javascript:") && !js.Contains("data:"), "liens javascript:/data: neutralisés : " + js);
+        var img = Render("![a](https://evil.example/?d=s) [ok](https://x.y/z) [rel](docs/a.md)");
+        Ok(!img.Contains("<img") && img.Contains("href=\"https://x.y/z\"") && img.Contains("href=\"docs/a.md\""), "images en liens, http et relatif gardés : " + img);
         Ok(Render("```foo\"><b\nx\n```") is var odd && !odd.Contains("<b>"), "langage encodé");
     }
 }

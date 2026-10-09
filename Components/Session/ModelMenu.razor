@@ -7,7 +7,8 @@
     {
         var value = Events.Str(m, "value") ?? "";
         var current = value == cur;
-        <div class="si @(current ? "on" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)">
+        <div class="si @(current ? "on" : null)" role="option" tabindex="0" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)"
+             @onkeydown='e => e.Key is "Enter" or " " ? Pick(value) : Task.CompletedTask'>
             <b>@(Events.Str(m, "displayName") ?? value)</b>
             <span title="@Events.Str(m, "description")">@Events.Str(m, "description")</span>
             @if (current) { <span class="tag acc">actuel</span> } else { <span></span> }

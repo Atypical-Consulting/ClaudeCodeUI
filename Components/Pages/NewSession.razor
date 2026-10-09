@@ -67,7 +67,7 @@
                     <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">Démarrer <kbd>Ctrl ⏎</kbd></button></div>
                 </div>
             </div>
-            <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Ctrl N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
+            <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Alt N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
         </div>
     </div>
 </div>
@@ -105,9 +105,12 @@
     async Task SetCwd(string value)
     {
         cwd = value.Trim().Trim('"');
-        exists = cwd.Length > 0 && Directory.Exists(cwd);
+        exists = Local(cwd);
         branch = exists ? await Branch(cwd) : null;
     }
+
+    // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
+    static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
 
     // Current branch ("HEAD" when detached), null outside a git repo.
     static async Task<string?> Branch(string dir)
@@ -141,7 +144,7 @@
     async Task Start()
     {
         if (busy) return;
-        if (!(exists = Directory.Exists(cwd))) return;
+        if (!(exists = Local(cwd))) return;
         busy = true;
         var name = Isolated ? WtName : TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
         var s = Sessions.Start(cwd, mode, name, Isolated ? WtName : null, null, null);

@@ -30,7 +30,7 @@
                 {
                     var (label, color) = State(s);
                     <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
-                        <td><div class="n">@s.Name</div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
+                        <td><div class="n"><a href="@Url(s)" style="color:inherit;text-decoration:none">@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
                         <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
                         <td><span class="mtag">@s.Mode</span></td>
                         <td>@Last(s)</td>
