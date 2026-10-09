@@ -47,7 +47,7 @@ public sealed class SessionManager : IAsyncDisposable
             var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
             var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true)
             {
-                Items = [.. items], CostUsd = p.CostUsd ?? 0,
+                Items = [.. items], CostUsd = p.CostUsd ?? 0, CostAtOpen = p.CostUsd ?? 0,
                 StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,
             };
             s.ToolCount = s.Items.OfType<ToolItem>().Count();

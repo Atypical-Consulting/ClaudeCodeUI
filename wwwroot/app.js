@@ -31,6 +31,7 @@
                 || (a.closest('input,textarea,select') && a.value));
             if (!busy) el.focus({ preventScroll: true });
         },
+        focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body) el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
         // to what had it (unless something, e.g. FocusOnNavigate, already took it).
@@ -41,13 +42,23 @@
             if (open) el?.focus();
             else if (opener?.isConnected && (!document.activeElement || document.activeElement === document.body)) opener.focus();
         },
-        // Pin a scroller (or the .thread holding el) to its bottom after each render, unless the user scrolled up (force: pin anyway).
+        // Pin a scroller (or the .thread holding el) to its bottom after each render, unless the user scrolled up (force: pin anyway);
+        // then new output reveals the sibling .dock .jump button, which scrolls back down and pins again.
         scrollEnd(el, force) {
             el = el?.closest('.thread') || el;
             if (!el) return;
-            if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
-            if (force) el._free = false;
+            const jump = el.nextElementSibling?.querySelector('.jump');
+            if (!el.onscroll) {
+                el.onscroll = () => {
+                    el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+                    if (!el._free && jump) jump.hidden = true;
+                };
+                if (jump) jump.onclick = () => { el._free = false; el.scrollTop = el.scrollHeight; jump.hidden = true; };
+            }
+            if (force) { el._free = false; if (jump) jump.hidden = true; }
             if (!el._free) el.scrollTop = el.scrollHeight;
+            else if (jump && el._h !== undefined && el.scrollHeight > el._h) jump.hidden = false;
+            el._h = el.scrollHeight;
         },
     };
 

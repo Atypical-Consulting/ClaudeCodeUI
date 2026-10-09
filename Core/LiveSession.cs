@@ -75,6 +75,7 @@ public sealed class LiveSession : IAsyncDisposable
     public decimal CostUsd { get; internal set; }
     public decimal LastTurnCostUsd { get; private set; }
     decimal costBase;                                          // cost of earlier processes, minus what --resume restores
+    public decimal CostAtOpen { get; init; }                   // lifetime cost already in the transcript when opened: not spent in this run
     public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }

@@ -9,7 +9,13 @@
 {
     <div class="pane">
         <div class="ph"><h1 class="ttl" tabindex="-1">@L["Session.NotFound"]</h1></div>
-        <div class="thread"><p class="prose">@L["Session.NotFoundText"]</p></div>
+        <div class="thread">
+            <p class="prose">@L["Session.NotFoundText"]</p>
+            <div class="acts">
+                <a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                <button type="button" class="btn" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>Ctrl K</kbd></button>
+            </div>
+        </div>
     </div>
 }
 else
@@ -40,7 +46,7 @@ else
     {
         if (S?.Id == Id) return;
         if (S is not null) S.Changed -= OnSession;
-        S = Sessions.Get(Id) ?? (TranscriptStore.Recent().FirstOrDefault(p => p.Id == Id) is { } past ? Sessions.Open(past) : null);
+        S = Sessions.Get(Id) ?? (TranscriptStore.ById(Id) is { } past ? Sessions.Open(past) : null);
         if (S is not null) S.Changed += OnSession;
     }
 

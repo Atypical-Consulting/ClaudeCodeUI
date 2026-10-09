@@ -4,7 +4,12 @@
 
 <div class="ph">
     <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
-    <span class="sub">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
+    @* The working directory first: a -w worktree replaces it, and that is the checkout Claude edits. *@
+    <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { TranscriptStore.Short(Session.Cwd), Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
+    @if (Session.Cwd.Length > 0)
+    {
+        <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Error.Copy"]</button>
+    }
     <span class="end">
         @if (Session.Status != SessionStatus.Exited)
         {

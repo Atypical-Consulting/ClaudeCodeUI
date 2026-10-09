@@ -33,8 +33,12 @@
     }
     <StreamingTail Session="Session" />
 </div>
-    <Ticker Active="Session.Status == SessionStatus.Running"><StatusLine Session="Session" /></Ticker>
     <CrashBanner Session="Session" />
+</div>
+@* Outside the scroller: busy/idle stays visible while reading earlier output. app.js shows .jump on new output when scrolled up. *@
+<div class="dock">
+    <button type="button" class="btn jump" hidden><Icon Name="down" Sm />@L["Thread.JumpLatest"]</button>
+    <Ticker Active="Session.Status == SessionStatus.Running"><StatusLine Session="Session" /></Ticker>
 </div>
 
 @code {

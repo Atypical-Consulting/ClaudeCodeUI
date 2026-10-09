@@ -148,6 +148,10 @@ code{font-family:var(--mono)}
 .badge.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 27%,transparent)}
 .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3)}
 .status.wait{color:var(--accent)}
+.dock{flex:none;position:relative;padding:0 32px}
+.dock .status{max-width:760px;padding:0 0 12px}
+.dock .jump{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-10px);z-index:1;background:var(--raise);box-shadow:0 6px 16px -6px #000a}
+.dock .jump[hidden]{display:none}
 .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--seam-2);border-top-color:var(--ok);animation:sp 0.9s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .caret{display:inline-block;width:7px;height:15px;background:var(--fg-2);vertical-align:-2px;margin-left:2px;animation:bl 1s steps(2) infinite}
@@ -242,6 +246,11 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .q .who{font:500 13px var(--sans);color:var(--fg)}
 .q .who,.q .k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .q .p{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q .qa{display:flex;gap:6px}
+.q.sel{box-shadow:inset 2px 0 0 var(--accent)}
+.queue:focus .q.sel{background:var(--raise)}
+.ov .empty h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.ov .empty .lead{margin:6px 0 0;color:var(--fg-3);font-size:13.5px;max-width:70ch}
 
 /* ---------- 5. palette + error ---------- */
 .scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--sunk) 60%,transparent);backdrop-filter:blur(2px);z-index:10}
@@ -608,7 +617,7 @@ button.mode{text-align:left}
   .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto}
   main>.pane:not(.insp){min-height:100vh}
   .set-row{grid-template-columns:minmax(0,1fr);gap:10px}
-  .thread,.composer{padding-left:16px;padding-right:16px}
+  .thread,.composer,.dock{padding-left:16px;padding-right:16px}
   .pop.slash{left:16px;width:calc(100% - 32px)}
   #blazor-error-ui,.app:has(>main>.insp)~#blazor-error-ui{left:50%;width:min(620px,calc(100vw - 32px))}
 }
