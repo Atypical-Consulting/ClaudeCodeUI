@@ -24,6 +24,7 @@ Quand les rapports se contredisent, ce plan tranche en faveur du protocole véri
 | s2 | Indicateur de réflexion | `system/thinking_tokens` (pas le texte, qui est toujours vide) |
 | s3 | Permission avec diff, Autoriser / Refuser | `control_request can_use_tool` → `control_response allow/deny` |
 | s3 | « Toute la session » quand la suggestion est `setMode` | `set_permission_mode` puis `allow` |
+| s3 | « Toute la session » pour les autres suggestions (`addRules`, `addDirectories`) | `allow` + `updatedPermissions` ; vérifié par `--probe-cli permission-session` (0 nouvelle demande au tour suivant, 1 sans `updatedPermissions`) |
 | s4 | Vue d'ensemble, file des décisions | état en mémoire de toutes les sessions |
 | s5 | Palette Ctrl K, carte de crash, relance | sortie du processus + `--resume <id>` |
 | s6 | Markdown Markdig + blocs de code + hljs | existant, emballage `.cb` fait côté serveur |
@@ -32,23 +33,21 @@ Quand les rapports se contredisent, ce plan tranche en faveur du protocole véri
 | s9 | Choix du modèle | `initialize.models` + `set_model` |
 | s9 | Effort | `--effort` au lancement, `apply_flag_settings {effortLevel}` en cours de session, lecture via `get_settings.applied.effort` |
 | s9 | Mode rapide | `apply_flag_settings {fastMode}`. Affiché selon `fast_mode_state` / `fast_mode_disabled_reason` : souvent désactivé, avec la raison en infobulle |
-| s9 | Ultracode | `apply_flag_settings {ultracode:true}`, disponibilité via `get_settings.applied.ultracodeAvailable` (seul le réglage est vérifié, pas son effet sur le tour : voir §1.2) |
+| s9 | Ultracode | `apply_flag_settings {ultracode:true}` avant le tour, `{ultracode:false}` après le `result`, disponibilité via `get_settings.applied.ultracodeAvailable` ; vérifié par `--probe-cli ultracode-on` / `ultracode-off` |
 | s9 | Popover `/` avec descriptions | `initialize.commands[{name,description,argumentHint}]` ; `/xxx` envoyé comme texte utilisateur |
 | s9 | Panneau contexte | `get_context_usage` |
+| s9 | « Compacter maintenant » | `/compact` en texte utilisateur ; vérifié par `--probe-cli compact` (`system/compact_boundary`, contexte en baisse) |
 | s10 | Sous-agents : ligne par agent, sous-outils, texte de l'agent | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
 | s11 | Liste MCP (état, outils, erreur, transport) | `mcp_status` |
+| s11 | Bascule MCP et « Réessayer » | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}` ; vérifié par `--probe-cli mcp-toggle` / `mcp-reconnect` (l'état lu dans `mcp_status` suit la bascule) |
 | s11 | Skills / Agents / Plugins | `initialize` (`agents`, `commands`) + init (`skills`, `plugins`) |
 | rail | Quota 5 h / 7 j | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` au démarrage |
 | rail | « Récentes » et reprise avec historique | lecture des `~/.claude/projects/<slug>/*.jsonl` + `--resume` (le CLI **ne rejoue pas** l'historique) |
 
 ### 1.2 Construit, mais à valider une fois en vrai (repli : contrôle désactivé)
 
-Ces requêtes ont été acceptées mais jamais testées sur le cas réel. Le work package qui en est propriétaire les teste une fois. S'il constate un échec, il désactive le contrôle (`aria-disabled`, infobulle « bientôt ») au lieu de l'inventer.
+Ces requêtes ont été acceptées mais jamais testées sur le cas réel. En cas d'échec, le contrôle est désactivé (`aria-disabled`, infobulle « bientôt ») au lieu d'être inventé. `dotnet run -- --probe-cli` (`Core/CliProbe.cs`) rejoue ces tests contre le vrai CLI (haiku, dépôt jetable) : à relancer à chaque montée de version du CLI. Ultracode, « Toute la session » hors `setMode`, bascule/reconnexion MCP et `/compact` y sont passés (PASS sur 2.1.295) et figurent désormais en §1.1.
 
-- `mcp_toggle {serverName,enabled}` et `mcp_reconnect {serverName}` (bascule et bouton « Réessayer » de s11).
-- « Toute la session » pour les suggestions autres que `setMode` (par exemple `addDirectories`). Il faut renvoyer `updatedPermissions`, ce qui n'a pas été testé.
-- « Compacter maintenant » : envoi de `/compact` en texte utilisateur. Le mécanisme est vérifié pour `/cost` et `/context`, pas pour `/compact`.
-- Ultracode : que `{ultracode:true}` déclenche bien un workflow multi-agents, et que `{ultracode:false}` après le `result` soit accepté. Seule la valeur `get_settings.applied.ultracode` est vérifiée.
 - Relecture d'un transcript : la forme des lignes `user`/`assistant` du `.jsonl` est supposée identique au flux, mais le champ du diff (`tool_use_result` dans le flux) n'a pas été vérifié dans le fichier. Repli : `EditDiff` recalcule depuis l'entrée de l'outil.
 
 ### 1.3 Affiché désactivé (« bientôt ») ou omis, parce que le CLI ne le fournit pas
@@ -212,7 +211,7 @@ Ultracode « pour ce tour » :
 
 « Toute la session » :
 - Suggestion `setMode` : `set_permission_mode {mode}` puis `allow`.
-- Sinon : `allow` + `updatedPermissions = suggestions` (§1.2, à valider).
+- Sinon : `allow` + `updatedPermissions = suggestions` (vérifié par `--probe-cli permission-session`).
 
 `Restart` crée un nouveau `ClaudeSession` avec `--resume Id` dans `Cwd` **tel que remplacé par `init.cwd`** (le dossier du worktree en cas de `-w` : c'est ce cwd qui donne le slug du `.jsonl`). Ne pas repasser `-w`. Si le processus est mort avant le premier message (pas de `.jsonl`), relancer en session neuve avec le même `--session-id`.
 
@@ -556,7 +555,8 @@ WP0 ──► { WP1, WP2, WP3, WP4, WP5 } en parallèle ──► intégration (
 | WP0 est gros et bloque tout | il ne livre que contrats, réducteur, coquille et CSS ; les stubs permettent de démarrer les WP dès qu'il compile |
 | Débit du flux partiel (une notification par delta) | limitation à 50 ms dans `LiveSession` ; Markdown rendu une fois par bloc complet, texte brut pendant le flux |
 | Lecture concurrente des listes pendant le rendu | `ImmutableList` à copie à l'écriture, un seul écrivain par session |
-| `updatedPermissions`, `mcp_toggle`, `mcp_reconnect`, `/compact`, effet d'ultracode, relecture du diff depuis le `.jsonl` non testés en vrai | test unique par le WP propriétaire ; sinon contrôle désactivé (§1.2) |
+| Relecture du diff depuis le `.jsonl` non testée en vrai | `EditDiff` recalcule depuis l'entrée de l'outil (§1.2) |
+| Une version du CLI qui changerait le comportement d'ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect` ou `/compact` | relancer `dotnet run -- --probe-cli` ; sur un FAIL, contrôle désactivé (§1.2) |
 | Mode rapide presque toujours indisponible sur ce compte (`extra_usage_disabled`) | affiché désactivé avec la raison, ce qui correspond à la maquette |
 | Les sessions vivantes meurent au redémarrage du serveur | elles réapparaissent dans « Récentes » et se reprennent via `--resume` ; pas de persistance propre |
 | Worktrees `-w` verrouillés par pid, puis verrou périmé | classés « À vérifier », `unlock` explicite dans le plan, jamais `--force` |
