@@ -193,6 +193,7 @@
             foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
             await Session.Send(t);
         });
+        if (error is not null && text.Length == 0) text = t;   // nothing went out: give the message back
     }
 
     async Task Pick(string name)
