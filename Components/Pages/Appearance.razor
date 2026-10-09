@@ -57,7 +57,7 @@
             </div>
         </div>
         <div class="set-row">
-            <div><b>@L["Appearance.Notify"]</b><span>@L["Appearance.NotifyHint"]</span></div>
+            <div><b>@L["Appearance.Notify"]</b><span>@L[Notifications.ViaShell ? "Appearance.NotifyHintDesktop" : "Appearance.NotifyHint"]</span></div>
             <div>
                 @* id="notify": app.js asks the browser's permission on this very click (it needs the user gesture). *@
                 <button id="notify" class="toggle @(notify == "on" ? "on" : null)" role="switch" aria-checked="@(notify == "on" ? "true" : "false")"
@@ -101,7 +101,7 @@
         """);
 
     string? theme, size;
-    string? notify;   // app.js notifyState: on | off | denied | unsupported
+    string? notify;   // on | off | denied | unsupported (app.js notifyState in a browser)
 
     string? Blocked => notify switch
     {
@@ -110,19 +110,30 @@
         _ => null,
     };
 
+    protected override void OnInitialized()
+    {
+        if (Notifications.ViaShell) notify = Shell();
+    }
+
     // localStorage is only reachable once the circuit is up.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         theme = await JS.InvokeAsync<string>("claudeUi.getTheme");
         size = await JS.InvokeAsync<string>("claudeUi.getCodeSize");
-        notify = await JS.InvokeAsync<string>("claudeUi.notifyState", Notify.ViaShell);
+        if (!Notifications.ViaShell) notify = await JS.InvokeAsync<string>("claudeUi.notifyState");
         StateHasChanged();
     }
 
-    // No interop timeout: the browser's permission prompt stays open as long as the user leaves it.
-    async Task ToggleNotify() =>
-        notify = await JS.InvokeAsync<string>("claudeUi.setNotify", CancellationToken.None, [notify != "on", Notify.ViaShell]);
+    // Desktop: no permission to ask, the shell posts natively; the server keeps the toggle (Notifications.ShellOn).
+    // Browser: no interop timeout, the permission prompt stays open as long as the user leaves it.
+    async Task ToggleNotify()
+    {
+        if (Notifications.ViaShell) { Notifications.ShellOn = notify != "on"; notify = Shell(); }
+        else notify = await JS.InvokeAsync<string>("claudeUi.setNotify", CancellationToken.None, [notify != "on"]);
+    }
+
+    static string Shell() => Notifications.ShellOn ? "on" : "off";
 
     async Task SetTheme(string k)
     {
