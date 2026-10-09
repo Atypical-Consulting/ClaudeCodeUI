@@ -68,7 +68,7 @@ public sealed class WorktreeService(SessionManager sessions)
         {
             var before = remembered!.ToArray();
             remembered.UnionWith(liveRoots.Keys.Select(Norm));
-            foreach (var d in dead.Keys) if (!live.Contains(d)) remembered.Remove(d);
+            foreach (var d in dead.Keys) if (!live.Contains(d) && !Directory.Exists(d)) remembered.Remove(d);   // a folder that still exists may just be a transient git failure
             if (!remembered.SetEquals(before)) SaveRemembered();
         }
         return [.. roots.Keys.Order(StringComparer.OrdinalIgnoreCase)];
@@ -472,6 +472,10 @@ public sealed class WorktreeService(SessionManager sessions)
             SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover : dépôt disparu oublié");
             File.WriteAllText(file, "not json");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Count == 0, "Discover : repos.json corrompu ignoré");
+            var plain = System.IO.Path.Combine(tmp, "plain"); Directory.CreateDirectory(plain);   // exists, but git can't resolve a root there
+            File.WriteAllText(file, JsonSerializer.Serialize(new[] { Norm(plain) }));
+            Disc(Svc(new SessionManager()));
+            SelfCheck.Assert(File.ReadAllText(file).Contains("plain"), "Discover : dossier existant sans racine git reste mémorisé");
         }
         finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
     }
