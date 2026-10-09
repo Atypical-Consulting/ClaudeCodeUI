@@ -52,7 +52,7 @@
 @code {
     int FailedMcp => Sessions.All.LastOrDefault(s => s.Init is not null)?.Init!.Mcp.Count(m => m.Status == "failed") ?? 0;
 
-    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; }
     void Refresh() => InvokeAsync(StateHasChanged);
-    public void Dispose() => Sessions.Changed -= Refresh;
+    public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; }
 }
