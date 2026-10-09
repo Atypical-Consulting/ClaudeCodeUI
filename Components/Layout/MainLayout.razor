@@ -24,12 +24,38 @@
 
 @code {
     DotNetObjectReference<MainLayout>? self;
+    readonly Dictionary<string, (SessionStatus Status, DateTimeOffset? Result)> seen = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         self = DotNetObjectReference.Create(this);
         await JS.InvokeVoidAsync("claudeUi.registerShortcuts", self);
+        await Watch(notify: false);   // what is already waiting when the page loads is on screen, not news
+        Sessions.Changed += OnSessions;
+    }
+
+    void OnSessions() => _ = InvokeAsync(() => Watch(notify: true));
+
+    // Notify.cs: compare each session with its last observation; app.js decides whether the user is looking.
+    async Task Watch(bool notify)
+    {
+        var due = new List<(string Id, string Title, string Body)>();
+        foreach (var s in Sessions.All)
+        {
+            var (status, result, pending) = (s.Status, s.LastResultAt, s.Pending);
+            var had = seen.TryGetValue(s.Id, out var before);
+            seen[s.Id] = (status, result);
+            var kind = Notify.Between(had ? before.Status : null, before.Result, status, result, s.LastResultSubtype);
+            if (notify && kind != Notify.Kind.None)
+                due.Add((s.Id, s.Name, Notify.Body(kind, pending.FirstOrDefault()?.Tool, s.LastTurn)));
+        }
+        foreach (var (id, title, body) in due)
+            try
+            {
+                if (await JS.InvokeAsync<bool>("claudeUi.notify", id, title, body, Notify.ViaShell)) Notify.ToShell(title, body);
+            }
+            catch (JSDisconnectedException) { }
     }
 
     // Keys sent by app.js. Navigation and toggles are handled here; Escape / Enter / Shift+Enter / Delete
@@ -55,5 +81,9 @@
         }
     }
 
-    public void Dispose() => self?.Dispose();
+    public void Dispose()
+    {
+        Sessions.Changed -= OnSessions;
+        self?.Dispose();
+    }
 }

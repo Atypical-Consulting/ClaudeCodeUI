@@ -24,6 +24,7 @@ public static class SelfCheck
             AskUser.Check();
             FileIndex.Check();
             PromptHistory.Check();
+            Notify.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }
