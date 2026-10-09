@@ -1,21 +1,202 @@
-@* Stub (WP0). Owner: WP2. *@
+@* Prompt box with the per-turn settings: model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
+@inject IJSRuntime JS
 
-<div class="composer">
+<div class="composer rich">
+    @if (menuOpen)
+    {
+        <ModelMenu Session="Session" OnClose="() => menuOpen = false" />
+    }
+    else if (SlashQuery is { } sq)
+    {
+        <SlashPopover @ref="slash" Session="Session" Query="@sq" OnPick="Pick" />
+    }
     <div class="box">
-        <textarea @bind="text" @bind:event="oninput" placeholder="Réponds à Claude…"></textarea>
-        <div class="row"><button class="btn primary go" @onclick="Send">Envoyer <kbd>Ctrl ⏎</kbd></button></div>
+        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="Message pour Claude"></textarea>
+        <div class="tools-row">
+            <span class="chip" title="Mode de permission">@Session.Mode</span>
+            @if (models.Count > 0 && !crashed)
+            {
+                <button class="pick" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">
+                    <Icon Name="cpu" />@ModelLabel @if (Session.ContextWindow is { } w) {<small>@Fmt.Tokens(w)</small>}<Icon Name="down" />
+                </button>
+            }
+            else
+            {
+                <span class="pick dis" aria-disabled="true"><Icon Name="cpu" />@(Session.Model ?? "Modèle")</span>
+            }
+            @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
+            {
+                <span class="effort" title="Effort" role="group" aria-label="Effort">
+                    @foreach (var l in levels.EnumerateArray().Select(x => x.GetString() ?? ""))
+                    {
+                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@l</button>
+                    }
+                </span>
+            }
+            @if (FastOk)
+            {
+                <button class="pick @(Session.FastModeState == "on" ? "on" : null)" aria-pressed="@((Session.FastModeState == "on") ? "true" : "false")" title="Mode rapide" @onclick="ToggleFast"><Icon Name="zap" />Rapide</button>
+            }
+            else
+            {
+                <span class="pick dis" aria-disabled="true" title="Mode rapide indisponible@(FastReason is { } r ? " : " + r : "")"><Icon Name="zap" />Rapide</span>
+            }
+            @if (ultraAvailable == false || crashed)
+            {
+                <span class="pick dis" aria-disabled="true" title="Ultracode indisponible pour ce compte ou ce modèle"><Icon Name="agents" />Ultracode</span>
+            }
+            else
+            {
+                <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="Active le réglage ultracode du CLI pour le prochain tour" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
+            }
+            <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
+                @if (Session.Status == SessionStatus.Running)
+                {
+                    @if (ultraTurn) { <span class="tag acc">ultracode</span> }
+                    <button class="btn go" @onclick="() => Run(Session.Interrupt)"><Icon Name="stop" Sm />@(ultraTurn ? "Arrêter le workflow" : "Interrompre") <kbd>Échap</kbd></button>
+                }
+                else if (crashed)
+                {
+                    <button class="btn go" disabled>Envoyer</button>
+                }
+                else
+                {
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">Envoyer <kbd>Ctrl ⏎</kbd></button>
+                }
+            </span>
+        </div>
+    </div>
+    <div class="meta">
+        @if (Turn is { } d) { <span>tour <b>@Fmt.Dur(d)</b></span> }
+        <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
+        <span>outils <b>@Session.ToolCount</b></span>
+        @if (Session.ContextTokens > 0) { <span>contexte <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
+        @if (error is not null)
+        {
+            <span class="r" style="color:var(--err-fg)">@error</span>
+        }
+        else if (Session.Ultracode && Session.Status != SessionStatus.Running)
+        {
+            <span class="r"><span class="tag acc">ultracode</span> multi-agents pour ce tour</span>
+        }
+        else
+        {
+            <span class="r">@(Session.Status == SessionStatus.Running ? "claude · stream-json" : Session.LastResultSubtype)</span>
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    ElementReference area;
+    SlashPopover? slash;
     string text = "";
+    bool menuOpen, slashDismissed, settingsAsked;
+    bool? ultraAvailable;
+    string? appliedEffort, error;
+    List<JsonElement> models = [];
+    JsonElement? model;
+
+    bool crashed => Session.Status == SessionStatus.Crashed;
+    bool ultraTurn => Session.Status == SessionStatus.Running && Session.Items.LastOrDefault(i => i is UserItem) is UserItem { Ultracode: true };
+    string? Effort => appliedEffort ?? Session.Effort;
+    string ModelLabel => model is { } m ? Events.Str(m, "displayName") ?? Session.Model ?? "" : Session.Model ?? "Modèle";
+    TimeSpan? Turn => Session.TurnStartedAt is { } t ? DateTimeOffset.Now - t : Session.LastTurn;
+
+    // While a name is being typed after "/" (no space yet).
+    string? SlashQuery => !slashDismissed && text.StartsWith('/') && !text.Any(char.IsWhiteSpace) ? text : null;
+
+    bool FastOk => Session.FastModeState == "on" && model is { } m && Events.Prop(m, "supportsFastMode") is { ValueKind: JsonValueKind.True };
+    string? FastReason => Session.FastModeReason switch
+    {
+        null => null,
+        "sdk_opt_in_required" => "opt-in SDK requis",
+        "extra_usage_disabled" => "usage supplémentaire désactivé",
+        var r => r,
+    };
+
+    string Placeholder => Session.Status switch
+    {
+        SessionStatus.Crashed => "Session arrêtée. Relance-la pour continuer.",
+        SessionStatus.Waiting => "Ou explique à Claude ce que tu veux à la place…",
+        SessionStatus.Running when ultraTurn => "Le workflow tourne. Tu peux préparer la suite…",
+        SessionStatus.Running => "Claude travaille. Tu peux préparer la suite…",
+        _ => "Réponds à Claude…",
+    };
+
+    protected override void OnParametersSet()
+    {
+        models = [.. ModelMenu.Models(Session)];
+        model = ModelMenu.Current(Session);
+        // ultracodeAvailable and the applied effort live in get_settings: read once the process answered initialize.
+        if (!settingsAsked && Session.HasProcess && Session.InitializeInfo is not null)
+        {
+            settingsAsked = true;
+            _ = ReadSettings();
+        }
+    }
+
+    async Task ReadSettings()
+    {
+        try
+        {
+            if (Events.Prop(await Session.Request("get_settings"), "applied") is { } a)
+            {
+                ultraAvailable = Events.Prop(a, "ultracodeAvailable") is { ValueKind: JsonValueKind.True or JsonValueKind.False } u ? u.GetBoolean() : null;
+                appliedEffort = Events.Str(a, "effort");
+            }
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"[{Session.Id}] get_settings : {ex.Message}"); }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SetEffort(string level)
+    {
+        await Run(() => Session.SetEffort(level));
+        await ReadSettings();
+    }
+
+    Task ToggleFast() => Run(() => Session.SetFast(Session.FastModeState != "on"));
+
+    async Task Run(Func<Task> action)
+    {
+        error = null;
+        try { await action(); }
+        catch (Exception ex) { error = ex.Message; }
+    }
 
     async Task Send()
     {
-        if (string.IsNullOrWhiteSpace(text)) return;
-        var t = text;
+        var t = text.Trim();
+        if (t.Length == 0 || Session.Status is SessionStatus.Running or SessionStatus.Crashed) return;
         text = "";
-        await Session.Send(t);
+        menuOpen = false;
+        // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
+        await Run(async () =>
+        {
+            foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
+            await Session.Send(t);
+        });
+    }
+
+    async Task Pick(string name)
+    {
+        text = $"/{name} ";
+        await JS.InvokeVoidAsync("claudeUi.focus", area);
+    }
+
+    async Task Key(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
+        if (e.Key == "Escape") { menuOpen = false; slashDismissed = SlashQuery is not null; return; }
+        if (!text.StartsWith('/')) slashDismissed = false;
+        if (slash is not { Open: true } || SlashQuery is null) return;
+        switch (e.Key)
+        {
+            case "ArrowDown": slash.Move(1); break;
+            case "ArrowUp": slash.Move(-1); break;
+            case "Tab": await slash.Pick(); break;   // the browser moved the focus; Pick puts it back
+        }
     }
 }
