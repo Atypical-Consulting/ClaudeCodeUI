@@ -19,12 +19,15 @@ public static class TodoList
     // Newer models only get these tools when an --allowedTools rule names one of them (todoToolsOptIn); without
     // CLAUDE_CODE_ENABLE_TASKS=false the CLI exposes the Task* family, with it TodoWrite. Passed by LiveSession.Args.
     public const string AllowedTools = "TodoWrite,TaskCreate,TaskGet,TaskUpdate,TaskList";
+    // One token: --allowedTools is variadic and would swallow a positional argument placed after a separate value.
+    public const string AllowedToolsArg = "--allowedTools=" + AllowedTools;
 
     public static List<TodoEntry> From(IEnumerable<Item> items)
     {
         var list = new List<TodoEntry>();
         foreach (var i in items)
-            if (i is ToolItem { ParentToolUseId: null, State: not (ToolState.Error or ToolState.Denied) } t) Apply(list, t);
+            if (i is ResetItem) list.Clear();   // /clear: the CLI starts a new, empty list whose ids restart at 1
+            else if (i is ToolItem { ParentToolUseId: null, State: not (ToolState.Error or ToolState.Denied) } t) Apply(list, t);
         return list;
     }
 
@@ -36,12 +39,14 @@ public static class TodoList
             case "TodoWrite" when Events.Prop(input, "todos") is { ValueKind: JsonValueKind.Array } todos:
                 list.Clear();
                 list.AddRange(todos.EnumerateArray().Select((x, n) =>
-                    new TodoEntry(n.ToString(), Events.Str(x, "content") ?? "", Status(Events.Str(x, "status")), Events.Str(x, "activeForm"))));
+                    new TodoEntry(n.ToString(), Events.Str(x, "content") ?? "", Status(Events.Str(x, "status")) ?? TodoStatus.Pending, Events.Str(x, "activeForm"))));
                 break;
 
             case "TaskCreate":
                 // Until the result names the id, the tool_use id stands in: nothing can update it before then.
                 var id = Events.Prop(t.Structured ?? default, "task") is { } task ? Events.Str(task, "id") : null;
+                // An id the list already holds means the CLI started over without a reset we saw: keys stay unique for @key.
+                if (id is not null && list.Exists(x => x.Key == id)) list.Clear();
                 list.Add(new(id ?? "#" + t.Id, Events.Str(input, "subject") ?? "", TodoStatus.Pending, Events.Str(input, "activeForm")));
                 break;
 
@@ -52,18 +57,20 @@ public static class TodoList
                 list[at] = e with
                 {
                     Content = Events.Str(input, "subject") ?? e.Content,
-                    Status = status is null ? e.Status : Status(status),
+                    Status = Status(status) ?? e.Status,
                     ActiveForm = Events.Str(input, "activeForm") ?? e.ActiveForm,
                 };
                 break;
         }
     }
 
-    static TodoStatus Status(string? s) => s switch
+    // Null for anything else: the tools' schemas only accept these three (plus "deleted" for TaskUpdate).
+    static TodoStatus? Status(string? s) => s switch
     {
+        "pending" => TodoStatus.Pending,
         "in_progress" => TodoStatus.InProgress,
         "completed" => TodoStatus.Completed,
-        _ => TodoStatus.Pending,
+        _ => null,
     };
 
     public static string Progress(IReadOnlyCollection<TodoEntry> l) => Strings.Get("Todo.Progress", l.Count(e => e.Status == TodoStatus.Completed), l.Count);
@@ -71,14 +78,22 @@ public static class TodoList
     public static string StatusLabel(TodoStatus s) => Strings.Get("Todo." + s);
 
     // One-line target of a todo call in the tool log: "2/3 done" for a TodoWrite, the subject of a TaskCreate,
-    // "#1 → completed" for a TaskUpdate. Null for any other input.
-    internal static string? Target(JsonElement input)
+    // "#1 → completed" for a TaskUpdate. Null for any other tool, so an MCP tool with look-alike fields keeps its own target.
+    internal static string? Target(string name, JsonElement input)
     {
-        if (Events.Prop(input, "todos") is { ValueKind: JsonValueKind.Array } todos)
-            return Strings.Get("Todo.Progress", todos.EnumerateArray().Count(x => Events.Str(x, "status") == "completed"), todos.GetArrayLength());
-        if (Events.Str(input, "taskId") is { } id)
-            return Events.Str(input, "status") is { } s ? $"#{id} → {(s == "deleted" ? Strings.Get("Todo.Deleted") : StatusLabel(Status(s)))}" : "#" + id;
-        return Events.Str(input, "subject");
+        switch (name)
+        {
+            case "TodoWrite" when Events.Prop(input, "todos") is { ValueKind: JsonValueKind.Array } todos:
+                return Strings.Get("Todo.Progress", todos.EnumerateArray().Count(x => Events.Str(x, "status") == "completed"), todos.GetArrayLength());
+            case "TaskUpdate" when Events.Str(input, "taskId") is { } id:
+                var s = Events.Str(input, "status");
+                var to = s == "deleted" ? Strings.Get("Todo.Deleted") : Status(s) is { } st ? StatusLabel(st) : s;
+                return to is null ? "#" + id : $"#{id} → {to}";
+            case "TaskCreate":
+                return Events.Str(input, "subject");
+            default:
+                return null;
+        }
     }
 
     // Tool inputs and results trimmed from the 2.1.296 captures.
@@ -119,8 +134,26 @@ public static class TodoList
         w.Resolve(w.Pending[0], Decision.Deny);
         Ok(From(w.Items).Count == 3, "denied TodoWrite ignored");
 
-        Ok(Target(J("""{"todos":[{"status":"completed"},{"status":"pending"}]}""")) == "1/2 faites"
-           && Target(J("""{"taskId":"4","status":"in_progress"}""")) == "#4 → en cours" && Target(J("""{"taskId":"4"}""")) == "#4"
-           && Target(J("""{"subject":"alpha","description":"Task alpha"}""")) == "alpha" && Target(J("""{"file_path":"a"}""")) is null, "targets");
+        // /clear (2.1.296: {"type":"conversation_reset","trigger":"clear"}, then a new session_id): ids restart at 1.
+        var r = new LiveSession("r", "r", @"C:\w", "default");
+        r.Apply(new ToolUseEvt("a", "TaskCreate", J("""{"subject":"alpha","description":"alpha"}"""), null));
+        r.Apply(Created("a", "1"));
+        r.Apply(new ResetEvt());
+        Ok(From(r.Items).Count == 0, "reset empties the list");
+        r.Apply(new ToolUseEvt("b", "TaskCreate", J("""{"subject":"beta","description":"beta"}"""), null));
+        r.Apply(Created("b", "1"));
+        r.Apply(new ToolUseEvt("bu", "TaskUpdate", J("""{"taskId":"1","status":"in_progress"}"""), null));
+        Ok(From(r.Items) is [{ Key: "1", Content: "beta", Status: TodoStatus.InProgress }], "create, reset, create the same id, update it");
+        r.Apply(new ToolUseEvt("c", "TaskCreate", J("""{"subject":"gamma","description":"gamma"}"""), null));
+        r.Apply(Created("c", "1"));    // an id reused with no reset seen: never two entries with one key
+        Ok(From(r.Items) is [{ Key: "1", Content: "gamma" }], "reused id without a reset");
+
+        Ok(Target("TodoWrite", J("""{"todos":[{"status":"completed"},{"status":"pending"}]}""")) == "1/2 faites"
+           && Target("TaskUpdate", J("""{"taskId":"4","status":"in_progress"}""")) == "#4 → en cours" && Target("TaskUpdate", J("""{"taskId":"4"}""")) == "#4"
+           && Target("TaskUpdate", J("""{"taskId":"4","status":"done"}""")) == "#4 → done"
+           && Target("TaskCreate", J("""{"subject":"alpha","description":"Task alpha"}""")) == "alpha" && Target("Read", J("""{"file_path":"a"}""")) is null, "targets");
+        // Look-alike inputs on any other tool (an MCP tool here) keep their usual target.
+        Ok(Target("mcp__x__job", J("""{"taskId":"42","status":"done"}""")) is null && Target("mcp__x__t", J("""{"todos":[]}""")) is null
+           && ToolKinds.Target("mcp__x__t", J("""{"subject":"s","description":"d"}"""), "") == "d", "targets of other tools");
     }
 }

@@ -69,7 +69,7 @@
             <div class="queue" role="group" tabindex="0" @ref="queueEl" aria-label="@L["Ov.Queue"]" aria-describedby="q-keys" @onkeydown="e => QueueKey(e, queue)">
                 <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · <kbd>A</kbd> @L["Perm.HintAllow"] · <kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
                 @* The J/K cursor is visual; this announces it to screen readers. *@
-                <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Input, cs.Cwd)</div>
+                <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Tool, cp.Input, cs.Cwd)</div>
                 @if (error is not null)
                 {
                     <div class="errbox" role="alert" style="margin:10px 16px">@error</div>
@@ -80,7 +80,7 @@
                     <div @key="p.RequestId" class="q @(i == qi ? "sel" : null)" aria-current="@(i == qi ? "true" : null)">
                         <span class="who" title="@s.Name">@s.Name</span>
                         <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
-                        <span class="p">@ToolKinds.Target(p.Input, s.Cwd)@Delta(p)</span>
+                        <span class="p">@ToolKinds.Target(p.Tool, p.Input, s.Cwd)@Delta(p)</span>
                         <span class="qa" @onkeydown:stopPropagation>   @* Enter on a button must not also open the session *@
                             @if (p.Tool != AskUser.Tool)   @* answered through its form in the session, never a bare allow *@
                             {
@@ -123,7 +123,7 @@
         var (tool, input) = s.Pending.FirstOrDefault() is { } p ? (p.Tool, p.Input)
             : s.Items.LastOrDefault(i => i is ToolItem { ParentToolUseId: null }) is ToolItem t ? (t.Name, t.Input) : (null, default);
         return tool is null ? @<span class="last"></span>
-            : @<span class="last"><span style="color:@ToolKinds.Color(tool)">@tool</span> @ToolKinds.Target(input, s.Cwd)</span>;
+            : @<span class="last"><span style="color:@ToolKinds.Color(tool)">@tool</span> @ToolKinds.Target(tool, input, s.Cwd)</span>;
     }
 
     // "+3 −1" for an edit waiting for approval.

@@ -26,7 +26,7 @@
             <div @key="a.Id + '/'" class="subrun">
                 @foreach (var t in kids)
                 {
-                    <div class="sl"><span style="color:@ToolKinds.Color(t.Name)">@t.Name</span><span class="p">@ToolKinds.Target(t.Input, Session.Cwd)</span>@ToolRow.Meta(t)</div>
+                    <div class="sl"><span style="color:@ToolKinds.Color(t.Name)">@t.Name</span><span class="p">@ToolKinds.Target(t.Name, t.Input, Session.Cwd)</span>@ToolRow.Meta(t)</div>
                 }
             </div>
         }

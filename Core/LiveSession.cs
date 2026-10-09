@@ -13,6 +13,7 @@ public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
+public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -240,7 +241,7 @@ public sealed class LiveSession : IAsyncDisposable
     internal List<string> Args(bool resume)
     {
         var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text",
-            "--allowedTools", TodoList.AllowedTools };
+            TodoList.AllowedToolsArg };
         if (resume) args.AddRange(["--resume", Id]);
         else
         {
@@ -581,6 +582,10 @@ public sealed class LiveSession : IAsyncDisposable
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
                 break;
+
+            case ResetEvt:
+                Items = Items.Add(new ResetItem());
+                break;
         }
     }
 
@@ -590,9 +595,9 @@ public sealed class LiveSession : IAsyncDisposable
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, "--allowedTools", TodoList.AllowedTools, "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");

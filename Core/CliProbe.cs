@@ -274,10 +274,11 @@ public static class CliProbe
 
     // todo-tools: with LiveSession's --allowedTools opt-in, init.tools lists the task tools, and a turn that uses them
     // rebuilds, through Events.ParseAll + the reducer + TodoList.From, into the list the model was asked for.
+    // todo-clear: after /clear the CLI numbers tasks from 1 again; the rebuilt list holds only the new task, updated.
     static async Task<IEnumerable<(string, string, string)>> TodoTools(string dir)
     {
-        await using var c = await Cli.Start(dir, "--allowedTools", TodoList.AllowedTools);
-        return await Guard(["todo-tools"], async () =>
+        await using var c = await Cli.Start(dir, TodoList.AllowedToolsArg);
+        return await Guard(["todo-tools", "todo-clear"], async () =>
         {
             var turn = await c.Turn("Use your task list tool to create exactly three tasks named alpha, beta and gamma, "
                 + "then mark alpha completed and beta in progress. Use no other tool, then reply done.");
@@ -292,7 +293,18 @@ public static class CliProbe
                 foreach (var ev in Events.ParseAll(e)) s.Apply(ev);
             var list = string.Join(", ", s.Todos.Select(x => $"{x.Content}:{x.Status}"));
             var detail = $"init.tools {(exposed.Length > 0 ? exposed : "none")}; {(used.Length > 0 ? used : "no todo tool_use")}; list [{list}]";
-            return [list == "alpha:Completed, beta:InProgress, gamma:Pending" ? ("PASS", detail) : ("FAIL", detail)];
+            var tools = list == "alpha:Completed, beta:InProgress, gamma:Pending" ? ("PASS", detail) : ("FAIL", detail);
+
+            var clear = await c.Turn("/clear");
+            var after = await c.Turn("Use your task list tool to create exactly one task named delta, then mark it in progress. "
+                + "Use no other tool, then reply done.");
+            foreach (var e in clear.Concat(after))
+                foreach (var ev in Events.ParseAll(e)) s.Apply(ev);
+            var reset = clear.Any(e => Events.Str(e, "type") == "conversation_reset");
+            var ids = string.Join(",", after.Select(e => Events.Prop(e, "tool_use_result") is { } r && Events.Prop(r, "task") is { } k ? Events.Str(k, "id") : null).OfType<string>());
+            var list2 = string.Join(", ", s.Todos.Select(x => $"{x.Key}:{x.Content}:{x.Status}"));
+            var detail2 = $"conversation_reset {(reset ? "seen" : "absent")}; TaskCreate ids [{ids}]; list [{list2}]";
+            return [tools, reset && list2 == "1:delta:InProgress" ? ("PASS", detail2) : ("FAIL", detail2)];
         });
     }
 

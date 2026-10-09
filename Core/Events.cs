@@ -25,6 +25,7 @@ public record TaskStartedEvt(string TaskId, string ToolUseId, string Description
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs) : ClaudeEvent;
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
+public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
 
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
 public static class Events
@@ -112,6 +113,10 @@ public static class Events
                         Str(e, "fast_mode_state"), Str(e, "fast_mode_disabled_reason"), Str(e, "terminal_reason"));
                     break;
                 }
+
+            case "conversation_reset":
+                yield return new ResetEvt();
+                break;
 
             case "rate_limit_event":
                 if (Prop(e, "rate_limit_info") is { } info && Prop(info, "unifiedWindows") is { } uw
@@ -245,5 +250,6 @@ public static class Events
         var notif = P("""{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5aab0eece92a372</task-id>\n<tool-use-id>toolu_01TEgqvrrwU4RMLtNJYrEavF</tool-use-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens><tool_uses>1</tool_uses><duration_ms>5088</duration_ms></usage>\n</task-notification>"},"parent_tool_use_id":null}""");
         Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
+        Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
     }
 }
