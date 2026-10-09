@@ -51,6 +51,9 @@
             case ApiErrorItem e:
                 <ApiErrorCard Error="e.Error" />
                 break;
+            case Hooks h:
+                <HookActivity Hooks="h.Items" />
+                break;
             case Run { Agents: true } r:
                 <Workflow @key="r.Tools[0].Id" Session="Session" Agents="r.Tools" />
                 break;
@@ -77,6 +80,7 @@
     RewindDialog? rewind;
 
     sealed record Run(List<ToolItem> Tools, bool Agents);
+    sealed record Hooks(List<HookItem> Items);   // consecutive hooks share one row (SessionStart fires several at once)
 
     // Rebuilt only when Items is replaced: tool state changes in place and does not move blocks.
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;
@@ -106,6 +110,10 @@
                     var agent = ToolKinds.IsAgent(t.Name);
                     if (blocks.LastOrDefault() is Run r && r.Agents == agent) r.Tools.Add(t);
                     else blocks.Add(new Run([t], agent));
+                    break;
+                case HookItem h:
+                    if (blocks.LastOrDefault() is Hooks hs) hs.Items.Add(h);
+                    else blocks.Add(new Hooks([h]));
                     break;
                 case UserItem or ApiErrorItem or TextItem { ParentToolUseId: null }:
                     blocks.Add(item);

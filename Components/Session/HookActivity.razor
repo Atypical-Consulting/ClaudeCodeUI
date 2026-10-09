@@ -1,0 +1,36 @@
+@* Hooks that failed, blocked or printed something (system/hook_response, --include-hook-events); consecutive ones share
+   this row. Folded by default: SessionStart hooks print whole prompts. Opened when one failed, since a blocking hook
+   changed what the agent could do. Silent successes never reach here (LiveSession drops them). *@
+@{ var bad = Hooks.Any(h => h.Hook.Outcome != "success"); }
+<details class="hooks @(bad ? "bad" : null)" open="@bad">
+    <summary>
+        <Icon Name="zap" Sm />
+        <span class="hn">@L["Hook.Title"]</span>
+        <span class="hs">@string.Join(", ", Hooks.GroupBy(h => h.Hook.Name).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key))</span>
+        @if (bad)
+        {
+            <span class="badge no">@Label(Hooks.First(h => h.Hook.Outcome != "success").Hook)</span>
+        }
+    </summary>
+    @foreach (var h in Hooks)
+    {
+        <div class="hk">
+            <div class="w"><b>@h.Hook.Name</b><span>@Label(h.Hook)</span></div>
+            @if (h.Hook.Output.Length > 0)
+            {
+                <pre tabindex="0" aria-label="@($"{h.Hook.Name}: {L["Hook.Output"]}")">@h.Hook.Output</pre>
+            }
+        </div>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired] public List<HookItem> Hooks { get; set; } = null!;
+
+    string Label(HookEvt h) => h switch
+    {
+        { Outcome: "success" } => L["Hook.Output"],
+        { ExitCode: 2 } => L["Hook.Blocking"],
+        _ => L["Hook.Failed", h.ExitCode?.ToString() ?? "—"],
+    };
+}
