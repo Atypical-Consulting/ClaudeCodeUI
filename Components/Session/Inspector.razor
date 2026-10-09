@@ -37,7 +37,7 @@
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
 
-    ToolItem? Selected => Ui.SelectedToolId is { } id ? Session.Items.OfType<ToolItem>().LastOrDefault(t => t.Id == id) : null;
+    ToolItem? Selected => Session.Tool(Ui.SelectedToolId);
 
     protected override void OnInitialized() => Ui.Changed += Refresh;
     void Refresh() => InvokeAsync(StateHasChanged);

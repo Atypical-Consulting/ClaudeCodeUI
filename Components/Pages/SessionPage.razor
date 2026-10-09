@@ -27,23 +27,21 @@ else
 @code {
     [Parameter] public string Id { get; set; } = "";
     LiveSession? S;
-    Timer? tick;
+    int seen = -1;
 
     protected override void OnInitialized()
     {
         Ui.Changed += Refresh;
         Ui.Key += OnKey;
-        // Elapsed times (status line, running agents) move without events.
-        tick = new Timer(_ => { if (S?.Status is SessionStatus.Running or SessionStatus.Waiting) Refresh(); }, null, 1000, 1000);
     }
 
     // A live session, else a past one from the transcripts (history replayed, process started on demand).
     protected override void OnParametersSet()
     {
         if (S?.Id == Id) return;
-        if (S is not null) S.Changed -= Refresh;
+        if (S is not null) S.Changed -= OnSession;
         S = Sessions.Get(Id) ?? (TranscriptStore.Recent().FirstOrDefault(p => p.Id == Id) is { } past ? Sessions.Open(past) : null);
-        if (S is not null) S.Changed += Refresh;
+        if (S is not null) S.Changed += OnSession;
     }
 
     void OnKey(string key)
@@ -58,11 +56,16 @@ else
 
     void Refresh() => InvokeAsync(StateHasChanged);
 
+    // Streamed text alone is rendered by StreamingTail; elapsed times by their Ticker.
+    void OnSession()
+    {
+        if (S is { } s && Interlocked.Exchange(ref seen, s.Version) != s.Version) Refresh();
+    }
+
     public void Dispose()
     {
-        tick?.Dispose();
         Ui.Changed -= Refresh;
         Ui.Key -= OnKey;
-        if (S is not null) S.Changed -= Refresh;
+        if (S is not null) S.Changed -= OnSession;
     }
 }

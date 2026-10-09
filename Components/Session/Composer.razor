@@ -86,7 +86,7 @@
         </div>
     </div>
     <div class="meta">
-        @if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }
+        <Ticker Active="Session.TurnStartedAt is not null">@if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }</Ticker>
         <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
