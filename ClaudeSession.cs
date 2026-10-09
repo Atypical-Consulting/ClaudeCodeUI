@@ -16,6 +16,7 @@ public sealed class ClaudeSession : IAsyncDisposable
     static readonly JsonElement Empty = JsonDocument.Parse("{}").RootElement;
 
     readonly Process proc;
+    readonly ProcessJob? job;
     readonly Task reader;
     readonly SemaphoreSlim writeLock = new(1, 1);
     readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> requests = new();
@@ -40,8 +41,10 @@ public sealed class ClaudeSession : IAsyncDisposable
             psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
+        ProcessJob.Prepare(psi);
         clock.Start();
         proc = Process.Start(psi)!;
+        job = ProcessJob.Attach(proc);
         Trace($"spawn pid={proc.Id}");
         // Read stderr line by line so what the CLI prints while it is slow shows up live, not only after exit.
         var errText = new StringBuilder();
@@ -67,6 +70,7 @@ public sealed class ClaudeSession : IAsyncDisposable
                 catch (Exception ex) { Console.Error.WriteLine($"claude event handler failed: {ex}"); }
             }
             await proc.WaitForExitAsync();
+            job?.Dispose();   // external kill or crash: take the MCP servers down with it, before onExit
             foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException("processus arrêté"));
             await stderr;
             if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {errText}".Trim());
@@ -150,6 +154,7 @@ public sealed class ClaudeSession : IAsyncDisposable
         disposing = true;
         try { proc.StandardInput.Close(); } catch { }
         if (!proc.WaitForExit(2000)) try { proc.Kill(true); } catch { }
+        job?.Dispose();
         await reader.ConfigureAwait(false);
         proc.Dispose();
     }
