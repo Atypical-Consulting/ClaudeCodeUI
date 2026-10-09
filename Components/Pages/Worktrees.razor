@@ -65,7 +65,7 @@
                                 <td><div class="n">@w.Name</div><div class="branch"><Icon Name="branch" />@(w.Branch ?? (w.State == WtState.Orphan ? "branche introuvable" : "HEAD détachée")) · @Path.GetFileName(w.Repo)</div></td>
                                 <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
                                 <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
-                                <td class="num">@(w.State == WtState.Orphan ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
+                                <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
                                 <td><div class="rowacts">
                                     @if (WorktreeService.Cleanable(w))
                                     {
@@ -85,11 +85,11 @@
                                             <button class="btn" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>Aller</button>
                                         }
                                     }
-                                    else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null)
+                                    else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null && !w.BranchOnly)
                                     {
                                         <button class="btn" disabled="@running" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">Pousser</button>
                                     }
-                                    else
+                                    else if (!w.BranchOnly)
                                     {
                                         <button class="btn" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>Ouvrir</button>
                                     }
@@ -141,7 +141,7 @@
                     <div class="plan">
                         @foreach (var w in chosen)
                         {
-                            <div class="it"><Icon Name="check" Sm="true" /><div><div class="n">@w.Name</div><div class="w">@What(w)</div></div><span class="sz">@(w.State == WtState.Orphan ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</span></div>
+                            <div class="it"><Icon Name="check" Sm="true" /><div><div class="n">@w.Name</div><div class="w">@What(w)</div></div><span class="sz">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</span></div>
                         }
                     </div>
                 }
@@ -207,7 +207,7 @@
             (rows, unignored, errors) = (found, bad, errs);
             if (refresh) sizes.Clear();
             plan.RemoveWhere(p => !found.Any(w => w.Path == p && WorktreeService.Cleanable(w)));
-            foreach (var w in found.Where(w => w.State != WtState.Orphan && !sizes.ContainsKey(w.Path))) _ = Measure(w.Path, ct);
+            foreach (var w in found.Where(w => w.State != WtState.Orphan && !w.BranchOnly && !sizes.ContainsKey(w.Path))) _ = Measure(w.Path, ct);
         }
         catch (OperationCanceledException) { }
         finally { scanning = false; }
@@ -286,11 +286,11 @@
 
     string SizeOf(IEnumerable<WorktreeInfo> ws)
     {
-        var known = ws.Where(w => w.State != WtState.Orphan).ToList();
+        var known = ws.Where(w => w.State != WtState.Orphan && !w.BranchOnly).ToList();
         return known.All(w => sizes.ContainsKey(w.Path)) ? Fmt.Size(known.Sum(w => sizes[w.Path])) : "…";
     }
 
-    static string What(WorktreeInfo w) => w.State == WtState.Orphan ? "référence git seulement"
+    static string What(WorktreeInfo w) => w.BranchOnly ? "branche locale seulement (mergée)" : w.State == WtState.Orphan ? "référence git seulement"
         : (w.Locked ? "déverrouillage + " : "") + (w.Branch is null ? "dossier (HEAD détachée)"
         : w.SquashMerged && !w.Merged ? "dossier seulement, branche gardée (squash)" : "dossier + branche locale (mergée)");
 

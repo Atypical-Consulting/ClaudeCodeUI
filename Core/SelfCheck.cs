@@ -7,6 +7,7 @@ public static class SelfCheck
     {
         try
         {
+            ProcessJob.Check();
             Events.Check();
             ApiErrors.Check();
             LiveSession.Check();
