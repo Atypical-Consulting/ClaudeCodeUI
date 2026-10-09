@@ -191,6 +191,7 @@
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>Une politique ou un réglage désactive les hooks : aucun de ceux-ci ne s’exécute.</value></data>
   <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Les hooks que le CLI exécute pour les sessions dans {0}, tels qu’il les rapporte. Lecture seule : ils se trouvent dans les fichiers de réglages indiqués sous Source.</value></data>
+  <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>désactivé</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>Aucun hook configuré pour ce dossier.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Impossible de lire les hooks : {0}</value></data>
   <data name="Hook.Blocking" xml:space="preserve"><value>erreur bloquante · code 2</value></data>

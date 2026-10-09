@@ -92,7 +92,10 @@
                             {
                                 var meta = string.Join(" · ", new[] { h.Type, h.Timeout is { } t ? $"{t} s" : null, h.Display }.Where(x => !string.IsNullOrEmpty(x)));
                                 <tr>
-                                    <td><div class="n">@h.Event</div></td>
+                                    <td><div class="n">@h.Event</div>@if (h.Disabled)
+                                        {
+                                            <span class="tag">@L["Ext.Hooks.RowDisabled"]</span>
+                                        }</td>
                                     <td><code>@(h.Matcher.Length > 0 ? h.Matcher : "—")</code></td>
                                     <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div></td>
                                     <td><span class="tag">@SourceTag(h.Source)</span><div class="d">@(h.Plugin ?? h.SourceLabel)</div></td>
@@ -226,6 +229,7 @@
     async Task Refresh()
     {
         if (Live is not { } s) return;
+        if (refreshedFor != s.Id) (hooks, hooksNote) = (null, null);   // the previous session's hooks (another folder) must not show meanwhile
         refreshedFor = s.Id;
         await Run(s.RefreshMcp);
         if (selected is null && Servers(s) is { Count: > 0 } all)
@@ -238,9 +242,13 @@
     async Task LoadHooks(LiveSession s)
     {
         if (!s.HasProcess) return;
-        try { hooks = Events.Hooks(await s.Request("get_hooks_listing")); hooksNote = null; }
-        catch (Exception ex) { hooks = null; hooksNote = L["Ext.Hooks.Failed", ex.Message.TrimEnd()]; }   // fire-and-forget from Show: nothing may escape
-        await InvokeAsync(StateHasChanged);
+        (List<HookRow>, bool)? got = null;
+        string? failed = null;
+        try { got = Events.Hooks(await s.Request("get_hooks_listing")); }
+        catch (Exception ex) { failed = L["Ext.Hooks.Failed", ex.Message.TrimEnd()]; }   // fire-and-forget from Show: nothing may escape
+        if (s.Id != refreshedFor) return;   // Live moved to another session meanwhile: its Refresh loads its own hooks
+        (hooks, hooksNote) = (got, failed);
+        try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
     }
 
     void Show(string key)
