@@ -50,7 +50,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s11 | MCP toggle and "Retry" | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}`; verified by `--probe-cli mcp-toggle` / `mcp-reconnect` (the state read in `mcp_status` follows the toggle) |
 | s11 | Skills / Agents / Plugins | `initialize` (`agents`, `commands`) + init (`skills`, `plugins`) |
 | s11 | Hooks tab (read-only: event, matcher, command, type, source) | `get_hooks_listing` → `hooks[{event,matcher,type,commandText,displayText,source,sourceLabel,pluginName?,timeout?}]` + `policy`; verified by `--probe-cli hooks` (`hooks-listing`) |
-| s2 | Hook activity row (a hook that failed, blocked or printed) | `--include-hook-events` → `system/hook_response {hook_name,outcome,exit_code,output}`; without the flag only `SessionStart` hooks are streamed. Verified by `--probe-cli hooks` (`hooks-events`: exit 2 → `outcome:"error"`, tool not run) |
+| s2 | Hook activity row (a hook that failed, blocked or printed) | `--include-hook-events` → `system/hook_response {hook_name,outcome,exit_code,output}`; without the flag only `SessionStart` hooks are streamed. Verified by `--probe-cli hooks` (`hooks-events`: exit 2 → `outcome:"error"`). Live stream only, not replayed: transcripts store hooks as `hook_success` / `hook_additional_context` attachments, so a session reopened from history shows no hook rows |
 | rail | 5 h / 7 d quota | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` at startup |
 | rail | "Recent" and resuming with history | reading `~/.claude/projects/<slug>/*.jsonl` + `--resume` (the CLI **does not replay** history) |
 | header, palette, thread | "Fork" / "Fork from here": a new session `<name> (fork)` continuing the conversation, the original untouched | `--resume <id> --fork-session --session-id <new> --name <name>` (+ `--resume-session-at <assistant uuid>`); history = the source transcript, cut after that uuid; a fork not sent to yet has no transcript (`--resume` on it: "No conversation found"), so forking it forks its source at the same cut; verified by `--probe-cli fork` (5 PASS on 2.1.296) |
@@ -581,7 +581,7 @@ WP0 ──► { WP1, WP2, WP3, WP4, WP5 } in parallel ──► integration (lea
 | `-w` worktrees locked by pid, then stale lock | classified "To check", explicit `unlock` in the plan, never `--force` |
 | Slow scan of `~/.claude/projects` (865 folders) | last 30 days, 64 KB per file, cache, rescan on "Refresh" |
 | Ctrl N intercepted by the browser | Alt N in addition, label kept |
-| User hooks that produce noise (`hook_*`, `stop-hook-error`) | `hook_started` ignored; a `hook_response` that succeeds silently is dropped by the reducer, the others fold into one collapsed row per run of hooks |
+| User hooks that produce noise (`hook_*`, `stop-hook-error`) | `hook_started` ignored; a `hook_response` that succeeds silently (or a successful `SessionStart`, whose output is injected prompt context) is dropped by the reducer, the others fold into one collapsed row per run of hooks; a Pre/PostToolUse row does not split the tool ledger |
 | `bypassPermissions` / `dontAsk` exist in the CLI | deliberately not exposed in the interface |
 
 **Default decisions (changeable):**
