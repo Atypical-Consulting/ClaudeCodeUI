@@ -20,12 +20,23 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
+        // read), then focus moves to the card unless the user is typing a draft or using a dialog.
+        armPermission(el) {
+            if (!el) return;
+            el._armedAt = performance.now() + 300;
+            const a = document.activeElement;
+            const busy = a instanceof Element && (a.closest('[role=dialog],[contenteditable]:not([contenteditable=false])')
+                || (a.closest('input,textarea,select') && a.value));
+            if (!busy) el.focus({ preventScroll: true });
+        },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
-        // Pin a scroller (or the .thread holding el) to its bottom after each render, unless the user scrolled up.
-        scrollEnd(el) {
+        // Pin a scroller (or the .thread holding el) to its bottom after each render, unless the user scrolled up (force: pin anyway).
+        scrollEnd(el, force) {
             el = el?.closest('.thread') || el;
             if (!el) return;
             if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+            if (force) el._free = false;
             if (!el._free) el.scrollTop = el.scrollHeight;
         },
     };
@@ -108,6 +119,11 @@
     highlight();
 
     // Copy buttons: code blocks and [data-copy]. The label's text node is edited in place, not replaced.
+    // The confirmation is also written to a shared visually hidden status node, so screen readers hear it.
+    const copied = document.createElement('div');
+    copied.className = 'sr-only';
+    copied.setAttribute('role', 'status');
+    document.body.append(copied);
     document.addEventListener('click', e => {
         const b = e.target.closest('.cb .copy, [data-copy]');
         if (!b) return;
@@ -116,9 +132,11 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        const msg = label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
+        requestAnimationFrame(() => copied.textContent = msg);
         b.classList.add('done');
-        setTimeout(() => { label.nodeValue = old; b.classList.remove('done'); }, 1400);
+        setTimeout(() => { label.nodeValue = old; copied.textContent = ''; b.classList.remove('done'); }, 1400);
     });
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');
@@ -132,9 +150,20 @@
         if (ctrl && !e.altKey && e.shiftKey && (letter === 'A' || letter === 'O')) key = 'Ctrl+Shift+' + letter;
         else if (ctrl && !e.altKey && !e.shiftKey && (letter === 'K' || letter === 'I' || letter === 'N')) key = 'Ctrl+' + letter;
         else if (e.altKey && !ctrl && !e.shiftKey && letter === 'N') key = 'Ctrl+N';
-        else if (e.key === 'Escape' && !(e.target instanceof Element && e.target.closest('.composer:has(.pop)'))) key = 'Escape';   // the Composer closes its popover
-        else if (!ctrl && !e.altKey && (e.key === 'Enter' || e.key === 'Delete') && !isField(e.target) && document.querySelector('[data-permission]'))
-            key = e.key === 'Enter' && e.shiftKey ? 'Shift+Enter' : e.key;
+        else if (e.key === 'Escape') {
+            // Esc interrupts the turn only from the composer, the palette or nothing focused; elsewhere it first
+            // leaves the focused control (or the text selection), so a stray Esc never kills a turn.
+            const t = e.target instanceof Element ? e.target : null, sel = getSelection();
+            if (t?.closest('.composer:has(.pop)')) { }   // the Composer closes its popover
+            else if (t && t !== document.body && !t.closest('.composer,.palette')) t.blur();
+            else if (t === document.body && sel && !sel.isCollapsed) sel.removeAllRanges();
+            else key = 'Escape';
+        }
+        else if (!ctrl && !e.altKey && (e.key === 'Enter' || e.key === 'Delete') && !e.repeat && !isField(e.target)) {
+            // Answer only from inside the card (it takes focus when it arrives), and only once it is armed.
+            const card = e.target instanceof Element && e.target.closest('[data-permission]');
+            if (card && performance.now() >= card._armedAt) key = e.key === 'Enter' && e.shiftKey ? 'Shift+Enter' : e.key;
+        }
         if (!key) return;
         if (key !== 'Escape') e.preventDefault();
         net.invokeMethodAsync('OnShortcut', key).catch(() => { });
