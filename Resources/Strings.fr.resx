@@ -170,7 +170,9 @@
   <data name="Error.Title" xml:space="preserve"><value>Erreur serveur</value></data>
   <data name="Ext.ActionFailed" xml:space="preserve"><value>L’action MCP a échoué : {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>Le CLI annonce cette liste au premier message de la session.</value></data>
-  <data name="Ext.AuthHow" xml:space="preserve"><value>Ou connecte-toi depuis Claude Code dans un terminal, avec cette commande :</value></data>
+  <data name="Ext.AuthHow" xml:space="preserve"><value>Pour te connecter, lance cette commande dans Claude Code depuis un terminal :</value></data>
+  <data name="Ext.AuthHowAlt" xml:space="preserve"><value>Ou connecte-toi depuis Claude Code dans un terminal, avec cette commande :</value></data>
+  <data name="Ext.AuthTerminal" xml:space="preserve"><value>{0} ne peut pas terminer sa connexion d’ici : lance /mcp dans Claude Code depuis un terminal.</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>Le serveur attend une connexion. Ses outils restent indisponibles d’ici là.</value></data>
   <data name="Ext.AuthTimeout" xml:space="preserve"><value>{0} n’est toujours pas connecté après 5 minutes. Reconnecte-toi pour recommencer.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentification requise</value></data>

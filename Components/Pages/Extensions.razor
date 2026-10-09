@@ -56,7 +56,7 @@
                                         case "failed":
                                             <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
                                             break;
-                                        case "needs-auth":
+                                        case "needs-auth" when SignsInHere(m):
                                             <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.SignIn"]}: {m.Short}")" @onclick="() => SignIn(s, m.Name)">@L["Ext.SignIn"]</button>
                                             break;
                                         case "connected" or "disabled":
@@ -181,16 +181,23 @@
             <div class="section">
                 <h3>@L["Ext.AuthTitle"]</h3>
                 <p>@L["Ext.AuthText"]</p>
-                @if (auth is { } a && a.Server == sel.Name)
+                @if (!SignsInHere(sel))
                 {
-                    <p role="status">@L["Ext.AuthWaiting"]</p>
-                    <div class="acts"><a class="btn primary" href="@a.Url" target="_blank" rel="noopener noreferrer" @ref="authLink">@L["Ext.OpenSignIn"]</a></div>
+                    <p>@L["Ext.AuthHow"]</p>
                 }
                 else
                 {
-                    <div class="acts"><button class="btn primary" disabled="@busy" @onclick="() => SignIn(ls, sel.Name)"><Icon Name="plug" Sm="true" />@L["Ext.SignIn"]</button></div>
+                    @if (auth is { } a && a.Server == sel.Name)
+                    {
+                        <p role="status">@L["Ext.AuthWaiting"]</p>
+                        <div class="acts"><a class="btn primary" href="@a.Url" target="_blank" rel="noopener noreferrer" @ref="authLink">@L["Ext.OpenSignIn"]</a></div>
+                    }
+                    else
+                    {
+                        <div class="acts"><button class="btn primary" disabled="@busy" @onclick="() => SignIn(ls, sel.Name)"><Icon Name="plug" Sm="true" />@L["Ext.SignIn"]</button></div>
+                    }
+                    <p>@L["Ext.AuthHowAlt"]</p>
                 }
-                <p>@L["Ext.AuthHow"]</p>
                 <div class="acts"><code>/mcp</code><button type="button" class="btn" data-copy="/mcp"><Icon Name="copy" Sm />@L["Md.Copy"]</button></div>
             </div>
         }
@@ -300,10 +307,16 @@
         Select(name);
         var start = McpAuthStart.Parse(await s.Request("mcp_authenticate", new() { ["serverName"] = name }));
         if (start.Url is null) { await s.RefreshMcp(); return; }   // the stored token was still valid
+        if (!start.CallbackExpected) { note = L["Ext.AuthTerminal", name]; return; }   // nothing would reconnect it: see SignsInHere
         auth = (name, start.Url);
         focusAuth = true;
         _ = AwaitConnected(s, name, (authPoll = new()).Token);
     });
+
+    // claude.ai connectors (config.type claudeai-proxy) answer mcp_authenticate with callbackExpected:false: the CLI takes
+    // no redirect and reconnects nothing, so the server would stay needs-auth whatever the browser does. They keep the
+    // /mcp terminal route only. The init brief has no config: its "claude.ai " name prefix (Tag) says the same.
+    static bool SignsInHere(Srv m) => m.Transport != "claudeai-proxy" && m.Tag != "claude.ai";
 
     // mcp_status every 2 s until the server leaves needs-auth/pending, 5 minutes at most. Runs on the renderer's dispatcher.
     // Stops once the session has no process (stopped or crashed): RefreshMcp would spawn a new claude for it, without
