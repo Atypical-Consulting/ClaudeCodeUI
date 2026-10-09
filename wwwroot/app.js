@@ -48,15 +48,23 @@
 
     // Hand-built code views (file viewer, diff), one code.lc per line, gutters outside: each side (new = context + added,
     // old = context + removed) is highlighted as ONE text, then split back per line, closing and reopening the spans
-    // open at each \n. One hljs call per view, and block comments or multi-line strings keep their colour.
+    // open at each \n. One hljs call per hunk (a diff's .hunk rows separate unrelated code), so block comments or
+    // multi-line strings keep their colour without leaking into the next hunk.
     function paintView(view) {
         const language = view.dataset.hl;
         if (!window.hljs || !hljs.getLanguage(language)) return;
-        const lines = [...view.querySelectorAll('code.lc:not([data-done])')];
+        const hunks = [[]];
+        for (const row of view.children) {
+            if (row.classList.contains('hunk')) { hunks.push([]); continue; }
+            const c = row.querySelector('code.lc:not([data-done])');
+            if (c) hunks[hunks.length - 1].push(c);
+        }
         const side = c => c.parentElement.classList.contains('del') ? -1 : c.parentElement.classList.contains('add') ? 1 : 0;
-        const dels = lines.filter(c => side(c) < 0);
-        paintLines(language, lines.filter(c => side(c) >= 0), null);
-        if (dels.length) paintLines(language, lines.filter(c => side(c) <= 0), new Set(dels));
+        for (const lines of hunks) {
+            const dels = lines.filter(c => side(c) < 0);
+            paintLines(language, lines.filter(c => side(c) >= 0), null);
+            if (dels.length) paintLines(language, lines.filter(c => side(c) <= 0), new Set(dels));
+        }
     }
 
     function paintLines(language, src, only) {

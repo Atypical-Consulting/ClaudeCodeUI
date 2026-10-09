@@ -15,6 +15,9 @@
     bool Selected => Ui.SelectedToolId == Tool.Id;
 
     // A row only changes with its tool's state, its selection or the session cwd, not on every page render.
+    // Structured/ResultText (read by Meta) are left out on purpose: LiveSession sets them in the same reducer step as
+    // State + EndedAt (the only earlier write, an async launch receipt, lands while Running, where Meta shows "…").
+    // If a result ever arrives as a separate event, add it to this key and to the Done() cache key.
     (ToolState, DateTimeOffset?, bool, string)? drawn;
     protected override bool ShouldRender()
     {

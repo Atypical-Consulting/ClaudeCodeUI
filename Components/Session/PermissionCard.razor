@@ -118,13 +118,13 @@
 
     void Open(LiveSession s) => Nav.NavigateTo("session/" + s.Id);
 
-    // Re-render only when the queue (or a listed session name) changed, not on every event of every session.
+    // Re-render only when the queue (or a listed session name or cwd) changed, not on every event of every session.
     void Refresh() => InvokeAsync(() => { if (Load()) StateHasChanged(); });
 
     bool Load()
     {
         List<(LiveSession S, PendingPermission P)> q = [.. Sessions.DecisionQueue];
-        var n = q.ConvertAll(x => x.S.Name);
+        var n = q.ConvertAll(x => x.S.Name + "\0" + x.S.Cwd);   // rows show the name and a cwd-relative target
         if (q.SequenceEqual(queue) && n.SequenceEqual(names)) return false;
         (queue, names) = (q, n);
         return true;
