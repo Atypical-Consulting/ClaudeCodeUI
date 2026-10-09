@@ -185,7 +185,7 @@ public static class CliProbe
             if (before != "needs-auth") return [("FAIL", $"status {before}, expected needs-auth")];
             var r = await c.S.Request("mcp_authenticate", new() { ["serverName"] = "probe-auth" }, Seconds);
             Console.WriteLine($"  mcp_authenticate -> {r.GetRawText()}");
-            if (McpAuthStart.Parse(r) is not { Url: { } url }) return [("FAIL", $"no usable authUrl in {r.GetRawText()}")];
+            if (McpAuthStart.Parse(r) is not { Url: { } url, CallbackExpected: true }) return [("FAIL", $"no usable authUrl with callbackExpected:true in {r.GetRawText()}")];
 
             using var browser = new HttpClient();   // follows authorize -> 302 -> the CLI's localhost callback
             var landed = await browser.GetAsync(url);
