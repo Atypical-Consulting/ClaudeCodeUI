@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -391,6 +391,25 @@ public static class CliProbe
             }
             return ~c;
         }
+    }
+
+    // file-mention: in stream-json mode the CLI expands "@path" in the user text itself. With every file-reading tool
+    // disallowed, the model can only quote a random code word from a file it was never shown if the CLI attached it.
+    static async Task<IEnumerable<(string, string, string)>> FileMention(string dir)
+    {
+        var word = "CODE-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        Directory.CreateDirectory(Path.Combine(dir, "notes"));
+        File.WriteAllText(Path.Combine(dir, "notes", "secret.txt"), $"The code word is {word}.\n");
+        await using var c = await Cli.Start(dir, "--disallowedTools", "Read,Bash,Glob,Grep,Task,Agent,LS");
+        return await Guard(["file-mention"], async () =>
+        {
+            var turn = await c.Turn("What is the code word in @notes/secret.txt ? Reply with only the code word, and do not use any tool.");
+            var tools = turn.Sum(e => ToolUses(e).Count());
+            var said = string.Concat(turn.Where(e => Events.Str(e, "type") == "assistant" && Events.Prop(e, "message") is { } m && Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array })
+                .SelectMany(e => e.GetProperty("message").GetProperty("content").EnumerateArray()).Where(b => Events.Str(b, "type") == "text").Select(b => Events.Str(b, "text")));
+            var detail = $"{tools} tool_use, answer \"{said.Trim()}\"";
+            return [tools == 0 && said.Contains(word) ? ("PASS", $"{word} quoted from the @-mentioned file: {detail}") : ("FAIL", $"expected {word}: {detail}")];
+        });
     }
 
     // ---------- plumbing ----------
