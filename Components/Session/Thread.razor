@@ -12,7 +12,7 @@
                 <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]</div>@if (u.Ultracode)
                     {
                         <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>
-                    }@u.Text</div>
+                    }<span class="tx">@u.Text</span></div>
                 break;
             case TextItem t:
                 <Markdown Text="@t.Markdown" />

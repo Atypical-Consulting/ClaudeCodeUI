@@ -46,9 +46,9 @@
             <span class="cap">@L["Perm.AlsoWaiting"]</span>
             @foreach (var (s, p) in others)
             {
-                <div class="q" style="grid-template-columns:auto 52px minmax(0,1fr);padding:0;border:0;cursor:pointer" @onclick="() => Open(s)">
+                <div class="q" style="grid-template-columns:auto 84px minmax(0,1fr);padding:0;border:0;cursor:pointer" @onclick="() => Open(s)">
                     <span class="dot wait"></span>
-                    <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                    <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
                     <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Input, s.Cwd)</span></span>
                 </div>
             }

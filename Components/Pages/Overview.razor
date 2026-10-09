@@ -23,14 +23,14 @@
                 <div><b>@all.Sum(s => s.ToolCount)</b>@L["Kv.Tools"]</div>
             </div>
         </div>
-        <table>
-            <thead><tr><th style="width:250px">Session</th><th>@L["Col.State"]</th><th>Mode</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
+        <table class="ovt">
+            <thead><tr><th>Session</th><th>@L["Col.State"]</th><th>Mode</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
             <tbody>
                 @foreach (var s in all)
                 {
                     var (label, color) = State(s);
                     <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
-                        <td><div class="n"><a href="@Url(s)" style="color:inherit;text-decoration:none">@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
+                        <td><div class="n" title="@s.Name"><a href="@Url(s)" style="color:inherit;text-decoration:none">@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
                         <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
                         <td><span class="mtag">@s.Mode</span></td>
                         <td>@Last(s)</td>
@@ -49,8 +49,8 @@
                 {
                     var (s, p) = queue[i];
                     <div @key="p.RequestId" class="q" style="@(focused && i == qi ? "background:var(--raise)" : null)">
-                        <span class="who">@s.Name</span>
-                        <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                        <span class="who" title="@s.Name">@s.Name</span>
+                        <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
                         <span class="p">@ToolKinds.Target(p.Input, s.Cwd)@Delta(p)</span>
                         <a class="btn" href="@Url(s)">@L["Action.Open"]</a>
                     </div>
