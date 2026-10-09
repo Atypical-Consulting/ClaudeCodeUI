@@ -11,14 +11,14 @@ public enum WtState { Safe, Check, Active, Orphan }
 
 public sealed record WorktreeInfo(string Repo, string Path, string Name, string? Branch, string? Head,
     WtState State, string Why, long? SizeBytes, DateTimeOffset LastActivity,
-    bool Locked, string? LockReason, int Dirty, int Unpushed, bool Merged, bool SquashMerged, bool UpstreamGone);
+    bool Locked, string? LockReason, int Dirty, int Unpushed, bool Merged, bool SquashMerged, bool UpstreamGone, bool BranchOnly = false);
 
 public sealed record CleanupStep(string Repo, string Display, string[] GitArgs, bool FailureIsFatal);
 
 // Facts collected by git for one worktree; Classify turns them into a state.
 public sealed record WtFacts(int Dirty = 0, int Ahead = 0, bool Merged = false, bool SquashMerged = false, bool UpstreamGone = false,
     bool Locked = false, int? LockPid = null, bool PidAlive = false, bool Exists = true, bool Prunable = false,
-    string? ActiveSessionName = null, bool Detached = false);
+    string? ActiveSessionName = null, bool Detached = false, bool NoWorktree = false);
 
 // Scan, classify and safely clean the worktrees of known repos. Never --force, never -D.
 public sealed class WorktreeService(SessionManager sessions)
@@ -184,8 +184,28 @@ public sealed class WorktreeService(SessionManager sessions)
             return new WorktreeInfo(Norm(repoRoot), path, System.IO.Path.GetFileName(path), branch, r.GetValueOrDefault("HEAD"),
                 state, why.Replace("{base}", Enc(bas)), null, last, reason is not null, reason, dirty, ahead, isMerged, squash, track == "gone");
         }));
-        SetCleanable(Norm(repoRoot), rows.Count(w => w.State is WtState.Safe or WtState.Orphan));
-        return rows;
+        // worktree-* branches that no worktree checks out (main record included) have no row above: surface them.
+        var orphans = await Task.WhenAll(OrphanBranches(refs.Keys, records.Select(r => r.TryGetValue("branch", out var b) ? b.Replace("refs/heads/", "") : null)).Select(async branch =>
+        {
+            var rf = refs[branch];
+            var track = rf[2];
+            var ahead = Regex.Match(track, @"ahead (\d+)") is { Success: true } a ? int.Parse(a.Groups[1].Value)
+                : string.IsNullOrEmpty(rf[1]) ? int.Parse((await Git(repoRoot, ct, "rev-list", "--count", branch, "--not", "--remotes")).Out.Trim() is { Length: > 0 } n ? n : "0")
+                : 0;
+            var isMerged = merged.Contains(branch);
+            var squash = false;
+            if (!isMerged)
+            {
+                var mt = await Git(repoRoot, ct, "merge-tree", "--write-tree", bas, branch);
+                squash = mt.Exit == 0 && mt.Out.Split('\n')[0].Trim() == baseTree;
+            }
+            var (state, why) = Classify(new WtFacts(0, ahead, isMerged, squash, track == "gone", NoWorktree: true));
+            return new WorktreeInfo(Norm(repoRoot), $"{Norm(repoRoot)}/refs/heads/{branch}", branch["worktree-".Length..], branch, null,
+                state, why.Replace("{base}", Enc(bas)), null, DateTimeOffset.TryParse(rf[3], out var cd) ? cd : default, false, null, 0, ahead, isMerged, squash, track == "gone", BranchOnly: true);
+        }));
+        WorktreeInfo[] all = [.. rows, .. orphans];
+        SetCleanable(Norm(repoRoot), all.Count(w => w.State is WtState.Safe or WtState.Orphan));
+        return all;
     }
 
     static async Task<string> BaseBranch(string repo, Dictionary<string, string> main, CancellationToken ct)
@@ -229,6 +249,13 @@ public sealed class WorktreeService(SessionManager sessions)
     public static bool Cleanable(WorktreeInfo w) => w.State is WtState.Safe or WtState.Orphan
         || w.State == WtState.Check && w.Locked && PidOf(w.LockReason) is not null && Classify(FactsOf(w) with { Locked = false }).State == WtState.Safe;
 
+    // Local branches created by `claude -w` (worktree-*) that no worktree has checked out.
+    internal static IReadOnlyList<string> OrphanBranches(IEnumerable<string> heads, IEnumerable<string?> checkedOut)
+    {
+        var used = checkedOut.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return heads.Where(h => h.StartsWith("worktree-", StringComparison.Ordinal) && !used.Contains(h)).Order(StringComparer.Ordinal).ToList();
+    }
+
     static WtFacts FactsOf(WorktreeInfo w) => new(w.Dirty, w.Unpushed, w.Merged, w.SquashMerged, w.UpstreamGone, w.Locked,
         PidOf(w.LockReason), false, w.State != WtState.Orphan, w.State == WtState.Orphan, null, w.Branch is null);
 
@@ -240,17 +267,19 @@ public sealed class WorktreeService(SessionManager sessions)
             var repo = g.Key;
             string Rel(string p) => p.StartsWith(repo + "/", StringComparison.OrdinalIgnoreCase) ? p[(repo.Length + 1)..] : p;
             CleanupStep Step(bool fatal, params string[] a) => new(repo, "git " + string.Join(' ', a.Select(x => x.StartsWith(repo) ? Rel(x) : x)), a, fatal);
-            foreach (var w in g.Where(w => w.Locked && w.State == WtState.Orphan)) steps.Add(Step(true, "worktree", "unlock", w.Path));
-            foreach (var w in g.Where(w => w.State != WtState.Orphan))
+            foreach (var w in g.Where(w => w.BranchOnly)) steps.Add(Step(false, "branch", "-d", w.Branch!));   // no folder: just the branch
+            var wts = g.Where(w => !w.BranchOnly).ToList();
+            foreach (var w in wts.Where(w => w.Locked && w.State == WtState.Orphan)) steps.Add(Step(true, "worktree", "unlock", w.Path));
+            foreach (var w in wts.Where(w => w.State != WtState.Orphan))
             {
                 if (w.Locked) steps.Add(Step(true, "worktree", "unlock", w.Path));
                 steps.Add(Step(true, "worktree", "remove", w.Path));
                 if (w.Branch is { } b && !(w.SquashMerged && !w.Merged)) steps.Add(Step(false, "branch", "-d", b));   // squash: -d would refuse, branch kept
             }
-            if (g.Any(w => w.State == WtState.Orphan))
+            if (wts.Any(w => w.State == WtState.Orphan))
             {
                 steps.Add(Step(true, "worktree", "prune", "-v"));
-                foreach (var w in g.Where(w => w.State == WtState.Orphan && w.Merged && w.Branch is not null)) steps.Add(Step(false, "branch", "-d", w.Branch!));
+                foreach (var w in wts.Where(w => w.State == WtState.Orphan && w.Merged && w.Branch is not null)) steps.Add(Step(false, "branch", "-d", w.Branch!));
             }
         }
         return steps;
@@ -312,6 +341,7 @@ public sealed class WorktreeService(SessionManager sessions)
     {
         if (f.ActiveSessionName is { } s) return (WtState.Active, $"Session <b>{Enc(s)}</b> en cours");
         if (f.Locked && f.LockPid is { } pid && f.PidAlive) return (WtState.Active, $"Session claude externe (pid {pid})");
+        if (f.NoWorktree) return f.Merged ? (WtState.Orphan, "Branche <b>sans worktree</b>, déjà dans <b>{base}</b>") : (WtState.Check, "Branche <b>sans worktree</b>, pas encore dans <b>{base}</b>");
         if (!f.Exists || f.Prunable) return (WtState.Orphan, "Dossier supprimé à la main, git le référence encore");
         if (f.Dirty > 0) return (WtState.Check, f.Dirty == 1 ? "<b>1 fichier</b> modifié non commité" : $"<b>{f.Dirty} fichiers</b> modifiés non commités");
         if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, f.Ahead == 1 ? "<b>1 commit</b> jamais poussé" : $"<b>{f.Ahead} commits</b> jamais poussés");
@@ -376,6 +406,10 @@ public sealed class WorktreeService(SessionManager sessions)
         Is(new(Merged: true, Ahead: 0), WtState.Safe, "frais");
         Is(new(Detached: true), WtState.Check, "détachée hors base");
         Is(new(), WtState.Check, "inconnu");
+        Is(new(NoWorktree: true, Merged: true), WtState.Orphan, "branche sans worktree mergée");
+        Is(new(NoWorktree: true, Ahead: 2), WtState.Check, "branche sans worktree non mergée");
+        Is(new(NoWorktree: true, Ahead: 2, SquashMerged: true), WtState.Check, "branche sans worktree squash");
+        SelfCheck.Assert(string.Join(',', OrphanBranches(["main", "worktree-a", "worktree-b", "feat/x"], ["main", "worktree-b", null])) == "worktree-a", "OrphanBranches");
 
         WorktreeInfo Row(string name, WtFacts f, string? branch = "b") => new("C:/r", "C:/r/.claude/worktrees/" + name, name, branch is null ? null : branch + name, "h",
             Classify(f).State, "", null, default, f.Locked, f.Locked ? $"claude session {name} (pid {f.LockPid})" : null, f.Dirty, f.Ahead, f.Merged, f.SquashMerged, f.UpstreamGone);
@@ -385,6 +419,7 @@ public sealed class WorktreeService(SessionManager sessions)
             Row("stale", new(Locked: true, LockPid: 7, Merged: true)), Row("orph", new(Exists: false, Merged: true, Locked: true, LockPid: 8)),
             Row("dirty", new(Dirty: 1, Merged: true)), Row("ahead", new(Ahead: 1)), Row("live", new(Locked: true, LockPid: 9, PidAlive: true, Merged: true)),
             Row("act", new(ActiveSessionName: "s")), Row("det", new(Detached: true), null), Row("detm", new(Detached: true, Merged: true), null), Row("unk", new()),
+            new WorktreeInfo("C:/r", "C:/r/refs/heads/worktree-gone", "gone2", "worktree-gone", null, WtState.Orphan, "", null, default, false, null, 0, 0, true, false, false, BranchOnly: true),
         };
         var plan = new WorktreeService(null!).Plan(rows);
         var all = string.Join('\n', plan.Select(s => string.Join(' ', s.GitArgs)));
@@ -394,6 +429,7 @@ public sealed class WorktreeService(SessionManager sessions)
         SelfCheck.Assert(all.Contains("worktree unlock C:/r/.claude/worktrees/stale") && all.Contains("worktree remove C:/r/.claude/worktrees/stale"), "Plan verrou périmé : unlock puis remove");
         SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/squash") && !all.Contains("branch -d bsquash"), "Plan squash : branche gardée");
         SelfCheck.Assert(all.Contains("branch -d bsafe") && all.Contains("worktree prune") && all.Contains("worktree unlock C:/r/.claude/worktrees/orph"), "Plan : branch -d, prune, unlock orphelin");
+        SelfCheck.Assert(all.Contains("branch -d worktree-gone") && !all.Contains("remove C:/r/refs/heads/worktree-gone") && !all.Contains("unlock C:/r/refs"), "Plan : branche sans worktree = un seul branch -d");
         SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/detm"), "Plan : détachée mergée supprimée");
         SelfCheck.Assert(plan.First(s => s.GitArgs[0] == "worktree" && s.GitArgs[1] == "remove").Display == "git worktree remove .claude/worktrees/safe", "Plan : chemin relatif affiché");
         var svc = new WorktreeService(null!); var fired = 0; svc.Changed += () => fired++;
@@ -423,6 +459,12 @@ public sealed class WorktreeService(SessionManager sessions)
             WorktreeService Svc(SessionManager m) => new(m) { ReposFile = file, repos = [] };
             IReadOnlyList<string> Disc(WorktreeService w) => w.DiscoverReposAsync(CancellationToken.None).GetAwaiter().GetResult();
             var root = System.IO.Path.GetFileName(tmp);   // macOS temp is a symlink: match on the unique folder name
+            G(repo, "branch", "worktree-foo");
+            G(repo, "branch", "feat-x");
+            G(repo, "switch", "-q", "-c", "worktree-bar"); G(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "b"); G(repo, "switch", "-q", "-");
+            var scan = Svc(new SessionManager()).ScanAsync(repo, CancellationToken.None).GetAwaiter().GetResult().Where(w => w.BranchOnly).ToList();
+            SelfCheck.Assert(scan.Count == 2 && scan.Any(w => w.Branch == "worktree-foo" && w.State == WtState.Orphan) && scan.Any(w => w.Branch == "worktree-bar" && w.State == WtState.Check),
+                "Scan : branches worktree-* sans worktree (foo orpheline, bar à vérifier, feat-x ignorée)");
             G(repo, "worktree", "remove", ".claude/worktrees/demo");
             SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover : repo d'une session -w dont le worktree a été supprimé");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover : dépôt mémorisé après redémarrage");
