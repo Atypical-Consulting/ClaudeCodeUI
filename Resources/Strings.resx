@@ -170,7 +170,9 @@
   <data name="Error.Title" xml:space="preserve"><value>Server error</value></data>
   <data name="Ext.ActionFailed" xml:space="preserve"><value>The MCP action failed: {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>The CLI reports this list with the session's first message.</value></data>
-  <data name="Ext.AuthHow" xml:space="preserve"><value>Or sign in from Claude Code in a terminal, with this command:</value></data>
+  <data name="Ext.AuthHow" xml:space="preserve"><value>To sign in, run this command in Claude Code in a terminal:</value></data>
+  <data name="Ext.AuthHowAlt" xml:space="preserve"><value>Or sign in from Claude Code in a terminal, with this command:</value></data>
+  <data name="Ext.AuthTerminal" xml:space="preserve"><value>{0} can't finish signing in from here: run /mcp in Claude Code in a terminal.</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>The server is waiting for you to sign in. Its tools stay unavailable until then.</value></data>
   <data name="Ext.AuthTimeout" xml:space="preserve"><value>{0} is still not connected after 5 minutes. Sign in again to start over.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentication required</value></data>
