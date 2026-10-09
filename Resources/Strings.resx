@@ -61,6 +61,8 @@
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. You can draft what's next…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Or tell Claude what you want instead…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. You can draft what's next…</value></data>
+  <data name="Composer.DenyAndSend" xml:space="preserve"><value>Deny {0} and send</value></data>
+  <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Pending permission requests are denied first, then your message is sent.</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
