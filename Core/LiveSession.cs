@@ -42,6 +42,7 @@ public sealed class LiveSession : IAsyncDisposable
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
     bool draining;                                             // a result came with messages still queued: the CLI runs the next one
+    bool ultraCarry;                                           // ...and that result ended an ultracode turn
     long lastNotify;
     int notifyQueued;
     int version;
@@ -120,7 +121,8 @@ public sealed class LiveSession : IAsyncDisposable
         var uuid = Guid.NewGuid().ToString();
         // During a turn the CLI queues the message: it folds it into the turn at the next tool result, or runs it as the
         // next turn (also after an interrupt). It joins the thread on command_lifecycle `started` (--probe-cli queue).
-        // ponytail: no ultracode for a queued message, its flag would land on the running turn; it stays armed for the next send.
+        // A queued message never arms ultracode (the flag would land on the running turn; the toggle stays armed for the next
+        // send). It runs under whatever flag the CLI holds when it starts: see the `started` case.
         bool queued;
         lock (gate)
         {
@@ -136,8 +138,8 @@ public sealed class LiveSession : IAsyncDisposable
         await p.SendUser(text, images, uuid);
     }
 
-    // cancel_async_message drops a message the CLI has not started; {cancelled:false} = it already did. The chip goes on
-    // the command_lifecycle frame that follows either way (verified by --probe-cli queue).
+    // cancel_async_message drops a message the CLI has not started: {cancelled:true}, then a `cancelled` frame removes the
+    // chip (verified by --probe-cli queue). A cancel that loses the race to `started` is not probed: the chip leaves on that frame.
     public Task Cancel(QueuedMessage q) => Request("cancel_async_message", new() { ["message_uuid"] = q.Uuid });
 
     // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
@@ -566,7 +568,14 @@ public sealed class LiveSession : IAsyncDisposable
                 Pending = [];
                 ClearStream();
                 ThinkingTokens = 0;
-                if (!Queued.IsEmpty) { draining = true; TurnStartedAt = now; break; }   // a queued message runs next, even after an interrupt
+                if (!Queued.IsEmpty)   // a queued message runs next, even after an interrupt
+                {
+                    draining = true;
+                    ultraCarry = turnUltra;   // read before OnEvent resets it
+                    TurnStartedAt = now;
+                    if (Status is SessionStatus.Waiting or SessionStatus.Starting) Status = SessionStatus.Running;   // Esc while a permission waits
+                    break;
+                }
                 TurnStartedAt = null;
                 if (Status is SessionStatus.Running or SessionStatus.Waiting or SessionStatus.Starting) Status = SessionStatus.Idle;
                 break;
@@ -601,7 +610,10 @@ public sealed class LiveSession : IAsyncDisposable
                 Queued = Queued.Remove(m);
                 if (q.State == "started")
                 {
-                    Items = Items.Add(new UserItem(m.Text, now, false));
+                    // Folded into an ultracode turn, or started right after one: the CLI starts it as it emits that result,
+                    // before OnEvent's ultracode:false can land, so it very likely runs with ultracode still on (not probed).
+                    // Labelled ultracode so the stop button says what may be running.
+                    Items = Items.Add(new UserItem(m.Text, now, turnUltra || draining && ultraCarry));
                     draining = false;
                     if (Status == SessionStatus.Idle) { Status = SessionStatus.Running; TurnStartedAt = now; }
                 }
@@ -721,6 +733,26 @@ public sealed class LiveSession : IAsyncDisposable
         Enqueue("u9", "neuf");   // a result raced the cancel: the CLI's terminal frame must not leave the session busy
         s.Status = SessionStatus.Running; s.Apply(Done()); s.Apply(new QueueEvt("u9", "discarded"));
         Ok(s.Status == SessionStatus.Idle && s.TurnStartedAt is null, "draining ends when the queue empties");
+
+        s.BeginTurn("dix"); Enqueue("u11", "onze");   // Esc while a permission waits: the queued turn runs, not "waiting"
+        s.Apply(new PermissionEvt("r10", "Bash", input, null, null, null));
+        s.Apply(Done("aborted_streaming"));
+        Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty, "interrupt while waiting: queued turn runs");
+        s.Apply(new QueueEvt("u11", "started"));
+        Ok(s.Status == SessionStatus.Running && s.Items[^1] is UserItem { Text: "onze", Ultracode: false }, "started after a waiting interrupt");
+        s.Apply(Done());
+
+        s.turnUltra = true; s.BeginTurn("douze"); Enqueue("u13", "treize"); Enqueue("u14", "quatorze");
+        s.Apply(new ToolUseEvt("t12", "Bash", input, null)); s.Apply(new ToolResultEvt("t12", "ok", false, null));
+        s.Apply(new QueueEvt("u13", "started"));
+        Ok(s.Items[^1] is UserItem { Text: "treize", Ultracode: true }, "folded into an ultracode turn: labelled ultracode");
+        s.Apply(Done()); s.turnUltra = false;   // OnEvent resets it after the reducer
+        s.Apply(new QueueEvt("u14", "started"));
+        Ok(s.Items[^1] is UserItem { Text: "quatorze", Ultracode: true }, "started right after an ultracode turn: labelled ultracode");
+        s.Apply(Done());
+        s.BeginTurn("quinze"); Enqueue("u16", "seize"); s.Apply(Done()); s.Apply(new QueueEvt("u16", "started"));
+        Ok(s.Items[^1] is UserItem { Ultracode: false }, "after a plain turn: not ultracode");
+        s.Apply(Done());
 
         // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
         var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };

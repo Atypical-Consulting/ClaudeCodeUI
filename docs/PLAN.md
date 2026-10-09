@@ -195,7 +195,7 @@ enum Decision { Allow, AllowSession, Deny }
 ```
 
 Transitions:
-- `Send` → `Running`, `TurnStartedAt = now`. During a turn (`Running`/`Waiting`) `Send` only adds a `QueuedMessage` (chip): `QueueEvt started` moves it into `Items` as a `UserItem`; `cancelled`/`discarded`/`refused` drop it. A `ResultEvt` with messages still queued keeps `Running` (the CLI starts the next one itself). Process exit clears the queue.
+- `Send` → `Running`, `TurnStartedAt = now`. During a turn (`Running`/`Waiting`) `Send` only adds a `QueuedMessage` (chip): `QueueEvt started` moves it into `Items` as a `UserItem`; `cancelled`/`discarded`/`refused` drop it. A `ResultEvt` with messages still queued keeps (or, from `Waiting`, returns to) `Running` (the CLI starts the next one itself). A queued message started inside or right after an ultracode turn is labelled ultracode (the reset lands after the CLI started it; not probed). Process exit clears the queue. On replay, a folded message is the `attachment {type:"queued_command", prompt, commandMode:"prompt"}` line after the tool result, not a `user` line.
 - `PermissionEvt` → `Waiting`; the matching `ToolItem` goes to `ToolState.Waiting`.
 - A denial marks the `ToolItem` `Denied`.
 - `ResultEvt` → `Idle`, or `Idle` + "interrupted" if `terminal_reason == aborted_streaming`.
