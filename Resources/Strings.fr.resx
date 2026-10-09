@@ -36,6 +36,11 @@
   <data name="Appearance.Language" xml:space="preserve"><value>Langue</value></data>
   <data name="Appearance.LanguageHint" xml:space="preserve"><value>Langue de l’interface. L’appliquer recharge la page.</value></data>
   <data name="Appearance.Lead" xml:space="preserve"><value>Le thème change les couleurs de toute l’interface, coloration syntaxique comprise. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » pour basculer sans ouvrir les réglages.</value></data>
+  <data name="Appearance.Notify" xml:space="preserve"><value>Notifications</value></data>
+  <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Les notifications sont bloquées pour ce site : autorise-les dans les réglages du site du navigateur, puis réactive-les ici.</value></data>
+  <data name="Appearance.NotifyHint" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan ou qu’une autre session est affichée.</value></data>
+  <data name="Appearance.NotifyLabel" xml:space="preserve"><value>Me prévenir</value></data>
+  <data name="Appearance.NotifyUnsupported" xml:space="preserve"><value>Ce navigateur ne sait pas afficher de notifications.</value></data>
   <data name="Appearance.Preview" xml:space="preserve"><value>Aperçu</value></data>
   <data name="Appearance.PreviewHint" xml:space="preserve"><value>Le rendu réel avec le thème choisi.</value></data>
   <data name="Appearance.SampleComment" xml:space="preserve"><value>Le canard change d’humeur selon l’état de la session</value></data>
@@ -284,6 +289,11 @@
   <data name="NotFound.Heading" xml:space="preserve"><value>Il n’y a rien à cette adresse.</value></data>
   <data name="NotFound.Text" xml:space="preserve"><value>Le lien est peut-être périmé ou mal saisi. Démarre une nouvelle session ou ouvre la vue d’ensemble.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Introuvable</value></data>
+  <data name="Notify.Decision" xml:space="preserve"><value>Attend ta décision</value></data>
+  <data name="Notify.Done" xml:space="preserve"><value>Tour terminé en {0}</value></data>
+  <data name="Notify.Permission" xml:space="preserve"><value>Attend ton autorisation : {0}</value></data>
+  <data name="Notify.Plan" xml:space="preserve"><value>Plan prêt à valider</value></data>
+  <data name="Notify.Question" xml:space="preserve"><value>A une question pour toi</value></data>
   <data name="OfN" xml:space="preserve"><value>{0} sur {1}</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Coût</value></data>
   <data name="Ov.Col.Duration" xml:space="preserve"><value>Durée</value></data>

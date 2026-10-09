@@ -22,6 +22,7 @@ if (args is ["--boot-probe", var probeDir, ..])
 // link/form can't drive claude. Web mode prints the tokened URL on the console; AllowedHosts (appsettings.json) is loopback.
 var port = ArgValue("--desktop-port");
 var desktop = port is not null;
+Notify.ViaShell = desktop;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
