@@ -18,9 +18,13 @@ public static class Notifications
         get => File.Exists(OnFile);
         set
         {
-            if (!value) { if (File.Exists(OnFile)) File.Delete(OnFile); return; }
-            Directory.CreateDirectory(Path.GetDirectoryName(OnFile)!);
-            File.WriteAllText(OnFile, "");
+            try
+            {
+                if (!value) { if (File.Exists(OnFile)) File.Delete(OnFile); return; }
+                Directory.CreateDirectory(Path.GetDirectoryName(OnFile)!);
+                File.WriteAllText(OnFile, "");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // the getter shows what stuck
         }
     }
 
