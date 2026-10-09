@@ -119,7 +119,8 @@ public sealed class LiveSession : IAsyncDisposable
     }
 
     // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
-    public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null)
+    // input: what to allow the tool with instead of its own input (AskUserQuestion's answers, see AskUser).
+    public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null, JsonElement? input = null)
     {
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
@@ -142,7 +143,7 @@ public sealed class LiveSession : IAsyncDisposable
                     Mode = Events.Str(await c.Request("set_permission_mode", new() { ["mode"] = mode }), "mode") ?? mode;
                     Notify();
                 }
-                await c.Respond(p.RequestId, true, p.Input, updated);
+                await c.Respond(p.RequestId, true, input ?? p.Input, updated);
             }
             lock (gate) Resolve(p, d);
             Notify();
