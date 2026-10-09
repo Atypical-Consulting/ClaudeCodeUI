@@ -386,6 +386,7 @@
   <data name="Session.Exited" xml:space="preserve"><value>claude s’est arrêté ({0})</value></data>
   <data name="Session.Fork" xml:space="preserve"><value>Forker la session</value></data>
   <data name="Session.ForkHere" xml:space="preserve"><value>Forker à partir d’ici</value></data>
+  <data name="Session.ForkHereOf" xml:space="preserve"><value>Forker à partir d’ici : {0}</value></data>
   <data name="Session.ForkHint" xml:space="preserve"><value>Poursuivre cette conversation dans une nouvelle session ; celle-ci reste telle quelle</value></data>
   <data name="Session.ForkName" xml:space="preserve"><value>{0} (fork)</value></data>
   <data name="Session.ForkShort" xml:space="preserve"><value>Forker</value></data>
