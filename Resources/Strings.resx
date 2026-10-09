@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude is still working. Press Esc to interrupt, or send when the turn ends.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
@@ -184,6 +185,8 @@
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Trust this folder</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>This folder came from a link and you haven't used it before. Claude will load its .claude settings and hooks.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
@@ -228,8 +231,11 @@
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>switches the session to {0} mode</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>allows {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>

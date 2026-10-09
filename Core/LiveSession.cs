@@ -85,6 +85,7 @@ public sealed class LiveSession : IAsyncDisposable
     public RateLimitEvt? Limits { get; private set; }
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
+    public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
 
     public event Action? Changed;
 

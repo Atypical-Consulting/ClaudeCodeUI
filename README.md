@@ -48,7 +48,7 @@ Then run `claude` once in a terminal to sign in. If `claude` is not found in the
 Requirements: .NET 10 SDK. For the desktop app: Rust (stable), Node 20+ and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system.
 
 ```sh
-dotnet run                     # web server alone on http://localhost:5284
+dotnet run                     # web server alone: open the http://localhost:5284/?token=… URL it prints
 dotnet run -- --self-check     # built-in checks, non-zero exit code on failure
 ```
 
