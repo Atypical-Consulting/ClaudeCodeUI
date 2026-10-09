@@ -58,7 +58,7 @@ npm run dev                    # lance la fenêtre Tauri (équivaut à cargo tau
 npm run build                  # produit les installeurs dans src-tauri/target/release/bundle
 ```
 
-La coque Tauri choisit un port libre, lance `ClaudeCodeUI --desktop-port <port> --parent-pid <pid>` (HTTP sur 127.0.0.1 uniquement, environnement Production), affiche un écran de chargement, puis ouvre l'interface. Le serveur s'arrête tout seul quand la fenêtre se ferme, et arrête avec lui les processus `claude`. Relance `npm run server` après chaque modification du code .NET.
+La coque Tauri lance `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTTP sur 127.0.0.1 uniquement, environnement Production, accès protégé par un jeton à usage local transmis sur la sortie standard), affiche un écran de chargement, puis ouvre l'interface. Le serveur s'arrête tout seul quand la fenêtre se ferme, et arrête avec lui les processus `claude`. Relance `npm run server` après chaque modification du code .NET.
 
 ## Publication
 

@@ -1,9 +1,9 @@
-// Desktop shell: starts the bundled self-contained Blazor server on a free loopback port, shows the
-// splash (src/index.html) until the port answers, then points the window at it. The server watches
+// Desktop shell: starts the bundled self-contained Blazor server on a loopback port it picks itself, shows the
+// splash (src/index.html) until the server prints its tokened URL on stdout, then points the window at it. The server watches
 // --parent-pid and shuts itself down (killing its claude children) when this process exits.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tauri::Manager;
@@ -11,14 +11,12 @@ use tauri::Manager;
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            // ponytail: the port is free when probed, not reserved; a race with another binder only shows the error splash
-            let port = TcpListener::bind("127.0.0.1:0")?.local_addr()?.port();
             let exe = app.path().resource_dir()?.join("server").join(if cfg!(windows) { "ClaudeCodeUI.exe" } else { "ClaudeCodeUI" });
             let mut cmd = Command::new(&exe);
-            cmd.args(["--desktop-port", &port.to_string(), "--parent-pid", &std::process::id().to_string()])
+            cmd.args(["--desktop-port", "0", "--parent-pid", &std::process::id().to_string()])
                 .current_dir(app.path().home_dir()?) // default working folder offered on the start page
                 .stdin(Stdio::null())
-                .stdout(Stdio::null())
+                .stdout(Stdio::piped())
                 .stderr(Stdio::null());
             #[cfg(unix)]
             if let Some(path) = login_path() {
@@ -40,14 +38,15 @@ fn main() {
                     Ok(c) => c,
                     Err(e) => return fail(format!("{} ({e})", exe.display())),
                 };
-                let addr = SocketAddr::from(([127, 0, 0, 1], port));
-                while TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_err() {
-                    if let Ok(Some(status)) = child.try_wait() {
-                        return fail(status.to_string());
+                // The URL comes from our own child (it binds port 0), so no other listener can be mistaken for it.
+                let mut lines = BufReader::new(child.stdout.take().unwrap()).lines().map_while(Result::ok);
+                match lines.find(|l| l.starts_with("http://127.0.0.1:")).and_then(|u| u.parse().ok()) {
+                    Some(url) => {
+                        let _ = window.navigate(url);
                     }
-                    std::thread::sleep(Duration::from_millis(100));
+                    None => return fail(child.wait().map_or_else(|e| e.to_string(), |s| s.to_string())),
                 }
-                let _ = window.navigate(format!("http://127.0.0.1:{port}/").parse().unwrap());
+                lines.for_each(drop); // keep draining stdout so the server's console logging never blocks
             });
             Ok(())
         })
