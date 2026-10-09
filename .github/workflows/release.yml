@@ -39,7 +39,7 @@ jobs:
             rid: linux-x64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Linux dependencies
         if: runner.os == 'Linux'
