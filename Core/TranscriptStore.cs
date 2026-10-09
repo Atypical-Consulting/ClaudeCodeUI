@@ -200,10 +200,39 @@ public static class TranscriptStore
         return string.Join('-', Regex.Matches(plain.ToLowerInvariant(), "[a-z0-9]+").Select(m => m.Value).Take(words));
     }
 
+    static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
+
+    // Session ids named by a running claude command line (--session-id / --resume), cached 5 s. Includes this app's own processes.
+    // ponytail: `ps` only, so empty on Windows; read Win32_Process command lines if Windows users need the label.
+    public static IReadOnlySet<string> HeldByClaude()
+    {
+        var c = held;
+        if (c.Ids is not null && DateTimeOffset.Now - c.At < TimeSpan.FromSeconds(5)) return c.Ids;
+        var ids = new HashSet<string>();
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("ps", "-Ao args=") { RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            ids = HeldIds(p.StandardOutput.ReadToEnd());
+            p.WaitForExit(2000);
+        }
+        catch (Exception) { }   // no ps: nothing is known to run elsewhere
+        held = (DateTimeOffset.Now, ids);
+        return ids;
+    }
+
+    internal static void ForgetHeld() => held = default;
+
+    internal static HashSet<string> HeldIds(string ps) =>
+        [.. ps.Split('\n').Where(l => l.Contains("claude")).Select(l => Regex.Match(l, @"--(?:session-id|resume)[ =]([0-9a-fA-F-]{36})"))
+            .Where(m => m.Success).Select(m => m.Groups[1].Value)];
+
     // Shapes of real transcript lines (CLI 2.1.295).
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "TranscriptStore: " + what);
+        Ok(HeldIds("node /opt/claude --permission-mode plan --session-id cf0a03e9-1111-2222-3333-444455556666 --name x\nclaude --resume=b45b0de6-1111-2222-3333-444455556666\nvim --resume 00000000-0000-0000-0000-000000000000")
+           .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");
         Ok(RepoName(@"C:\repo\api\.claude\worktrees\x") == "api" && RepoName(@"C:\repo\api") == "api", "RepoName");

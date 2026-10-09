@@ -99,6 +99,7 @@ code{font-family:var(--mono)}
 .dot.run{background:var(--ok);animation:pulse 1.6s ease-out infinite}
 .dot.err{background:var(--err)}
 .dot.idle{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-5)}
+.dot.exited{background:transparent;border:1.5px dashed var(--fg-5)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 33%,transparent)}100%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
 .pill{font:600 11px var(--sans);border-radius:999px;padding:1px 7px}
 .pill.wait{background:var(--accent);color:var(--accent-ink)}

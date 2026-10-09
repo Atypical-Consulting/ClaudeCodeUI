@@ -56,6 +56,7 @@
   <data name="Composer.PermissionMode" xml:space="preserve"><value>Mode de permission</value></data>
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session arrêtée. Relance-la pour continuer.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Réponds à Claude…</value></data>
+  <data name="Composer.PhHistory" xml:space="preserve"><value>Envoie un message pour reprendre cette session…</value></data>
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude travaille. Tu peux préparer la suite…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Ou explique à Claude ce que tu veux à la place…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Tu peux préparer la suite…</value></data>
@@ -258,12 +259,18 @@
   <data name="Session.ProcessStopped" xml:space="preserve"><value>processus arrêté</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude n'a pas pu démarrer : {0}</value></data>
+  <data name="Session.Stop" xml:space="preserve"><value>Terminer la session</value></data>
+  <data name="Session.StopHint" xml:space="preserve"><value>Arrête le processus claude. La transcription reste dans Récentes.</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>erreur inconnue</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Réglages</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>intégrée</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commandes et skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Les agents travaillent…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>terminée</value></data>
+  <data name="Status.Elsewhere" xml:space="preserve"><value>ouverte ailleurs</value></data>
+  <data name="Status.ElsewhereLine" xml:space="preserve"><value>Ouverte dans un autre claude. Envoyer d'ici lancerait un second processus sur la même session.</value></data>
+  <data name="Status.History" xml:space="preserve"><value>historique</value></data>
+  <data name="Status.HistoryLine" xml:space="preserve"><value>Historique. Envoyer un message reprend cette session en mode {0}.</value></data>
   <data name="Status.Interrupted" xml:space="preserve"><value>Interrompu</value></data>
   <data name="Status.Paused" xml:space="preserve"><value>Claude est en pause : {0} attend ton accord</value></data>
   <data name="Status.Running" xml:space="preserve"><value>en cours</value></data>
