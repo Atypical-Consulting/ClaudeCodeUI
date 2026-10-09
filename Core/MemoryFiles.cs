@@ -8,6 +8,15 @@ public sealed record MemoryFile(string Path, string Type, long? Tokens, bool Exi
 
 public enum MemorySave { Saved, Conflict, NotAllowed }
 
+// MemoryPanel's state, kept on the LiveSession: the panel unmounts whenever a permission request (or a selected tool)
+// takes the inspector, and an unsaved edit must come back with it. Loaded: the file as read (null = absent), the baseline
+// of the conflict check.
+public sealed class MemoryEdit
+{
+    public string? Open, Loaded, Draft;
+    public bool Editing, Conflict;
+}
+
 // The memory (CLAUDE.md) files of a session, the /memory equivalent. The list is the CLI's: get_context_usage.memoryFiles
 // (walk up from cwd, @imports included, verified by --probe-cli memory-files), plus the standard locations it did not
 // load so they can be created. Saving only ever writes a path of that list. The CLI reads memory at start and on
@@ -29,11 +38,11 @@ public static class MemoryFiles
             foreach (var m in a.EnumerateArray())
                 if (Events.Str(m, "path") is { } p && Path.IsPathFullyQualified(p) && !list.Any(f => Same(f.Path, p)))
                     list.Add(new(p, Events.Str(m, "type") ?? "", Events.Prop(m, "tokens") is { ValueKind: JsonValueKind.Number } t ? (long)t.GetDouble() : null, exists(p)));
-        foreach (var (p, type) in new[]
-                 {
-                     (Path.Combine(userDir, "CLAUDE.md"), "User"), (Path.Combine(cwd, "CLAUDE.md"), "Project"),
-                     (Path.Combine(cwd, ".claude", "CLAUDE.md"), "Project"), (Path.Combine(cwd, "CLAUDE.local.md"), "Local"),
-                 })
+        // A cwd that is not absolute (a session still without one) would resolve against the server's own folder.
+        var candidates = new List<(string, string)> { (Path.Combine(userDir, "CLAUDE.md"), "User") };
+        if (Path.IsPathFullyQualified(cwd))
+            candidates.AddRange([(Path.Combine(cwd, "CLAUDE.md"), "Project"), (Path.Combine(cwd, ".claude", "CLAUDE.md"), "Project"), (Path.Combine(cwd, "CLAUDE.local.md"), "Local")]);
+        foreach (var (p, type) in candidates)
             if (!list.Any(f => Same(f.Path, p))) list.Add(new(p, type, null, exists(p)));
         return list;
     }
@@ -90,6 +99,8 @@ public static class MemoryFiles
             Path.Combine(".claude", "CLAUDE.md"), "CLAUDE.local.md"]), "CLI files first, then the missing standard ones, no relative path");
         Ok(list[0] is { Type: "User", Tokens: 206, Exists: true } && list[2] is { Exists: false } && list[4] is { Type: "Local", Tokens: null, Exists: false }, "row fields");
         Ok(List(null, cwd, Path.Combine(home, ".claude"), _ => false).Count == 4, "no context: the standard locations");
+        Ok(List(null, "", Path.Combine(home, ".claude"), _ => false) is [{ Type: "User" }] &&List(ctx, "repo", Path.Combine(home, ".claude"), _ => true).Count == 3,
+            "relative or empty cwd: no candidate resolved against the server's folder");
         Ok(Display(Path.Combine(root, "elsewhere.md"), cwd, home) == Path.Combine(root, "elsewhere.md"), "outside cwd and home: full path");
         Ok(Eol("a\r\nb", "a\nb\nc") == "a\r\nb\r\nc" && Eol("a\nb", "x\r\ny") == "x\ny" && Eol(null, "x\ny") == "x\ny", "line endings");
 

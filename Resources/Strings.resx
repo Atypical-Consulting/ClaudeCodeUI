@@ -271,7 +271,7 @@
   <data name="Mem.Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="Mem.EditLabel" xml:space="preserve"><value>Contents of {0}</value></data>
   <data name="Mem.Empty" xml:space="preserve"><value>This file is empty.</value></data>
-  <data name="Mem.Hint" xml:space="preserve"><value>Claude Code reads these files when a session starts and again on /compact: a saved change applies to the next session, or to this one after Compact now.</value></data>
+  <data name="Mem.Hint" xml:space="preserve"><value>Claude Code reads these files when a session starts and again on /compact: a saved change applies to the next session, or to this one once it is compacted.</value></data>
   <data name="Mem.Missing" xml:space="preserve"><value>This file doesn't exist yet: Create writes it.</value></data>
   <data name="Mem.NotAllowed" xml:space="preserve"><value>This file is not one of this session's memory files.</value></data>
   <data name="Mem.NotLoaded" xml:space="preserve"><value>not loaded yet</value></data>
@@ -280,7 +280,7 @@
   <data name="Mem.Reload" xml:space="preserve"><value>Reload</value></data>
   <data name="Mem.Save" xml:space="preserve"><value>Save</value></data>
   <data name="Mem.SaveFailed" xml:space="preserve"><value>Couldn't save: {0}</value></data>
-  <data name="Mem.Saved" xml:space="preserve"><value>Saved. It applies to the next session, or to this one after Compact now.</value></data>
+  <data name="Mem.Saved" xml:space="preserve"><value>Saved. It applies to the next session, or to this one once it is compacted (/compact).</value></data>
   <data name="Mem.Title" xml:space="preserve"><value>Memory</value></data>
   <data name="Mem.TooLarge" xml:space="preserve"><value>Larger than {0}: edit it in your editor.</value></data>
   <data name="Mem.Type.Local" xml:space="preserve"><value>local</value></data>

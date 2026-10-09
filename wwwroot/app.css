@@ -336,7 +336,7 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .mode:not(.on):hover,.chip:hover{border-color:var(--seam-3);color:var(--fg-2)}
 .tab:hover{color:var(--fg-2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.ledger :focus-visible,.wf :focus-visible,.seg>:focus-visible,.effort>:focus-visible{outline-offset:-2px}
+.ledger :focus-visible,.mem :focus-visible,.wf :focus-visible,.seg>:focus-visible,.effort>:focus-visible{outline-offset:-2px}
 .t,.pi,.mode,.s{cursor:default}
 td.num,.meta,.kv,.tot b,.s .c{font-variant-numeric:tabular-nums}
 *{scrollbar-width:thin;scrollbar-color:var(--seam-2) transparent}

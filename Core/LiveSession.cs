@@ -142,6 +142,7 @@ public sealed class LiveSession : IAsyncDisposable
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
     public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
+    public MemoryEdit Memory { get; } = new();       // the memory panel's open file and unsaved edit, same reason
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
     public string? ForkOf { get; init; }   // forked from this session id: --resume ForkOf --fork-session until it has its own transcript
     public string? ForkAt { get; init; }   // --resume-session-at: the message uuid the fork stops after (null = the whole conversation)

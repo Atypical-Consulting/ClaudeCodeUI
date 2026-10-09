@@ -271,7 +271,7 @@
   <data name="Mem.Edit" xml:space="preserve"><value>Modifier</value></data>
   <data name="Mem.EditLabel" xml:space="preserve"><value>Contenu de {0}</value></data>
   <data name="Mem.Empty" xml:space="preserve"><value>Ce fichier est vide.</value></data>
-  <data name="Mem.Hint" xml:space="preserve"><value>Claude Code lit ces fichiers au démarrage d’une session et à nouveau sur /compact : une modification enregistrée s’applique à la prochaine session, ou à celle-ci après Compacter maintenant.</value></data>
+  <data name="Mem.Hint" xml:space="preserve"><value>Claude Code lit ces fichiers au démarrage d’une session et à nouveau sur /compact : une modification enregistrée s’applique à la prochaine session, ou à celle-ci une fois compactée.</value></data>
   <data name="Mem.Missing" xml:space="preserve"><value>Ce fichier n’existe pas encore : Créer l’écrit.</value></data>
   <data name="Mem.NotAllowed" xml:space="preserve"><value>Ce fichier ne fait pas partie des fichiers mémoire de cette session.</value></data>
   <data name="Mem.NotLoaded" xml:space="preserve"><value>pas encore chargé</value></data>
@@ -280,7 +280,7 @@
   <data name="Mem.Reload" xml:space="preserve"><value>Recharger</value></data>
   <data name="Mem.Save" xml:space="preserve"><value>Enregistrer</value></data>
   <data name="Mem.SaveFailed" xml:space="preserve"><value>Enregistrement impossible : {0}</value></data>
-  <data name="Mem.Saved" xml:space="preserve"><value>Enregistré. Pris en compte à la prochaine session, ou dans celle-ci après Compacter maintenant.</value></data>
+  <data name="Mem.Saved" xml:space="preserve"><value>Enregistré. Pris en compte à la prochaine session, ou dans celle-ci une fois compactée (/compact).</value></data>
   <data name="Mem.Title" xml:space="preserve"><value>Mémoire</value></data>
   <data name="Mem.TooLarge" xml:space="preserve"><value>Plus de {0} : modifie-le dans ton éditeur.</value></data>
   <data name="Mem.Type.Local" xml:space="preserve"><value>local</value></data>
