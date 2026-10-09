@@ -1,0 +1,28 @@
+@* Stub (WP0). Owner: WP1. *@
+
+<div class="thread">
+    @foreach (var item in Session.Items)
+    {
+        switch (item)
+        {
+            case UserItem u:
+                <div class="you"><div class="w">toi · @Fmt.Time(u.At)</div>@u.Text</div>
+                break;
+            case TextItem { ParentToolUseId: null } t:
+                <Markdown Text="@t.Markdown" />
+                break;
+            case ToolItem { ParentToolUseId: null } tool:
+                <ToolRow Session="Session" Tool="tool" />
+                break;
+        }
+    }
+    @if (Session.StreamingText.Length > 0)
+    {
+        <div class="prose">@Session.StreamingText<span class="caret"></span></div>
+    }
+    <StatusLine Session="Session" />
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+}

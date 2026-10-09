@@ -1,0 +1,37 @@
+@page "/session/{Id}"
+@* Stub (WP0). Owner: WP1. *@
+@implements IDisposable
+@inject SessionManager Sessions
+
+<PageTitle>@(S?.Name ?? "Session") · Claude Code</PageTitle>
+
+@if (S is null)
+{
+    <div class="pane"><div class="ph"><span class="ttl">Session introuvable</span></div></div>
+}
+else
+{
+    <div class="pane">
+        <SessionHeader Session="S" />
+        <Thread Session="S" />
+        <CrashBanner Session="S" />
+        <Composer Session="S" />
+    </div>
+    <Inspector Session="S" />
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    LiveSession? S;
+
+    protected override void OnParametersSet()
+    {
+        if (S?.Id == Id) return;
+        if (S is not null) S.Changed -= Refresh;
+        S = Sessions.Get(Id);
+        if (S is not null) S.Changed += Refresh;
+    }
+
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() { if (S is not null) S.Changed -= Refresh; }
+}

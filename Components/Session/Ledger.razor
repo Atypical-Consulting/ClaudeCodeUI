@@ -1,0 +1,18 @@
+@* Stub (WP0). Owner: WP1. A run of consecutive tools. *@
+
+<div class="ledger">
+    <div class="lh"><Icon Name="@(Expanded ? "down" : "right")" Sm />@Tools.Count outil(s)</div>
+    @if (Expanded)
+    {
+        @foreach (var t in Tools)
+        {
+            <ToolRow Session="Session" Tool="t" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public IReadOnlyList<ToolItem> Tools { get; set; } = [];
+    [Parameter] public bool Expanded { get; set; }
+}

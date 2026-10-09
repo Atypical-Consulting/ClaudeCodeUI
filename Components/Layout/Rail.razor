@@ -1,0 +1,30 @@
+@* Stub (WP0). Owner: WP3. *@
+@implements IDisposable
+@inject SessionManager Sessions
+@inject UiState Ui
+
+<div class="pane">
+    <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
+    <div class="rail-actions">
+        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />Nouvelle session<kbd>Ctrl N</kbd></NavLink>
+        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />Rechercher<kbd>Ctrl K</kbd></button>
+        <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />Vue d'ensemble</NavLink>
+        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees</NavLink>
+        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions</NavLink>
+    </div>
+    <div class="grp"><span class="cap">Actives</span></div>
+    <div class="list">
+        @foreach (var s in Sessions.All)
+        {
+            <RailSessionRow Session="s" />
+        }
+    </div>
+    <QuotaMeter />
+    <Mascot />
+</div>
+
+@code {
+    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Sessions.Changed -= Refresh;
+}

@@ -1,0 +1,16 @@
+@* Stub (WP0). Owner: WP1. *@
+
+<div class="prose md">@html</div>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    string? text;
+    MarkupString html;
+
+    protected override void OnParametersSet()
+    {
+        if (text == Text) return;
+        text = Text;
+        html = new MarkupString(Md.Render(Text));
+    }
+}

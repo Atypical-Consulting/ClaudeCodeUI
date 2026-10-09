@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BlazorKawaii" Version="2.2.0" />
     <PackageReference Include="Markdig" Version="1.4.0" />
   </ItemGroup>
 

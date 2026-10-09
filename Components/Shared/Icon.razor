@@ -1,0 +1,7 @@
+<svg class="i @(Sm ? "sm" : null) @Class" aria-hidden="true"><use href="#i-@Name" /></svg>
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public bool Sm { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

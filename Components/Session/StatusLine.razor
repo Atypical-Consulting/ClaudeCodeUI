@@ -1,0 +1,14 @@
+@* Stub (WP0). Owner: WP1. *@
+
+@if (Session.Status == SessionStatus.Running)
+{
+    <div class="status"><span class="spin"></span>Claude écrit…</div>
+}
+else if (Session.Status == SessionStatus.Waiting)
+{
+    <div class="status wait"><span class="dot wait"></span>Claude est en pause : un outil attend ton accord</div>
+}
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+}

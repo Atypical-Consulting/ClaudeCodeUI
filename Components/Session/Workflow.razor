@@ -1,0 +1,14 @@
+@* Stub (WP0). Owner: WP1. The Agent tool calls (subagents) of one turn. *@
+
+<div class="wf">
+    <div class="wh"><Icon Name="agents" /><b>Agents</b><span class="tag">workflow</span></div>
+    @foreach (var a in Agents)
+    {
+        <div class="agent"><span class="nm">@ToolKinds.Target(a.Input, Session.Cwd)</span></div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public IReadOnlyList<ToolItem> Agents { get; set; } = [];
+}

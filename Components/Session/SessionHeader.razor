@@ -1,0 +1,12 @@
+@* Stub (WP0). Owner: WP1. *@
+@inject UiState Ui
+
+<div class="ph">
+    <span class="ttl">@Session.Name</span>
+    <span class="sub">@Session.Branch · @Session.Repo · @Session.Mode</span>
+    <span class="end"><button class="btn ghost" title="Inspecteur (Ctrl I)" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+}

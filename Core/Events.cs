@@ -1,0 +1,205 @@
+using System.Text.Json;
+
+namespace ClaudeCodeUI;
+
+public abstract record ClaudeEvent;
+public record InitEvt(string SessionId, string Cwd, string Model, string PermissionMode, string[] Tools,
+                      McpBrief[] Mcp, string[] SlashCommands, string[] Skills, string[] Agents, string[] Plugins,
+                      string FastModeState, string? FastModeReason) : ClaudeEvent;
+public record McpBrief(string Name, string Status);                                   // connected|failed|needs-auth|pending
+public record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;
+public record ThinkingEvt(int EstimatedTokens) : ClaudeEvent;
+public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
+public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic) : ClaudeEvent;
+public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
+public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result (objects only)
+public record UserTextEvt(string Text, DateTimeOffset? At = null) : ClaudeEvent;     // At = transcript timestamp
+public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
+                            string? ToolUseId, JsonElement? Suggestions) : ClaudeEvent;
+public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
+                        long ContextTokens, long? ContextWindow, string? FastModeState, string? FastModeReason,
+                        string? TerminalReason = null) : ClaudeEvent;
+public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
+public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType) : ClaudeEvent;
+public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs) : ClaudeEvent;
+public record TaskDoneEvt(string TaskId, string ToolUseId, string Status) : ClaudeEvent;
+public record TitleEvt(string Title) : ClaudeEvent;
+
+// The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
+public static class Events
+{
+    public static ClaudeEvent? Parse(JsonElement e) => ParseAll(e).FirstOrDefault();
+
+    // A message may carry several content blocks (e.g. tool_results in one user message): one event per block.
+    public static IEnumerable<ClaudeEvent> ParseAll(JsonElement e)
+    {
+        switch (Str(e, "type"))
+        {
+            case "system":
+                if (ParseSystem(e) is { } s) yield return s;
+                break;
+
+            case "stream_event":
+                if (e.TryGetProperty("event", out var se) && Str(se, "type") == "content_block_delta"
+                    && se.TryGetProperty("delta", out var d) && Str(d, "type") == "text_delta")
+                    yield return new TextDeltaEvt(Str(d, "text") ?? "", Str(e, "parent_tool_use_id"));
+                break;
+
+            case "assistant":
+                {
+                    var msg = e.GetProperty("message");
+                    var parent = Str(e, "parent_tool_use_id");
+                    var synthetic = Str(msg, "model") == "<synthetic>";
+                    if (!msg.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array) break;
+                    foreach (var c in content.EnumerateArray())
+                        switch (Str(c, "type"))
+                        {
+                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic); break;
+                            case "tool_use": yield return new ToolUseEvt(Str(c, "id")!, Str(c, "name")!, c.GetProperty("input"), parent); break;
+                        }
+                    break;
+                }
+
+            case "user":
+                {
+                    var parent = Str(e, "parent_tool_use_id");
+                    DateTimeOffset? at = Str(e, "timestamp") is { } ts && DateTimeOffset.TryParse(ts, out var t) ? t : null;
+                    var content = e.GetProperty("message").GetProperty("content");
+                    if (content.ValueKind == JsonValueKind.String)
+                    {
+                        if (parent is null) yield return new UserTextEvt(content.GetString()!, at);
+                        break;
+                    }
+                    if (content.ValueKind != JsonValueKind.Array) break;
+                    JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? tur : null;
+                    foreach (var c in content.EnumerateArray())
+                        switch (Str(c, "type"))
+                        {
+                            case "tool_result":
+                                yield return new ToolResultEvt(Str(c, "tool_use_id")!, ResultText(c.TryGetProperty("content", out var rc) ? rc : default),
+                                    Bool(c, "is_error"), structured);
+                                break;
+                            case "text" when parent is null:
+                                yield return new UserTextEvt(Str(c, "text") ?? "", at);
+                                break;
+                        }
+                    break;
+                }
+
+            case "control_request":
+                if (e.TryGetProperty("request", out var r) && Str(r, "subtype") == "can_use_tool")
+                    yield return new PermissionEvt(Str(e, "request_id")!, Str(r, "tool_name")!, r.GetProperty("input"),
+                        Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"));
+                break;
+
+            case "result":
+                {
+                    // Context = the last API call's prompt size; top-level usage sums every iteration of the turn.
+                    var usage = Prop(e, "usage");
+                    if (usage is { } u && Prop(u, "iterations") is { ValueKind: JsonValueKind.Array } it && it.GetArrayLength() > 0)
+                        usage = it[it.GetArrayLength() - 1];
+                    long ctx = usage is { } x ? Long(x, "input_tokens") + Long(x, "cache_read_input_tokens") + Long(x, "cache_creation_input_tokens") : 0;
+                    long? window = null;
+                    if (Prop(e, "modelUsage") is { ValueKind: JsonValueKind.Object } mu)
+                        foreach (var m in mu.EnumerateObject())
+                            if (Prop(m.Value, "contextWindow") is { ValueKind: JsonValueKind.Number } w) window = w.GetInt64();
+                    yield return new ResultEvt(Str(e, "subtype") ?? "", Bool(e, "is_error"),
+                        Prop(e, "total_cost_usd") is { ValueKind: JsonValueKind.Number } cost ? cost.GetDecimal() : 0,
+                        (int)Long(e, "duration_ms"), (int)Long(e, "num_turns"), ctx, window,
+                        Str(e, "fast_mode_state"), Str(e, "fast_mode_disabled_reason"), Str(e, "terminal_reason"));
+                    break;
+                }
+
+            case "rate_limit_event":
+                if (Prop(e, "rate_limit_info") is { } info && Prop(info, "unifiedWindows") is { } uw
+                    && Prop(uw, "five_hour") is { } h5 && Prop(uw, "seven_day") is { } d7)
+                    yield return new RateLimitEvt(Double(h5, "utilization"), DateTimeOffset.FromUnixTimeSeconds(Long(h5, "resetsAt")),
+                        Double(d7, "utilization"), DateTimeOffset.FromUnixTimeSeconds(Long(d7, "resetsAt")));
+                break;
+        }
+    }
+
+    static ClaudeEvent? ParseSystem(JsonElement e) => Str(e, "subtype") switch
+    {
+        "init" => new InitEvt(Str(e, "session_id") ?? "", Str(e, "cwd") ?? "", Str(e, "model") ?? "", Str(e, "permissionMode") ?? "",
+            Names(e, "tools"),
+            Prop(e, "mcp_servers") is { ValueKind: JsonValueKind.Array } mcp
+                ? mcp.EnumerateArray().Select(m => new McpBrief(Str(m, "name") ?? "", Str(m, "status") ?? "")).ToArray() : [],
+            Names(e, "slash_commands"), Names(e, "skills"), Names(e, "agents"), Names(e, "plugins"),
+            Str(e, "fast_mode_state") ?? "off", Str(e, "fast_mode_disabled_reason")),
+        "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
+        "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
+        "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? ""),
+        "task_progress" => Prop(e, "usage") is { } u
+            ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms")) : null,
+        "task_notification" => new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? ""),
+        "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
+        _ => null,
+    };
+
+    // tool_result content is a string or an array of blocks.
+    public static string ResultText(JsonElement content) => content.ValueKind switch
+    {
+        JsonValueKind.String => content.GetString()!,
+        JsonValueKind.Array => string.Join("\n", content.EnumerateArray().Select(b => Str(b, "text") ?? $"[{Str(b, "type")}]")),
+        JsonValueKind.Undefined or JsonValueKind.Null => "",
+        _ => content.ToString(),
+    };
+
+    // String arrays, or arrays of objects with a "name" (plugins).
+    static string[] Names(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Array } a
+        ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString()! : Str(x, "name") ?? "").ToArray()
+        : [];
+
+    public static string? Str(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    public static JsonElement? Prop(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v : null;
+
+    static bool Bool(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.True };
+    static long Long(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? (long)n.GetDouble() : 0;
+    static double Double(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? n.GetDouble() : 0;
+
+    // Trimmed real lines from the protocol captures (s2/s3.jsonl).
+    internal static void Check()
+    {
+        static ClaudeEvent? P(string json) => Parse(JsonDocument.Parse(json).RootElement.Clone());
+        static void Ok(bool c, string what) => SelfCheck.Assert(c, "Events: " + what);
+
+        var init = P("""{"type":"system","subtype":"init","cwd":"C:\\w","session_id":"s1","tools":["Task","Edit","PowerShell"],"mcp_servers":[{"name":"plugin:github:github","status":"failed","source":"plugin"},{"name":"x","status":"connected"}],"model":"claude-haiku-5-5","permissionMode":"default","slash_commands":["cost"],"skills":["impeccable"],"agents":["Explore"],"plugins":[{"name":"context7","path":"C:\\p","source":"x"}],"fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as InitEvt;
+        Ok(init is { SessionId: "s1", Cwd: @"C:\w", Model: "claude-haiku-5-5", PermissionMode: "default", FastModeReason: "sdk_opt_in_required" }, "init");
+        Ok(init!.Tools.Contains("PowerShell") && init.Mcp is [{ Status: "failed" }, { Name: "x" }] && init.Plugins is ["context7"] && init.Skills is ["impeccable"], "init lists");
+
+        Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}},"parent_tool_use_id":null}""") is TextDeltaEvt { Text: "done", ParentToolUseId: null }, "text_delta");
+        Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}}}""") is null, "thinking_delta ignored");
+        Ok(P("""{"type":"system","subtype":"hook_started","hook_id":"h"}""") is null, "hook ignored");
+        Ok(P("""{"type":"system","subtype":"thinking_tokens","estimated_tokens":250,"estimated_tokens_delta":200}""") is ThinkingEvt { EstimatedTokens: 250 }, "thinking_tokens");
+        Ok(P("""{"type":"system","subtype":"status","status":null,"permissionMode":"acceptEdits"}""") is StatusEvt { Status: null, PermissionMode: "acceptEdits" }, "status");
+
+        var tu = P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_1","content":[{"type":"tool_use","id":"toolu_01Y","name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"}}]},"parent_tool_use_id":null}""") as ToolUseEvt;
+        Ok(tu is { Id: "toolu_01Y", Name: "Write", ParentToolUseId: null } && Str(tu.Input, "file_path") == @"C:\w\b.txt", "tool_use");
+        Ok(P("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"Total cost"}]},"parent_tool_use_id":null}""") is AssistantTextEvt { Synthetic: true, Text: "Total cost", MessageId: "m" }, "synthetic text");
+
+        var tr = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_E","type":"tool_result","content":"The file a.txt has been updated."}]},"parent_tool_use_id":null,"tool_use_result":{"filePath":"C:\\w\\a.txt","oldString":"hello","newString":"bye","originalFile":"hello\n","structuredPatch":[{"oldStart":1,"oldLines":1,"newStart":1,"newLines":1,"lines":["-hello","+bye"]}]}}""") as ToolResultEvt;
+        Ok(tr is { ToolUseId: "toolu_E", IsError: false, Structured: { } st } && st.GetProperty("structuredPatch")[0].GetProperty("lines")[1].GetString() == "+bye", "tool_result + tool_use_result");
+        Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null }, "tool_result error");
+        Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null,"timestamp":"2026-10-09T12:41:34.602Z"}""") is UserTextEvt { Text: "[Request interrupted by user]", At: not null }, "user text");
+
+        var perm = P("""{"type":"control_request","request_id":"edd9","request":{"subtype":"can_use_tool","tool_name":"Write","display_name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"},"description":"b.txt","permission_suggestions":[{"type":"setMode","mode":"acceptEdits","destination":"session"}],"tool_use_id":"toolu_01Y"}}""") as PermissionEvt;
+        Ok(perm is { RequestId: "edd9", Tool: "Write", Description: "b.txt", ToolUseId: "toolu_01Y", Suggestions: { } sg } && Str(sg[0], "type") == "setMode", "can_use_tool");
+
+        var ok = P("""{"type":"result","subtype":"success","is_error":false,"duration_ms":2548,"num_turns":3,"total_cost_usd":0.0063816,"usage":{"input_tokens":8,"cache_creation_input_tokens":22821,"cache_read_input_tokens":139210,"iterations":[{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":41768,"cache_creation_input_tokens":108}]},"modelUsage":{"claude-haiku-5-5":{"costUSD":0.0063816,"contextWindow":1000000}},"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as ResultEvt;
+        Ok(ok is { Subtype: "success", IsError: false, TotalCostUsd: 0.0063816m, DurationMs: 2548, NumTurns: 3, ContextTokens: 41878, ContextWindow: 1000000, TerminalReason: "completed", FastModeReason: "sdk_opt_in_required" }, "result success");
+        var ab = P("""{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":15100,"num_turns":2,"total_cost_usd":0.012436335,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"iterations":[]},"terminal_reason":"aborted_streaming"}""") as ResultEvt;
+        Ok(ab is { Subtype: "error_during_execution", IsError: true, TerminalReason: "aborted_streaming", ContextTokens: 0, TotalCostUsd: 0.012436335m }, "result interrupted");
+
+        var rl = P("""{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1791552000,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.36,"resetsAt":1791552000},"seven_day":{"utilization":0.26,"resetsAt":1791828000}}}}""") as RateLimitEvt;
+        Ok(rl is { FiveHour: 0.36, SevenDay: 0.26 } && rl.FiveHourReset.ToUnixTimeSeconds() == 1791552000, "rate_limit_event");
+
+        Ok(P("""{"type":"system","subtype":"task_started","task_id":"ab1","tool_use_id":"toolu_B","description":"Reply pong","subagent_type":"general-purpose","is_backgrounded":false}""") is TaskStartedEvt { TaskId: "ab1", ToolUseId: "toolu_B", Description: "Reply pong", SubagentType: "general-purpose" }, "task_started");
+        Ok(P("""{"type":"system","subtype":"task_progress","task_id":"ab1","usage":{"total_tokens":26511,"tool_uses":1,"duration_ms":2092}}""") is TaskProgressEvt { TotalTokens: 26511, ToolUses: 1, DurationMs: 2092 }, "task_progress");
+        Ok(P("""{"type":"system","subtype":"task_notification","task_id":"ab1","tool_use_id":"toolu_B","status":"completed","usage":{"total_tokens":26702}}""") is TaskDoneEvt { TaskId: "ab1", ToolUseId: "toolu_B", Status: "completed" }, "task_notification");
+        Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
+    }
+}

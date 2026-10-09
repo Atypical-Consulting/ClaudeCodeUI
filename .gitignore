@@ -4,3 +4,4 @@ obj/
 *.user
 .impeccable/review/
 .impeccable/questions/
+.claude/worktrees/

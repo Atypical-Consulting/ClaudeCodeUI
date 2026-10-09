@@ -1,14 +1,18 @@
+using ClaudeCodeUI;
 using ClaudeCodeUI.Components;
+
+if (args is ["--self-check"]) { Environment.ExitCode = SelfCheck.Run(); return; }
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton<SessionManager>();   // IAsyncDisposable: kills the claude processes on shutdown
+builder.Services.AddSingleton<WorktreeService>();
+builder.Services.AddScoped<UiState>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

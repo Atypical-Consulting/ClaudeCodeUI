@@ -1,0 +1,21 @@
+@* Stub (WP0). Owner: WP2. *@
+
+<div class="composer">
+    <div class="box">
+        <textarea @bind="text" @bind:event="oninput" placeholder="Réponds à Claude…"></textarea>
+        <div class="row"><button class="btn primary go" @onclick="Send">Envoyer <kbd>Ctrl ⏎</kbd></button></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    string text = "";
+
+    async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var t = text;
+        text = "";
+        await Session.Send(t);
+    }
+}

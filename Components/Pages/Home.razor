@@ -1,7 +1,4 @@
-@page "/"
-@rendermode InteractiveServer
 @using System.Text.Json
-@using Markdig
 @implements IAsyncDisposable
 
 <PageTitle>Claude Code</PageTitle>
@@ -34,7 +31,7 @@
                         </details>
                         break;
                     case "assistant":
-                        <div class="assistant">@((MarkupString)Markdown.ToHtml(e.Body, md))</div>
+                        <div class="assistant">@((MarkupString)Md.Render(e.Body))</div>
                         break;
                     default:
                         <div class="entry @e.Kind">@e.Body</div>
@@ -62,8 +59,6 @@
 </div>
 
 @code {
-    // Raw HTML disabled: model output is rendered as markdown only, never as live markup.
-    static readonly MarkdownPipeline md = new MarkdownPipelineBuilder().UseAdvancedExtensions().DisableHtml().Build();
 
     record Entry(string Kind, string Body, string Title = "");
     record Permission(string Id, string Tool, JsonElement Input);
@@ -104,9 +99,9 @@
     ClaudeSession Start()
     {
         ClaudeSession s = null!;
-        s = new(cwd, mode,
+        s = new(cwd, ["--permission-mode", mode == "default" ? "manual" : mode],
             evt => InvokeAsync(() => { Handle(evt); StateHasChanged(); }),
-            exit => InvokeAsync(() =>
+            (_, exit) => InvokeAsync(() =>
             {
                 if (session != s) return; // a disposed session exiting is expected
                 entries.Add(new("error", exit));
@@ -138,7 +133,7 @@
                 foreach (var c in evt.GetProperty("message").GetProperty("content").EnumerateArray())
                 {
                     if (Str(c, "type") == "text")
-                        entries.Add(new("assistant", Str(c, "text")));
+                        entries.Add(new("assistant", Str(c, "text") ?? ""));
                     else if (Str(c, "type") == "tool_use")
                     {
                         var input = c.GetProperty("input");

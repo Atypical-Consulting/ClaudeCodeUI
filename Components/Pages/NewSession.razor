@@ -1,0 +1,41 @@
+@page "/"
+@* Stub (WP0). Owner: WP3. *@
+@inject SessionManager Sessions
+@inject NavigationManager Nav
+
+<PageTitle>Nouvelle session · Claude Code</PageTitle>
+
+<div class="pane">
+    <div class="ph"><span class="ttl">Nouvelle session</span></div>
+    <div class="start">
+        <div class="start-card">
+            <div class="hello">
+                <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Happy" Size="88" Color="#FCCC0A" /></div>
+                <div><h3>Sur quoi on travaille ?</h3><p>Claude Code tournera dans ce dossier, avec tes outils et tes permissions.</p></div>
+            </div>
+            <div class="field">
+                <label for="cwd">Dossier de travail</label>
+                <div class="input"><Icon Name="folder" /><input id="cwd" @bind="cwd" /></div>
+            </div>
+            <div>
+                <div class="box" style="max-width:none">
+                    <textarea @bind="prompt" @bind:event="oninput" placeholder="Décris la tâche…"></textarea>
+                    <div class="row"><button class="btn primary go" @onclick="Start">Démarrer <kbd>Ctrl ⏎</kbd></button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    string cwd = Directory.GetCurrentDirectory();
+    string prompt = "";
+
+    async Task Start()
+    {
+        if (!Directory.Exists(cwd)) return;
+        var s = Sessions.Start(cwd, "default", Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)), null, "haiku", null);
+        if (prompt.Trim() is { Length: > 0 } p) await s.Send(p);
+        Nav.NavigateTo($"session/{s.Id}");
+    }
+}

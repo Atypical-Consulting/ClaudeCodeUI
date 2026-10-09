@@ -1,0 +1,25 @@
+@* Stub (WP0). Owner: WP2. Renders the .pane.insp column; nothing when UiState.InspectorOpen is false. *@
+@implements IDisposable
+@inject UiState Ui
+
+@if (Ui.InspectorOpen)
+{
+    <div class="pane insp">
+        <div class="ph"><span class="ttl">Inspecteur</span></div>
+        @if (Session.Pending.FirstOrDefault() is { } p)
+        {
+            <PermissionCard Session="Session" Permission="p" />
+        }
+        else
+        {
+            <div class="section"><p>Sélectionne une ligne du journal pour l'inspecter.</p></div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    protected override void OnInitialized() => Ui.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Ui.Changed -= Refresh;
+}

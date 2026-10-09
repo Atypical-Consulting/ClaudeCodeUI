@@ -1,0 +1,17 @@
+@* Stub (WP0). Owner: WP3. *@
+@implements IDisposable
+@inject UiState Ui
+
+@if (Ui.PaletteOpen)
+{
+    <div class="scrim" @onclick="() => Ui.PaletteOpen = false"></div>
+    <div class="palette" role="dialog" aria-label="Rechercher">
+        <div class="q-in"><Icon Name="search" /><input placeholder="Rechercher une session ou une action…" /><kbd>Échap</kbd></div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Ui.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Ui.Changed -= Refresh;
+}

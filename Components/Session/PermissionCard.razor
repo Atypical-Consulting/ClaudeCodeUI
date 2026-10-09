@@ -1,0 +1,14 @@
+@* Stub (WP0). Owner: WP2. The data-permission attribute tells app.js to forward Enter / Shift+Enter / Delete. *@
+
+<div class="section" data-permission>
+    <h3>Autoriser @Permission.Tool ?</h3>
+    <div class="acts">
+        <button class="btn primary" @onclick="() => Session.Answer(Permission, Decision.Allow)">Autoriser <kbd>⏎</kbd></button>
+        <button class="btn danger" @onclick="() => Session.Answer(Permission, Decision.Deny)">Refuser</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public PendingPermission Permission { get; set; } = null!;
+}

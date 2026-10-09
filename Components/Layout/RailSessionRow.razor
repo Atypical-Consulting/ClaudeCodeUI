@@ -1,0 +1,15 @@
+@* Stub (WP0). Owner: WP3. One rail row: a live session or a past one. *@
+
+@if (Session is { } s)
+{
+    <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on"><span class="dot idle"></span><div><div class="n">@s.Name</div></div></NavLink>
+}
+else if (Past is { } p)
+{
+    <NavLink class="s" href="@($"session/{p.Id}")" ActiveClass="on"><span class="dot idle"></span><div><div class="n">@p.Title</div></div></NavLink>
+}
+
+@code {
+    [Parameter] public LiveSession? Session { get; set; }
+    [Parameter] public PastSession? Past { get; set; }
+}

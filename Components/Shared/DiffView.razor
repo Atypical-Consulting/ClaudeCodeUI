@@ -1,0 +1,14 @@
+@* Stub (WP0). Owner: WP2. *@
+
+<div class="diff" data-hl="@EditDiff.Lang(Path)">
+    <div class="fh"><span>@Path</span></div>
+    @foreach (var l in Lines)
+    {
+        <div class="l @(l.Kind == DiffKind.Add ? "add" : l.Kind == DiffKind.Del ? "del" : null)"><span class="n">@l.N</span><code class="lc">@l.Text</code></div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public IReadOnlyList<DiffLine> Lines { get; set; } = [];
+}
