@@ -1,0 +1,92 @@
+@* Background shell and Monitor tasks (task_type local_bash): command, status, elapsed and the end of their output,
+   read with get_task_output every 2 s while one runs (once more after it ends), and Stop (stop_task). Both requests are
+   verified by --probe-cli background-tasks. Running tasks first, then the last few that ended. *@
+@implements IDisposable
+
+@{ var tasks = Session.Tasks.Where(t => t.Running).Concat(Session.Tasks.Where(t => !t.Running).TakeLast(5)).ToList(); }
+<section class="section" aria-labelledby="bg-tasks-h" style="flex:none;max-height:45%;overflow:auto">
+    <h2 id="bg-tasks-h" class="cap" style="margin:0">@L["Bg.Title"] · @L["Bg.RunningN", tasks.Count(t => t.Running)]</h2>
+    <Ticker Active="tasks.Any(t => t.Running)">
+        @foreach (var t in tasks)
+        {
+            var tool = Session.Tool(t.ToolUseId);
+            var cmd = tool is { } x ? Events.Str(x.Input, "command") : null;
+            <details @key="t.Id" open="@t.Running" style="display:flex;flex-direction:column;gap:8px">
+                <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px">
+                    <span class="dot @(t.Running ? "run" : t.Status == "completed" ? "idle" : "err")" aria-hidden="true"></span>
+                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@(tool?.Name ?? "Bash") · @t.Description</span>
+                    <span style="color:var(--fg-4);font:12px var(--mono)">@Label(t) · @Fmt.Dur((t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt)</span>
+                </summary>
+                @if (cmd is not null)
+                {
+                    <pre class="cmdlog" style="margin:0" aria-label="@L["Bg.Command"]"><span class="c">$ </span>@cmd</pre>
+                }
+                <pre class="cmdlog" style="margin:0;max-height:12em;overflow:auto" tabindex="0" aria-label="@L["Bg.Output"]">@(output.TryGetValue(t.Id, out var o) && o.Length > 0 ? BgTask.Tail(o, 12) : L["Bg.NoOutput"])</pre>
+                @if (t.Running && Session.HasProcess)
+                {
+                    <div><button class="btn" disabled="@stopping.Contains(t.Id)" aria-label="@L["Bg.StopLabel", t.Description]" @onclick="() => Stop(t)"><Icon Name="stop" Sm />@L["Bg.Stop"]</button></div>
+                }
+            </details>
+        }
+    </Ticker>
+    @if (error is not null)
+    {
+        <div class="errbox" role="alert">@error</div>
+    }
+</section>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+
+    readonly Dictionary<string, string> output = [];
+    readonly HashSet<string> final = [];      // ended tasks whose last output was read
+    readonly HashSet<string> stopping = [];
+    string? error;
+    bool polling;
+    Timer? poll;
+
+    // The timer callback hops onto the renderer's dispatcher: the dictionaries are only touched there.
+    protected override void OnInitialized() => poll = new(_ => InvokeAsync(Poll), null, 0, 2000);
+
+    async Task Poll()
+    {
+        if (polling || !Session.HasProcess) return;
+        polling = true;
+        try
+        {
+            var changed = false;
+            foreach (var t in Session.Tasks.Where(t => t.Running || !final.Contains(t.Id)).ToList())
+            {
+                if (!t.Running) final.Add(t.Id);
+                try
+                {
+                    if (await Session.TaskOutput(t.Id) is { } o && (!output.TryGetValue(t.Id, out var old) || old != o)) { output[t.Id] = o; changed = true; }
+                }
+                catch (Exception ex) when (ex is ClaudeRequestException or TimeoutException) { }   // gone with its file, or the CLI is busy: next tick
+            }
+            if (changed) StateHasChanged();
+        }
+        finally { polling = false; }
+    }
+
+    // The new status arrives as task_updated ("killed"); the answer only says the request was taken.
+    async Task Stop(BgTask t)
+    {
+        if (!stopping.Add(t.Id)) return;
+        error = null;
+        try { await Session.StopTask(t.Id); }
+        catch (Exception ex) when (ex is ClaudeRequestException or TimeoutException) { error = ex.Message; }
+        finally { stopping.Remove(t.Id); }
+    }
+
+    string Label(BgTask t) => t.Status switch
+    {
+        "running" or "pending" => L["Bg.Running"],
+        "completed" => L["Bg.Completed"],
+        "failed" => L["Bg.Failed"],
+        "killed" or "stopped" => L["Bg.Stopped"],
+        var s => s,
+    };
+
+    public void Dispose() => poll?.Dispose();
+}

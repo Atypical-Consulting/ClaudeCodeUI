@@ -42,6 +42,22 @@ public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Ins
     // rewind_files handler) while the line counts stay: count those too.
     public bool Changes => CanRewind && (Files.Count > 0 || Insertions + Deletions > 0);
 }
+// A background shell or Monitor command (task_type local_bash): outlives its turn, ends on task_updated or with the process.
+public sealed record BgTask(string Id, string ToolUseId, string Description, DateTimeOffset StartedAt)
+{
+    public string Status { get; init; } = "running";   // task_updated patch.status: completed, failed, killed…
+    public DateTimeOffset? EndedAt { get; init; }
+    public bool Running => Status is "running" or "pending" or "paused";
+
+    // The last lines of a get_task_output tail as plain text: no ANSI escapes, a \r-overwritten line keeps its last state.
+    public static string Tail(string output, int lines)
+    {
+        var plain = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B(\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(\x07|\x1B\\)|[@-_])", "");
+        var all = plain.Split('\n').Select(l => l.TrimEnd('\r')).Select(l => l[(l.LastIndexOf('\r') + 1)..]).ToList();
+        while (all.Count > 0 && all[^1].Length == 0) all.RemoveAt(all.Count - 1);
+        return string.Join('\n', all.TakeLast(lines));
+    }
+}
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
 
@@ -119,6 +135,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
     public JsonElement? McpStatus { get; private set; }       // raw mcp_status
+    public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
@@ -305,6 +322,12 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task RefreshMcp() { McpStatus = await Request("mcp_status"); Notify(); }
 
     public Task<JsonElement> Request(string subtype, JsonObject? f = null) => EnsureProcess().Request(subtype, f);
+
+    // Background tasks live in this process only: without one there is nothing to read or stop, and nothing to spawn.
+    // get_task_output = the last 8 KiB the command wrote; stop_task kills it, then task_updated reports "killed".
+    public async Task<string?> TaskOutput(string taskId) =>
+        proc is { } p ? Events.Str(await p.Request("get_task_output", new() { ["task_id"] = taskId }), "output") ?? "" : null;
+    public Task StopTask(string taskId) => proc?.Request("stop_task", new() { ["task_id"] = taskId }) ?? Task.CompletedTask;
 
     // ---------- process ----------
 
@@ -542,11 +565,13 @@ public sealed class LiveSession : IAsyncDisposable
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
     }
 
-    // Tools still open when the turn or the process ends: they never got a result.
+    // Tools still open when the turn or the process ends: they never got a result. The process's end also ends its
+    // background shells (ProcessJob kills the whole tree), which no task_updated will report.
     internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
         Items = Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t && !(keepBackground && t.Background)
             ? t with { State = ToolState.Error, EndedAt = now } : i);
+        if (!keepBackground) Tasks = Tasks.ConvertAll(t => t.Running ? t with { Status = "killed", EndedAt = now } : t);
     }
 
     public ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
@@ -680,8 +705,15 @@ public sealed class LiveSession : IAsyncDisposable
                 LimitsAt = now;
                 break;
 
-            case TaskStartedEvt ts when Tool(ts.ToolUseId) is { } t:
-                Set(t, t with { TaskId = ts.TaskId });
+            case TaskStartedEvt ts:
+                if (Tool(ts.ToolUseId) is { } launcher) Set(launcher, launcher with { TaskId = ts.TaskId });
+                if (ts is { TaskType: "local_bash", Backgrounded: true } && !Tasks.Any(x => x.Id == ts.TaskId))
+                    Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now));
+                break;
+
+            case TaskUpdatedEvt { Status: { } status } tu when Tasks.FirstOrDefault(x => x.Id == tu.TaskId) is { } bt:
+                var ended = bt with { Status = status };
+                Tasks = Tasks.Replace(bt, ended with { EndedAt = ended.Running ? null : tu.EndedAt ?? now });
                 break;
 
             case TaskProgressEvt tp when Items.LastOrDefault(i => i is ToolItem t && t.TaskId == tp.TaskId) is ToolItem t:   // IList: scans from the end
@@ -935,6 +967,29 @@ public sealed class LiveSession : IAsyncDisposable
         var bare = new PendingPermission("r", AskUser.Tool, input, null, null, null);
         Ok(ThrowsMsg(() => s.Answer(bare, Decision.Allow)) == Strings.Get("Ask.NeedsAnswers")
            && ThrowsMsg(() => s.Answer(bare, Decision.Deny)) == Strings.Get("Session.NoProcess"), "AskUserQuestion is never allowed bare");
+        // Background shell: launch receipt, stop, process exit; the agent path above is untouched by it.
+        var bg = new LiveSession("bg", "bg", @"C:\w", "default");
+        var cmd = JsonDocument.Parse("""{"command":"sleep 60","run_in_background":true}""").RootElement.Clone();
+        bg.BeginTurn("bg");
+        bg.Apply(new ToolUseEvt("toolu_S", "Bash", cmd, null));
+        bg.Apply(new TaskStartedEvt("b1", "toolu_S", "ticks", "", "local_bash", true));
+        bg.Apply(new TaskStartedEvt("a1", "toolu_X", "agent", "general-purpose", "local_agent", true));
+        bg.Apply(new ToolResultEvt("toolu_S", "Command running in background with ID: b1.", false, null));
+        bg.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null));
+        Ok(bg.Tasks is [{ Id: "b1", ToolUseId: "toolu_S", Running: true, EndedAt: null }] && bg.Items[^1] is ToolItem { State: ToolState.Done, TaskId: "b1" },
+            "background shell listed, survives the turn, agent tasks not listed");
+        bg.Apply(new TaskUpdatedEvt("b1", null, null));
+        Ok(bg.Tasks[0].Running, "status-less patch ignored");
+        var stopAt = DateTimeOffset.FromUnixTimeMilliseconds(1791585746931);
+        bg.Apply(new TaskUpdatedEvt("b1", "killed", stopAt));
+        bg.Apply(new TaskDoneEvt("b1", "toolu_S", "stopped"));
+        Ok(bg.Tasks is [{ Status: "killed", Running: false } k] && k.EndedAt == stopAt && bg.Items[^1] is ToolItem { State: ToolState.Done }, "stopped task");
+        bg.Apply(new TaskStartedEvt("b2", "toolu_T", "watch", "", "local_bash", true));
+        bg.Apply(new TaskStartedEvt("b3", "toolu_U", "fg", "", "local_bash", false));
+        bg.EndTools(DateTimeOffset.Now, false);
+        Ok(bg.Tasks is [{ Status: "killed" }, { Id: "b2", Status: "killed", EndedAt: not null }], "process exit ends running tasks, foreground shells not listed");
+        Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
+
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
     }

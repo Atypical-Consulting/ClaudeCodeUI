@@ -1,5 +1,5 @@
-@* The .pane.insp column: the pending permission (shown even when Ctrl I hid the pane: it blocks the turn) with the
-   selected agent or tool under it, else the selected agent or tool, else the context. *@
+@* The .pane.insp column: the pending permission (shown even when Ctrl I hid the pane: it blocks the turn), then the
+   background tasks if any, then the selected agent or tool, else the context. *@
 @implements IDisposable
 @inject UiState Ui
 
@@ -10,6 +10,10 @@
         @if (p is not null)
         {
             <PermissionCard @key="p.RequestId" Session="Session" Permission="p" />
+        }
+        @if (Session.Tasks.Count > 0)
+        {
+            <TasksPanel Session="Session" />
         }
         @if (Selected is { } t && t.Id != p?.ToolUseId)
         {
