@@ -54,7 +54,7 @@ public static class CliProbe
             await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
             var set = Events.Prop(await c.S.Request("get_settings"), "applied") is { } t ? Events.Prop(t, "ultracode") : null;
             var turn = await c.Turn("Use two parallel agents: one lists the files in this repo, one counts the lines in README.md.");
-            var agents = turn.Count(e => ToolUse(e) is "Agent" or "Task");
+            var agents = turn.Sum(e => ToolUses(e).Count(n => n is "Agent" or "Task"));
             var started = turn.Count(e => Events.Str(e, "type") == "system" && Events.Str(e, "subtype") == "task_started");
             // The prompt asks for agents, so agents alone would prove little: the flag must also read back as applied.
             var on = set is { ValueKind: JsonValueKind.True } && agents + started > 0
@@ -64,9 +64,9 @@ public static class CliProbe
             try { await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = false } }); }
             catch (ClaudeRequestException ex) { return [on, ("FAIL", $"apply_flag_settings refused: {ex.Message}")]; }
             var after = Events.Prop(await c.S.Request("get_settings"), "applied") is { } b ? Events.Prop(b, "ultracode") : null;
-            return [on, after is { ValueKind: JsonValueKind.False } or null
-                ? ("PASS", $"accepted, applied.ultracode={(after is null ? "absent" : "false")}")
-                : ("FAIL", $"accepted, but applied.ultracode={after.Value.GetRawText()}")];
+            return [on, after is { ValueKind: JsonValueKind.False }
+                ? ("PASS", "accepted, applied.ultracode=false")
+                : ("FAIL", $"accepted, but applied.ultracode={after?.GetRawText() ?? "absent"}")];
         });
     }
 
@@ -101,7 +101,7 @@ public static class CliProbe
                 if (Events.Str(e.GetProperty("request"), "tool_name") == tool) asked++;
                 return Task.FromResult(false);
             });
-            var ran = second.Count(e => ToolUse(e) == tool);
+            var ran = second.Sum(e => ToolUses(e).Count(n => n == tool));
             return [ran == 0 ? ("FAIL", $"inconclusive: no {tool} tool_use in the second turn")
                 : asked == 0 ? ("PASS", $"{types} honoured, {tool} ran again with 0 re-prompts")
                 : ("FAIL", $"{types} not honoured, {asked} re-prompt(s) for {tool}")];
@@ -175,14 +175,15 @@ public static class CliProbe
         (string, string)[] r;
         try { r = await body().WaitAsync(TimeSpan.FromSeconds(Seconds)); }
         catch (TimeoutException) { r = [.. ids.Select(_ => ("FAIL", "timeout"))]; }
-        catch (Exception ex) when (ex is not StartException) { r = [.. ids.Select(_ => ("FAIL", ex.Message))]; }
+        catch (Exception ex) when (ex is not StartException) { r = [.. ids.Select(_ => ("FAIL", (ex.InnerException ?? ex).Message))]; }   // claude exiting closes the channel
         return ids.Zip(r, (id, v) => (v.Item1, id, v.Item2));
     }
 
-    static string? ToolUse(JsonElement e) =>
+    // Names of every tool_use block in an assistant message (parallel calls share one message).
+    static IEnumerable<string?> ToolUses(JsonElement e) =>
         Events.Str(e, "type") == "assistant" && Events.Prop(e, "message") is { } m && Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array } c
-            ? c.EnumerateArray().Where(b => Events.Str(b, "type") == "tool_use").Select(b => Events.Str(b, "name")).FirstOrDefault()
-            : null;
+            ? c.EnumerateArray().Where(b => Events.Str(b, "type") == "tool_use").Select(b => Events.Str(b, "name"))
+            : [];
 
     static void Git(string dir, params string[] args)
     {
