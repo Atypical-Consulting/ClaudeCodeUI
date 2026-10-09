@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -89,7 +89,7 @@ public static class CliProbe
         return await Guard(["permission-session"], async () =>
         {
             string? tool = null, types = null;
-            await c.Turn($"Run the shell command: {Cmd}", async e =>
+            await c.Turn($"Run the shell command: {Cmd}", onPermission: async e =>
             {
                 var r = e.GetProperty("request");
                 if (tool is not null || Events.Prop(r, "permission_suggestions") is not { ValueKind: JsonValueKind.Array } sg) return false;
@@ -105,7 +105,7 @@ public static class CliProbe
             if (tool is null) return [("SKIP", "no can_use_tool with suggestions in the first turn")];
             if (types is "") return [("SKIP", "only a setMode suggestion: that path is already verified")];
             var asked = 0;
-            var second = await c.Turn($"Run the shell command again: {Cmd}", e =>
+            var second = await c.Turn($"Run the shell command again: {Cmd}", onPermission: e =>
             {
                 if (Events.Str(e.GetProperty("request"), "tool_name") == tool) asked++;
                 return Task.FromResult(false);
@@ -548,7 +548,48 @@ public static class CliProbe
         });
     }
 
+    // rewind-files: rewind_files {user_message_id: the uuid sent with the user message} lists what that turn changed
+    // (dry_run) then puts it back on disk. Needs CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING, which ClaudeSession sets.
+    // rewind-conversation: rewind_conversation {target_message_uuid: same id} answers rewound + prefillText (the dropped
+    // message) and the next turn no longer sees that message, only the one before it.
+    static async Task<IEnumerable<(string, string, string)>> Rewind(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["rewind-files", "rewind-conversation"], async () =>
+        {
+            const string second = "Use the Write tool to create notes.txt containing exactly: first. Then use the Edit tool to change the first line of README.md to: # changed. Reply DONE.";
+            string readme = Path.Combine(dir, "README.md"), notes = Path.Combine(dir, "notes.txt"), before = File.ReadAllText(readme);
+            await c.Turn("Remember the code word PELICAN. Reply with just OK.", uuid: Guid.NewGuid().ToString());
+            var id = Guid.NewGuid().ToString();
+            await c.Turn(second, uuid: id);
+            if (!File.Exists(notes) || File.ReadAllText(readme) == before)
+                return [("FAIL", "inconclusive: the turn did not write notes.txt and edit README.md"), ("SKIP", "needs rewind-files")];
+
+            var dry = await c.S.Request("rewind_files", new() { ["user_message_id"] = id, ["dry_run"] = true });
+            var listed = Events.Prop(dry, "filesChanged") is { ValueKind: JsonValueKind.Array } f ? f.GetArrayLength() : 0;
+            string answer;
+            try { await c.S.Request("rewind_files", new() { ["user_message_id"] = id }); answer = "rewound"; }
+            catch (ClaudeRequestException ex) { answer = $"error \"{ex.Message}\""; }
+            var restored = !File.Exists(notes) && File.ReadAllText(readme) == before;
+            var files = $"dry_run canRewind={Events.Prop(dry, "canRewind")?.GetRawText()}, {listed} filesChanged; {answer}, files {(restored ? "restored" : "NOT restored")}";
+
+            var conv = await c.S.Request("rewind_conversation", new() { ["target_message_uuid"] = id });
+            var prefill = Events.Str(conv, "prefillText") == second;
+            var echo = string.Concat((await c.Turn("Reply with the exact text of my previous message, nothing else.")).SelectMany(Texts));
+            var dropped = echo.Contains("PELICAN") && !echo.Contains("notes.txt");
+            return [(listed == 2 && restored ? "PASS" : "FAIL", files),
+                (Events.Prop(conv, "rewound") is { ValueKind: JsonValueKind.True } && prefill && dropped ? "PASS" : "FAIL",
+                    $"rewound={Events.Prop(conv, "rewound")?.GetRawText() ?? "absent"}, prefillText {(prefill ? "=" : "≠")} the message, next turn sees \"{echo.Trim()}\"")];
+        });
+    }
+
     // ---------- plumbing ----------
+
+    // Text blocks of an assistant message.
+    static IEnumerable<string> Texts(JsonElement e) =>
+        Events.Str(e, "type") == "assistant" && Events.Prop(e, "message") is { } m && Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array } c
+            ? c.EnumerateArray().Where(b => Events.Str(b, "type") == "text").Select(b => Events.Str(b, "text") ?? "")
+            : [];
 
     // Runs a probe body that yields one (verdict, detail) per id; a throw or timeout fails every id it had not answered.
     static async Task<IEnumerable<(string, string, string)>> Guard(string[] ids, Func<Task<(string Verdict, string Detail)[]>> body)
@@ -614,9 +655,9 @@ public static class CliProbe
 
         // Sends a user turn and collects its events until `result` (included). A can_use_tool goes to onPermission when
         // given (true = handled), else it is allowed as asked, so no probe can hang on an unexpected prompt.
-        public async Task<List<JsonElement>> Turn(string text, Func<JsonElement, Task<bool>>? onPermission = null, IReadOnlyList<UserImage>? images = null)
+        public async Task<List<JsonElement>> Turn(string text, Func<JsonElement, Task<bool>>? onPermission = null, IReadOnlyList<UserImage>? images = null, string? uuid = null)
         {
-            await S.SendUser(text, images);
+            await S.SendUser(text, images, uuid);
             return await Collect(1, onPermission);
         }
 
