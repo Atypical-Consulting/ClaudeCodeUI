@@ -12,6 +12,7 @@ public static class SelfCheck
             Strings.Check();
             ProcessJob.Check();
             Events.Check();
+            Images.Check();
             ApiErrors.Check();
             LiveSession.Check();
             TodoList.Check();

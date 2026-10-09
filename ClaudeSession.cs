@@ -121,10 +121,10 @@ public sealed class ClaudeSession : IAsyncDisposable
         finally { requests.TryRemove(id, out _); }
     }
 
-    public Task SendUser(string text) => Write(new JsonObject
+    public Task SendUser(string text, IReadOnlyList<UserImage>? images = null) => Write(new JsonObject
     {
         ["type"] = "user",
-        ["message"] = new JsonObject { ["role"] = "user", ["content"] = text },
+        ["message"] = new JsonObject { ["role"] = "user", ["content"] = Images.Content(text, images) },
     });
 
     // Answer a "can_use_tool" control_request. A deny's message reaches the model verbatim as the tool_result.

@@ -37,6 +37,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s9 | Effort | `--effort` at launch, `apply_flag_settings {effortLevel}` mid-session, read via `get_settings.applied.effort` |
 | s9 | Fast mode | `apply_flag_settings {fastMode}`. Displayed according to `fast_mode_state` / `fast_mode_disabled_reason`: often disabled, with the reason in a tooltip |
 | s9 | Ultracode | `apply_flag_settings {ultracode:true}` before the turn, `{ultracode:false}` after the `result`, availability via `get_settings.applied.ultracodeAvailable`; verified by `--probe-cli ultracode-on` / `ultracode-off` |
+| s9 | Images in the composer (paste, drop, paperclip picker; png/jpeg/gif/webp, 5 MB and 10 per message), thumbnails on the user message, replayed from the transcript | user `content` = a `text` block (omitted when empty) then `image` blocks `{source:{type:"base64",media_type,data}}`; verified by `--probe-cli image` / `image-only` (haiku reads a random number drawn in a generated PNG and the JPEG/GIF/WebP fixtures, PASS on 2.1.296). The transcript stores the block (CLI re-encoded) on the same `user` line, plus an `isMeta` `[Image: source: …]` line that replay skips. The CLI re-encodes images itself (a 12 MB PNG and an 8550 px one were read): the 5 MB cap is the UI's own. Files reach the server through `InputFile` streaming, `MaximumReceiveMessageSize` untouched |
 | s9 | `/` popover with descriptions | `initialize.commands[{name,description,argumentHint}]`; `/xxx` sent as user text |
 | s9 | Context panel | `get_context_usage` |
 | s9 | "Compact now" | `/compact` as user text; verified by `--probe-cli compact` (`system/compact_boundary`, context going down) |
@@ -61,7 +62,7 @@ These requests were accepted but never tested on the real case. On failure, the 
 | Workflow phases, `review-changes` name, "finding" cards, cost per agent | omitted; cost shown as `—` | no CLI data (only tokens and a duration per agent exist) |
 | "Auto at 80 %" | read-only label `Auto at {autoCompactThreshold}` if `isAutoCompactEnabled`, otherwise nothing | no verified settings request |
 | "Sign in" (MCP in `needs-auth`), "Open configuration", Hooks tab | disabled "coming soon" button; Hooks tab hidden | no authentication flow; shape of `get_hooks_listing` unknown |
-| "Browse", "Attach" | omitted | a browser cannot browse the server's folders; attachments out of scope |
+| "Browse", non-image "Attach" | omitted | a browser cannot browse the server's folders; only images are attached (§1.1) |
 | "PR #212 merged", "Automatically" toggles (s8) | omitted | would need `gh`; speculative |
 | `Ctrl ⏎ open alongside` (palette) | omitted | no split view |
 | File rewind | omitted | `rewind_files`: "not enabled" |

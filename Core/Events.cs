@@ -14,7 +14,7 @@ public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
 public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic) : ClaudeEvent;
 public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
 public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result (objects only)
-public record UserTextEvt(string Text, DateTimeOffset? At = null) : ClaudeEvent;     // At = transcript timestamp
+public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
 public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
                             string? ToolUseId, JsonElement? Suggestions) : ClaudeEvent;
 public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
@@ -75,6 +75,9 @@ public static class Events
                     }
                     if (content.ValueKind != JsonValueKind.Array) break;
                     JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? Slim(tur) : null;
+                    // Image blocks ride on the message's first text, or stand alone in an image-only message.
+                    UserImage[] images = parent is null ? [.. content.EnumerateArray().Where(c => Str(c, "type") == "image").Select(Images.Parse)] : [];
+                    var texts = 0;
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
@@ -83,9 +86,10 @@ public static class Events
                                     Bool(c, "is_error"), structured);
                                 break;
                             case "text" when parent is null:
-                                yield return Notification(Str(c, "text") ?? "") ?? (ClaudeEvent)new UserTextEvt(Str(c, "text") ?? "", at);
+                                yield return Notification(Str(c, "text") ?? "") ?? (ClaudeEvent)new UserTextEvt(Str(c, "text") ?? "", at, texts++ == 0 ? images : null);
                                 break;
                         }
+                    if (texts == 0 && images.Length > 0) yield return new UserTextEvt("", at, images);
                     break;
                 }
 
