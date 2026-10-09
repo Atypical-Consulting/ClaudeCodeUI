@@ -14,6 +14,7 @@ public static class SelfCheck
             Events.Check();
             ApiErrors.Check();
             LiveSession.Check();
+            TodoList.Check();
             Md.Check();
             EditDiff.Check();
             WorktreeService.Check();

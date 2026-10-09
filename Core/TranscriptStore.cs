@@ -318,6 +318,15 @@ public static class TranscriptStore
         ]);
         var api = Replay(["""{"type":"assistant","isApiErrorMessage":true,"message":{"model":"<synthetic>","id":"m3","role":"assistant","content":[{"type":"text","text":"API Error: Output blocked by content filtering policy"}]},"timestamp":"2026-10-09T12:00:00Z"}"""]);
         Ok(api is [ApiErrorItem], "replay api error");
+
+        // Task list (CLI 2.1.296): the id TaskUpdate refers to only exists in TaskCreate's toolUseResult.
+        var todo = Replay([
+            """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_C","name":"TaskCreate","input":{"subject":"alpha","description":"Task alpha"}}]},"timestamp":"2026-10-09T12:00:00Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_C","type":"tool_result","content":"Task #1 created successfully: alpha"}]},"toolUseResult":{"task":{"id":"1","subject":"alpha"}},"timestamp":"2026-10-09T12:00:01Z"}""",
+            """{"type":"assistant","message":{"id":"m2","role":"assistant","content":[{"type":"tool_use","id":"toolu_U","name":"TaskUpdate","input":{"taskId":"1","status":"in_progress"}}]},"timestamp":"2026-10-09T12:00:02Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_U","type":"tool_result","content":"Updated task #1 status"}]},"toolUseResult":{"success":true,"taskId":"1","updatedFields":["status"],"statusChange":{"from":"pending","to":"in_progress"}},"timestamp":"2026-10-09T12:00:03Z"}""",
+        ]);
+        Ok(TodoList.From(todo) is [{ Key: "1", Content: "alpha", Status: TodoStatus.InProgress }], "replay task list");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
 
         // AskUserQuestion answered (CLI 2.1.296): the answers come back in toolUseResult.

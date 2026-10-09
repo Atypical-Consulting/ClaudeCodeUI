@@ -39,6 +39,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s9 | `/` popover with descriptions | `initialize.commands[{name,description,argumentHint}]`; `/xxx` sent as user text |
 | s9 | Context panel | `get_context_usage` |
 | s9 | "Compact now" | `/compact` as user text; verified by `--probe-cli compact` (`system/compact_boundary`, context going down) |
+| s2 | Pinned task list (pending / in progress / completed), progress in the tool rows and the Overview | `--allowedTools TodoWrite,TaskCreate,TaskGet,TaskUpdate,TaskList` opts newer models into the task tools (without it 2.1.296 exposes none); `TaskCreate {subject,activeForm?}` → `tool_use_result.task.id`, `TaskUpdate {taskId,status,…}`, or `TodoWrite {todos[]}` when `CLAUDE_CODE_ENABLE_TASKS=false`; rebuilt from the tool calls, so replay agrees; verified by `--probe-cli todo-tools` |
 | s10 | Sub-agents: one row per agent, sub-tools, agent text | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
 | s11 | MCP list (state, tools, error, transport) | `mcp_status` |
 | s11 | MCP toggle and "Retry" | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}`; verified by `--probe-cli mcp-toggle` / `mcp-reconnect` (the state read in `mcp_status` follows the toggle) |

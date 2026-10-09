@@ -5,7 +5,7 @@ using System.Threading.Channels;
 
 namespace ClaudeCodeUI;
 
-// `dotnet run -- --probe-cli`: drives the real, logged-in claude CLI (haiku, a throw-away git repo under the temp dir)
+// `dotnet run -- --probe-cli [case]`: drives the real, logged-in claude CLI (haiku, a throw-away git repo under the temp dir)
 // to check the controls docs/PLAN.md §1.2 lists as "accepted but untested". One `PASS|FAIL|SKIP <id>: <detail>` line
 // per probe, then the CLI version. Exit 0 = no FAIL, 1 = a FAIL, 2 = claude could not start or an unknown case.
 // `--probe-cli plan compact` runs only those cases. Costs a few haiku tokens: opt-in, never part of --self-check or CI.
@@ -16,7 +16,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -269,6 +269,30 @@ public static class CliProbe
             var reply = Events.Str(turn[^1], "result") ?? "";
             var detail = $"{shape}; tool_result \"{answered[..Math.Min(answered.Length, 70)]}…\"; reply \"{reply}\"";
             return [answered.Contains(Secret) && reply.Contains(Secret) ? ("PASS", detail) : ("FAIL", detail)];
+        });
+    }
+
+    // todo-tools: with LiveSession's --allowedTools opt-in, init.tools lists the task tools, and a turn that uses them
+    // rebuilds, through Events.ParseAll + the reducer + TodoList.From, into the list the model was asked for.
+    static async Task<IEnumerable<(string, string, string)>> TodoTools(string dir)
+    {
+        await using var c = await Cli.Start(dir, "--allowedTools", TodoList.AllowedTools);
+        return await Guard(["todo-tools"], async () =>
+        {
+            var turn = await c.Turn("Use your task list tool to create exactly three tasks named alpha, beta and gamma, "
+                + "then mark alpha completed and beta in progress. Use no other tool, then reply done.");
+            var init = turn.FirstOrDefault(e => Events.Str(e, "type") == "system" && Events.Str(e, "subtype") == "init");
+            var exposed = Events.Prop(init, "tools") is { ValueKind: JsonValueKind.Array } t
+                ? string.Join("+", t.EnumerateArray().Select(x => x.GetString()).Where(n => TodoList.AllowedTools.Split(',').Contains(n)))
+                : "no init";
+            var used = string.Join(" ", turn.SelectMany(ToolUses).Where(n => n is "TodoWrite" or "TaskCreate" or "TaskUpdate")
+                .GroupBy(n => n).Select(g => $"{g.Count()}×{g.Key}"));
+            var s = new LiveSession("probe", "probe", dir, "default");
+            foreach (var e in turn)
+                foreach (var ev in Events.ParseAll(e)) s.Apply(ev);
+            var list = string.Join(", ", s.Todos.Select(x => $"{x.Content}:{x.Status}"));
+            var detail = $"init.tools {(exposed.Length > 0 ? exposed : "none")}; {(used.Length > 0 ? used : "no todo tool_use")}; list [{list}]";
+            return [list == "alpha:Completed, beta:InProgress, gamma:Pending" ? ("PASS", detail) : ("FAIL", detail)];
         });
     }
 
