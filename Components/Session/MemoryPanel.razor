@@ -1,0 +1,141 @@
+@* Memory (CLAUDE.md) files of the session, the /memory equivalent: the CLI's list (get_context_usage.memoryFiles) plus
+   the standard locations it did not load. A row opens the file rendered; Edit swaps in a textarea, Save writes it back
+   unless it changed on disk since it was read. Only a listed path is ever written (MemoryFiles.Save checks). *@
+
+<div class="section last">
+    <span class="cap" id="mem-cap">@L["Mem.Title"]</span>
+    <ul class="mem" aria-labelledby="mem-cap">
+        @foreach (var f in files)
+        {
+            var on = f.Path == open;
+            <li>
+                <button type="button" class="@(on ? "on" : null)" title="@f.Path" aria-expanded="@(on ? "true" : "false")" aria-controls="@(on ? "mem-file" : null)" @onclick="() => Open(f.Path)">
+                    <span class="n">@MemoryFiles.Display(f.Path, Session.Cwd, Home)</span>
+                    <span class="tag">@Strings.Name("Mem.Type.", f.Type)</span>
+                    @* Without get_context_usage yet (a past session) nothing is known about what the CLI loaded. *@
+                    <span class="c">@(f.Tokens is { } t ? L["Workflow.Tokens", Fmt.Tokens(t)] : !f.Exists ? L["Mem.Absent"] : Session.Context is null ? "" : L["Mem.NotLoaded"])</span>
+                </button>
+            </li>
+        }
+    </ul>
+    <p class="why">@L["Mem.Hint"]</p>
+    @if (open is not null)
+    {
+        var name = MemoryFiles.Display(open, Session.Cwd, Home);
+        <div id="mem-file" class="ctx">
+            @if (editing)
+            {
+                <label class="sr-only" for="mem-text">@L["Mem.EditLabel", name]</label>
+                <div class="input"><textarea id="mem-text" @ref="area" @bind="draft" rows="14" spellcheck="false"></textarea></div>
+                <div class="acts">
+                    <button type="button" class="btn primary" disabled="@busy" @onclick="() => Save(false)">@L["Mem.Save"]</button>
+                    <button type="button" class="btn" @onclick="Cancel">@L["Action.Cancel"]</button>
+                </div>
+                @if (conflict)
+                {
+                    <div class="errbox" role="alert">@L["Mem.Conflict", name]</div>
+                    <div class="acts">
+                        <button type="button" class="btn" @onclick="Reload">@L["Mem.Reload"]</button>
+                        <button type="button" class="btn danger" disabled="@busy" @onclick="() => Save(true)">@L["Mem.Overwrite"]</button>
+                    </div>
+                }
+            }
+            else if (error is null)
+            {
+                @if (loaded is null)
+                {
+                    <p>@L["Mem.Missing"]</p>
+                }
+                else if (loaded.Trim().Length == 0)
+                {
+                    <p>@L["Mem.Empty"]</p>
+                }
+                else
+                {
+                    <Markdown Text="@loaded" />
+                }
+                <div class="acts"><button type="button" class="btn" @onclick="Edit">@(loaded is null ? L["Mem.Create"] : L["Mem.Edit"])</button></div>
+            }
+            @if (error is not null)
+            {
+                <div class="errbox" role="alert">@error</div>
+            }
+            <div role="status">@if (saved) { <p>@L["Mem.Saved"]</p> }</div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+
+    static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    static readonly string UserDir = Path.GetDirectoryName(TranscriptStore.Root)!;   // ~/.claude or CLAUDE_CONFIG_DIR
+
+    IReadOnlyList<MemoryFile> files = [];
+    string? open, loaded, draft, error;   // loaded: the file as read (null = absent), the baseline of the conflict check
+    bool editing, conflict, busy, saved, focus;
+    ElementReference area;
+
+    // A handful of File.Exists per render: cheap, and a file created outside the app shows up without a refresh.
+    protected override void OnParametersSet() => files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focus) return;
+        focus = false;
+        try { await area.FocusAsync(); } catch (InvalidOperationException) { }   // the textarea left before the render landed
+    }
+
+    void Open(string path)
+    {
+        // Re-clicking the open row closes it; an unsaved draft goes with it, as with Cancel.
+        (open, editing, conflict, saved) = (open == path ? null : path, false, false, false);
+        if (open is not null) Load();
+    }
+
+    void Load()
+    {
+        error = null;
+        try { loaded = MemoryFiles.Read(open!); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { loaded = null; error = L["Mem.ReadFailed", ex.Message]; }
+    }
+
+    void Edit() => (draft, editing, saved, focus) = (loaded ?? "", true, false, true);
+
+    void Cancel() => (editing, conflict) = (false, false);
+
+    // Discard the draft for what is on disk now.
+    void Reload()
+    {
+        Load();
+        (draft, conflict, focus) = (loaded ?? "", false, true);
+    }
+
+    // overwrite: the user saw the conflict and keeps their version, so the baseline becomes what is on disk now.
+    void Save(bool overwrite)
+    {
+        if (busy || open is null) return;
+        busy = true;
+        error = null;
+        try
+        {
+            if (overwrite) loaded = MemoryFiles.Read(open);
+            switch (MemoryFiles.Save(files, open, loaded, draft ?? ""))
+            {
+                case MemorySave.Saved:
+                    Load();
+                    (editing, conflict, saved) = (false, false, true);
+                    files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
+                    break;
+                case MemorySave.Conflict:
+                    conflict = true;
+                    break;
+                default:
+                    error = L["Mem.NotAllowed"];
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { error = L["Mem.SaveFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+}
