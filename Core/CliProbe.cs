@@ -493,9 +493,12 @@ public static class CliProbe
 
             var (s2, u2, _) = await Mid("Run the shell command `sleep 3; echo one`, then reply DONE.", ToolUse, 1);
             var f2 = Fate(s2, u2);
-            var fold = f2.StartsWith("queued@0 started@0") && Lists(s2[^1], u2)
-                ? ("PASS", $"{f2}, the one result lists {Uuids(s2[^1])?.Split(',').Length} uuids")
-                : ("FAIL", $"{f2}, result user_message_uuids={Uuids(s2[^1])}");
+            // The thread puts the message after the tool result it joined: `started` must come after that tool_result.
+            var toolResult = s2.FindIndex(e => Events.ParseAll(e).Any(x => x is ToolResultEvt));
+            var startedAt = s2.FindIndex(e => Events.Str(e, "type") == "command_lifecycle" && Events.Str(e, "command_uuid") == u2 && Events.Str(e, "state") == "started");
+            var fold = f2.StartsWith("queued@0 started@0") && Lists(s2[^1], u2) && toolResult >= 0 && startedAt > toolResult
+                ? ("PASS", $"{f2}, started after the tool_result (#{toolResult} < #{startedAt}), the one result lists {Uuids(s2[^1])?.Split(',').Length} uuids")
+                : ("FAIL", $"{f2}, tool_result #{toolResult}, started #{startedAt}, result user_message_uuids={Uuids(s2[^1])}");
 
             var (s3, u3, a3) = await Mid(Numbers, Streaming, 1, "cancel_async_message");
             var f3 = Fate(s3, u3);
