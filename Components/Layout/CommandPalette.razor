@@ -77,7 +77,7 @@
             _ => null,
         }),
         s.Status == SessionStatus.Waiting ? s.Pending.Count : 0,
-        s.Status switch { SessionStatus.Running => L["Status.Running"], SessionStatus.Crashed => $"exit {s.ExitCode}", SessionStatus.Waiting => null, _ => L["Status.Done"] },
+        s.Status switch { SessionStatus.Running => L["Status.Running"], SessionStatus.Crashed => s.ExitLabel, SessionStatus.Waiting => null, _ => L["Status.Done"] },
         null, Go($"session/{s.Id}"));
 
     Row PastRow(PastSession p) => new(true, p.Title, "idle",

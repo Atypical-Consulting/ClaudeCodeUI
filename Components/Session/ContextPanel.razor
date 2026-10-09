@@ -103,6 +103,6 @@
     {
         error = null;
         try { await Session.Send("/compact"); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Ctx.CompactFailed", ex.Message]; }
     }
 }

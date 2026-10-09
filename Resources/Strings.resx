@@ -14,7 +14,7 @@
   <data name="ApiError.Auth.Title" xml:space="preserve"><value>Authentication with the API failed.</value></data>
   <data name="ApiError.ContentFilter.Hint" xml:space="preserve"><value>Rephrase the request or remove the sensitive content, then send the message again.</value></data>
   <data name="ApiError.ContentFilter.Title" xml:space="preserve"><value>The API's content filter blocked the response.</value></data>
-  <data name="ApiError.Generic.Hint" xml:space="preserve"><value>The raw details are below.</value></data>
+  <data name="ApiError.Generic.Hint" xml:space="preserve"><value>Send the message again; if it keeps failing, copy the error below when you report it.</value></data>
   <data name="ApiError.Generic.Title" xml:space="preserve"><value>The Claude API returned an error.</value></data>
   <data name="ApiError.Network.Hint" xml:space="preserve"><value>Check your network connection, then send the message again.</value></data>
   <data name="ApiError.Network.Title" xml:space="preserve"><value>Can't reach the Claude API.</value></data>
@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.ActionFailed" xml:space="preserve"><value>Couldn't apply that: {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
@@ -62,10 +63,13 @@
   <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
+  <data name="Composer.TurnError" xml:space="preserve"><value>error</value></data>
   <data name="Composer.UltraHint" xml:space="preserve"><value>Turns on the CLI's ultracode setting for the next turn</value></data>
   <data name="Composer.UltraThisTurn" xml:space="preserve"><value>multi-agent for this turn</value></data>
   <data name="Composer.UltraUnavailable" xml:space="preserve"><value>Ultracode isn't available for this account or model</value></data>
   <data name="Crash.Restart" xml:space="preserve"><value>Restart the session</value></data>
+  <data name="Crash.StartFailed.Text" xml:space="preserve"><value>Check that claude is installed and on the PATH, then restart.</value></data>
+  <data name="Crash.StartFailed.Title" xml:space="preserve"><value>Claude Code couldn't start</value></data>
   <data name="Crash.Text" xml:space="preserve"><value>The session stopped mid-turn. The transcript is kept; you can restart in the same folder.</value></data>
   <data name="Crash.Title" xml:space="preserve"><value>The Claude process stopped</value></data>
   <data name="Ctx.Auto" xml:space="preserve"><value>Auto at {0}</value></data>
@@ -75,6 +79,7 @@
   <data name="Ctx.Cat.Memory" xml:space="preserve"><value>memory, CLAUDE.md</value></data>
   <data name="Ctx.Cat.SystemPrompt" xml:space="preserve"><value>system prompt</value></data>
   <data name="Ctx.Cat.SystemTools" xml:space="preserve"><value>built-in tools</value></data>
+  <data name="Ctx.CompactFailed" xml:space="preserve"><value>Couldn't compact: {0}</value></data>
   <data name="Ctx.CompactNow" xml:space="preserve"><value>Compact now</value></data>
   <data name="Ctx.DisableHint" xml:space="preserve"><value>Turning off the ones this session doesn't need frees context on every turn.</value></data>
   <data name="Ctx.Free" xml:space="preserve"><value>free</value></data>
@@ -95,6 +100,7 @@
   <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
   <data name="Error.Text" xml:space="preserve"><value>Reload to try again. If it keeps failing, copy the request ID when you report it.</value></data>
   <data name="Error.Title" xml:space="preserve"><value>Server error</value></data>
+  <data name="Ext.ActionFailed" xml:space="preserve"><value>The MCP action failed: {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>The CLI reports this list with the session's first message.</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>The server is waiting for you to sign in. Its tools stay unavailable until then.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentication required</value></data>
@@ -169,6 +175,7 @@
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
   <data name="Model.Current" xml:space="preserve"><value>current</value></data>
+  <data name="Model.SetFailed" xml:space="preserve"><value>Couldn't switch model: {0}</value></data>
   <data name="Nav.Appearance" xml:space="preserve"><value>Appearance</value></data>
   <data name="Nav.Overview" xml:space="preserve"><value>Overview</value></data>
   <data name="New.CheckAgain" xml:space="preserve"><value>Check again</value></data>
@@ -223,6 +230,7 @@
   <data name="Perm.Allow" xml:space="preserve"><value>Allow</value></data>
   <data name="Perm.AllowTool" xml:space="preserve"><value>Allow {0}?</value></data>
   <data name="Perm.AlsoWaiting" xml:space="preserve"><value>Also waiting</value></data>
+  <data name="Perm.AnswerFailed" xml:space="preserve"><value>Your answer didn't reach Claude: {0}. Try again.</value></data>
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
@@ -252,9 +260,12 @@
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connection lost</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page paused</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Couldn't resume</value></data>
+  <data name="Session.ExitShort" xml:space="preserve"><value>exit {0}</value></data>
+  <data name="Session.Exited" xml:space="preserve"><value>claude exited ({0})</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>No claude process for this session.</value></data>
   <data name="Session.NotFound" xml:space="preserve"><value>Session not found</value></data>
   <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or recent transcript has this ID.</value></data>
+  <data name="Session.NotStarted" xml:space="preserve"><value>not started</value></data>
   <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
@@ -264,6 +275,9 @@
   <data name="Slash.Title" xml:space="preserve"><value>Commands and skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Agents are working…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>done</value></data>
+  <data name="Status.Err.Budget" xml:space="preserve"><value>Turn stopped: this session's spending limit was reached.</value></data>
+  <data name="Status.Err.Execution" xml:space="preserve"><value>The turn failed while running. Send a message to try again; restart the session if it keeps failing.</value></data>
+  <data name="Status.Err.MaxTurns" xml:space="preserve"><value>Turn stopped: maximum number of turns reached. Send a message to continue.</value></data>
   <data name="Status.Interrupted" xml:space="preserve"><value>Interrupted</value></data>
   <data name="Status.Paused" xml:space="preserve"><value>Claude is paused: {0} needs your approval</value></data>
   <data name="Status.Running" xml:space="preserve"><value>running</value></data>
@@ -271,7 +285,7 @@
   <data name="Status.StartingClaude" xml:space="preserve"><value>Starting claude…</value></data>
   <data name="Status.Thinking" xml:space="preserve"><value>thinking {0} tokens</value></data>
   <data name="Status.ToolRunning" xml:space="preserve"><value>{0} running…</value></data>
-  <data name="Status.TurnError" xml:space="preserve"><value>The turn ended with an error: {0}</value></data>
+  <data name="Status.TurnError" xml:space="preserve"><value>The turn ended with an error. Send a message to try again.</value></data>
   <data name="Status.WaitingOn" xml:space="preserve"><value>waiting · {0}</value></data>
   <data name="Status.WhatCommand" xml:space="preserve"><value>a command</value></data>
   <data name="Status.WhatEdit" xml:space="preserve"><value>an edit</value></data>

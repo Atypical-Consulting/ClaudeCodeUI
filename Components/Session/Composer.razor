@@ -82,7 +82,7 @@
         }
         else
         {
-            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)</span>
+            <span class="r" title="@Session.LastResultSubtype">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == LiveSession.Interrupted ? L["Composer.Interrupted"] : L["Composer.TurnError"])</span>
         }
     </div>
 </div>
@@ -164,7 +164,7 @@
     {
         error = null;
         try { await action(); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Composer.ActionFailed", ex.Message]; }
     }
 
     ElementReference pickBtn;

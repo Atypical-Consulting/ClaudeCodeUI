@@ -207,7 +207,7 @@
     {
         busy = true; note = null;
         try { await action(); }
-        catch (Exception ex) { note = ex.Message.TrimEnd(); }
+        catch (Exception ex) { note = L["Ext.ActionFailed", ex.Message.TrimEnd()]; }
         finally { busy = false; }
     }
 
