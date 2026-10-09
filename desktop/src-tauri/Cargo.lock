@@ -485,6 +485,7 @@ dependencies = [
 name = "claude-code-ui"
 version = "0.1.0"
 dependencies = [
+ "mac-notification-sys",
  "serde_json",
  "sys-locale",
  "tauri",
