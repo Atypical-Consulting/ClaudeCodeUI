@@ -216,7 +216,7 @@ public static class TranscriptStore
     }
 
     static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
-    static int refreshing;
+    static int refreshing, heldGen;   // heldGen: bumped by ForgetHeld so a scan started before a Stop never writes its stale ps back
 
     // Session ids named by a running claude command line (--session-id / --resume), cached 5 s. Includes this app's own processes.
     // ponytail: `ps` only, so empty on Windows; read Win32_Process command lines if Windows users need the label.
@@ -232,6 +232,7 @@ public static class TranscriptStore
 
     static IReadOnlySet<string> ScanHeld()
     {
+        var gen = Volatile.Read(ref heldGen);
         var ids = new HashSet<string>();
         try
         {
@@ -241,11 +242,11 @@ public static class TranscriptStore
             p.WaitForExit(2000);
         }
         catch (Exception) { }   // no ps: nothing is known to run elsewhere
-        held = (DateTimeOffset.Now, ids);
+        if (gen == Volatile.Read(ref heldGen)) held = (DateTimeOffset.Now, ids);
         return ids;
     }
 
-    internal static void ForgetHeld() => held = default;
+    internal static void ForgetHeld() { Interlocked.Increment(ref heldGen); held = default; }
 
     internal static HashSet<string> HeldIds(string ps) =>
         [.. ps.Split('\n').Where(l => l.Contains("claude")).Select(l => Regex.Match(l, @"--(?:session-id|resume)[ =]([0-9a-fA-F-]{36})"))

@@ -68,8 +68,8 @@ code{font-family:var(--mono)}
 .pane{border-right:1px solid var(--seam);display:flex;flex-direction:column;min-width:0;min-height:0}
 .pane:last-child{border-right:0}
 .ph{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--seam)}
-.ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;max-width:45%}
-.ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+.ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:45%}
+.ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0}
 .ph .end{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
 .cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
 
