@@ -84,7 +84,7 @@ if (!app.Environment.IsDevelopment())
     app.Use((ctx, next) =>
     {
         ctx.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-            + $"connect-src 'self' ws://{ctx.Request.Host} wss://{ctx.Request.Host}; object-src 'none'; base-uri 'self'";
+            + $"connect-src 'self' ws://{ctx.Request.Host} wss://{ctx.Request.Host}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
         return next(ctx);
     });
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

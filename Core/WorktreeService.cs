@@ -147,7 +147,9 @@ public sealed class WorktreeService(SessionManager sessions)
         var bas = await BaseBranch(repoRoot, records[0], ct);
         var baseTree = (await Git(repoRoot, ct, "rev-parse", bas + "^{tree}")).Out.Trim();
         var hasRemoteBase = (await Git(repoRoot, ct, "rev-parse", "--verify", "-q", "refs/remotes/origin/" + bas)).Exit == 0;
-        var merged = Ok(await Git(repoRoot, ct, ["for-each-ref", "refs/heads", "--merged", bas, .. hasRemoteBase ? ["--merged", "origin/" + bas] : Array.Empty<string>(), "--format=%(refname:short)"]))
+        // Unborn or missing base (repo with no commits): nothing is merged into it, and --merged would exit 128.
+        var baseOk = (await Git(repoRoot, ct, "rev-parse", "--verify", "-q", bas + "^{commit}")).Exit == 0;
+        var merged = !baseOk ? [] : Ok(await Git(repoRoot, ct, ["for-each-ref", "refs/heads", "--merged", bas, .. hasRemoteBase ? ["--merged", "origin/" + bas] : Array.Empty<string>(), "--format=%(refname:short)"]))
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
         var refs = Ok(await Git(repoRoot, ct, "for-each-ref", "refs/heads", "--format=%(refname:short)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(committerdate:iso-strict)"))
             .Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r').Split('\0')).Where(p => p.Length == 4).ToDictionary(p => p[0]);
