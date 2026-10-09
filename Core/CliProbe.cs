@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -422,6 +422,22 @@ public static class CliProbe
             return [await Ask("What is the code word in @notes/secret.txt ?", word),
                     await Ask("What is the code word in @\"my docs/the word.txt\" ?", spaced),
                     await Ask("What is the name of the only file in @box/ ?", listed)];
+        });
+    }
+
+    // prompt-history: prompts sent over stream-json land in ~/.claude/projects/<slug of the resolved cwd>/<id>.jsonl as
+    // user lines TranscriptStore.Prompts reads back, newest first (the Composer's ↑ history of past sessions).
+    static async Task<IEnumerable<(string, string, string)>> History(string dir)
+    {
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        string[] sent = [$"Reply with only the word one. ({tag})", $"Reply with only the word two. ({tag})"];
+        return await Guard(["prompt-history"], async () =>
+        {
+            await using (var c = await Cli.Start(dir))
+                foreach (var p in sent) await c.Turn(p);   // disposed: the CLI has exited and flushed its transcript
+            var got = TranscriptStore.Prompts(dir).Where(p => p.Contains(tag)).ToList();
+            var detail = $"{TranscriptStore.Slug(TranscriptStore.Real(dir))}: [{string.Join(" | ", got)}]";
+            return [got.SequenceEqual(sent.Reverse()) ? ("PASS", detail) : ("FAIL", detail)];
         });
     }
 
