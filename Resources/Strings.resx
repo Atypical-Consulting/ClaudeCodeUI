@@ -298,6 +298,15 @@
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
   <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
   <data name="Perm.WholeSession" xml:space="preserve"><value>Whole session</value></data>
+  <data name="Plan.ApproveAuto" xml:space="preserve"><value>Approve and auto-accept edits</value></data>
+  <data name="Plan.ApproveReview" xml:space="preserve"><value>Approve and review each edit</value></data>
+  <data name="Plan.Feedback" xml:space="preserve"><value>What should change in the plan?</value></data>
+  <data name="Plan.FeedbackHint" xml:space="preserve"><value>Sent to Claude as is, it keeps planning</value></data>
+  <data name="Plan.HintAuto" xml:space="preserve"><value>auto-accept edits</value></data>
+  <data name="Plan.HintFeedback" xml:space="preserve"><value>feedback</value></data>
+  <data name="Plan.HintReview" xml:space="preserve"><value>review each edit</value></data>
+  <data name="Plan.Keep" xml:space="preserve"><value>Keep planning</value></data>
+  <data name="Plan.Title" xml:space="preserve"><value>Approve this plan?</value></data>
   <data name="Quota.FiveHours" xml:space="preserve"><value>5h</value></data>
   <data name="Quota.Hint" xml:space="preserve"><value>Plan usage reported by Claude. The 7-day window resets {0}.</value></data>
   <data name="Quota.Resets" xml:space="preserve"><value>resets {0}</value></data>

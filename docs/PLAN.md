@@ -25,6 +25,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s3 | Permission with diff, Allow / Deny | `control_request can_use_tool` → `control_response allow/deny` |
 | s3 | "Whole session" when the suggestion is `setMode` | `set_permission_mode` then `allow` |
 | s3 | "Whole session" for the other suggestions (`addRules`, `addDirectories`) | `allow` + `updatedPermissions`; verified by `--probe-cli permission-session` (0 new requests on the next turn, 1 without `updatedPermissions`) |
+| s3 | Plan approval: the plan as Markdown, approve (auto-accept or review edits) or keep planning with feedback | `can_use_tool` `ExitPlanMode` → `set_permission_mode` then `allow`, or `deny` + `message`; verified by `--probe-cli plan` (§2.5) |
 | s4 | Overview, decision queue | in-memory state of all sessions |
 | s5 | Ctrl K palette, crash card, restart | process exit + `--resume <id>` |
 | s6 | Markdig Markdown + code blocks + hljs | existing; `.cb` wrapper done server-side |
@@ -212,6 +213,12 @@ Ultracode "for this turn":
 "Whole session":
 - `setMode` suggestion: `set_permission_mode {mode}` then `allow`.
 - Otherwise: `allow` + `updatedPermissions = suggestions` (verified by `--probe-cli permission-session`).
+
+Plan approval (`can_use_tool` for `ExitPlanMode`, verified on 2.1.296 by `--probe-cli plan`):
+- The request carries `input.plan` (Markdown) and `input.planFilePath`, and **no** `permission_suggestions`. A bare `allow` makes the CLI drop to `default` by itself (`system/status permissionMode:"default"`).
+- "Approve and auto-accept edits": `set_permission_mode {mode:"acceptEdits"}` (answers `{"mode":"acceptEdits"}`) then `allow`; `system/status` follows and the next edit is not prompted.
+- "Approve and review each edit": the same with `default`; the next edit is prompted.
+- "Keep planning": `deny` with the user's feedback as `message`; the model gets it verbatim as the `ExitPlanMode` `tool_result` (`is_error`), the mode stays `plan`.
 
 `Restart` creates a new `ClaudeSession` with `--resume Id` in `Cwd` **as replaced by `init.cwd`** (the worktree folder in the `-w` case: that cwd gives the slug of the `.jsonl`). Do not pass `-w` again. If the process died before the first message (no `.jsonl`), restart as a new session with the same `--session-id`.
 

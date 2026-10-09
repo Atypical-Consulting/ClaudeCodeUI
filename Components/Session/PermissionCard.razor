@@ -8,42 +8,71 @@
     <span class="end"><span class="pill wait">@L["OfN", queue.FindIndex(x => x.P == Permission) + 1, queue.Count]</span></span>
 </div>
 <div class="scroll">
-    <div class="section" data-permission tabindex="-1" role="group" aria-label="@Title" @ref="card">
-        <h3>@Title</h3>
-        @if (Events.Str(Permission.Input, "description") is { Length: > 0 } d)
-        {
-            <p>@d</p>
-        }
-        @if (diff is not null)
-        {
-            <DiffView Path="@ToolKinds.Target(Permission.Input, Session.Cwd)" Lines="diff" />
-        }
-        else if (ToolKinds.IsShell(Permission.Tool))
-        {
-            <pre class="cmd">@Events.Str(Permission.Input, "command")</pre>
-        }
-        else
-        {
-            <Markdown Text="@($"```json\n{ToolDetail.Pretty(Permission.Input)}\n```")" />
-        }
-        <div class="acts">
-            <button class="btn primary" disabled="@answered" @onclick="() => Answer(Decision.Allow)">@L["Perm.Allow"] <kbd>⏎</kbd></button>
+    @if (IsPlan)
+    {
+        @* ExitPlanMode: approving sets the mode the user picks (set_permission_mode, then allow); "keep planning" denies
+           with the feedback, which the model receives verbatim. Verified on 2.1.296 by --probe-cli plan. *@
+        <section class="section" data-permission tabindex="-1" role="group" aria-labelledby="plan-title-@Permission.RequestId" @ref="card">
+            <h3 id="plan-title-@Permission.RequestId">@L["Plan.Title"]</h3>
+            <Markdown Text="@(Events.Str(Permission.Input, "plan") ?? "")" />
+            <div class="acts wrap">
+                <button class="btn primary" disabled="@answered" @onclick='() => Answer(Decision.Allow, "acceptEdits")'>@L["Plan.ApproveAuto"] <kbd>⏎</kbd></button>
+                <button class="btn" disabled="@answered" @onclick='() => Answer(Decision.Allow, "default")'>@L["Plan.ApproveReview"] <kbd>@L["Key.ShiftEnter"]</kbd></button>
+            </div>
+            <div class="field">
+                <label for="plan-fb-@Permission.RequestId">@L["Plan.Feedback"]</label>
+                <textarea id="plan-fb-@Permission.RequestId" class="plan-fb" @ref="feedbackBox" @bind="feedback" @bind:event="oninput"
+                          @onkeydown="FeedbackKey" placeholder="@L["Plan.FeedbackHint"]" disabled="@answered"></textarea>
+            </div>
+            <div class="acts">
+                <button class="btn" disabled="@answered" @onclick="KeepPlanning">@L["Plan.Keep"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+            </div>
+            @if (error is not null)
+            {
+                <div class="errbox" role="alert">@error</div>
+            }
+            <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Plan.HintAuto"] · <kbd>@L["Key.ShiftEnter"]</kbd> @L["Plan.HintReview"] · <kbd>@L["Key.Del"]</kbd> @L["Plan.HintFeedback"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
+        </section>
+    }
+    else
+    {
+        <div class="section" data-permission tabindex="-1" role="group" aria-label="@Title" @ref="card">
+            <h3>@Title</h3>
+            @if (Events.Str(Permission.Input, "description") is { Length: > 0 } d)
+            {
+                <p>@d</p>
+            }
+            @if (diff is not null)
+            {
+                <DiffView Path="@ToolKinds.Target(Permission.Input, Session.Cwd)" Lines="diff" />
+            }
+            else if (ToolKinds.IsShell(Permission.Tool))
+            {
+                <pre class="cmd">@Events.Str(Permission.Input, "command")</pre>
+            }
+            else
+            {
+                <Markdown Text="@($"```json\n{ToolDetail.Pretty(Permission.Input)}\n```")" />
+            }
+            <div class="acts">
+                <button class="btn primary" disabled="@answered" @onclick="() => Answer(Decision.Allow)">@L["Perm.Allow"] <kbd>⏎</kbd></button>
+                @if (CanAllowSession)
+                {
+                    <button class="btn" disabled="@answered" @onclick="() => Answer(Decision.AllowSession)">@L["Perm.WholeSession"]</button>
+                }
+                <button class="btn danger" disabled="@answered" @onclick="() => Answer(Decision.Deny)">@L["Perm.Deny"]</button>
+            </div>
             @if (CanAllowSession)
             {
-                <button class="btn" disabled="@answered" @onclick="() => Answer(Decision.AllowSession)">@L["Perm.WholeSession"]</button>
+                <p style="font-size:12px">@L["Perm.WholeSession"] · @SessionGrant</p>
             }
-            <button class="btn danger" disabled="@answered" @onclick="() => Answer(Decision.Deny)">@L["Perm.Deny"]</button>
+            @if (error is not null)
+            {
+                <div class="errbox" role="alert">@error</div>
+            }
+            <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
         </div>
-        @if (CanAllowSession)
-        {
-            <p style="font-size:12px">@L["Perm.WholeSession"] · @SessionGrant</p>
-        }
-        @if (error is not null)
-        {
-            <div class="errbox" role="alert">@error</div>
-        }
-        <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
-    </div>
+    }
     @if (queue.Where(x => x.P != Permission).ToList() is { Count: > 0 } others)
     {
         <div class="section last">
@@ -71,6 +100,10 @@
     ElementReference card;
     bool answered, arm, exists;
     string? error;
+    string feedback = "";
+    ElementReference feedbackBox;
+
+    bool IsPlan => Permission.Tool == "ExitPlanMode";
 
     // "Toute la session": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions.
     bool CanAllowSession => Permission.Suggestions is { ValueKind: JsonValueKind.Array } s && s.GetArrayLength() > 0;
@@ -98,6 +131,7 @@
         answered = false;
         arm = true;
         error = null;
+        feedback = "";
         exists = Permission.Tool == "Write" && System.IO.File.Exists(Events.Str(Permission.Input, "file_path"));   // once, not per render
         diff = ToolKinds.IsEdit(Permission.Tool) ? EditDiff.FromInput(Permission.Tool, Permission.Input) : null;
     }
@@ -124,18 +158,29 @@
         }
     }
 
-    async Task Answer(Decision d)
+    // mode: set before allowing (ExitPlanMode approvals); message: a deny's text for the model ("keep planning").
+    async Task Answer(Decision d, string? mode = null, string? message = null)
     {
         if (answered || (d == Decision.AllowSession && !CanAllowSession)) return;
         answered = true;
-        try { await Session.Answer(Permission, d); }
+        try { await Session.Answer(Permission, d, mode, message); }
         catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
+    }
+
+    Task KeepPlanning() => Answer(Decision.Deny, message: feedback);
+
+    async Task FeedbackKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) await KeepPlanning();
     }
 
     void OnKey(string key) => InvokeAsync(async () =>
     {
         switch (key)
         {
+            case "Enter" when IsPlan: await Answer(Decision.Allow, "acceptEdits"); break;
+            case "Shift+Enter" when IsPlan: await Answer(Decision.Allow, "default"); break;
+            case "Delete" when IsPlan: await feedbackBox.FocusAsync(); return;   // the feedback is typed, then sent with Ctrl ⏎
             case "Enter": await Answer(Decision.Allow); break;
             case "Shift+Enter": await Answer(Decision.AllowSession); break;
             case "Delete": await Answer(Decision.Deny); break;
