@@ -46,6 +46,16 @@
   <data name="Appearance.Version" xml:space="preserve"><value>Version</value></data>
   <data name="Appearance.VersionHintDesktop" xml:space="preserve"><value>New versions come from the GitHub releases, signed and verified before they install.</value></data>
   <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Started with dotnet run: update the source with git pull.</value></data>
+  <data name="Ask.Hint.Move" xml:space="preserve"><value>choose</value></data>
+  <data name="Ask.Hint.Pick" xml:space="preserve"><value>tick</value></data>
+  <data name="Ask.Hint.Skip" xml:space="preserve"><value>skip</value></data>
+  <data name="Ask.Hint.Submit" xml:space="preserve"><value>answer</value></data>
+  <data name="Ask.Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Ask.OtherAnswer" xml:space="preserve"><value>Other answer for “{0}”</value></data>
+  <data name="Ask.OtherPlaceholder" xml:space="preserve"><value>Other answer…</value></data>
+  <data name="Ask.Skip" xml:space="preserve"><value>Skip</value></data>
+  <data name="Ask.Submit" xml:space="preserve"><value>Answer</value></data>
+  <data name="Ask.Title" xml:space="preserve"><value>Question</value></data>
   <data name="BadRequest.Heading" xml:space="preserve"><value>The app couldn't process this request.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>It was rejected before it reached a page. Go back and try again, or start over from a new session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
@@ -175,6 +185,7 @@
   <data name="Key.Del" xml:space="preserve"><value>Del</value></data>
   <data name="Key.Esc" xml:space="preserve"><value>Esc</value></data>
   <data name="Key.ShiftEnter" xml:space="preserve"><value>Shift ⏎</value></data>
+  <data name="Key.Space" xml:space="preserve"><value>Space</value></data>
   <data name="Kv.Cost" xml:space="preserve"><value>cost</value></data>
   <data name="Kv.Tokens" xml:space="preserve"><value>tokens</value></data>
   <data name="Kv.Tools" xml:space="preserve"><value>tools</value></data>

@@ -30,6 +30,17 @@
         case 0 when Tool.State is ToolState.Error or ToolState.Denied:
             <div style="padding:16px"><div class="errbox">@Tool.ResultText</div></div>
             break;
+        case 0 when Tool.Name == AskUser.Tool && AskUser.Answered(Tool.Structured) is { Length: > 0 } answered:
+            <div class="section last">
+                <dl class="ask-done">
+                    @foreach (var (q, a) in answered)
+                    {
+                        <dt>@q</dt>
+                        <dd>@a</dd>
+                    }
+                </dl>
+            </div>
+            break;
         case 0 when Tool.Name == "Read" && Tool.ResultText is { } read:
             <FileView Path="@(FilePath ?? "")" ReadResultText="@read" />
             break;

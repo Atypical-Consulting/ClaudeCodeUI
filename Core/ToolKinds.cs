@@ -26,6 +26,7 @@ public static class ToolKinds
         if (Events.Str(input, "command") is { } c) return c;
         if (Events.Str(input, "pattern") is { } p)
             return (Events.Str(input, "glob") ?? Events.Str(input, "path")) is { } where && Relative(where, cwd) is var w && w != "." ? $"{p} · {w}" : p;
+        if (AskUser.Parse(input) is { Length: > 0 } qs) return string.Join(" · ", qs.Select(q => q.Header.Length > 0 ? q.Header : q.Text));
         return Events.Str(input, "description") ?? Events.Str(input, "url") ?? Events.Str(input, "query") ?? FirstString(input) ?? "";
     }
 
