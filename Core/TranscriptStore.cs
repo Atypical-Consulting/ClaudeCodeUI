@@ -78,15 +78,17 @@ public static class TranscriptStore
     // "ClaudeCodeUI" for C:\repo\ClaudeCodeUI and for its -w worktrees (…\ClaudeCodeUI\.claude\worktrees\x).
     internal static string RepoName(string cwd)
     {
-        var i = cwd.IndexOf(@"\.claude\worktrees\", StringComparison.OrdinalIgnoreCase);
-        return Path.GetFileName(Path.TrimEndingDirectorySeparator(i > 0 ? cwd[..i] : cwd));
+        // Both separators: transcripts carry the cwd of the OS that wrote them.
+        cwd = cwd.Replace('\\', '/').TrimEnd('/');
+        var i = cwd.IndexOf("/.claude/worktrees/", StringComparison.OrdinalIgnoreCase);
+        return (i > 0 ? cwd[..i] : cwd).Split('/')[^1];
     }
 
     // The repo root for a worktree cwd, else the cwd itself.
     internal static string RootOf(string cwd)
     {
-        var i = cwd.IndexOf(@"\.claude\worktrees\", StringComparison.OrdinalIgnoreCase);
-        return i > 0 ? cwd[..i] : cwd;
+        var m = Regex.Match(cwd, @"[\\/]\.claude[\\/]worktrees[\\/]", RegexOptions.IgnoreCase);
+        return m.Success && m.Index > 0 ? cwd[..m.Index] : cwd;
     }
 
     // C:\Users\me\repo\api -> ~\repo\api
