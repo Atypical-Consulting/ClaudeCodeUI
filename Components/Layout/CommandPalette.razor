@@ -1,4 +1,4 @@
-@* Ctrl K: sessions (live + recent) and actions, filtered. Escape is handled by MainLayout.
+@* Ctrl K: sessions (live + recent), message hits from past transcripts, and actions, filtered. Escape is handled by MainLayout.
    A modal combobox: the input owns focus and points at the active option; the app behind is inert while open. *@
 @implements IDisposable
 @using System.Text.Encodings.Web
@@ -16,15 +16,14 @@
         <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="@L["Palette.Placeholder"]" aria-label="@L["Rail.Search"]"
             role="combobox" aria-expanded="@(rows.Count > 0 ? "true" : "false")" aria-controls="pal-list" aria-autocomplete="list" aria-activedescendant="@(rows.Count > 0 ? $"pal-{sel}" : null)" /><kbd>@L["Key.Esc"]</kbd></div>
         <div id="pal-list" role="listbox" aria-label="@L["Rail.Search"]" @ref="list">
-            @foreach (var session in new[] { true, false })
+            @foreach (var (kind, gid, title) in new[] { (0, "pal-g-s", L["Palette.Sessions"]), (1, "pal-g-m", L["Palette.Messages"]), (2, "pal-g-a", L["Palette.Actions"]) })
             {
-                if (!rows.Any(r => r.Session == session)) continue;
-                var gid = session ? "pal-g-s" : "pal-g-a";
+                if (!rows.Any(r => Kind(r) == kind)) continue;
                 <div role="group" aria-labelledby="@gid">
-                    <div class="pg cap" id="@gid" role="presentation">@(session ? L["Palette.Sessions"] : L["Palette.Actions"])</div>
+                    <div class="pg cap" id="@gid" role="presentation">@title</div>
                     @for (var i = 0; i < rows.Count; i++)
                     {
-                        if (rows[i].Session != session) continue;
+                        if (Kind(rows[i]) != kind) continue;
                         var r = rows[i];
                         var on = i == sel;
                         <div id="pal-@i" class="pi @(on ? "on" : null)" role="option" aria-selected="@(on ? "true" : "false")" @onclick="r.Run">
@@ -41,7 +40,11 @@
                 </div>
             }
         </div>
-        <div role="status">@if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }</div>
+        <div role="status">
+            @if (searching) { <div class="pg" style="color:var(--fg-4)">@L["Palette.SearchingMessages"]</div> }
+            else if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
+            else if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
+        </div>
         <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
     </div>
 }
@@ -49,8 +52,16 @@
 @code {
     static readonly string[] Themes = ["graphite", "encre", "ristretto", "mousse", "contraste"];
 
-    // Dot = dot class for a session, icon name for an action.
-    sealed record Row(bool Session, string Name, string Dot, string? Detail, int Pill, string? Right, string? Kbd, Func<Task> Run);
+    // Dot = dot class for a session, icon name for an action. Msg = a message hit (Name is its snippet).
+    sealed record Row(bool Session, string Name, string Dot, string? Detail, int Pill, string? Right, string? Kbd, Func<Task> Run, bool Msg = false);
+
+    static int Kind(Row r) => r.Msg ? 1 : r.Session ? 0 : 2;   // display order = rows order, so ↑/↓ follow the screen
+
+    // Message search: from MinChars, debounced, cancelled by the next keystroke or by closing, scanned off the circuit's thread.
+    const int MinChars = 3, MaxHits = 20;
+    IReadOnlyList<TranscriptHit> hits = [];
+    bool searching, partial;
+    CancellationTokenSource? cts;
 
     ElementReference input, list;
     string q = "", theme = "graphite";
@@ -66,6 +77,8 @@
             .Concat(TranscriptStore.Recent().Where(p => !Sessions.IsActive(p.Id))
                 .Select(p => (Name: p.Title, p.Branch, Repo: (string?)TranscriptStore.RepoName(p.Cwd), Row: PastRow(p))));
         var rows = all.Where(x => Hit(x.Name) || Hit(x.Branch) || Hit(x.Repo)).Take(q.Length > 0 ? 8 : 5).Select(x => x.Row).ToList();
+        rows.AddRange(hits.Select(h => new Row(true, h.Snippet, Sessions.Get(h.Session.Id) is { } live ? RailSessionRow.Dot(live) : "exited",
+            Join(h.Session.Title, TranscriptStore.RepoName(h.Session.Cwd)), 0, Day(h.At), null, PastRow(h.Session).Run, Msg: true)));
 
         var cwd = CurrentCwd();
         var next = Sessions.DecisionQueue.FirstOrDefault().S;
@@ -164,6 +177,24 @@
     {
         q = e.Value as string ?? "";
         sel = 0;
+        _ = FindMessages(q.Trim());
+    }
+
+    async Task FindMessages(string t)
+    {
+        cts?.Cancel();
+        (hits, partial, searching) = ([], false, t.Length >= MinChars);
+        if (!searching) return;
+        var c = cts = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(250, c.Token);
+            var (found, complete) = await Task.Run(() => TranscriptStore.Search(t, MaxHits, c.Token), c.Token);
+            if (c.IsCancellationRequested) return;   // a newer keystroke or closing won the race
+            (hits, partial, searching) = (found, !complete, false);
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
     }
 
     async Task Key(KeyboardEventArgs e, List<Row> rows)
@@ -182,10 +213,15 @@
         if (Ui.PaletteOpen && !wasOpen)
         {
             q = ""; sel = 0; modal = true;
+            await FindMessages("");
             try { theme = await JS.InvokeAsync<string>("claudeUi.getTheme"); }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
         }
-        else if (!Ui.PaletteOpen && wasOpen) modal = false;
+        else if (!Ui.PaletteOpen && wasOpen)
+        {
+            modal = false;
+            cts?.Cancel();
+        }
         wasOpen = Ui.PaletteOpen;
         StateHasChanged();
     });
@@ -212,5 +248,6 @@
     {
         Ui.Changed -= Changed;
         Sessions.Changed -= SessionsChanged;
+        cts?.Cancel();
     }
 }
