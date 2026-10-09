@@ -20,6 +20,29 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        // Composer images: files pasted into or dropped on the box go to its hidden <InputFile>, which streams them to the
+        // server in chunks, never as one hub message; the paperclip button opens that input's file picker.
+        images(box, input, button) {
+            if (!box || !input || box._images) return;
+            box._images = true;
+            const give = files => {
+                if (!files?.length) return false;
+                const dt = new DataTransfer();
+                [...files].forEach(f => dt.items.add(f));
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            };
+            const dragging = e => e.dataTransfer?.types.includes('Files');
+            button?.addEventListener('click', () => input.click());
+            box.addEventListener('paste', e => { if (give(e.clipboardData?.files)) e.preventDefault(); });
+            box.addEventListener('dragover', e => { if (dragging(e)) { e.preventDefault(); box.dataset.drop = ''; } });
+            box.addEventListener('dragleave', e => { if (!box.contains(e.relatedTarget)) delete box.dataset.drop; });
+            box.addEventListener('drop', e => {
+                delete box.dataset.drop;
+                if (dragging(e)) { e.preventDefault(); give(e.dataTransfer.files); }
+            });
+        },
         scrollToEnd(el) { if (el) el.scrollLeft = el.scrollWidth; },
         // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
         // read), then focus moves to the card unless the user is typing a draft or using a dialog.
