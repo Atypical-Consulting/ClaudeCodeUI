@@ -1,15 +1,49 @@
-@* Stub (WP0). Owner: WP3. One rail row: a live session or a past one. *@
+@* One rail row: a live session (link) or a past one (opened with its history on click). *@
+@inject SessionManager Sessions
+@inject NavigationManager Nav
 
 @if (Session is { } s)
 {
-    <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on"><span class="dot idle"></span><div><div class="n">@s.Name</div></div></NavLink>
+    <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on">
+        <span class="dot @Dot(s)"></span>
+        <div><div class="n">@s.Name</div>@Where(s.Branch, s.Repo)</div>
+        @switch (s.Status)
+        {
+            case SessionStatus.Waiting: <span class="pill wait">@s.Pending.Count</span> break;
+            case SessionStatus.Running: <span class="c" style="color:var(--ok)">en cours</span> break;
+            case SessionStatus.Crashed: <span class="pill err">exit @s.ExitCode</span> break;
+            default: <span class="c">@(s.CostUsd >= 0.005m ? Fmt.Cost(s.CostUsd, 2) : "")</span> break;
+        }
+    </NavLink>
 }
 else if (Past is { } p)
 {
-    <NavLink class="s" href="@($"session/{p.Id}")" ActiveClass="on"><span class="dot idle"></span><div><div class="n">@p.Title</div></div></NavLink>
+    <a class="s" href="@($"session/{p.Id}")" @onclick="Open" @onclick:preventDefault>
+        <span class="dot idle"></span>
+        <div><div class="n">@p.Title</div>@Where(p.Branch, TranscriptStore.RepoName(p.Cwd))</div>
+        <span class="c">@(p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : "")</span>
+    </a>
 }
 
 @code {
     [Parameter] public LiveSession? Session { get; set; }
     [Parameter] public PastSession? Past { get; set; }
+
+    internal static string Dot(LiveSession s) => s.Status switch
+    {
+        SessionStatus.Waiting => "wait",
+        SessionStatus.Running => "run",
+        SessionStatus.Crashed => "err",
+        _ => "idle",
+    };
+
+    static RenderFragment Where(string? branch, string? repo) => string.Join(" · ", new[] { branch, repo }.Where(x => !string.IsNullOrEmpty(x))) is { Length: > 0 } w
+        ? @<div class="branch"><Icon Name="branch" />@w</div>
+        : @<text></text>;
+
+    void Open()
+    {
+        Sessions.Open(Past!);
+        Nav.NavigateTo($"session/{Past!.Id}");
+    }
 }
