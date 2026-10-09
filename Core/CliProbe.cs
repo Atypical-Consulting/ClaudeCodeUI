@@ -26,7 +26,7 @@ public static class CliProbe
             Git(dir, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "-q", "-m", "init");
 
             var fails = 0;
-            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession, Mcp })
+            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession, Mcp, Compact })
                 foreach (var (verdict, id, detail) in await probe(dir))
                 {
                     Console.WriteLine($"{verdict} {id}: {detail}");
@@ -144,6 +144,26 @@ public static class CliProbe
             catch (TimeoutException) { return [toggle, ("FAIL", "mcp_reconnect unanswered")]; }
             var after = await Status();
             return [toggle, after == "failed" ? ("PASS", $"answered {answer}, status {after}") : ("FAIL", $"answered {answer}, status {after}")];
+        });
+    }
+
+    // compact: "/compact" sent as user text (ContextPanel's button) compacts: a compact_boundary or a smaller context.
+    static async Task<IEnumerable<(string, string, string)>> Compact(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["compact"], async () =>
+        {
+            async Task<long> Total() =>
+                Events.Prop(await c.S.Request("get_context_usage"), "totalTokens") is { ValueKind: JsonValueKind.Number } n ? (long)n.GetDouble() : -1;
+
+            await c.Turn("Say hello in one word.");
+            var before = await Total();
+            var turn = await c.Turn("/compact");
+            var after = await Total();
+            var boundary = turn.Any(e => Events.Str(e, "type") == "system" && Events.Str(e, "subtype") == "compact_boundary");
+            var error = Events.Prop(turn[^1], "is_error") is { ValueKind: JsonValueKind.True };
+            var detail = $"compact_boundary {(boundary ? "seen" : "absent")}, context {before}→{after}{(error ? ", result is_error" : "")}";
+            return [!error && (boundary || (after >= 0 && after < before)) ? ("PASS", detail) : ("FAIL", detail)];
         });
     }
 
