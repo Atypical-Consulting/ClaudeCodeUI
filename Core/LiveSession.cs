@@ -13,22 +13,23 @@ public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
+// Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
-    public ToolState State { get; set; }
-    public string? ResultText { get; set; }
-    public JsonElement? Structured { get; set; }
-    public DateTimeOffset StartedAt { get; set; }
-    public DateTimeOffset? EndedAt { get; set; }
-    public string? TaskId { get; set; }          // Agent only
-    public long Tokens { get; set; }
-    public int SubToolUses { get; set; }
-    public bool Background { get; set; }         // Agent launched async: outlives its turn, ends on its task-notification
+    public ToolState State { get; init; }
+    public string? ResultText { get; init; }
+    public JsonElement? Structured { get; init; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset? EndedAt { get; init; }
+    public string? TaskId { get; init; }          // Agent only
+    public long Tokens { get; init; }
+    public int SubToolUses { get; init; }
+    public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
 }
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
 
-// One claude process and its state. The reducer (Apply) runs on the process reader thread; lists are
+// One claude process and its state. The reducer (Apply) runs on the process reader thread; lists and their items are
 // immutable snapshots replaced on write, so components read them without locking.
 public sealed class LiveSession : IAsyncDisposable
 {
@@ -187,29 +188,31 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- process ----------
 
+    // Locked check-then-spawn: two circuits (or Boot and the reader thread) would otherwise start two claude with one --session-id.
     internal ClaudeSession EnsureProcess()
     {
-        if (proc is { } p) return p;
-        var resume = resumable || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".claude", "projects", TranscriptStore.Slug(Cwd), Id + ".jsonl"));
-        var args = Args(resume);
-
         ClaudeSession s = null!;
-        try
+        lock (gate)
         {
-            // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
-            costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
-            s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
-                l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+            if (proc is { } p) return p;
+            var resume = resumable || TranscriptStore.Find(Id) is not null;
+            var args = Args(resume);
+            try
+            {
+                // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
+                costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
+                s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
+                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+            }
+            catch (Exception ex)
+            {
+                OnExit(null, -1, Strings.Get("Session.StartFailed", ex.Message));
+                throw;
+            }
+            proc = s;
+            ExitCode = null; ExitText = null;
+            Status = SessionStatus.Starting;
         }
-        catch (Exception ex)
-        {
-            OnExit(null, -1, Strings.Get("Session.StartFailed", ex.Message));
-            throw;
-        }
-        proc = s;
-        ExitCode = null; ExitText = null;
-        Status = SessionStatus.Starting;
         Notify();
         _ = Boot(s);
         return s;
@@ -237,9 +240,19 @@ public sealed class LiveSession : IAsyncDisposable
         {
             // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute. Wait ONCE on the same
             // request_id: re-sending under a new id dropped a late answer to the first one.
-            var init = p.Request("initialize", null, 180);
+            const int initSeconds = 180;
+            var init = p.Request("initialize", null, initSeconds);
             if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize: still waiting after 60 s");
-            var info = await init;
+            JsonElement info;
+            try { info = await init; }
+            catch (TimeoutException)
+            {
+                // A CLI that never answered initialize will not run a turn either: rather than a ready-looking Idle session,
+                // stop it and show the reason in the crash banner, whose Restart button relaunches it.
+                Console.Error.WriteLine($"[{Id}] initialize: no answer after {initSeconds} s, stopping claude");
+                if (OnExit(p, -1, Strings.Get("Session.InitTimeout", initSeconds))) await p.DisposeAsync();   // false: p already exited or was replaced
+                return;
+            }
             InitializeInfo = info;
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
@@ -289,11 +302,12 @@ public sealed class LiveSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    void OnExit(ClaudeSession? s, int code, string text)
+    // false when s is no longer this session's process (already exited or replaced): nothing changed.
+    bool OnExit(ClaudeSession? s, int code, string text)
     {
         lock (gate)
         {
-            if (s is not null && proc != s) return;
+            if (s is not null && proc != s) return false;
             proc = null;
             Status = SessionStatus.Crashed;
             ExitCode = code; ExitText = text;
@@ -303,6 +317,7 @@ public sealed class LiveSession : IAsyncDisposable
             EndTools(DateTimeOffset.Now, false);
         }
         Notify();
+        return true;
     }
 
     internal async Task RefreshGit()
@@ -385,7 +400,7 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (!Pending.Contains(p)) return;
         Pending = Pending.Remove(p);
-        if (Tool(p.ToolUseId) is { State: ToolState.Waiting } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
+        if (Tool(p.ToolUseId) is { State: ToolState.Waiting } t) Set(t, t with { State = d == Decision.Deny ? ToolState.Denied : ToolState.Running });
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
     }
 
@@ -393,11 +408,8 @@ public sealed class LiveSession : IAsyncDisposable
     internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
         turns = 0;
-        foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting && !(keepBackground && t.Background)))
-        {
-            t.State = ToolState.Error;
-            t.EndedAt = now;
-        }
+        Items = Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t && !(keepBackground && t.Background)
+            ? t with { State = ToolState.Error, EndedAt = now } : i);
     }
 
     public ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
@@ -417,6 +429,9 @@ public sealed class LiveSession : IAsyncDisposable
             return by;
         }
     }
+
+    // Replaces one tool row (by reference: two rows never share an instance). Callers hold the gate, or own the session (replay).
+    internal void Set(ToolItem old, ToolItem now) => Items = Items.Replace(old, now, ReferenceEqualityComparer.Instance);
 
     internal void Apply(ClaudeEvent e)
     {
@@ -469,17 +484,19 @@ public sealed class LiveSession : IAsyncDisposable
 
             case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && ToolKinds.IsAgent(t.Name)
                                                               && Events.Str(rs, "status") == "async_launched":
-                t.Background = true;   // launch receipt, not the outcome: stays Running until the task-notification
-                t.TaskId = Events.Str(rs, "agentId") ?? t.TaskId;
-                t.Structured = rs;
+                // launch receipt, not the outcome: stays Running until the task-notification
+                Set(t, t with { Background = true, TaskId = Events.Str(rs, "agentId") ?? t.TaskId, Structured = rs });
                 break;
 
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
-                t.State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done;
-                t.ResultText = r.Text;
-                t.Structured = r.Structured;
-                t.EndedAt = now;
-                if (r.Structured is { } s && Events.Prop(s, "totalTokens") is { ValueKind: JsonValueKind.Number } tok) t.Tokens = tok.GetInt64();
+                Set(t, t with
+                {
+                    State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
+                    ResultText = r.Text,
+                    Structured = r.Structured,
+                    EndedAt = now,
+                    Tokens = r.Structured is { } st && Events.Prop(st, "totalTokens") is { ValueKind: JsonValueKind.Number } tok ? tok.GetInt64() : t.Tokens,
+                });
                 break;
 
             case UserTextEvt u when UserText(u.Text) is { } text:
@@ -488,7 +505,7 @@ public sealed class LiveSession : IAsyncDisposable
 
             case PermissionEvt p:
                 Pending = Pending.Add(new(p.RequestId, p.Tool, p.Input, p.Description, p.ToolUseId, p.Suggestions, now));
-                if (Tool(p.ToolUseId) is { } wt) wt.State = ToolState.Waiting;
+                if (Tool(p.ToolUseId) is { } wt) Set(wt, wt with { State = ToolState.Waiting });
                 Status = SessionStatus.Waiting;
                 break;
 
@@ -523,21 +540,23 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case TaskStartedEvt ts when Tool(ts.ToolUseId) is { } t:
-                t.TaskId = ts.TaskId;
+                Set(t, t with { TaskId = ts.TaskId });
                 break;
 
             case TaskProgressEvt tp when Items.LastOrDefault(i => i is ToolItem t && t.TaskId == tp.TaskId) is ToolItem t:   // IList: scans from the end
-                t.Tokens = tp.TotalTokens;
-                t.SubToolUses = tp.ToolUses;
+                Set(t, t with { Tokens = tp.TotalTokens, SubToolUses = tp.ToolUses });
                 break;
 
             case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.LastOrDefault(i => i is ToolItem x && td.TaskId.Length > 0 && x.TaskId == td.TaskId) as ToolItem) is { } t
                                      && (t.State == ToolState.Running || t.Background):   // a resumed background agent notifies again
-                t.State = td.Status == "completed" ? ToolState.Done : ToolState.Error;
-                t.EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now;
-                if (td.Result is not null) t.ResultText = td.Result;
-                if (td.Tokens > 0) t.Tokens = td.Tokens;
-                if (td.ToolUses > 0) t.SubToolUses = td.ToolUses;
+                Set(t, t with
+                {
+                    State = td.Status == "completed" ? ToolState.Done : ToolState.Error,
+                    EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now,
+                    ResultText = td.Result ?? t.ResultText,
+                    Tokens = td.Tokens > 0 ? td.Tokens : t.Tokens,
+                    SubToolUses = td.ToolUses > 0 ? td.ToolUses : t.SubToolUses,
+                });
                 break;
 
             case TitleEvt { Title.Length: > 0 } ti:

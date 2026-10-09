@@ -6,6 +6,7 @@ namespace ClaudeCodeUI;
 public sealed class SessionManager : IAsyncDisposable
 {
     ImmutableList<LiveSession> all = [];
+    readonly Lock openGate = new();
 
     public IReadOnlyList<LiveSession> All => all;   // creation order, never re-sorted
     public LiveSession? Get(string id) => all.FirstOrDefault(s => s.Id == id);
@@ -35,20 +36,24 @@ public sealed class SessionManager : IAsyncDisposable
     }
 
     // History loaded now; the --resume process starts on the first Send or Restart.
+    // Locked: two circuits opening the same past session at once would add it twice (duplicate @key in the Rail).
     public LiveSession Open(PastSession p)
     {
-        if (Get(p.Id) is { } live) return live;
-        var items = TranscriptStore.Load(p.Id);
-        // The transcript's mode, if the UI offers it (bypassPermissions / dontAsk fall back to default).
-        var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
-        var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true)
+        lock (openGate)
         {
-            Items = [.. items], CostUsd = p.CostUsd ?? 0,
-            StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,
-        };
-        s.ToolCount = s.Items.OfType<ToolItem>().Count();
-        _ = s.RefreshGit();
-        return Add(s);
+            if (Get(p.Id) is { } live) return live;
+            var items = TranscriptStore.Load(p.Id);
+            // The transcript's mode, if the UI offers it (bypassPermissions / dontAsk fall back to default).
+            var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
+            var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true)
+            {
+                Items = [.. items], CostUsd = p.CostUsd ?? 0,
+                StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,
+            };
+            s.ToolCount = s.Items.OfType<ToolItem>().Count();
+            _ = s.RefreshGit();
+            return Add(s);
+        }
     }
 
     // Kills the process and forgets the session: it goes back to Recent, its transcript intact.
@@ -77,6 +82,11 @@ public sealed class SessionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await Task.WhenAll(all.Select(s => s.DisposeAsync().AsTask()));   // in parallel: each may wait 2 s for its process
+        // in parallel (each may wait 2 s for its process); one failure must not leave the other claude trees running
+        await Task.WhenAll(all.Select(async s =>
+        {
+            try { await s.DisposeAsync(); }
+            catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] shutdown: {ex.Message}"); }
+        }));
     }
 }

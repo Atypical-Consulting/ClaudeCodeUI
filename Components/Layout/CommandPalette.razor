@@ -152,19 +152,17 @@
         }
     }
 
-    async void Changed()
+    void Changed() => _ = InvokeAsync(async () =>
     {
-        await InvokeAsync(async () =>
+        if (Ui.PaletteOpen && !wasOpen)
         {
-            if (Ui.PaletteOpen && !wasOpen)
-            {
-                q = ""; sel = 0; focus = true;
-                try { theme = await JS.InvokeAsync<string>("claudeUi.getTheme"); } catch (JSException) { }
-            }
-            wasOpen = Ui.PaletteOpen;
-            StateHasChanged();
-        });
-    }
+            q = ""; sel = 0; focus = true;
+            try { theme = await JS.InvokeAsync<string>("claudeUi.getTheme"); }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+        }
+        wasOpen = Ui.PaletteOpen;
+        StateHasChanged();
+    });
 
     void SessionsChanged() { if (Ui.PaletteOpen) InvokeAsync(StateHasChanged); }
 

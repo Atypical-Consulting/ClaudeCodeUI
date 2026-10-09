@@ -180,11 +180,12 @@
         if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
     }
 
-    void OnChanged()
+    // Sessions.Changed is raised on the claude reader thread: touch component state on the renderer's dispatcher only.
+    void OnChanged() => _ = InvokeAsync(async () =>
     {
-        if (Live?.Id != refreshedFor) _ = Refresh();
-        _ = InvokeAsync(StateHasChanged);
-    }
+        if (Live?.Id != refreshedFor) await Refresh();
+        StateHasChanged();
+    });
 
     async Task Refresh()
     {

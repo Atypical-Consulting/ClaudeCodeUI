@@ -94,7 +94,7 @@ public sealed class WorktreeService(SessionManager sessions)
 
     static IEnumerable<string> FromTranscripts()
     {
-        var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+        var dir = TranscriptStore.Root;
         if (!Directory.Exists(dir)) yield break;
         var temp = TranscriptStore.Slug(System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetTempPath()));
         var since = DateTime.Now.AddDays(-30);
