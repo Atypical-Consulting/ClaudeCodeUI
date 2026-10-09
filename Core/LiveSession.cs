@@ -22,6 +22,7 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public string? TaskId { get; set; }          // Agent only
     public long Tokens { get; set; }
     public int SubToolUses { get; set; }
+    public bool Background { get; set; }         // Agent launched async: outlives its turn, ends on its task-notification
 }
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
@@ -254,7 +255,7 @@ public sealed class LiveSession : IAsyncDisposable
             Pending = [];
             TurnStartedAt = null;
             StreamingText = "";
-            EndTools(DateTimeOffset.Now);
+            EndTools(DateTimeOffset.Now, false);
         }
         Notify();
     }
@@ -292,7 +293,7 @@ public sealed class LiveSession : IAsyncDisposable
             if (Status != SessionStatus.Crashed) Status = SessionStatus.Exited;
             Pending = [];
             TurnStartedAt = null;
-            EndTools(DateTimeOffset.Now);
+            EndTools(DateTimeOffset.Now, false);
         }
         Notify();
     }
@@ -333,10 +334,10 @@ public sealed class LiveSession : IAsyncDisposable
     }
 
     // Tools still open when the turn or the process ends: they never got a result.
-    void EndTools(DateTimeOffset now)
+    internal void EndTools(DateTimeOffset now, bool keepBackground = true)
     {
         turns = 0;
-        foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting))
+        foreach (var t in Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting && !(keepBackground && t.Background)))
         {
             t.State = ToolState.Error;
             t.EndedAt = now;
@@ -386,6 +387,13 @@ public sealed class LiveSession : IAsyncDisposable
                 if (u.ParentToolUseId is null) StreamingText = "";
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
+                break;
+
+            case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && ToolKinds.IsAgent(t.Name)
+                                                              && Events.Str(rs, "status") == "async_launched":
+                t.Background = true;   // launch receipt, not the outcome: stays Running until the task-notification
+                t.TaskId = Events.Str(rs, "agentId") ?? t.TaskId;
+                t.Structured = rs;
                 break;
 
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
@@ -445,9 +453,13 @@ public sealed class LiveSession : IAsyncDisposable
                 t.SubToolUses = tp.ToolUses;
                 break;
 
-            case TaskDoneEvt td when Tool(td.ToolUseId) is { State: ToolState.Running } t:
+            case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.OfType<ToolItem>().LastOrDefault(x => td.TaskId.Length > 0 && x.TaskId == td.TaskId)) is { } t
+                                     && (t.State == ToolState.Running || t.Background):   // a resumed background agent notifies again
                 t.State = td.Status == "completed" ? ToolState.Done : ToolState.Error;
-                t.EndedAt = now;
+                t.EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now;
+                if (td.Result is not null) t.ResultText = td.Result;
+                if (td.Tokens > 0) t.Tokens = td.Tokens;
+                if (td.ToolUses > 0) t.SubToolUses = td.ToolUses;
                 break;
 
             case TitleEvt { Title.Length: > 0 } ti:
@@ -500,6 +512,24 @@ public sealed class LiveSession : IAsyncDisposable
         o.costBase = o.CostUsd - 0.0127m;
         o.Apply(new ResultEvt("success", false, 0.0165m, 10, 1, 0, null, null, null));
         Ok(o.CostUsd == 0.0165m && o.LastTurnCostUsd == 0.0038m, "resumed cost not counted twice");
+        var ag = new LiveSession("a", "a", @"C:\w", "default");
+        var recv = JsonDocument.Parse("""{"isAsync":true,"status":"async_launched","agentId":"aa5"}""").RootElement.Clone();
+        ag.BeginTurn("agent");
+        ag.Apply(new ToolUseEvt("toolu_A", "Agent", input, null));
+        ag.Apply(new ToolResultEvt("toolu_A", "Async agent launched", false, recv));
+        Ok(ag.Items[^1] is ToolItem { State: ToolState.Running, EndedAt: null, Background: true, TaskId: "aa5" }, "async agent stays running");
+        ag.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null));
+        Ok(ag.Items[^1] is ToolItem { State: ToolState.Running }, "background row survives the turn");
+        var n = ag.Items.Count;
+        ag.Apply(new TaskDoneEvt("aa5", "toolu_A", "completed", "pong", 31599, 1, 5088));
+        var at = (ToolItem)ag.Items[^1];
+        Ok(ag.Items.Count == n && at is { State: ToolState.Done, ResultText: "pong", Tokens: 31599, SubToolUses: 1 }
+           && at.EndedAt - at.StartedAt == TimeSpan.FromMilliseconds(5088), "notification completes the row");
+        var ag2 = new LiveSession("b", "b", @"C:\w", "default");
+        ag2.Apply(new ToolUseEvt("toolu_B", "Agent", input, null));
+        ag2.Apply(new ToolResultEvt("toolu_B", "Async agent launched", false, recv));
+        ag2.EndTools(DateTimeOffset.Now, false);
+        Ok(ag2.Items[^1] is ToolItem { State: ToolState.Error }, "process exit ends background row");
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
     }
