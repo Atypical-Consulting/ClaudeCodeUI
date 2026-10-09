@@ -1,12 +1,15 @@
 using System.Text.RegularExpressions;
 using Markdig;
+using Markdig.Renderers.Html;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
 namespace ClaudeCodeUI;
 
 // Markdown to HTML. Raw HTML and {attributes} disabled: model output is rendered as markdown only, never as live markup.
-// Links keep http(s)/mailto only and images become links: nothing the model writes makes the browser fetch or run anything.
+// Links keep http(s)/mailto only, http(s) in a new tab (the desktop shell hands those to the system browser); any other or
+// relative link (`Program.cs:12`, `docs/a.md`) becomes its text, since it would navigate away from the session. Images
+// become links: nothing the model writes makes the browser fetch or run anything.
 // Code blocks are wrapped in .cb here (server side: Blazor must own every top-level node), alert titles are French.
 public static partial class Md
 {
@@ -19,8 +22,13 @@ public static partial class Md
         return b.Build();
     }
 
-    static string Safe(string? url) =>
-        url is null || !url.Contains(':') || Uri.TryCreate(url.Trim(), UriKind.Absolute, out var u) && u.Scheme is "http" or "https" or "mailto" ? url ?? "" : "#";
+    static bool External(string? url, out bool web)
+    {
+        web = false;
+        if (url is null || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var u) || u.Scheme is not ("http" or "https" or "mailto")) return false;
+        web = u.Scheme != "mailto";
+        return true;
+    }
 
     static readonly Dictionary<string, string> Lang = new()
     {
@@ -35,8 +43,18 @@ public static partial class Md
     public static string Render(string markdown)
     {
         var doc = Markdown.Parse(markdown, Pipeline);
-        foreach (var l in doc.Descendants<LinkInline>()) { l.IsImage = false; l.Url = Safe(l.Url); }
-        foreach (var l in doc.Descendants<AutolinkInline>()) l.Url = Safe(l.Url);
+        foreach (var l in doc.Descendants<LinkInline>().ToList())
+        {
+            l.IsImage = false;
+            if (External(l.Url, out var web))
+            {
+                if (web) { var a = l.GetAttributes(); a.AddProperty("target", "_blank"); a.AddProperty("rel", "noopener noreferrer"); }
+                continue;
+            }
+            l.ReplaceBy(new ContainerInline());   // keeps the label (children moved over), renders without a tag
+        }
+        foreach (var l in doc.Descendants<AutolinkInline>().ToList())
+            if (!l.IsEmail && !External(l.Url, out _)) l.ReplaceBy(new LiteralInline(l.Url));
         var html = doc.ToHtml(Pipeline);
         html = CodeOpen().Replace(html, m =>
         {
@@ -61,9 +79,10 @@ public static partial class Md
         var at = Render("# a {onclick=x}") + Render("[x](https://a){onmouseover=\"y\"}");
         Ok(!at.Contains(" onclick=\"") && !at.Contains(" onmouseover=\""), "generic attributes disabled: " + at);
         var js = Render("[x](javascript:alert(1)) <javascript:alert(2)> [y](data:text/html,z) [r][1]\n\n[1]: javascript:alert(3)");
-        Ok(!js.Contains("javascript:") && !js.Contains("data:"), "javascript:/data: links neutralized: " + js);
-        var img = Render("![a](https://evil.example/?d=s) [ok](https://x.y/z) [rel](docs/a.md)");
-        Ok(!img.Contains("<img") && img.Contains("href=\"https://x.y/z\"") && img.Contains("href=\"docs/a.md\""), "images turned into links, http and relative kept: " + img);
+        Ok(!js.Contains("href=\"javascript:") && !js.Contains("href=\"data:") && !js.Contains("<a "), "javascript:/data: links neutralized: " + js);
+        var img = Render("![a](https://evil.example/?d=s) [ok](https://x.y/z) [rel](docs/a.md) [*f*](Program.cs:12) [#](#top)");
+        Ok(!img.Contains("<img") && img.Contains("href=\"https://x.y/z\" target=\"_blank\" rel=\"noopener noreferrer\"") && img.Contains("rel <em>f</em> #")
+            && img.Split("<a ").Length == 3, "images turned into links, http kept in a new tab, relative and file links become text: " + img);
         Ok(Render("```foo\"><b\nx\n```") is var odd && !odd.Contains("<b>"), "encoded language");
     }
 }

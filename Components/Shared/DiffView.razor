@@ -2,24 +2,35 @@
 
 <div class="diff" data-hl="@EditDiff.Lang(Path)">
     <div class="fh"><span>@Path</span><span><span class="a">+@Lines.Count(l => l.Kind == DiffKind.Add)</span> <span class="d">−@Lines.Count(l => l.Kind == DiffKind.Del)</span></span></div>
-    @foreach (var l in Lines)
-    {
-        @if (l.Kind == DiffKind.Hunk)
+    <div class="db" tabindex="0" role="region" aria-label="@Path"><div>
+        @foreach (var l in Lines.Take(MaxRows))
         {
-            <div class="hunk">@l.Text</div>
+            @if (l.Kind == DiffKind.Hunk)
+            {
+                <div class="hunk">@l.Text</div>
+            }
+            else if (l.Kind == DiffKind.More)
+            {
+                <div class="hunk">@L["Diff.MoreOccurrences", l.N ?? 0]</div>
+            }
+            else if (l.Kind == DiffKind.Ctx)
+            {
+                <div class="l"><span class="n">@l.N</span><span></span><code class="lc">@l.Text</code></div>
+            }
+            else
+            {
+                <div class="l @(l.Kind == DiffKind.Add ? "add" : "del")"><span class="n">@l.N</span><span class="g">@(l.Kind == DiffKind.Add ? "+" : "−")</span><code class="lc">@l.Text</code></div>
+            }
         }
-        else if (l.Kind == DiffKind.Ctx)
+        @if (Lines.Count > MaxRows)
         {
-            <div class="l"><span class="n">@l.N</span><span></span><code class="lc">@l.Text</code></div>
+            <div class="hunk">@L["Diff.MoreLines", Lines.Count - MaxRows]</div>
         }
-        else
-        {
-            <div class="l @(l.Kind == DiffKind.Add ? "add" : "del")"><span class="n">@l.N</span><span class="g">@(l.Kind == DiffKind.Add ? "+" : "−")</span><code class="lc">@l.Text</code></div>
-        }
-    }
+    </div></div>
 </div>
 
 @code {
+    const int MaxRows = 2000;
     [Parameter] public string Path { get; set; } = "";
     [Parameter] public IReadOnlyList<DiffLine> Lines { get; set; } = [];
 }

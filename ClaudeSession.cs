@@ -50,12 +50,16 @@ public sealed class ClaudeSession : IAsyncDisposable
         // The readers drop the ExecutionContext of the circuit that started claude: the renders their events trigger
         // take the app-wide culture (Program.cs) instead of the language that circuit had, possibly switched since.
         using var noFlow = ExecutionContext.SuppressFlow();
-        var errText = new StringBuilder();
+        var errText = new Queue<string>();   // last 50 stderr lines only: a chatty CLI or MCP server runs for days
         var stderr = Task.Run(async () =>
         {
             while (await proc.StandardError.ReadLineAsync() is { } l)
             {
-                lock (errText) errText.AppendLine(l);
+                lock (errText)
+                {
+                    errText.Enqueue(l);
+                    if (errText.Count > 50) errText.Dequeue();
+                }
                 Trace($"stderr {l}");
             }
         });
@@ -65,7 +69,11 @@ public sealed class ClaudeSession : IAsyncDisposable
             while (await proc.StandardOutput.ReadLineAsync() is { } line)
             {
                 JsonElement evt;
-                try { evt = JsonDocument.Parse(line).RootElement.Clone(); }
+                try
+                {
+                    using var doc = JsonDocument.Parse(line);
+                    evt = doc.RootElement.Clone();
+                }
                 catch (JsonException) { continue; }
                 if (first) { first = false; Trace($"first stdout {Str(evt, "type")}"); }
                 if (Str(evt, "type") == "control_response") Complete(evt.GetProperty("response"));
@@ -76,7 +84,7 @@ public sealed class ClaudeSession : IAsyncDisposable
             job?.Dispose();   // external kill or crash: take the MCP servers down with it, before onExit
             foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException(Strings.Get("Session.ProcessStopped")));
             await stderr;
-            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode} {errText}".Trim());
+            if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode}\n{string.Join('\n', errText)}".Trim());
         });
     }
 
@@ -156,7 +164,9 @@ public sealed class ClaudeSession : IAsyncDisposable
     {
         disposing = true;
         try { proc.StandardInput.Close(); } catch { }
-        if (!proc.WaitForExit(2000)) try { proc.Kill(true); } catch { }
+        using (var cts = new CancellationTokenSource(2000))
+            try { await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) { try { proc.Kill(true); } catch { } }
         job?.Dispose();
         await reader.ConfigureAwait(false);
         proc.Dispose();
