@@ -1,14 +1,17 @@
 @* Model picker (not in the mockup): initialize.models, chosen with set_model. Reuses the .pop.slash / .si styles. *@
 
-<div class="pop slash menu" role="listbox" aria-label="Modèle">
+@inject IJSRuntime JS
+
+<div class="pop slash menu" role="listbox" aria-label="Modèle" @ref="list" tabindex="0" aria-activedescendant="mm-opt-@sel"
+     @onkeydown="Key" @onkeydown:preventDefault>
     <div class="sh"><span>Modèle</span><span>@error</span></div>
     @{ var cur = Current(Session) is { } c ? Events.Str(c, "value") : null; }
-    @foreach (var m in Models(Session))
+    @for (var i = 0; i < models.Count; i++)
     {
+        var m = models[i];
         var value = Events.Str(m, "value") ?? "";
         var current = value == cur;
-        <div class="si @(current ? "on" : null)" role="option" tabindex="0" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)"
-             @onkeydown='e => e.Key is "Enter" or " " ? Pick(value) : Task.CompletedTask'>
+        <div id="mm-opt-@i" class="si @(current ? "on" : null) @(i == sel ? "kb" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)">
             <b>@(Events.Str(m, "displayName") ?? value)</b>
             <span title="@Events.Str(m, "description")">@Events.Str(m, "description")</span>
             @if (current) { <span class="tag acc">actuel</span> } else { <span></span> }
@@ -19,7 +22,41 @@
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnEscape { get; set; }
     string? error;
+    int sel;
+    ElementReference list;
+    List<JsonElement> models = [];
+
+    // The active option starts on the current model; it is a keyboard cursor only (hover does not move it).
+    protected override void OnInitialized()
+    {
+        models = [.. Models(Session)];
+        var cur = Current(Session) is { } c ? Events.Str(c, "value") : null;
+        sel = Math.Max(0, models.FindIndex(m => Events.Str(m, "value") == cur));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("claudeUi.focus", list);
+        await JS.InvokeVoidAsync("claudeUi.reveal", list, $"mm-opt-{sel}");
+    }
+
+    async Task Key(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Enter" or " ":
+                if (sel >= 0 && sel < models.Count) await Pick(Events.Str(models[sel], "value") ?? "");
+                break;
+            case "Escape" or "Tab":
+                await OnEscape.InvokeAsync();
+                break;
+            default:
+                sel = ListNav.Next(e.Key, sel, models.Count);
+                break;
+        }
+    }
 
     async Task Pick(string value)
     {
