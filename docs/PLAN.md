@@ -50,7 +50,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s11 | Skills / Agents / Plugins | `initialize` (`agents`, `commands`) + init (`skills`, `plugins`) |
 | rail | 5 h / 7 d quota | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` at startup |
 | rail | "Recent" and resuming with history | reading `~/.claude/projects/<slug>/*.jsonl` + `--resume` (the CLI **does not replay** history) |
-| header, palette, thread | "Fork" / "Fork from here": a new session `<name> (fork)` continuing the conversation, the original untouched | `--resume <id> --fork-session --session-id <new> --name <name>` (+ `--resume-session-at <assistant uuid>`); history = the source transcript, cut after that uuid; verified by `--probe-cli fork` (PASS on 2.1.296) |
+| header, palette, thread | "Fork" / "Fork from here": a new session `<name> (fork)` continuing the conversation, the original untouched | `--resume <id> --fork-session --session-id <new> --name <name>` (+ `--resume-session-at <assistant uuid>`); history = the source transcript, cut after that uuid; a fork not sent to yet has no transcript (`--resume` on it: "No conversation found"), so forking it forks its source at the same cut; verified by `--probe-cli fork` (5 PASS on 2.1.296) |
 
 ### 1.2 Built, but to be validated once for real (fallback: control disabled)
 
