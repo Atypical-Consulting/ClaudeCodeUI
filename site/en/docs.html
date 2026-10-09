@@ -99,17 +99,18 @@
           <thead><tr><th>System</th><th>File</th><th>Note</th></tr></thead>
           <tbody>
             <tr><td>Windows 10/11</td><td><code>-setup.exe</code> or <code>.msi</code></td><td>WebView2 is already included in Windows 11.</td></tr>
-            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon) or <code>x64</code> (Intel)</td><td>Unsigned app, see below.</td></tr>
+            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon)</td><td>Signed and notarized by Apple. Intel Macs are not supported (macOS 26 is their last version).</td></tr>
             <tr><td>Linux x64</td><td><code>.AppImage</code> or <code>.deb</code></td><td>Requires WebKitGTK 4.1 (<code>libwebkit2gtk-4.1-0</code> on Debian/Ubuntu, already installed on most desktops).</td></tr>
           </tbody>
         </table></div>
-        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>The installers are not signed.</strong> Windows and macOS therefore show a warning on first launch. This is expected; the steps are below.</p></div>
+        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>The Windows installer is not signed.</strong> SmartScreen therefore shows a warning on first launch. This is expected; the steps are below.</p></div>
 
         <h3>Windows</h3>
         <p>SmartScreen shows "Windows protected your PC". Click "More info", then "Run anyway".</p>
         <h3>macOS</h3>
-        <p>Gatekeeper blocks the app on first launch. Right-click the app, choose "Open", then confirm. Or, in a terminal:</p>
-        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"</pre></div>
+        <p>The app is signed with a Developer ID and notarized by Apple: it opens normally, no workaround needed.</p>
+        <h3>Verify your download</h3>
+        <p>Each release ships a <code>SHA256SUMS</code> file and GitHub build-provenance attestations. To verify a file: <code>gh attestation verify &lt;file&gt; -R Atypical-Consulting/ClaudeCodeUI</code>.</p>
         <h3>Linux</h3>
         <p>For the AppImage, make the file executable, then run it:</p>
         <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>chmod +x Claude*.AppImage
@@ -260,7 +261,7 @@ npm run build    <span class="c"># builds the installers into src-tauri/target/r
         <ol>
           <li>Commits follow <a href="https://www.conventionalcommits.org/en/">Conventional Commits</a>: <code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>ci:</code>, <code>chore:</code>.</li>
           <li>On every push to <code>main</code>, <a href="https://github.com/googleapis/release-please">release-please</a> opens or updates a release PR: CHANGELOG, and the version in <code>ClaudeCodeUI.csproj</code>, <code>tauri.conf.json</code> and <code>Cargo.toml</code>.</li>
-          <li>Merging that PR creates the tag and the GitHub release. The <code>release.yml</code> workflow then builds the Windows, macOS (arm64 and x64) and Linux installers and attaches them to the release.</li>
+          <li>Merging that PR creates the tag and the GitHub release. The <code>release.yml</code> workflow then builds the Windows, macOS (Apple Silicon) and Linux installers and attaches them to the release.</li>
         </ol>
         <p>This site is published to GitHub Pages by the <code>pages.yml</code> workflow whenever the <code>site/</code> folder changes on <code>main</code>.</p>
       </section>

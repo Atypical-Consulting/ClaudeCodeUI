@@ -99,17 +99,18 @@
           <thead><tr><th>Système</th><th>Fichier</th><th>Remarque</th></tr></thead>
           <tbody>
             <tr><td>Windows 10/11</td><td><code>-setup.exe</code> ou <code>.msi</code></td><td>WebView2 est déjà présent sur Windows 11.</td></tr>
-            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon) ou <code>x64</code> (Intel)</td><td>Application non signée, voir plus bas.</td></tr>
+            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon)</td><td>Signée et notariée par Apple. Les Mac Intel ne sont pas pris en charge (macOS 26 est leur dernière version).</td></tr>
             <tr><td>Linux x64</td><td><code>.AppImage</code> ou <code>.deb</code></td><td>Nécessite WebKitGTK 4.1 (<code>libwebkit2gtk-4.1-0</code> sur Debian/Ubuntu, déjà installé sur la plupart des bureaux).</td></tr>
           </tbody>
         </table></div>
-        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>Les installeurs ne sont pas signés.</strong> Windows et macOS affichent donc un avertissement au premier lancement. C'est attendu ; la marche à suivre est ci-dessous.</p></div>
+        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>L'installeur Windows n'est pas signé.</strong> SmartScreen affiche donc un avertissement au premier lancement. C'est attendu ; la marche à suivre est ci-dessous.</p></div>
 
         <h3>Windows</h3>
         <p>SmartScreen affiche « Windows a protégé votre ordinateur ». Clique sur « Informations complémentaires », puis « Exécuter quand même ».</p>
         <h3>macOS</h3>
-        <p>Gatekeeper bloque l'application au premier lancement. Fais un clic droit sur l'app, « Ouvrir », puis confirme. Ou, dans un terminal :</p>
-        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copier</button></div><pre>xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"</pre></div>
+        <p>L'application est signée avec un Developer ID et notariée par Apple : elle s'ouvre normalement, sans manipulation.</p>
+        <h3>Vérifier le téléchargement</h3>
+        <p>Chaque version publie un fichier <code>SHA256SUMS</code> et des attestations de provenance GitHub. Pour vérifier un fichier : <code>gh attestation verify &lt;fichier&gt; -R Atypical-Consulting/ClaudeCodeUI</code>.</p>
         <h3>Linux</h3>
         <p>Pour l'AppImage, rends le fichier exécutable puis lance-le :</p>
         <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copier</button></div><pre>chmod +x Claude*.AppImage
@@ -260,7 +261,7 @@ npm run build    <span class="c"># produit les installeurs dans src-tauri/target
         <ol>
           <li>Les commits suivent les <a href="https://www.conventionalcommits.org/fr/">Conventional Commits</a> : <code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>ci:</code>, <code>chore:</code>.</li>
           <li>À chaque push sur <code>main</code>, <a href="https://github.com/googleapis/release-please">release-please</a> ouvre ou met à jour une PR de version : CHANGELOG, et version dans <code>ClaudeCodeUI.csproj</code>, <code>tauri.conf.json</code> et <code>Cargo.toml</code>.</li>
-          <li>Fusionner cette PR crée le tag et la version GitHub. Le workflow <code>release.yml</code> construit alors les installeurs Windows, macOS (arm64 et x64) et Linux, et les attache à la version.</li>
+          <li>Fusionner cette PR crée le tag et la version GitHub. Le workflow <code>release.yml</code> construit alors les installeurs Windows, macOS (Apple Silicon) et Linux, et les attache à la version.</li>
         </ol>
         <p>Ce site est publié sur GitHub Pages par le workflow <code>pages.yml</code> à chaque modification du dossier <code>site/</code> sur <code>main</code>.</p>
       </section>

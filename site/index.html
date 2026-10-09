@@ -91,7 +91,7 @@
           <div class="out" id="o-sys"><div><div class="body">
             <dl class="sys">
               <dt>Windows 10/11</dt><dd><code>-setup.exe</code> ou <code>.msi</code> · WebView2, déjà présent sur Windows 11</dd>
-              <dt>macOS</dt><dd><code>.dmg</code> Apple Silicon (<code>aarch64</code>) ou Intel (<code>x64</code>)</dd>
+              <dt>macOS</dt><dd><code>.dmg</code> Apple Silicon (<code>aarch64</code>) · pas de Mac Intel</dd>
               <dt>Linux x64</dt><dd><code>.AppImage</code> ou <code>.deb</code> · WebKitGTK 4.1</dd>
             </dl>
             <p>Aucun SDK .NET ni navigateur particulier : l'application embarque son serveur et utilise la vue web du système.</p>
@@ -137,7 +137,7 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
       <section class="section">
         <h3>Avant d'installer</h3>
         <div class="note"><svg class="i"><use href="#i-term"/></svg><p><b>Claude Code doit déjà tourner.</b> L'application lance ton CLI <code>claude</code> : installe-le et connecte-toi une fois dans un terminal.</p></div>
-        <div class="note"><svg class="i"><use href="#i-shield"/></svg><p><b>Installeurs non signés.</b> Windows : SmartScreen affiche « Windows a protégé votre ordinateur », clique sur « Informations complémentaires » puis « Exécuter quand même ». macOS : Gatekeeper bloque le premier lancement, fais un clic droit sur l'app, « Ouvrir », puis confirme.</p></div>
+        <div class="note"><svg class="i"><use href="#i-shield"/></svg><p><b>Installeur Windows non signé.</b> SmartScreen affiche « Windows a protégé votre ordinateur » : clique sur « Informations complémentaires » puis « Exécuter quand même ». L'app macOS est signée et notariée par Apple.</p></div>
         <div class="note"><svg class="i"><use href="#i-check"/></svg><p><b>Local uniquement.</b> Le serveur de l'application écoute sur 127.0.0.1, protégé par un jeton tiré à chaque lancement, et s'arrête quand la fenêtre se ferme.</p></div>
       </section>
     </div>

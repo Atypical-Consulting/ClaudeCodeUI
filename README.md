@@ -13,8 +13,10 @@ Download the installer for your system from the [GitHub releases](https://github
 | System | File | Note |
 |---|---|---|
 | Windows 10/11 | `.msi` or `-setup.exe` | Unsigned installer: SmartScreen shows "Windows protected your PC". Click "More info", then "Run anyway". WebView2 is already included in Windows 11. |
-| macOS (Apple Silicon or Intel) | `.dmg` (`aarch64` or `x64`) | Unsigned app: Gatekeeper blocks it on first launch. Right-click the app, choose "Open", then confirm. Or: `xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"`. |
+| macOS (Apple Silicon) | `.dmg` (`aarch64`) | Signed with a Developer ID and notarized by Apple: it opens normally, no workaround needed. Intel Macs are not supported (macOS 26 is their last version). |
 | Linux x64 | `.AppImage` or `.deb` | Requires WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` on Debian/Ubuntu, already installed on most desktops). For the AppImage: `chmod +x`, then run it. |
+
+**Verify your download.** Each release ships a `SHA256SUMS` file (`shasum -a 256 -c SHA256SUMS`) and GitHub build-provenance attestations: `gh attestation verify <file> -R Atypical-Consulting/ClaudeCodeUI`.
 
 ### Requirement: Claude Code
 
@@ -66,7 +68,7 @@ The Tauri shell launches `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTT
 
 1. Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/) (`feat:`, `fix:`, `docs:`, `ci:`, `chore:`).
 2. On every push to `main`, [release-please](https://github.com/googleapis/release-please) opens or updates a release PR: CHANGELOG, and the version in `ClaudeCodeUI.csproj`, `tauri.conf.json` and `Cargo.toml`.
-3. Merging that PR creates the tag and the GitHub release. The `release.yml` workflow then builds the Windows, macOS (arm64 and x64) and Linux installers and attaches them to the release.
+3. Merging that PR creates the tag and the GitHub release. The `release.yml` workflow then builds the Windows, macOS (Apple Silicon) and Linux installers and attaches them to the release.
 
 ## License
 

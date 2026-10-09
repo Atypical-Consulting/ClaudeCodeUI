@@ -42,11 +42,14 @@
     version: tag => `Release ${tag}`, pickOs: 'Pick your system',
     dlTitle: os => `Download Claude Code UI for ${os}?`,
     allow: 'Allow', allowLabel: (n, sz) => `Allow: download ${n} (${sz})`,
-    intelQ: 'Intel Mac? Get ', or: 'Or ',
+    or: 'Or ', intelMood: ['Intel Mac detected', 'Apple Silicon only'],
+    appleOnly: 'Requires an Apple Silicon Mac; Intel Macs are not supported. Deny opens the installation docs.',
+    intelTitle: 'Intel Macs are not supported', intelDesc: 'Claude Code UI ships for Apple Silicon Macs only (macOS 26 is the last macOS version for Intel). Windows and Linux builds are available.',
+    intelStatus: 'No installer for Intel Macs.',
     refuse: sz => ` (${sz}). Deny opens the installation docs.`,
     desc: {
       win: 'Installer for Windows 10/11. Unsigned: SmartScreen will ask for confirmation ("More info", then "Run anyway").',
-      mac: 'Disk image for Mac. Unsigned: on first launch, right-click the app, choose "Open", then confirm.',
+      mac: 'Disk image for Mac. Signed and notarized by Apple: it opens normally.',
       linux: 'AppImage for Linux x64. Requires WebKitGTK 4.1; make it executable with chmod +x before running it.',
     },
     paused: 'Claude is paused: the download is waiting for your approval.',
@@ -89,11 +92,14 @@
     version: tag => `Version ${tag}`, pickOs: 'Choisis ton système',
     dlTitle: os => `Télécharger Claude Code UI pour ${os} ?`,
     allow: 'Autoriser', allowLabel: (n, sz) => `Autoriser : télécharger ${n} (${sz})`,
-    intelQ: 'Mac Intel ? Prends ', or: 'Ou ',
+    or: 'Ou ', intelMood: ['Mac Intel détecté', 'Apple Silicon uniquement'],
+    appleOnly: 'Nécessite un Mac Apple Silicon ; les Mac Intel ne sont pas pris en charge. Refuser ouvre la documentation d\'installation.',
+    intelTitle: 'Les Mac Intel ne sont pas pris en charge', intelDesc: 'Claude Code UI est livré pour les Mac Apple Silicon uniquement (macOS 26 est la dernière version de macOS pour Intel). Des versions Windows et Linux sont disponibles.',
+    intelStatus: 'Aucun installeur pour les Mac Intel.',
     refuse: sz => ` (${sz}). Refuser ouvre la documentation d'installation.`,
     desc: {
       win: 'Installeur pour Windows 10/11. Non signé : SmartScreen demandera une confirmation (« Informations complémentaires », puis « Exécuter quand même »).',
-      mac: 'Image disque pour Mac. Non signée : au premier lancement, fais un clic droit sur l\'app, « Ouvrir », puis confirme.',
+      mac: 'Image disque pour Mac. Signée et notariée par Apple : elle s\'ouvre normalement.',
       linux: 'AppImage pour Linux x64. Nécessite WebKitGTK 4.1 ; rends-la exécutable avec chmod +x avant de la lancer.',
     },
     paused: 'Claude est en pause : le téléchargement attend ton accord.',
@@ -222,7 +228,7 @@
   const size = n => new Intl.NumberFormat(T.locale, { maximumFractionDigits: 1 }).format(n / 1048576) + ' ' + T.mb;
   const day = s => new Date(s).toLocaleDateString(T.locale, T.day);
   const osOf = n => /\.(exe|msi)$/i.test(n) ? 'Windows'
-    : /\.dmg$|\.app\.tar\.gz$/i.test(n) ? (/aarch64|arm64/i.test(n) ? 'Mac Apple' : 'Mac Intel')
+    : /\.dmg$|\.app\.tar\.gz$/i.test(n) ? 'Mac Apple'
     : /\.(AppImage|deb|rpm)$/i.test(n) ? 'Linux' : 'autre';
 
   async function detect() {
@@ -237,12 +243,12 @@
     const os = platform === 'Windows' ? 'win' : platform === 'macOS' ? 'mac' : platform === 'Linux' ? 'linux' : null;
     const known = arch === 'arm' || arch === 'x86' || /aarch64|arm64/i.test(ua);
     const arm = arch === 'arm' || /aarch64|arm64/i.test(ua) || (os === 'mac' && !known);   // Safari reports Intel on Apple Silicon: guess arm
-    return { os, arm, guessed: os === 'mac' && !known };
+    return { os, arm, guessed: os === 'mac' && !known, intel: os === 'mac' && arch === 'x86' };   // only Chromium's client hints are sure enough to refuse
   }
 
   // [primary, alternative] file name patterns per system.
   const pick = ({ os, arm }) => os === 'win' ? [/-setup\.exe$/i, /\.msi$/i]
-    : os === 'mac' ? (arm ? [/aarch64\.dmg$/i, /x64\.dmg$/i] : [/x64\.dmg$/i, /aarch64\.dmg$/i])
+    : os === 'mac' ? [/aarch64\.dmg$/i]
     : os === 'linux' && !arm ? [/\.AppImage$/i, /\.deb$/i] : [];
 
   const DESC = T.desc;
@@ -309,7 +315,14 @@
         signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
       }).then(r => r, () => null),
     ]);
-    $('dl-os').textContent = who.os ? OS[who.os] + (who.os === 'mac' ? (who.arm ? ' · Apple Silicon' : ' · Intel') : ' · x64') : T.notDetected;
+    $('dl-os').textContent = who.os ? OS[who.os] + (who.os === 'mac' ? (who.intel ? ' · Intel' : ' · Apple Silicon') : ' · x64') : T.notDetected;
+    if (who.intel) {
+      more.hidden = true; $('dl-pill').hidden = true; $('dl-alt').hidden = true;
+      $('dl-title').textContent = T.intelTitle; $('dl-desc').textContent = T.intelDesc;
+      $('dl-file').textContent = ''; $('dl-size').textContent = ''; $('dl-date').textContent = '—';
+      status('err', T.intelStatus); mood('sad', ...T.intelMood); go(RELEASES + '/latest', T.openReleases);
+      return;
+    }
     if (!res || (!res.ok && res.status !== 404)) return failed(false);
     if (res.status === 404) return failed(true);
     let rel;
@@ -343,10 +356,10 @@
     $('dl-size').textContent = size(mine.size);
     go(mine.browser_download_url, T.allow);
     $('dl-go').setAttribute('aria-label', T.allowLabel(mine.name, size(mine.size)));
-    if (alt) {
-      const why = who.os === 'mac' ? (who.guessed ? T.intelQ : T.or) : T.or;
+    if (who.os === 'mac' && who.guessed) $('dl-alt').textContent = T.appleOnly;
+    else if (alt) {
       const a = Object.assign(document.createElement('a'), { href: alt.browser_download_url, textContent: alt.name });
-      $('dl-alt').replaceChildren(why, a, T.refuse(size(alt.size)));
+      $('dl-alt').replaceChildren(T.or, a, T.refuse(size(alt.size)));
     }
     status('wait', T.paused);
     mood('happy', T.ready, `${OS[who.os]} · ${rel.tag_name}`);
