@@ -39,7 +39,9 @@ public sealed class SessionManager : IAsyncDisposable
     {
         if (Get(p.Id) is { } live) return live;
         var items = TranscriptStore.Load(p.Id);
-        var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true)
+        // The transcript's mode, if the UI offers it (bypassPermissions / dontAsk fall back to default).
+        var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
+        var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true)
         {
             Items = [.. items], CostUsd = p.CostUsd ?? 0,
             StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,

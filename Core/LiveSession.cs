@@ -41,6 +41,12 @@ public sealed class LiveSession : IAsyncDisposable
     long lastNotify;
     int notifyQueued;
 
+    // Modes the UI offers. bypassPermissions / dontAsk are deliberately not offered.
+    public static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
+    // Modes that change files without asking: confirmed when the folder is not an isolated worktree.
+    public static bool Risky(string mode) => mode is "auto" or "acceptEdits";
+    public bool Isolated => Worktree is not null || TranscriptStore.RootOf(Cwd) != Cwd;
+
     public LiveSession(string id, string name, string cwd, string mode, string? worktree = null, string? model = null, string? effort = null, bool resumable = false)
     {
         Id = id; Name = name; Cwd = cwd; Mode = mode; Worktree = worktree; Model = model; Effort = effort;
@@ -136,6 +142,14 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (proc is { } old) { proc = null; await old.DisposeAsync(); }
         EnsureProcess();
+    }
+
+    // Before the first send of a resumed session there is no process yet: the mode goes into --permission-mode.
+    public async Task SetMode(string m)
+    {
+        if (proc is { } p) await p.Request("set_permission_mode", new() { ["mode"] = m });
+        Mode = m;
+        Notify();
     }
 
     public async Task SetModel(string m)

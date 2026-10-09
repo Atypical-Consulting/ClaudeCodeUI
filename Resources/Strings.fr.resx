@@ -171,6 +171,7 @@
   <data name="Md.PlainText" xml:space="preserve"><value>texte</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepte les éditions, demande pour le shell</value></data>
   <data name="Mode.auto" xml:space="preserve"><value>N'interrompt jamais, à utiliser avec prudence</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} modifie les fichiers sans demander. Choisis-le à nouveau pour confirmer.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Demande avant chaque outil sensible</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Lecture seule, propose un plan</value></data>
   <data name="Model" xml:space="preserve"><value>Modèle</value></data>
@@ -194,7 +195,9 @@
   <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n'est pas dans le PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Décris la tâche…</value></data>
+  <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} modifie ce dossier sans demander, hors d’un worktree isolé.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Démarrer</value></data>
+  <data name="New.StartAnyway" xml:space="preserve"><value>Démarrer quand même</value></data>
   <data name="New.Step1" xml:space="preserve"><value>1. Installer Claude Code</value></data>
   <data name="New.Step2" xml:space="preserve"><value>2. Se connecter</value></data>
   <data name="New.Step2Text" xml:space="preserve"><value>Lance &lt;code&gt;claude&lt;/code&gt; une fois dans un terminal et connecte-toi.</value></data>
