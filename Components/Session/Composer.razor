@@ -130,6 +130,7 @@
     {
         SessionStatus.Crashed => L["Composer.PhCrashed"],
         SessionStatus.Waiting => L["Composer.PhWaiting"],
+        SessionStatus.Exited => L["Composer.PhHistory"],
         SessionStatus.Running when ultraTurn => L["Composer.PhWorkflow"],
         SessionStatus.Running => L["Composer.PhRunning"],
         _ => L["Composer.PhIdle"],

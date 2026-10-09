@@ -65,8 +65,8 @@ public sealed class LiveSession : IAsyncDisposable
     public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
-    public DateTimeOffset StartedAt { get; }
-    public DateTimeOffset LastEventAt { get; private set; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset LastEventAt { get; internal set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public TimeSpan? LastTurn { get; private set; }
     public string? LastResultSubtype { get; private set; }   // "interrompu" after an interrupt

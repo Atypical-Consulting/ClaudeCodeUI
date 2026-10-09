@@ -1,3 +1,5 @@
+@inject SessionManager Sessions
+
 @switch (Session.Status)
 {
     case SessionStatus.Starting:
@@ -14,6 +16,12 @@
         break;
     case SessionStatus.Waiting:
         <div class="status wait"><span class="dot wait"></span>@L["Status.Paused", What]</div>
+        break;
+    case SessionStatus.Exited when Sessions.RunningElsewhere(Session.Id):
+        <div class="status wait"><span class="dot wait"></span>@L["Status.ElsewhereLine"]</div>
+        break;
+    case SessionStatus.Exited:
+        <div class="status"><span class="dot exited"></span>@L["Status.HistoryLine", Session.Mode]</div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype == "interrompu":
         <div class="status"><Icon Name="stop" Sm />@L["Status.Interrupted"] <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>
