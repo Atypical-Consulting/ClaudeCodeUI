@@ -20,7 +20,6 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
-      id: ${{ steps.rp.outputs.id }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: rp
@@ -109,21 +108,19 @@ jobs:
       - run: npm ci
         working-directory: desktop
 
-      # releaseId, not tagName: with a tag, tauri-action v1 rewrites the existing release's body (to empty when no
-      # releaseBody is given), which would erase release-please's notes. With an id it only uploads the assets.
+      # Build only. The installers are uploaded below, after the disk image is notarized: tauri-action notarizes the
+      # .app, not the .dmg around it, and a quarantined .dmg that is not notarized is rejected by Gatekeeper
+      # (spctl: "source=Unnotarized Developer ID"). Uploading ourselves also keeps release-please's notes intact.
       - uses: tauri-apps/tauri-action@v1
         id: tauri
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
           projectPath: desktop
-          releaseId: ${{ needs.release-please.outputs.id }}
-          uploadWorkflowArtifacts: ${{ github.event_name == 'workflow_dispatch' }}
           args: --target ${{ matrix.target }}
 
-      - name: Check the signature and notarization
+      - name: Check the app signature and notarization
         if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
         run: |
           app=$(ls -d desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)
@@ -131,6 +128,49 @@ jobs:
           codesign --display --verbose=2 "$app/Contents/Resources/server/ClaudeCodeUI" 2>&1 | grep -E 'Authority=Developer ID|flags=.*runtime'
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
+
+      - name: Notarize and staple the disk image
+        if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          dmg=$(ls desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg | head -1)
+          codesign --verify --verbose=2 "$dmg"
+          xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait --timeout 30m
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"
+
+      - name: List the installers
+        id: installers
+        shell: bash
+        run: |
+          {
+            echo 'files<<EOF'
+            find desktop/src-tauri/target/${{ matrix.target }}/release/bundle -maxdepth 2 -type f \
+              \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \)
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the installers to the release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          FILES: ${{ steps.installers.outputs.files }}
+        run: |
+          test -n "$FILES" || { echo "::error::no installer found"; exit 1; }
+          while IFS= read -r f; do gh release upload "$TAG" "$f" --clobber; done <<< "$FILES"
+
+      - name: Keep the installers (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installers-${{ matrix.rid }}
+          path: ${{ steps.installers.outputs.files }}
+          if-no-files-found: error
 
       - uses: actions/attest-build-provenance@v4
         if: github.event_name == 'push'
