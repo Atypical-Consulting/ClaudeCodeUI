@@ -25,6 +25,7 @@
                 @Tab("skills", L["Ext.Tab.Skills"], skills.Length)
                 @Tab("agents", L["Ext.Tab.Agents"], agents.Count)
                 @Tab("plugins", L["Ext.Tab.Plugins"], plugins.Length)
+                @Tab("hooks", L["Ext.Tab.Hooks"], hooks?.Rows.Count ?? 0)
             </div>
             <div id="ext-panel" role="tabpanel" aria-labelledby="ext-tab-@tab">
             @if (tab == "mcp")
@@ -66,6 +67,40 @@
                         }
                     </tbody>
                 </table>
+            }
+            else if (tab == "hooks")
+            {
+                <p class="lead">@L["Ext.Hooks.Lead", s.Cwd]</p>
+                @if (hooksNote is not null)
+                {
+                    <div class="errbox" role="alert">@hooksNote</div>
+                }
+                else if (hooks is { Disabled: true })
+                {
+                    <div class="errbox" role="status">@L["Ext.Hooks.Disabled"]</div>
+                }
+                @if (hooks is { Rows.Count: 0 })
+                {
+                    <p class="lead">@L["Ext.Hooks.None"]</p>
+                }
+                else if (hooks is { } hl)
+                {
+                    <table class="mcp">
+                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th></tr></thead>
+                        <tbody>
+                            @foreach (var h in hl.Rows)
+                            {
+                                var meta = string.Join(" · ", new[] { h.Type, h.Timeout is { } t ? $"{t} s" : null, h.Display }.Where(x => !string.IsNullOrEmpty(x)));
+                                <tr>
+                                    <td><div class="n">@h.Event</div></td>
+                                    <td><code>@(h.Matcher.Length > 0 ? h.Matcher : "—")</code></td>
+                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div></td>
+                                    <td><span class="tag">@SourceTag(h.Source)</span><div class="d">@(h.Plugin ?? h.SourceLabel)</div></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             }
             else if (s.Init is null && tab != "agents")
             {
@@ -167,8 +202,9 @@
     record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, int? Tools, string? Scope, string? Version);
 
     string tab = "mcp", filter = "";
-    string? selected, note, refreshedFor;
+    string? selected, note, refreshedFor, hooksNote;
     bool busy;
+    (List<HookRow> Rows, bool Disabled)? hooks;
 
     // The most recent session that has a claude process: mcp_status needs one, and starting one here would be a side effect.
     LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
@@ -194,8 +230,34 @@
         await Run(s.RefreshMcp);
         if (selected is null && Servers(s) is { Count: > 0 } all)
             selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
+        await LoadHooks(s);
+    }
+
+    // get_hooks_listing reads the settings files on every call: asked again whenever the tab is opened.
+    // A process that exited since Show must not be respawned by Request: the tab only reads.
+    async Task LoadHooks(LiveSession s)
+    {
+        if (!s.HasProcess) return;
+        try { hooks = Events.Hooks(await s.Request("get_hooks_listing")); hooksNote = null; }
+        catch (Exception ex) { hooks = null; hooksNote = L["Ext.Hooks.Failed", ex.Message.TrimEnd()]; }   // fire-and-forget from Show: nothing may escape
         await InvokeAsync(StateHasChanged);
     }
+
+    void Show(string key)
+    {
+        tab = key;
+        if (key == "hooks" && Live is { } s) _ = LoadHooks(s);
+    }
+
+    // userSettings / projectSettings / localSettings / pluginHook; anything else (policy…) as the CLI names it.
+    static string SourceTag(string source) => source switch
+    {
+        "userSettings" => Strings.Get("Ext.Scope.User"),
+        "projectSettings" => Strings.Get("Ext.Scope.Project"),
+        "localSettings" => Strings.Get("Ext.Scope.Local"),
+        "pluginHook" => Strings.Get("Ext.Scope.Plugin"),
+        _ => source,
+    };
 
     Task Toggle(LiveSession s, string name, bool enabled) =>
         Run(async () => { await s.Request("mcp_toggle", new() { ["serverName"] = name, ["enabled"] = enabled }); await s.RefreshMcp(); });
@@ -266,7 +328,7 @@
 
     RenderFragment Tab(string key, string label, int n) =>
         @<button id="ext-tab-@key" role="tab" aria-selected="@(tab == key ? "true" : "false")" aria-controls="ext-panel" tabindex="@(tab == key ? 0 : -1)"
-                 class="@(tab == key ? "on" : null)" @onclick="() => tab = key">@label<b>@n</b></button>;
+                 class="@(tab == key ? "on" : null)" @onclick="() => Show(key)">@label<b>@n</b></button>;
 
     RenderFragment Filter(string key, string label, int n) =>
         @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label <b>@n</b></button>;

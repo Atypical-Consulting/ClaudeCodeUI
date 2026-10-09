@@ -8,13 +8,20 @@ namespace ClaudeCodeUI;
 // `dotnet run -- --probe-cli`: drives the real, logged-in claude CLI (haiku, a throw-away git repo under the temp dir)
 // to check the controls docs/PLAN.md §1.2 lists as "accepted but untested". One `PASS|FAIL|SKIP <id>: <detail>` line
 // per probe, then the CLI version. Exit 0 = no FAIL, 1 = a FAIL, 2 = claude could not start.
-// Costs a few haiku tokens: opt-in, never part of --self-check or CI.
+// `--probe-cli hooks compact` runs only those groups (names below). Costs a few haiku tokens: opt-in, never part of --self-check or CI.
 public static class CliProbe
 {
     const int Seconds = 120;   // per probe, overall
 
-    public static async Task<int> Run()
+    public static async Task<int> Run(string[] only)
     {
+        var probes = new (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Run)[]
+            { ("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("hooks", Hooks) };
+        if (only.Except(probes.Select(p => p.Name)).ToList() is { Count: > 0 } unknown)
+        {
+            Console.WriteLine($"unknown probe(s): {string.Join(", ", unknown)}; known: {string.Join(", ", probes.Select(p => p.Name))}");
+            return 2;
+        }
         if (!ClaudeSession.OnPath()) { Console.WriteLine("claude not found on PATH"); return 2; }
         var dir = Path.Combine(Path.GetTempPath(), "ccui-probe-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -26,8 +33,8 @@ public static class CliProbe
             Git(dir, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "-q", "-m", "init");
 
             var fails = 0;
-            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession, Mcp, Compact })
-                foreach (var (verdict, id, detail) in await probe(dir))
+            foreach (var probe in probes.Where(p => only.Length == 0 || only.Contains(p.Name)))
+                foreach (var (verdict, id, detail) in await probe.Run(dir))
                 {
                     Console.WriteLine($"{verdict} {id}: {detail}");
                     if (verdict == "FAIL") fails++;
@@ -165,6 +172,45 @@ public static class CliProbe
             var detail = $"compact_boundary {(boundary ? "seen" : "absent")}, context {before}→{after}{(error ? ", result is_error" : "")}";
             return [!error && (boundary || (after >= 0 && after < before)) ? ("PASS", detail) : ("FAIL", detail)];
         });
+    }
+
+    // hooks-listing: get_hooks_listing returns the hooks of the folder's .claude/settings.json with event, matcher, type,
+    // command and source (the Extensions page's Hooks tab).
+    // hooks-events: with --include-hook-events (LiveSession.Args) a PreToolUse hook that exits 2 streams a hook_response
+    // (outcome error, exit 2, its stderr) and the tool does not run; a hook that prints streams its output.
+    const string Blocked = "ccui-probe-blocked.txt";
+    static async Task<IEnumerable<(string, string, string)>> Hooks(string dir)
+    {
+        var settings = Path.Combine(dir, ".claude");
+        Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """
+            {"hooks":{
+              "PreToolUse":[{"matcher":"Write","hooks":[{"type":"command","command":"echo ccui-probe-block >&2; exit 2"}]}],
+              "UserPromptSubmit":[{"hooks":[{"type":"command","command":"echo ccui-probe-prompt","timeout":5}]}]}}
+            """);
+        try
+        {
+            await using var c = await Cli.Start(dir, "--include-hook-events");
+            return await Guard(["hooks-listing", "hooks-events"], async () =>
+            {
+                var (rows, _) = Events.Hooks(await c.S.Request("get_hooks_listing"));
+                var mine = rows.Where(r => r.Source == "projectSettings").ToList();
+                var found = $"{rows.Count} hooks, projectSettings: {string.Join(", ", mine.Select(r => $"{r.Event}[{r.Matcher}] {r.Type} \"{r.Command}\""))}";
+                var listing = mine.Any(r => r is { Event: "PreToolUse", Matcher: "Write", Type: "command" } && r.Command.Contains("ccui-probe-block"))
+                              && mine.Any(r => r is { Event: "UserPromptSubmit", Timeout: 5 })
+                    ? ("PASS", found) : ("FAIL", found);
+
+                var turn = await c.Turn($"Use the Write tool to create {Blocked} containing hi. Do nothing else.");
+                var seen = turn.SelectMany(Events.ParseAll).OfType<HookEvt>().ToList();
+                var block = seen.FirstOrDefault(h => h.Output.Contains("ccui-probe-block"));
+                var prompt = seen.Any(h => h.Name == "UserPromptSubmit" && h.Output == "ccui-probe-prompt");
+                var written = File.Exists(Path.Combine(dir, Blocked));
+                var detail = $"{seen.Count} hook_response, block {(block is null ? "absent" : $"{block.Name} {block.Outcome} exit {block.ExitCode}")}, "
+                             + $"UserPromptSubmit output {(prompt ? "seen" : "absent")}, {Blocked} {(written ? "written" : "not written")}";
+                return [listing, block is { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2 } && prompt && !written ? ("PASS", detail) : ("FAIL", detail)];
+            });
+        }
+        finally { try { Directory.Delete(settings, true); } catch { } }
     }
 
     // ---------- plumbing ----------
