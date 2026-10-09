@@ -1,0 +1,63 @@
+@* Permission mode picker: set_permission_mode mid-session (the CLI's Shift+Tab). Same shape as ModelMenu.
+   auto / acceptEdits outside an isolated worktree need a second activation. *@
+
+@inject IJSRuntime JS
+
+<div class="pop slash menu" role="listbox" aria-label="@L["Composer.PermissionMode"]" @ref="list" tabindex="0" aria-activedescendant="pm-opt-@sel"
+     @onkeydown="Key" @onkeydown:preventDefault>
+    <div class="sh"><span>@L["Composer.PermissionMode"]</span><span role="status" class="@(confirm is null ? null : "risk")">@(error ?? (confirm is { } c ? L["Mode.ConfirmAgain", c] : ""))</span></div>
+    @for (var i = 0; i < LiveSession.Modes.Length; i++)
+    {
+        var m = LiveSession.Modes[i];
+        var current = m == Session.Mode;
+        <div id="pm-opt-@i" class="si @(current ? "on" : null) @(i == sel ? "kb" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(m)">
+            <b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b>
+            <span>@L["Mode." + m]</span>
+            @if (current) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnEscape { get; set; }
+    string? error, confirm;
+    int sel;
+    ElementReference list;
+
+    protected override void OnInitialized() => sel = Math.Max(0, Array.IndexOf(LiveSession.Modes, Session.Mode));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("claudeUi.focus", list);
+        await JS.InvokeVoidAsync("claudeUi.reveal", list, $"pm-opt-{sel}");
+    }
+
+    async Task Key(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Enter" or " ":
+                await Pick(LiveSession.Modes[sel]);
+                break;
+            case "Escape" or "Tab":
+                await OnEscape.InvokeAsync();
+                break;
+            default:
+                sel = ListNav.Next(e.Key, sel, LiveSession.Modes.Length);
+                break;
+        }
+    }
+
+    async Task Pick(string mode)
+    {
+        if (mode != Session.Mode && LiveSession.Risky(mode) && !Session.Isolated && confirm != mode) { confirm = mode; return; }
+        try
+        {
+            await Session.SetMode(mode);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+}

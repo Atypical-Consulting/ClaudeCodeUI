@@ -1,3 +1,5 @@
+@inject SessionManager Sessions
+
 @* Always-present live region: its text changes are announced. Ticking counters are aria-hidden so the
    reader is not interrupted every second. Without a visible .status it is taken out of the flow (app.css). *@
 <div role="status" class="status-live">
@@ -17,6 +19,12 @@
         break;
     case SessionStatus.Waiting:
         <div class="status wait"><span class="dot wait"></span>@L["Status.Paused", What]</div>
+        break;
+    case SessionStatus.Exited when Sessions.RunningElsewhere(Session.Id):
+        <div class="status wait"><span class="dot wait"></span>@L["Status.ElsewhereLine"]</div>
+        break;
+    case SessionStatus.Exited:
+        <div class="status"><span class="dot exited"></span>@L["Status.HistoryLine", Session.Mode]</div>
         break;
     case SessionStatus.Idle when Session.LastResultSubtype == "interrompu":
         <div class="status"><Icon Name="stop" Sm />@L["Status.Interrupted"] <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>

@@ -99,6 +99,7 @@ code{font-family:var(--mono)}
 .dot.run{background:var(--ok);animation:pulse 1.6s ease-out infinite}
 .dot.err{background:var(--err)}
 .dot.idle{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-5)}
+.dot.exited{background:transparent;border:1.5px dashed var(--fg-5)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 33%,transparent)}100%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
 .pill{font:600 11px var(--sans);border-radius:999px;padding:1px 7px}
 .pill.wait{background:var(--accent);color:var(--accent-ink)}
@@ -173,6 +174,7 @@ code{font-family:var(--mono)}
 .diff .fh{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--seam);color:var(--fg-3);font-size:12px}
 .diff .fh .a{color:var(--ok)}.diff .fh .d{color:var(--err)}
 .diff div.l{padding:0 10px 0 0;white-space:pre;color:var(--fg-3);display:grid;grid-template-columns:34px 14px 1fr}
+.diff .db{overflow-x:auto}.diff .db>div{width:max-content;min-width:100%}.diff .db:focus-visible{outline-offset:-2px}
 .diff .n{color:var(--fg-5);text-align:right;padding-right:8px}
 .diff .add{background:color-mix(in srgb,var(--ok) 7%,transparent);color:var(--ok-fg)}.diff .add .g{color:var(--ok)}
 .diff .del{background:color-mix(in srgb,var(--err) 8%,transparent);color:var(--err-fg)}.diff .del .g{color:var(--err)}
@@ -515,9 +517,15 @@ body{background:var(--ground);overflow:hidden}
 .app:not(:has(>.insp)){grid-template-columns:256px minmax(0,1fr)}
 :where(button){font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 a.btn{text-decoration:none}
-a.s,a.pi{color:inherit;text-decoration:none}
+a.s,a.pi,a.q{color:inherit;text-decoration:none}
+.perm-off{display:none}
+[data-permission]:not(:focus-within) .perm-off{display:inline}
 button.tc{display:block;width:100%}
 button.mode{text-align:left}
+/* Modes that act unasked (auto, acceptEdits): warning hue on the name, the composer chip and the confirm line. */
+.risk,.mode b.risk,.slash .si b.risk{color:var(--syn-type)}
+.chip.risk{color:var(--syn-type);border-color:color-mix(in srgb,var(--syn-type) 40%,transparent)}
+.box .row .risk{font-size:12px}
 .box:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
 .box textarea{display:block;width:100%;min-height:40px;max-height:40vh;resize:none;border:0;outline:0;background:none;color:var(--fg);font:inherit;line-height:1.55;padding:0}
 .box textarea::placeholder{color:var(--fg-4)}
