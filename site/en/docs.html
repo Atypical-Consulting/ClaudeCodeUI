@@ -267,17 +267,9 @@ npm run build    <span class="c"># builds the installers into src-tauri/target/r
 
       <section id="limits" aria-labelledby="h-limites">
         <h2 id="h-limites">Known limitations<a class="anchor" href="#limits" aria-label="Link to Known limitations">#</a></h2>
-        <p>Open problems are tracked on GitHub. At the time of writing:</p>
-        <ul class="issues">
-          <li><span>#2</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/2">The rail's worktree cleanup counter does not update after a new scan.</a></li>
-          <li><span>#3</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/3">The composer's model menu is not yet a keyboard-navigable list and does not close on an outside click.</a></li>
-          <li><span>#4</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/4">Background subagents must stay "running" until their completion notification.</a></li>
-          <li><span>#5</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/5">Claude API errors are not yet shown as a readable, copyable card.</a></li>
-          <li><span>#6</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/6">The first session's initialization request can go unanswered for 60 s.</a></li>
-          <li><span>#7</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/7">Some CLI controls (ultracode, whole-session permissions, MCP enable and restart, <code>/compact</code>) have not yet been verified on a real run.</a></li>
-          <li><span>#8</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/8">Repositories discovered through a session disappear from the Worktrees page when its process ends.</a></li>
-          <li><span>#9</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/9">On exit, the whole <code>claude</code> process tree must be stopped, and orphaned <code>worktree-*</code> branches flagged.</a></li>
-          <li><span>#10</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/10">The cost of sessions reopened from their transcript is underestimated.</a></li>
+        <p>Open problems are tracked on GitHub:</p>
+        <ul class="issues" id="issues" aria-live="polite">
+          <li><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues?q=is%3Aissue+is%3Aopen+label%3Abug">See the open bugs on GitHub</a></li>
         </ul>
         <p>Another problem? <a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/new">Open an issue</a>.</p>
         <div class="pager"><a class="btn" href="#installation">Back to top</a><a class="btn primary" href="./">Download</a></div>
