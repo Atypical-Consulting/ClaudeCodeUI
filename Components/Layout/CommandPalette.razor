@@ -48,9 +48,9 @@
 
     List<Row> Rows()
     {
-        var all = Sessions.All.Reverse()
+        var all = Sessions.Active.Reverse()
             .Select(s => (Name: s.Name, s.Branch, s.Repo, Row: SessionRow(s)))
-            .Concat(TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null)
+            .Concat(TranscriptStore.Recent().Where(p => !Sessions.IsActive(p.Id))
                 .Select(p => (Name: p.Title, p.Branch, Repo: (string?)TranscriptStore.RepoName(p.Cwd), Row: PastRow(p))));
         var rows = all.Where(x => Hit(x.Name) || Hit(x.Branch) || Hit(x.Repo)).Take(q.Length > 0 ? 8 : 5).Select(x => x.Row).ToList();
 
@@ -60,6 +60,7 @@
             new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, "Alt N",
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
             new(false, L["Nav.Overview"], "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
+            .. CurrentId() is { } id && Sessions.IsActive(id) ? [new Row(false, L["Session.Stop"], "x", Sessions.Get(id)!.Name, 0, null, null, () => StopSession(id))] : Array.Empty<Row>(),
             new(false, L["Palette.Theme", L["Theme." + theme]], "palette", null, 0, L["Palette.ChangeTheme"], null, NextTheme),
             new(false, "Worktrees", "branch", null, 0, null, null, Go("worktrees")),
             new(false, "Extensions", "plug", null, 0, null, null, Go("extensions")),
@@ -80,9 +81,9 @@
         s.Status switch { SessionStatus.Running => L["Status.Running"], SessionStatus.Crashed => $"exit {s.ExitCode}", SessionStatus.Waiting => null, _ => L["Status.Done"] },
         null, Go($"session/{s.Id}"));
 
-    Row PastRow(PastSession p) => new(true, p.Title, "idle",
+    Row PastRow(PastSession p) => new(true, p.Title, "exited",
         Join(p.Branch, TranscriptStore.RepoName(p.Cwd), Day(p.LastWrite), p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : null),
-        0, L["Status.Done"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
+        0, Sessions.RunningElsewhere(p.Id) ? L["Status.Elsewhere"] : L["Status.History"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
 
     string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
     {
@@ -104,11 +105,12 @@
         return new(i < 0 ? e.Encode(s) : $"{e.Encode(s[..i])}<mark>{e.Encode(s.Substring(i, t.Length))}</mark>{e.Encode(s[(i + t.Length)..])}");
     }
 
+    string? CurrentId() => Nav.ToBaseRelativePath(Nav.Uri) is var path && path.StartsWith("session/") ? path[8..].Split('?', '#')[0] : null;
+
     // The session on screen, else the most recent one; a worktree cwd gives its repo.
     string? CurrentCwd()
     {
-        var path = Nav.ToBaseRelativePath(Nav.Uri);
-        var cwd = (path.StartsWith("session/") ? Sessions.Get(path[8..].Split('?', '#')[0])?.Cwd : null)
+        var cwd = (CurrentId() is { } id ? Sessions.Get(id)?.Cwd : null)
                   ?? Sessions.All.LastOrDefault()?.Cwd ?? TranscriptStore.Recent().FirstOrDefault()?.Cwd;
         return cwd is null ? null : TranscriptStore.RootOf(cwd);
     }
@@ -119,6 +121,13 @@
         Nav.NavigateTo(url);
         return Task.CompletedTask;
     };
+
+    async Task StopSession(string id)
+    {
+        Ui.PaletteOpen = false;
+        await Sessions.Stop(id);
+        Nav.NavigateTo("overview");
+    }
 
     async Task NextTheme()
     {

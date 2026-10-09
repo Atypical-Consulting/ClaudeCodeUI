@@ -66,8 +66,8 @@ public sealed class LiveSession : IAsyncDisposable
     public int ToolCount { get; internal set; }
     public long ContextTokens { get; private set; }
     public long? ContextWindow { get; private set; }
-    public DateTimeOffset StartedAt { get; }
-    public DateTimeOffset LastEventAt { get; private set; }
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset LastEventAt { get; internal set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public TimeSpan? LastTurn { get; private set; }
     public string? LastResultSubtype { get; private set; }   // "interrompu" after an interrupt
@@ -86,6 +86,7 @@ public sealed class LiveSession : IAsyncDisposable
     public RateLimitEvt? Limits { get; private set; }
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
+    public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
 
     public event Action? Changed;
 

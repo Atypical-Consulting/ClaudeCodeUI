@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude is still working. Press Esc to interrupt, or send when the turn ends.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
@@ -56,6 +57,7 @@
   <data name="Composer.PermissionMode" xml:space="preserve"><value>Permission mode</value></data>
   <data name="Composer.PhCrashed" xml:space="preserve"><value>Session stopped. Restart it to continue.</value></data>
   <data name="Composer.PhIdle" xml:space="preserve"><value>Reply to Claude…</value></data>
+  <data name="Composer.PhHistory" xml:space="preserve"><value>Send a message to resume this session…</value></data>
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude is working. You can draft what's next…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Or tell Claude what you want instead…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. You can draft what's next…</value></data>
@@ -90,6 +92,8 @@
   <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>{0}d ago</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Diff.MoreLines" xml:space="preserve"><value>Lines not shown: {0}</value></data>
+  <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences not shown: {0}</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copy error</value></data>
   <data name="Error.CopyApi" xml:space="preserve"><value>Copy the API error</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copy request ID</value></data>
@@ -184,6 +188,8 @@
   <data name="New.HintNew" xml:space="preserve"><value>new session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Trust this folder</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>This folder came from a link and you haven't used it before. Claude will load its .claude settings and hooks.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Can't find Claude Code</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>This app drives the &lt;code&gt;claude&lt;/code&gt; CLI, which isn't on the PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
@@ -228,8 +234,11 @@
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>switches the session to {0} mode</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>allows {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
@@ -260,12 +269,18 @@
   <data name="Session.ProcessStopped" xml:space="preserve"><value>process stopped</value></data>
   <data name="Session.Session" xml:space="preserve"><value>Session</value></data>
   <data name="Session.StartFailed" xml:space="preserve"><value>claude could not start: {0}</value></data>
+  <data name="Session.Stop" xml:space="preserve"><value>End session</value></data>
+  <data name="Session.StopHint" xml:space="preserve"><value>Stop the claude process. The transcript stays under Recent.</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>unknown error</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>built-in</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commands and skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Agents are working…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>done</value></data>
+  <data name="Status.Elsewhere" xml:space="preserve"><value>running elsewhere</value></data>
+  <data name="Status.ElsewhereLine" xml:space="preserve"><value>Open in another claude. Sending from here would run a second process on the same session.</value></data>
+  <data name="Status.History" xml:space="preserve"><value>history</value></data>
+  <data name="Status.HistoryLine" xml:space="preserve"><value>History. Sending a message resumes this session in {0} mode.</value></data>
   <data name="Status.Interrupted" xml:space="preserve"><value>Interrupted</value></data>
   <data name="Status.Paused" xml:space="preserve"><value>Claude is paused: {0} needs your approval</value></data>
   <data name="Status.Running" xml:space="preserve"><value>running</value></data>
