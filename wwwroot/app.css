@@ -392,7 +392,7 @@ textarea,input{caret-color:var(--accent)}
 .filters .chip b{font-weight:600;margin-left:2px}
 .wtt td{padding:11px 12px}
 .wtt td.num{white-space:nowrap}
-.wtt{table-layout:fixed}.wtt th:nth-child(1){width:236px}.wtt th:nth-child(2){width:112px}.wtt th:nth-child(4){width:76px}.wtt th:nth-child(5){width:108px}.wtt td{overflow:hidden}
+.wtt{table-layout:fixed}.wtt th:nth-child(1){width:236px}.wtt th:nth-child(2){width:112px}.wtt th:nth-child(4){width:92px}.wtt th:nth-child(5){width:108px}.wtt td{overflow:hidden}
 .wtt td .n{display:flex;align-items:center;gap:8px}
 .wtt tr.sel td{background:var(--raise)}
 .wtt tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}

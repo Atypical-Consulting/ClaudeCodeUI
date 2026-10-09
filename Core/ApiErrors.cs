@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace ClaudeCodeUI;
 
 // Kind picks the friendly text (resources ApiError.<Kind>.Title / .Hint), read in the UI culture when shown; Raw stays untouched.
@@ -26,9 +28,13 @@ public static class ApiErrors
     {
         if (text is null || !text.TrimStart().StartsWith("API Error", StringComparison.Ordinal)) return null;
         foreach (var (needles, kind) in Table)
-            if (needles.Any(n => text.Contains(n, StringComparison.OrdinalIgnoreCase))) return new(kind, text);
+            if (needles.Any(n => Hit(text, n))) return new(kind, text);
         return new("Generic", text);
     }
+
+    // Numeric status codes match as whole tokens ("prompt used 1500 tokens" is not a 500); text needles stay substrings.
+    static bool Hit(string text, string n) =>
+        n.All(char.IsDigit) ? Regex.IsMatch(text, $@"\b{n}\b") : text.Contains(n, StringComparison.OrdinalIgnoreCase);
 
     internal static void Check()
     {
@@ -39,5 +45,7 @@ public static class ApiErrors
         Ok(Parse("API Error: something new") is { Title: "L'API Claude a renvoyé une erreur." }, "generic");
         Ok(Parse("Hello") is null && Parse("") is null, "non-errors");
         Ok(Parse("  API Error: 529 overloaded") is { Title: "L'API Claude est surchargée." }, "leading whitespace");
+        Ok(Parse("API Error: prompt used 1500 tokens") is { Title: "L'API Claude a renvoyé une erreur." }, "1500 is not a 500");
+        Ok(Parse("API Error: 500 oops") is { Kind: "Server" }, "bare status code still matches");
     }
 }

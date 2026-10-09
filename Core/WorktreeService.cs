@@ -50,7 +50,7 @@ public sealed class WorktreeService(SessionManager sessions)
 
     public async Task<IReadOnlyList<string>> DiscoverReposAsync(bool refresh, CancellationToken ct)
     {
-        var live = Sessions.All.Select(s => StripWorktree(s.Cwd)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var live = Sessions.All.Select(s => Norm(StripWorktree(s.Cwd))).ToHashSet(StringComparer.OrdinalIgnoreCase);
         string[] mem;
         lock (rememberedGate) mem = [.. remembered ??= LoadRemembered()];
         if (repos is null || refresh) repos = await Task.Run(() => FromTranscripts().ToList(), ct);
@@ -62,13 +62,13 @@ public sealed class WorktreeService(SessionManager sessions)
             var r = await RootOf(cwd, ct);
             if (r is null) { dead.TryAdd(Norm(cwd), 0); return; }
             roots.TryAdd(r, 0);
-            if (live.Contains(cwd)) liveRoots.TryAdd(r, 0);
+            if (live.Contains(Norm(cwd))) liveRoots.TryAdd(r, 0);
         });
         lock (rememberedGate)
         {
             var before = remembered!.ToArray();
             remembered.UnionWith(liveRoots.Keys.Select(Norm));
-            foreach (var d in dead.Keys) if (!live.Contains(d)) remembered.Remove(d);
+            foreach (var d in dead.Keys) if (!live.Contains(d) && !Directory.Exists(d)) remembered.Remove(d);   // a folder that still exists may just be a transient git failure
             if (!remembered.SetEquals(before)) SaveRemembered();
         }
         return [.. roots.Keys.Order(StringComparer.OrdinalIgnoreCase)];
@@ -468,10 +468,20 @@ public sealed class WorktreeService(SessionManager sessions)
             G(repo, "worktree", "remove", ".claude/worktrees/demo");
             SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover: repo of a -w session whose worktree was deleted");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover: repo remembered after restart");
+            foreach (var f in new DirectoryInfo(repo).EnumerateFiles("*", SearchOption.AllDirectories)) f.Attributes = FileAttributes.Normal;   // object files are read-only: Windows refuses to delete them
             Directory.Delete(repo, true);
             SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover: vanished repo forgotten");
             File.WriteAllText(file, "not json");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Count == 0, "Discover: corrupt repos.json ignored");
+            var plain = System.IO.Path.Combine(tmp, "plain"); Directory.CreateDirectory(plain);   // exists, but git can't resolve a root there
+            File.WriteAllText(file, JsonSerializer.Serialize(new[] { Norm(plain) }));
+            Disc(Svc(new SessionManager()));
+            SelfCheck.Assert(File.ReadAllText(file).Contains("plain"), "Discover: existing folder without a git root stays remembered");
+            var gone = System.IO.Path.Combine(tmp, "gone");   // never created; a live session still points at it (trailing slash)
+            File.WriteAllText(file, JsonSerializer.Serialize(new[] { Norm(gone) }));
+            var smGone = new SessionManager(); smGone.Open(new PastSession(Guid.NewGuid().ToString(), gone + "/", "g", "t", null, DateTimeOffset.Now, null));
+            Disc(Svc(smGone));
+            SelfCheck.Assert(File.ReadAllText(file).Contains("gone"), "Discover: live session cwd compared normalized");
         }
         finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
     }
