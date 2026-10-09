@@ -1,17 +1,28 @@
-@* Stub (WP0). Owner: WP1. *@
-
 @if (Session.Status == SessionStatus.Crashed)
 {
     <div class="crash">
         <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="72" Color="#FCCC0A" /></div>
         <div>
             <h4>Le processus Claude s’est arrêté</h4>
+            <p>La session s'est interrompue en plein tour. Le transcript est conservé ; tu peux relancer dans le même dossier.</p>
             <pre>@Session.ExitText</pre>
-            <div class="acts" style="justify-content:flex-start"><button class="btn primary" @onclick="Session.Restart"><Icon Name="refresh" Sm />Relancer la session</button></div>
+            <div class="acts" style="justify-content:flex-start">
+                <button class="btn primary" disabled="@restarting" @onclick="Restart"><Icon Name="refresh" Sm />Relancer la session</button>
+                <button class="btn" data-copy="@Session.ExitText">Copier l'erreur</button>
+            </div>
         </div>
     </div>
 }
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+    bool restarting;
+
+    async Task Restart()
+    {
+        restarting = true;
+        try { await Session.Restart(); }
+        catch (Exception ex) { Console.Error.WriteLine($"[{Session.Id}] relance : {ex.Message}"); }   // the session shows Crashed with the reason
+        finally { restarting = false; }
+    }
 }

@@ -1,13 +1,53 @@
-@* Stub (WP0). Owner: WP1. *@
 @inject UiState Ui
 
-<div class="t @(Ui.SelectedToolId == Tool.Id ? "sel" : null)" @onclick="() => Ui.SelectedToolId = Tool.Id">
-    <Icon Name="right" Sm Class="chev" />
+<div class="t @Class" @onclick="() => Ui.SelectedToolId = Tool.Id">
+    <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
     <span class="kind" style="color:@ToolKinds.Color(Tool.Name)">@Tool.Name</span>
     <span class="p">@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
+    @Meta(Tool)
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     [Parameter] public ToolItem Tool { get; set; } = null!;
+
+    bool Selected => Ui.SelectedToolId == Tool.Id;
+    string? Class => Tool.State switch
+    {
+        ToolState.Waiting => "wait",
+        ToolState.Denied => "void",
+        _ => Selected ? "sel" : null,
+    };
+
+    // Right-hand slot of a tool row; also used by the subagent rows of Workflow.
+    public static RenderFragment Meta(ToolItem t) => t.State switch
+    {
+        ToolState.Waiting => @<span class="m">attend ta décision</span>,
+        ToolState.Denied => @<span class="badge no">refusé</span>,
+        ToolState.Error => @<span class="badge no">erreur</span>,
+        ToolState.Running => @<span class="m">…</span>,
+        _ when t.Name == "Write" && Events.Str(t.Structured ?? default, "type") == "create" => @<span class="badge ok">créé</span>,
+        _ => Done(t) is { Length: > 0 } m ? @<span class="m">@m</span> : _ => { },
+    };
+
+    static string Done(ToolItem t)
+    {
+        var s = t.Structured ?? default;
+        switch (t.Name)
+        {
+            case "Read":
+                var n = Num(Events.Prop(s, "file") ?? default, "numLines") ?? t.ResultText?.TrimEnd('\n').Split('\n').Length ?? 0;
+                return n == 1 ? "1 ligne" : $"{n} lignes";
+            case "Grep" or "Glob":
+                var r = (Events.Str(s, "mode") switch { "content" => Num(s, "numLines"), "count" => Num(s, "numMatches"), _ => Num(s, "numFiles") })
+                        ?? t.ResultText?.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length ?? 0;
+                return r == 1 ? "1 résultat" : $"{r} résultats";
+            case "Edit" or "MultiEdit" or "Write" when Events.Prop(s, "structuredPatch") is { ValueKind: JsonValueKind.Array } patch:
+                var lines = patch.EnumerateArray().Where(h => Events.Prop(h, "lines") is { ValueKind: JsonValueKind.Array }).SelectMany(h => h.GetProperty("lines").EnumerateArray()).Select(l => l.GetString() ?? "").ToList();
+                return $"+{lines.Count(l => l.StartsWith('+'))} −{lines.Count(l => l.StartsWith('-'))}";
+        }
+        return t.EndedAt - t.StartedAt is { TotalMilliseconds: >= 50 } d ? Fmt.Dur(d) : "";
+    }
+
+    static int? Num(JsonElement e, string name) => Events.Prop(e, name) is { ValueKind: JsonValueKind.Number } v ? (int)v.GetDouble() : null;
 }

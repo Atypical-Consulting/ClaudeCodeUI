@@ -1,14 +1,42 @@
-@* Stub (WP0). Owner: WP1. *@
-
-@if (Session.Status == SessionStatus.Running)
+@switch (Session.Status)
 {
-    <div class="status"><span class="spin"></span>Claude écrit…</div>
-}
-else if (Session.Status == SessionStatus.Waiting)
-{
-    <div class="status wait"><span class="dot wait"></span>Claude est en pause : un outil attend ton accord</div>
+    case SessionStatus.Starting:
+        <div class="status"><span class="spin"></span>Démarrage de claude…</div>
+        break;
+    case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
+        <div class="status"><span class="spin"></span>Les agents travaillent… <small>@agents.Count(a => a.State == ToolState.Done) sur @agents.Count</small></div>
+        break;
+    case SessionStatus.Running:
+        <div class="status"><span class="spin"></span>Claude écrit… <small>@Elapsed@(Session.ThinkingTokens > 0 ? $" · réflexion {Fmt.Tokens(Session.ThinkingTokens)} tokens" : "")</small></div>
+        break;
+    case SessionStatus.Waiting:
+        <div class="status wait"><span class="dot wait"></span>Claude est en pause : @What attend ton accord</div>
+        break;
+    case SessionStatus.Idle when Session.LastResultSubtype == "interrompu":
+        <div class="status"><Icon Name="stop" Sm />Interrompu <small>@(Session.LastTurn is { } t ? Fmt.Dur(t) : "")</small></div>
+        break;
+    case SessionStatus.Idle when Session.LastResultSubtype?.StartsWith("error") == true:
+        <div class="status" style="color:var(--err-fg)">Le tour s'est terminé en erreur : @Session.LastResultSubtype</div>
+        break;
 }
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    string Elapsed => Session.TurnStartedAt is { } t ? Fmt.Dur(DateTimeOffset.Now - t) : "";
+
+    string What => Session.Pending.FirstOrDefault()?.Tool switch
+    {
+        { } n when ToolKinds.IsEdit(n) => "une édition",
+        { } n when ToolKinds.IsShell(n) => "une commande",
+        _ => "un outil",
+    };
+
+    // Agent calls of the current turn (after the last user message).
+    List<ToolItem> TurnAgents()
+    {
+        var items = Session.Items;
+        var from = items.FindLastIndex(i => i is UserItem) + 1;
+        return items.Skip(from).OfType<ToolItem>().Where(t => t.ParentToolUseId is null && ToolKinds.IsAgent(t.Name)).ToList();
+    }
 }
