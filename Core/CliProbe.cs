@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -708,6 +708,31 @@ public static class CliProbe
         return [fork, forkAt, name, cut && Got(app, reply) ? ("PASS", detail) : ("FAIL", detail), inherits && Got(again, reply2) ? ("PASS", detail2) : ("FAIL", detail2)];
     }, 600);
 
+    // background-tasks: a run_in_background shell command reports task_started (task_type local_bash, is_backgrounded)
+    // and get_task_output returns the end of what it printed so far.
+    // stop-task: stop_task on it is answered and followed by task_updated patch.status "killed".
+    static async Task<IEnumerable<(string, string, string)>> BackgroundTasks(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["background-tasks", "stop-task"], async () =>
+        {
+            var turn = await c.Turn("With your shell tool and run_in_background set to true, run a command that prints \"tick N\" once per second for 60 seconds. "
+                + "Do not wait for it and do not read its output. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } ts)
+                return [("FAIL", "no task_started with task_type local_bash"), ("SKIP", "no background task to stop")];
+            await Task.Delay(3000);
+            var o = await c.S.Request("get_task_output", new() { ["task_id"] = ts.TaskId });
+            var output = Events.Str(o, "output") ?? "";
+            var detail = $"task {ts.TaskId} is_backgrounded={ts.Backgrounded}, output {Events.Prop(o, "total_bytes")?.GetRawText() ?? "?"} bytes \"{output.Trim().Split('\n')[^1]}\"";
+            var read = ts.Backgrounded && output.Contains("tick") ? ("PASS", detail) : ("FAIL", detail);
+
+            await c.S.Request("stop_task", new() { ["task_id"] = ts.TaskId });
+            var upd = await c.Until(e => Events.Parse(e) is TaskUpdatedEvt { Status: not null } u && u.TaskId == ts.TaskId);
+            var status = (Events.Parse(upd) as TaskUpdatedEvt)?.Status;
+            return [read, status == "killed" ? ("PASS", "answered, task_updated status killed") : ("FAIL", $"answered, task_updated status {status}")];
+        });
+    }
+
     // ---------- plumbing ----------
 
     // Text blocks of an assistant message.
@@ -800,6 +825,13 @@ public static class CliProbe
                     && (onPermission is null || !await onPermission(e)))
                     await S.Respond(Events.Str(e, "request_id")!, true, r.GetProperty("input"));
             }
+        }
+
+        // Next event (outside a turn) matching the predicate; the probe's Guard bounds the wait.
+        public async Task<JsonElement> Until(Func<JsonElement, bool> match)
+        {
+            while (true)
+                if (await events.Reader.ReadAsync() is var e && match(e)) return e;
         }
 
         public async ValueTask DisposeAsync()
