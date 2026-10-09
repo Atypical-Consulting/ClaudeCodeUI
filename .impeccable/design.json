@@ -1,0 +1,852 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-09T15:14:41+00:00",
+  "title": "Design System: Claude Code UI",
+  "extensions": {
+    "colorMeta": {
+      "page": {
+        "role": "neutral",
+        "displayName": "Page",
+        "canonical": "#08090A",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242526",
+          "#414243",
+          "#606162",
+          "#818284",
+          "#A4A5A6",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#0E0F11",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818285",
+          "#A4A5A7",
+          "#C8C9CB",
+          "#EEEEF0"
+        ]
+      },
+      "sunk": {
+        "role": "neutral",
+        "displayName": "Sunk",
+        "canonical": "#0B0C0E",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414244",
+          "#606163",
+          "#818285",
+          "#A4A5A7",
+          "#C8C9CB",
+          "#EEEEF0"
+        ]
+      },
+      "raise": {
+        "role": "neutral",
+        "displayName": "Raise",
+        "canonical": "#16181B",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#414244",
+          "#5F6164",
+          "#808286",
+          "#A3A5A9",
+          "#C7C9CC",
+          "#EDEEF1"
+        ]
+      },
+      "raise-2": {
+        "role": "neutral",
+        "displayName": "Raise 2",
+        "canonical": "#1A1C20",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#404245",
+          "#5F6165",
+          "#808287",
+          "#A3A5AA",
+          "#C7C9CD",
+          "#EDEEF1"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field",
+        "canonical": "#121316",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414244",
+          "#606164",
+          "#818286",
+          "#A4A5A8",
+          "#C8C9CC",
+          "#EDEEF1"
+        ]
+      },
+      "hair": {
+        "role": "neutral",
+        "displayName": "Hair Seam",
+        "canonical": "#1A1C1F",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#414244",
+          "#5F6164",
+          "#808286",
+          "#A3A5A9",
+          "#C7C9CC",
+          "#EDEEF1"
+        ]
+      },
+      "seam": {
+        "role": "neutral",
+        "displayName": "Seam",
+        "canonical": "#1F2125",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#414245",
+          "#5F6165",
+          "#808287",
+          "#A3A5A9",
+          "#C7C9CD",
+          "#EDEEF1"
+        ]
+      },
+      "seam-2": {
+        "role": "neutral",
+        "displayName": "Seam 2",
+        "canonical": "#2A2D33",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#242528",
+          "#404246",
+          "#5E6167",
+          "#7F8289",
+          "#A2A5AB",
+          "#C6C9CE",
+          "#ECEEF3"
+        ]
+      },
+      "seam-3": {
+        "role": "neutral",
+        "displayName": "Seam 3",
+        "canonical": "#3A3E46",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232529",
+          "#3F4247",
+          "#5E6168",
+          "#7E828B",
+          "#A1A5AD",
+          "#C6C9D0",
+          "#ECEEF4"
+        ]
+      },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#EDEEF0",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252526",
+          "#414243",
+          "#606162",
+          "#818284",
+          "#A4A5A6",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "fg-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#C7CAD0",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#404245",
+          "#5F6165",
+          "#808288",
+          "#A3A5AA",
+          "#C7C9CD",
+          "#EDEEF2"
+        ]
+      },
+      "fg-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#9095A0",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232529",
+          "#3F4248",
+          "#5D6169",
+          "#7E828D",
+          "#A1A5AF",
+          "#C5C9D1",
+          "#ECEEF5"
+        ]
+      },
+      "fg-4": {
+        "role": "neutral",
+        "displayName": "Ink 4",
+        "canonical": "#83888F",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232528",
+          "#3F4246",
+          "#5E6267",
+          "#7E838A",
+          "#A1A5AC",
+          "#C6C9CE",
+          "#ECEFF3"
+        ]
+      },
+      "fg-5": {
+        "role": "neutral",
+        "displayName": "Ink 5",
+        "canonical": "#5C6068",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232528",
+          "#404247",
+          "#5E6168",
+          "#7E828B",
+          "#A1A5AD",
+          "#C6C9CF",
+          "#ECEEF3"
+        ]
+      },
+      "prose": {
+        "role": "neutral",
+        "displayName": "Prose",
+        "canonical": "#BCC0C7",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#242528",
+          "#404246",
+          "#5E6166",
+          "#7F8289",
+          "#A2A5AB",
+          "#C6C9CE",
+          "#ECEEF2"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Ember",
+        "canonical": "#E8875B",
+        "tonalRamp": [
+          "#170601",
+          "#3B1B0C",
+          "#63331D",
+          "#8E4D30",
+          "#BC6943",
+          "#DB906F",
+          "#F7B99E",
+          "#FFE2CE"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Ember Ink",
+        "canonical": "#1A0D06",
+        "tonalRamp": [
+          "#0E0A08",
+          "#2A2320",
+          "#4A403A",
+          "#6C5E56",
+          "#907E74",
+          "#B1A199",
+          "#D3C6BF",
+          "#F7ECE6"
+        ]
+      },
+      "ok": {
+        "role": "secondary",
+        "displayName": "Signal Green",
+        "canonical": "#C3E88D",
+        "tonalRamp": [
+          "#070E01",
+          "#1E2A08",
+          "#374918",
+          "#526B29",
+          "#6F8F3B",
+          "#94B16A",
+          "#BBD39A",
+          "#E4F7CB"
+        ]
+      },
+      "err": {
+        "role": "secondary",
+        "displayName": "Signal Red",
+        "canonical": "#F07178",
+        "tonalRamp": [
+          "#180506",
+          "#3C181A",
+          "#652F32",
+          "#90484B",
+          "#BE6366",
+          "#DE8A8C",
+          "#FAB4B5",
+          "#FFDFDF"
+        ]
+      },
+      "syn-kw": {
+        "role": "secondary",
+        "displayName": "Keyword Violet (Grep)",
+        "canonical": "#C792EA",
+        "tonalRamp": [
+          "#100716",
+          "#2E1C39",
+          "#4F3560",
+          "#73508A",
+          "#996DB6",
+          "#BA93D4",
+          "#DABBF1",
+          "#FCE4FF"
+        ]
+      },
+      "syn-str": {
+        "role": "secondary",
+        "displayName": "String Green",
+        "canonical": "#C3E88D",
+        "tonalRamp": [
+          "#070E01",
+          "#1E2A08",
+          "#374918",
+          "#526B29",
+          "#6F8F3B",
+          "#94B16A",
+          "#BBD39A",
+          "#E4F7CB"
+        ]
+      },
+      "syn-fn": {
+        "role": "secondary",
+        "displayName": "Function Blue (Read, links)",
+        "canonical": "#82AAFF",
+        "tonalRamp": [
+          "#050A1A",
+          "#172440",
+          "#2D416B",
+          "#455F98",
+          "#5E80C9",
+          "#85A4E5",
+          "#AFC9FF",
+          "#DAEFFF"
+        ]
+      },
+      "syn-type": {
+        "role": "secondary",
+        "displayName": "Type Amber (Bash)",
+        "canonical": "#FFCB6B",
+        "tonalRamp": [
+          "#130900",
+          "#332100",
+          "#573D02",
+          "#7D5A0C",
+          "#A67A19",
+          "#C69E56",
+          "#E5C48C",
+          "#FFEBC1"
+        ]
+      },
+      "syn-num": {
+        "role": "secondary",
+        "displayName": "Number Coral (web tools)",
+        "canonical": "#F78C6C",
+        "tonalRamp": [
+          "#180502",
+          "#3C1A10",
+          "#643223",
+          "#8F4B37",
+          "#BD674D",
+          "#DC8E77",
+          "#F9B7A3",
+          "#FFE1D2"
+        ]
+      },
+      "syn-com": {
+        "role": "secondary",
+        "displayName": "Comment Grey",
+        "canonical": "#7F848E",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#232529",
+          "#3F4248",
+          "#5D6169",
+          "#7E828C",
+          "#A1A5AE",
+          "#C5C9D1",
+          "#ECEEF4"
+        ]
+      },
+      "syn-attr": {
+        "role": "secondary",
+        "displayName": "Attribute Cyan (Write)",
+        "canonical": "#89DDFF",
+        "tonalRamp": [
+          "#000D14",
+          "#072935",
+          "#16485A",
+          "#276A82",
+          "#3A8EAD",
+          "#6BB0CB",
+          "#9DD2E9",
+          "#CEF6FF"
+        ]
+      },
+      "syn-var": {
+        "role": "secondary",
+        "displayName": "Variable Red",
+        "canonical": "#F07178",
+        "tonalRamp": [
+          "#180506",
+          "#3C181A",
+          "#652F32",
+          "#90484B",
+          "#BE6366",
+          "#DE8A8C",
+          "#FAB4B5",
+          "#FFDFDF"
+        ]
+      },
+      "code-inline": {
+        "role": "secondary",
+        "displayName": "Inline Code Gold",
+        "canonical": "#E6C07B",
+        "tonalRamp": [
+          "#110A00",
+          "#302307",
+          "#533E16",
+          "#785C27",
+          "#9F7C39",
+          "#BFA068",
+          "#DFC698",
+          "#FFECCA"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Site opening line only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "App screen titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Inspector section headings, the permission question."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "App UI text."
+      },
+      "reading": {
+        "displayName": "Reading",
+        "purpose": "Docs column, prose capped at 47ch."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Code, ledger rows, diffs, meta, kbd."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase rail group captions and table headers."
+      }
+    },
+    "themes": {
+      "default": "graphite",
+      "source": "wwwroot/app.css [data-theme], copied into site/site.css",
+      "overrides": {
+        "graphite": {
+          "page": "#08090A",
+          "ground": "#0E0F11",
+          "sunk": "#0B0C0E",
+          "raise": "#16181B",
+          "raise-2": "#1A1C20",
+          "field": "#121316",
+          "hair": "#1A1C1F",
+          "seam": "#1F2125",
+          "seam-2": "#2A2D33",
+          "seam-3": "#3A3E46",
+          "fg": "#EDEEF0",
+          "fg-2": "#C7CAD0",
+          "fg-3": "#9095A0",
+          "fg-4": "#83888F",
+          "fg-5": "#5C6068",
+          "prose": "#BCC0C7",
+          "accent": "#E8875B",
+          "accent-ink": "#1A0D06",
+          "ok": "#C3E88D",
+          "err": "#F07178",
+          "syn-kw": "#C792EA",
+          "syn-str": "#C3E88D",
+          "syn-fn": "#82AAFF",
+          "syn-type": "#FFCB6B",
+          "syn-num": "#F78C6C",
+          "syn-com": "#7F848E",
+          "syn-attr": "#89DDFF",
+          "syn-var": "#F07178",
+          "code-inline": "#E6C07B"
+        },
+        "encre": {
+          "page": "#060912",
+          "ground": "#0B1020",
+          "sunk": "#080C18",
+          "raise": "#121A2E",
+          "raise-2": "#162036",
+          "field": "#0E1528",
+          "hair": "#141C30",
+          "seam": "#1A2338",
+          "seam-2": "#253049",
+          "seam-3": "#34415F",
+          "fg": "#E6ECFA",
+          "fg-2": "#C0CAE0",
+          "fg-3": "#8D9AB8",
+          "fg-4": "#7F8BA8",
+          "fg-5": "#56617C",
+          "prose": "#B7C2DA",
+          "accent": "#7DCFFF",
+          "accent-ink": "#051421",
+          "ok": "#9ECE6A",
+          "err": "#F7768E",
+          "syn-kw": "#BB9AF7",
+          "syn-str": "#9ECE6A",
+          "syn-fn": "#7AA2F7",
+          "syn-type": "#E0AF68",
+          "syn-num": "#FF9E64",
+          "syn-com": "#7A84AE",
+          "syn-attr": "#73DACA",
+          "syn-var": "#F7768E",
+          "code-inline": "#E0AF68"
+        },
+        "ristretto": {
+          "page": "#0C0907",
+          "ground": "#15110E",
+          "sunk": "#110E0B",
+          "raise": "#1E1915",
+          "raise-2": "#241E19",
+          "field": "#1A1511",
+          "hair": "#211B16",
+          "seam": "#2A231D",
+          "seam-2": "#382F27",
+          "seam-3": "#4C4036",
+          "fg": "#F2E8DC",
+          "fg-2": "#D8CBBB",
+          "fg-3": "#A89887",
+          "fg-4": "#9A8B7B",
+          "fg-5": "#6A5D50",
+          "prose": "#CDBFAF",
+          "accent": "#E6B450",
+          "accent-ink": "#1E1404",
+          "ok": "#B8BB26",
+          "err": "#FB4934",
+          "syn-kw": "#FB4934",
+          "syn-str": "#B8BB26",
+          "syn-fn": "#83A598",
+          "syn-type": "#FABD2F",
+          "syn-num": "#D3869B",
+          "syn-com": "#998B7D",
+          "syn-attr": "#8EC07C",
+          "syn-var": "#FE8019",
+          "code-inline": "#FABD2F"
+        },
+        "mousse": {
+          "page": "#070B09",
+          "ground": "#0D1210",
+          "sunk": "#0A0F0D",
+          "raise": "#141B18",
+          "raise-2": "#18211D",
+          "field": "#111815",
+          "hair": "#16201C",
+          "seam": "#1C2622",
+          "seam-2": "#27342F",
+          "seam-3": "#37483F",
+          "fg": "#E4EEE8",
+          "fg-2": "#C1D0C7",
+          "fg-3": "#8FA398",
+          "fg-4": "#81968A",
+          "fg-5": "#56685E",
+          "prose": "#B8C8BE",
+          "accent": "#F2A65A",
+          "accent-ink": "#1E1004",
+          "ok": "#A6DA95",
+          "err": "#EB6F92",
+          "syn-kw": "#C4A7E7",
+          "syn-str": "#F6C177",
+          "syn-fn": "#9CCFD8",
+          "syn-type": "#EBBCBA",
+          "syn-num": "#EB6F92",
+          "syn-com": "#849689",
+          "syn-attr": "#9CCFD8",
+          "syn-var": "#EA9A97",
+          "code-inline": "#F6C177"
+        },
+        "contraste": {
+          "page": "#000",
+          "ground": "#000",
+          "sunk": "#000",
+          "raise": "#101010",
+          "raise-2": "#161616",
+          "field": "#0A0A0A",
+          "hair": "#262626",
+          "seam": "#3A3A3A",
+          "seam-2": "#555",
+          "seam-3": "#777",
+          "fg": "#FFF",
+          "fg-2": "#F0F0F0",
+          "fg-3": "#CFCFCF",
+          "fg-4": "#B5B5B5",
+          "fg-5": "#8A8A8A",
+          "prose": "#EDEDED",
+          "accent": "#FFB000",
+          "accent-ink": "#000",
+          "ok": "#5CFF8A",
+          "err": "#FF6B6B",
+          "syn-kw": "#FF8AFF",
+          "syn-str": "#7CFF9B",
+          "syn-fn": "#7CC4FF",
+          "syn-type": "#FFE066",
+          "syn-num": "#FFA06B",
+          "syn-com": "#A0A0A0",
+          "syn-attr": "#6BF2FF",
+          "syn-var": "#FF8A8A",
+          "code-inline": "#FFE066"
+        }
+      }
+    },
+    "derived": [
+      {
+        "name": "accent-soft",
+        "value": "color-mix(in srgb,var(--accent) 12%,transparent)"
+      },
+      {
+        "name": "accent-hover",
+        "value": "color-mix(in srgb,var(--accent) 85%,#fff)"
+      },
+      {
+        "name": "err-fg",
+        "value": "color-mix(in srgb,var(--err) 65%,var(--fg))"
+      },
+      {
+        "name": "ok-fg",
+        "value": "color-mix(in srgb,var(--ok) 65%,var(--fg))"
+      },
+      {
+        "name": "tool aliases",
+        "value": "--read:syn-fn; --grep:syn-kw; --edit:ok; --bash:syn-type; --write:syn-attr; --web:syn-num"
+      }
+    ],
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 24px 60px -10px #000c, 0 0 0 1px #00000080",
+        "purpose": "Command palette over a blurred sunk scrim."
+      },
+      {
+        "name": "popover",
+        "value": "0 18px 40px -12px #000c",
+        "purpose": "Slash-command and model menus."
+      },
+      {
+        "name": "selection-bar",
+        "value": "inset 2px 0 0 var(--accent)",
+        "purpose": "Selected or pending row marker (state, not elevation)."
+      },
+      {
+        "name": "halo",
+        "value": "0 0 0 3px var(--accent-soft)",
+        "purpose": "Waiting dot, selected theme card, toggle hover."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)",
+        "purpose": "Focused composer."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quint",
+        "value": "cubic-bezier(.2,.8,.2,1)",
+        "purpose": "All state transitions."
+      },
+      {
+        "name": "state",
+        "value": "150ms",
+        "purpose": "Hover, selection, colour changes."
+      },
+      {
+        "name": "theme",
+        "value": "250ms",
+        "purpose": "Background change on theme switch."
+      },
+      {
+        "name": "unfold",
+        "value": "320ms",
+        "purpose": "Site ledger row expanding (grid-template-rows)."
+      },
+      {
+        "name": "caret",
+        "value": "1s steps(2) infinite",
+        "purpose": "Streaming caret blink."
+      },
+      {
+        "name": "pulse",
+        "value": "1.6s ease-out infinite",
+        "purpose": "Running session dot."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "prefers-reduced-motion disables animation, transitions and the caret."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack-inspector",
+        "value": "1240px"
+      },
+      {
+        "name": "single-column",
+        "value": "860px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per surface: Autoriser, Envoyer, download.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Autoriser <kbd class=\"ds-kbd\">⏎</kbd></button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--seam-2);border-radius:var(--r);padding:7px 12px;font:500 13px var(--sans);color:var(--fg-2);background:transparent;cursor:pointer;transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s;}.ds-btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}.ds-btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-kbd{font:500 11px var(--mono);border:1px solid color-mix(in srgb,var(--accent-ink) 25%,transparent);border-bottom-width:2px;border-radius:4px;padding:0 5px;line-height:17px;color:color-mix(in srgb,var(--accent-ink) 69%,transparent)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default outline button.",
+      "html": "<button class=\"ds-btn2\">Toute la session</button>",
+      "css": ".ds-btn2{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--seam-2);border-radius:var(--r);padding:7px 12px;font:500 13px var(--sans);color:var(--fg-2);background:transparent;cursor:pointer;transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s;}.ds-btn2:hover{border-color:var(--seam-3);color:var(--fg);background:var(--raise)}.ds-btn2:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive outline, isolated at the end of the action row.",
+      "html": "<button class=\"ds-btn-danger\">Refuser</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,var(--err) 25%,transparent);border-radius:var(--r);padding:7px 12px;font:500 13px var(--sans);color:var(--err);background:transparent;cursor:pointer;transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s;}.ds-btn-danger:hover{background:color-mix(in srgb,var(--err) 10%,transparent);border-color:color-mix(in srgb,var(--err) 50%,transparent);color:var(--err-fg)}.ds-btn-danger:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Tool Ledger",
+      "kind": "custom",
+      "refersTo": "ledger-row",
+      "description": "Signature: the agent's tool calls as mono rows coloured by kind.",
+      "html": "<div class=\"ds-ledger\"><div class=\"ds-lh\">3 outils · vérifications</div><div class=\"ds-t\"><span class=\"ds-ch\">›</span><span style=\"color:var(--syn-fn)\">Read</span><span class=\"ds-p\">README.md</span><span class=\"ds-m\">42 l</span></div><div class=\"ds-t ds-sel\"><span class=\"ds-ch\">›</span><span style=\"color:var(--syn-kw)\">Grep</span><span class=\"ds-p\">claude --version</span><span class=\"ds-m\">3 hits</span></div><div class=\"ds-t ds-wait\"><span class=\"ds-ch\">›</span><span style=\"color:var(--syn-type)\">Bash</span><span class=\"ds-p\">dotnet build</span><span class=\"ds-m\">en attente</span></div></div>",
+      "css": ".ds-ledger{border:1px solid var(--seam);border-radius:var(--r-lg);overflow:hidden;background:var(--ground)}.ds-lh{padding:7px 12px;font:12px var(--sans);color:var(--fg-4);border-bottom:1px solid var(--seam);background:var(--sunk)}.ds-t{display:grid;grid-template-columns:16px 64px minmax(0,1fr) auto;gap:10px;padding:8px 12px;font:13px var(--mono);border-top:1px solid var(--hair);align-items:center;transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s;}.ds-lh+.ds-t{border-top:0}.ds-t:hover{background:var(--raise)}.ds-ch{color:var(--fg-5)}.ds-p{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-m{color:var(--fg-4);font-size:12px}.ds-sel{background:var(--raise);box-shadow:inset 2px 0 0 var(--accent)}.ds-wait{background:color-mix(in srgb,var(--accent) 6%,transparent);box-shadow:inset 2px 0 0 var(--accent)}.ds-wait .ds-m{color:var(--accent)}"
+    },
+    {
+      "name": "Permission Card",
+      "kind": "card",
+      "refersTo": "inspector-section",
+      "description": "Signature: the decision with the exact command in front of the user.",
+      "html": "<div class=\"ds-perm\"><h3>Exécuter cette commande ?</h3><pre class=\"ds-cmd\">dotnet test</pre><div class=\"ds-acts\"><button class=\"ds-a ds-a-p\">Autoriser</button><button class=\"ds-a\">Toute la session</button><button class=\"ds-a ds-a-d\">Refuser</button></div></div>",
+      "css": ".ds-perm{background:var(--sunk);padding:18px 20px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--seam)}.ds-perm h3{margin:0;font:600 17px/1.3 var(--sans);color:var(--fg);letter-spacing:-.01em}.ds-cmd{margin:0;background:var(--field);border:1px solid var(--seam);border-radius:var(--r);padding:12px;font:13.5px var(--mono);color:var(--fg)}.ds-acts{display:flex;gap:8px}.ds-a{border:1px solid var(--seam-2);border-radius:var(--r);padding:7px 12px;font:500 13px var(--sans);color:var(--fg-2);background:transparent;cursor:pointer}.ds-a:hover{background:var(--raise);color:var(--fg)}.ds-a-p{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}.ds-a-p:hover{background:var(--accent-hover);color:var(--accent-ink)}.ds-a-d{margin-left:auto;color:var(--err);border-color:color-mix(in srgb,var(--err) 25%,transparent)}.ds-a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Composer",
+      "kind": "input",
+      "refersTo": "composer",
+      "description": "Prompt field pinned to the foot of the thread.",
+      "html": "<div class=\"ds-box\"><textarea placeholder=\"Demande quelque chose à Claude…\"></textarea><div class=\"ds-row\"><span class=\"ds-chip\">acceptEdits</span></div></div>",
+      "css": ".ds-box{border:1px solid var(--seam-2);border-radius:var(--r-lg);background:var(--field);padding:12px 12px 10px 14px;transition:border-color .15s,box-shadow .15s}.ds-box:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}.ds-box textarea{display:block;width:100%;min-height:40px;resize:none;border:0;outline:0;background:none;color:var(--fg);font:14px/1.55 var(--sans);caret-color:var(--accent)}.ds-box textarea::placeholder{color:var(--fg-4)}.ds-row{margin-top:8px}.ds-chip{font:12px var(--mono);color:var(--fg-3);border:1px solid var(--seam);border-radius:999px;padding:2px 9px}"
+    },
+    {
+      "name": "Rail Session Row",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Session list item with a status dot.",
+      "html": "<div class=\"ds-list\"><a class=\"ds-s ds-on\" href=\"#\"><i class=\"ds-dot ds-wait\"></i><span>refacto-auth</span><span class=\"ds-pill\">1</span></a><a class=\"ds-s\" href=\"#\"><i class=\"ds-dot ds-run\"></i><span>docs-site</span></a></div>",
+      "css": ".ds-list{display:flex;flex-direction:column;gap:1px;width:240px}.ds-s{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);color:var(--fg);font:500 14px var(--sans);text-decoration:none;transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s;}.ds-s:hover{background:var(--raise)}.ds-on,.ds-on:hover{background:var(--raise-2);box-shadow:inset 0 0 0 1px var(--seam-2)}.ds-s:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.ds-dot{width:8px;height:8px;border-radius:50%}.ds-wait{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}.ds-run{background:var(--ok)}.ds-pill{font:600 11px var(--sans);border-radius:999px;padding:1px 7px;background:var(--accent);color:var(--accent-ink)}"
+    },
+    {
+      "name": "Prompt Block",
+      "kind": "card",
+      "refersTo": "prompt-block",
+      "description": "The user's turn in the thread.",
+      "html": "<p class=\"ds-you\"><span class=\"ds-w\">toi · maintenant</span>Installe Claude Code UI sur cette machine.</p>",
+      "css": ".ds-you{margin:0;background:var(--raise);border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;color:var(--fg);font:14px/1.55 var(--sans)}.ds-w{display:block;font:500 11.5px var(--mono);color:var(--fg-4);margin-bottom:4px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Console Graphite",
+    "overview": "The session is a workbench, not a chat. Fixed panes (sessions rail, thread, inspector) persist; navigation changes what a pane shows, never the layout. Everything the agent did is read as a compact tool ledger in monospace, and every decision is taken with the exact diff or command in front of the developer, keyboard first.\n\nThe world is dark only, low-chroma graphite with depth carried by tonal steps and 1px seams rather than shadows. Colour is spent on meaning: syntax hues name tool kinds, green and red mean added/removed or ok/error, and a single warm accent marks what needs the user. Density is high but calm: 13-14px UI text, generous line-height in prose, tabular numbers wherever figures align.\n\nFive themes (Graphite, Encre, Ristretto, Mousse, Contraste élevé) override the same variable set through `[data-theme]`; components reference variables only, so every rule here holds in every theme. A BlazorKawaii `RubberDuck` mascot sits at the foot of the rail and its mood mirrors state (happy, excited, sleepy, sad, shocked).",
+    "keyCharacteristics": [
+      "Dark only; five themes, one token set.",
+      "Panes separated by 1px seams; one raised step for blocks.",
+      "Geist for people, Geist Mono for machines.",
+      "Tool kinds coloured from syntax tokens.",
+      "One accent, spent on attention, action, selection and focus.",
+      "Flat at rest; drop shadows only on floating overlays."
+    ],
+    "rules": [
+      {
+        "name": "The Needs-You Rule",
+        "body": "The accent marks only attention (waiting, pending decision), the primary action, the current selection and keyboard focus. It is never a decorative fill, a heading colour or a highlight on marketing words.",
+        "section": "colors"
+      },
+      {
+        "name": "The Syntax-Is-Tools Rule",
+        "body": "Tool kinds take their colour from the syntax tokens through `--read`/`--grep`/`--edit`/`--bash`/`--write`/`--web`. No new hue is introduced for a tool; an unmapped tool is `fg-3`.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Token Set Rule",
+        "body": "Components reference variables, never hex. A new theme is a new `[data-theme]` block overriding the same names, and must stay dark.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-for-Machines Rule",
+        "body": "Tool names, paths, commands, branches, model names, counts, costs, durations and shortcuts are set in Geist Mono with tabular figures. Human sentences never are.",
+        "section": "typography"
+      },
+      {
+        "name": "The Seam Rule",
+        "body": "Resting surfaces separate by tone and a 1px seam. A drop shadow means the element floats above the workbench and will go away.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** take every colour from a variable so all five themes hold; add a theme only as a dark `[data-theme]` block.",
+      "**Do** colour a tool by its kind alias (`--read`, `--grep`, `--edit`, `--bash`, `--write`, `--web`) and fall back to `fg-3`.",
+      "**Do** mark selection with `raise` plus the 2px accent inset bar, and waiting with the Ember dot and its 3px `accent-soft` halo.",
+      "**Do** set machine output in Geist Mono with tabular figures.",
+      "**Do** keep destructive actions as outlines isolated at the end of the action row, with their keyboard shortcut shown.",
+      "**Do** use the 150ms `cubic-bezier(.2,.8,.2,1)` transition for state changes and honour `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** use a light ground anywhere; the product is dark only.",
+      "**Don't** lay a session out as a centred chat-bubble column with a history sidebar; panes stay fixed.",
+      "**Don't** put drop shadows on resting cards, rows or panes; shadows belong to the palette and popovers only.",
+      "**Don't** spend the accent on decoration, headings or emphasised words.",
+      "**Don't** introduce a hue outside the token set for a new tool, state or chart.",
+      "**Don't** hard-code hex values in components (app glue such as `.blazor-error-boundary` is Blazor's stock template, not a pattern)."
+    ]
+  }
+}
