@@ -128,6 +128,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? ForkOf { get; init; }   // forked from this session id: --resume ForkOf --fork-session until it has its own transcript
     public string? ForkAt { get; init; }   // --resume-session-at: the message uuid the fork stops after (null = the whole conversation)
     // The CLI forks the persisted transcript: none before the first message, and only part of a turn still running.
+    // A fork not sent to yet has items but no transcript: SessionManager.Fork then forks its source instead.
     public bool CanFork => Items.Count > 0 && Status is not (SessionStatus.Running or SessionStatus.Waiting);
 
     public event Action? Changed;

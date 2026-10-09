@@ -60,9 +60,13 @@ public sealed class SessionManager : IAsyncDisposable
     // History = src's transcript, what the CLI copies, cut after the message `at` for "Fork from here".
     public LiveSession Fork(LiveSession src, string? at = null)
     {
+        // A fork writes its own transcript on its first message; before that `--resume <fork>` answers "No conversation
+        // found" (--probe-cli fork-of-fork), so forking it forks its source at the same cut. One step is enough: this
+        // rule never sets ForkOf to a fork without a transcript.
+        var (of, cut) = src.ForkOf is { } o && TranscriptStore.Find(src.Id) is null ? (o, at ?? src.ForkAt) : (src.Id, at);
         var s = new LiveSession(Guid.NewGuid().ToString(), Strings.Get("Session.ForkName", src.Name), src.Cwd, src.Mode, model: src.Model, effort: src.Effort)
         {
-            ForkOf = src.Id, ForkAt = at, Items = LiveSession.Upto(TranscriptStore.Load(src.Id), at), CostUsd = TranscriptStore.PersistedCost(src.Id),
+            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut), CostUsd = TranscriptStore.PersistedCost(of),
         };
         s.ToolCount = s.Items.OfType<ToolItem>().Count();
         Add(s);
