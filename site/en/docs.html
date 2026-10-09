@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Documentation · Claude Code UI</title>
+<meta name="description" content="Install Claude Code UI, start a session, respond to permissions, use the composer, clean up worktrees, keyboard shortcuts, security, development and known limitations.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0E0F11">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+<link rel="apple-touch-icon" href="../assets/icon-128.png">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Claude Code UI">
+<meta property="og:title" content="Documentation · Claude Code UI">
+<meta property="og:description" content="Installation, sessions and permissions, composer, subagents, worktrees, MCP extensions, keyboard shortcuts, security, development.">
+<meta property="og:url" content="https://atypical-consulting.github.io/ClaudeCodeUI/en/docs.html">
+<meta property="og:image" content="https://atypical-consulting.github.io/ClaudeCodeUI/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="fr" href="https://atypical-consulting.github.io/ClaudeCodeUI/docs.html">
+<link rel="alternate" hreflang="en" href="https://atypical-consulting.github.io/ClaudeCodeUI/en/docs.html">
+<link rel="alternate" hreflang="x-default" href="https://atypical-consulting.github.io/ClaudeCodeUI/docs.html">
+<link rel="preload" href="../fonts/Geist-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../site.css">
+<script>try{var t=localStorage.getItem('ccui-site.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.4 8 9 4.6-.6 8-4.5 8-9V6Z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h14v14H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9Z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></symbol>
+<symbol id="i-ext" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+<symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+<symbol id="i-term" viewBox="0 0 24 24"><path d="m4 17 6-5-6-5M12 19h8"/></symbol>
+</svg>
+<a class="skip" href="#contenu">Skip to content</a>
+<div class="site doc">
+
+  <header class="rail">
+    <div class="rail-in">
+      <div class="ph"><a class="brand" href="./"><i></i>Claude Code UI</a></div>
+      <button class="btn toc-btn" aria-expanded="false" aria-controls="toc">Contents<svg class="i sm"><use href="#i-down"/></svg></button>
+      <nav class="nav" aria-label="Site">
+        <a href="./"><svg class="i"><use href="#i-grid"/></svg>Home</a>
+        <a href="docs.html" aria-current="page"><svg class="i"><use href="#i-book"/></svg>Documentation</a>
+        <a href="https://github.com/Atypical-Consulting/ClaudeCodeUI"><svg class="i"><use href="#i-code"/></svg>GitHub<svg class="i sm x"><use href="#i-ext"/></svg></a>
+        <a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/releases"><svg class="i"><use href="#i-tag"/></svg>Versions<svg class="i sm x"><use href="#i-ext"/></svg></a>
+        <span class="lang" role="group" aria-label="Language"><a lang="fr" hreflang="fr" href="../docs.html">FR<span class="sr"> Français</span></a><a lang="en" hreflang="en" href="docs.html" aria-current="true">EN<span class="sr"> English</span></a></span>
+      </nav>
+      <div class="grp"><p class="cap" id="toc-lbl">Contents</p></div>
+      <nav class="toc" id="toc" aria-labelledby="toc-lbl">
+        <a href="#installation">Installation</a>
+        <a href="#first-launch">First launch</a>
+        <a href="#sessions">Sessions and permissions</a>
+        <a href="#composer">Composer</a>
+        <a href="#subagents">Subagents</a>
+        <a href="#worktrees">Worktrees</a>
+        <a href="#extensions">MCP extensions</a>
+        <a href="#themes">Themes</a>
+        <a href="#shortcuts">Keyboard shortcuts</a>
+        <a href="#security">Security</a>
+        <a href="#development">Development</a>
+        <a href="#publishing">Publication</a>
+        <a href="#limits">Known limitations</a>
+      </nav>
+      <div class="grp"><p class="cap" id="theme-lbl">Theme</p></div>
+      <div class="themes" role="group" aria-labelledby="theme-lbl">
+        <button class="th" data-t="graphite" aria-pressed="true"><span class="sw" style="background:#16181B;--a:#E8875B"></span><span class="nm">Graphite</span><svg class="i sm ok"><use href="#i-check"/></svg></button>
+        <button class="th" data-t="encre" aria-pressed="false"><span class="sw" style="background:#121A2E;--a:#7DCFFF"></span><span class="nm">Encre</span><svg class="i sm ok"><use href="#i-check"/></svg></button>
+        <button class="th" data-t="ristretto" aria-pressed="false"><span class="sw" style="background:#1E1915;--a:#E6B450"></span><span class="nm">Ristretto</span><svg class="i sm ok"><use href="#i-check"/></svg></button>
+        <button class="th" data-t="mousse" aria-pressed="false"><span class="sw" style="background:#141B18;--a:#F2A65A"></span><span class="nm">Mousse</span><svg class="i sm ok"><use href="#i-check"/></svg></button>
+        <button class="th" data-t="contraste" aria-pressed="false"><span class="sw" style="background:#000;--a:#FFB000"></span><span class="nm">High contrast</span><svg class="i sm ok"><use href="#i-check"/></svg></button>
+      </div>
+      <div class="mascot">
+        <div class="duck" data-mood="sleepy"><svg viewBox="0 0 240 240" fill="none" aria-hidden="true" focusable="false"> <g transform="translate(0 6)"> <ellipse fill="#F08A3A" cx="96" cy="194" rx="17" ry="8" /> <ellipse fill="#F08A3A" cx="144" cy="194" rx="17" ry="8" /> <ellipse fill="#FCCC0A" cx="58" cy="150" rx="13" ry="24" transform="rotate(35 58 150)" /> <ellipse fill="#FCCC0A" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" /> <ellipse fill="#000" opacity="0.1" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" /> <ellipse fill="#FCCC0A" cx="120" cy="156" rx="64" ry="38" /> <path fill="#000" opacity="0.1" d="M115 118.12A64 38 0 1 1 115 193.88A64 38 0 0 0 115 118.12Z" /> <path fill="#FCCC0A" d="M118 44C112 34 114 24 124 20C121 28 125 36 128 42Z" /> <path fill="#FCCC0A" d="M70 90a50 50 0 1 0 100 0a50 50 0 1 0 -100 0Z" /> <path fill="#000" opacity="0.1" d="M115.5 139.8A50 50 0 1 0 115.5 40.2A50 50 0 0 1 115.5 139.8Z" /> </g> <g class="face" data-m="happy"><g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--happy"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><path d="M6,1.9999998 C6.00066667,3.14799969 6.26599997,4.26466625 6.7166666,5.29933281 C7.39599986,6.85066599 8.49066642,8.23599919 9.90199962,9.27666575 C11.3099995,10.311999 13.0693326,10.9999989 14.9999991,10.9999989 C16.283999,11.0006656 17.5006655,10.6939989 18.5793321,10.1833323 C20.1993319,9.41466574 21.5219985,8.20599919 22.468665,6.788666 C23.4106649,5.36999947 23.9953316,3.72333297 23.9999982,1.9999998 C23.9999982,0.895333245 23.104665,0 21.9999984,0 C20.8953319,0 19.9999986,0.895333245 19.9999986,1.9999998 C20.0006653,2.51933308 19.8739986,3.11066636 19.6166653,3.7006663 C19.233332,4.58733288 18.5526654,5.4513328 17.7299988,6.0519994 C16.9033323,6.65733268 15.9686657,6.99999931 14.9999991,6.99999931 C14.3513325,6.99999931 13.7259992,6.84799932 13.1299993,6.56666602 C12.2373327,6.14866606 11.4226661,5.4193328 10.8599995,4.57066622 C10.2919996,3.7246663 9.99533294,2.77733306 9.99999961,1.9999998 C9.99999961,0.895333245 9.10466636,0 7.9999998,0 C6.89533325,0 6,0.895333245 6,1.9999998" fill="#F07A2A"></path></g></g> <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle> <circle cx="63" cy="3" r="3"></circle></g></g> <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle> <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></g><g class="face" data-m="excited"><g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--excited"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><g transform="translate(0.000000, 1.000000)"><mask id="kawaii-face__mask-2-0e8a813e" fill="white"><path d="M1.45656876,3.14684877 C1.45656876,3.14684877 1.45656876,3.14684877 1.45656876,3.14684877 L0,3.14685315 C0,2.31818182 0.346033696,1.50734266 0.949429952,0.922027972 C1.55390756,0.335664336 2.38979521,0 3.2440659,0 L25.9525272,0 C26.8067979,0 27.6416041,0.335664336 28.2460818,0.922027972 C28.8505594,1.50734266 29.1965931,2.31818182 29.1965931,3.14685315 C29.1890236,5.85734266 28.240675,8.44825175 26.7127199,10.6814685 C25.1771954,12.9104895 23.0317865,14.8122378 20.4040931,16.0227273 C18.6544603,16.8251748 16.6809868,17.3087413 14.5982965,17.3076923 C11.4666916,17.3076923 8.61299495,16.2241259 6.33025392,14.5951049 C4.0399434,12.9587413 2.264358,10.779021 1.16245695,8.33811189 C0.431460764,6.70909091 0.0010813553,4.95314685 0,3.14685315 L1.45656896,3.14685315 Z"></path></mask> <path d="M1.45656876,3.14684877 C1.45656876,3.14684877 1.45656876,3.14684877 1.45656876,3.14684877 L0,3.14685315 C0,2.31818182 0.346033696,1.50734266 0.949429952,0.922027972 C1.55390756,0.335664336 2.38979521,0 3.2440659,0 L25.9525272,0 C26.8067979,0 27.6416041,0.335664336 28.2460818,0.922027972 C28.8505594,1.50734266 29.1965931,2.31818182 29.1965931,3.14685315 C29.1890236,5.85734266 28.240675,8.44825175 26.7127199,10.6814685 C25.1771954,12.9104895 23.0317865,14.8122378 20.4040931,16.0227273 C18.6544603,16.8251748 16.6809868,17.3087413 14.5982965,17.3076923 C11.4666916,17.3076923 8.61299495,16.2241259 6.33025392,14.5951049 C4.0399434,12.9587413 2.264358,10.779021 1.16245695,8.33811189 C0.431460764,6.70909091 0.0010813553,4.95314685 0,3.14685315 L1.45656896,3.14685315 Z" fill="#F07A2A"></path> <path d="M9.59865983,9.95467851 C9.59865983,9.95467851 9.59865983,9.95467851 9.59865983,9.95467851 L9,9.95467851 C9,9.66740582 9.14222222,9.38631493 9.39022222,9.18340586 C9.63866667,8.98013316 10.3333333,8 15,8 C19.6666667,8 20.3608889,8.98013316 20.6093333,9.18340586 C20.8577778,9.38631493 21,9.66740582 21,9.95467851 C20.9968889,10.8943148 20.6071111,11.7924965 19.9791111,12.5666783 C19.348,13.3394055 18.4662222,13.9986781 17.3862222,14.4183144 C16.6671111,14.6964962 15.856,14.8641326 15,14.8637689 C13.7128889,14.8637689 12.54,14.4881326 11.6017778,13.9234054 C10.6604444,13.3561327 9.93066667,12.6004964 9.47777778,11.7543147 C9.17733333,11.1895875 9.00044444,10.5808603 9,9.95467851 L9.59865983,9.95467851 Z" fill="#E74144" mask="url(#kawaii-face__mask-2-0e8a813e)" transform="translate(15.000000, 11.431885) scale(1, -1) translate(-15.000000, -11.431885)"></path></g></g></g> <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle> <circle cx="63" cy="3" r="3"></circle></g></g> <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle> <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></g><g class="face" data-m="sleepy"><g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--sleepy"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><ellipse cx="15" cy="8" rx="4.5" ry="3.5" fill="#F07A2A"></ellipse></g></g> <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle> <circle cx="63" cy="3" r="3"></circle></g></g> <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000) translate(0.000000, 10.000000) scale(1, -1)"><path d="M11.3298651,9.72876106 C9.83321993,9.72876106 8.62018766,8.55758439 8.62018766,7.11258087 C8.62018766,6.27104292 7.91115541,5.58647579 7.03954249,5.58647579 C6.16883282,5.58647579 5.45889734,6.27104292 5.45889734,7.11258087 C5.45889734,8.55758439 4.2467683,9.72876106 2.74921991,9.72876106 C1.25257476,9.72876106 0.0395424927,8.55758439 0.0395424927,7.11258087 C0.0395424927,3.38626826 3.18005862,0.354115435 7.03954249,0.354115435 C10.8999296,0.354115435 14.0395425,3.38626826 14.0395425,7.11258087 C14.0395425,8.55758439 12.8274135,9.72876106 11.3298651,9.72876106"></path> <path d="M57.3298651,9.72876106 C55.8332199,9.72876106 54.6201877,8.55758439 54.6201877,7.11258087 C54.6201877,6.27104292 53.9111554,5.58647579 53.0395425,5.58647579 C52.1688328,5.58647579 51.4588973,6.27104292 51.4588973,7.11258087 C51.4588973,8.55758439 50.2467683,9.72876106 48.7492199,9.72876106 C47.2525748,9.72876106 46.0395425,8.55758439 46.0395425,7.11258087 C46.0395425,3.38626826 49.1800586,0.354115435 53.0395425,0.354115435 C56.8999296,0.354115435 60.0395425,3.38626826 60.0395425,7.11258087 C60.0395425,8.55758439 58.8274135,9.72876106 57.3298651,9.72876106"></path></g></g></g></g></g></g><g class="face" data-m="sad"><g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--sad"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><path d="M6,1.9999998 C6.00066667,3.14799969 6.26599997,4.26466625 6.7166666,5.29933281 C7.39599986,6.85066599 8.49066642,8.23599919 9.90199962,9.27666575 C11.3099995,10.311999 13.0693326,10.9999989 14.9999991,10.9999989 C16.283999,11.0006656 17.5006655,10.6939989 18.5793321,10.1833323 C20.1993319,9.41466574 21.5219985,8.20599919 22.468665,6.788666 C23.4106649,5.36999947 23.9953316,3.72333297 23.9999982,1.9999998 C23.9999982,0.895333245 23.104665,7.10542736e-15 21.9999984,7.10542736e-15 C20.8953319,7.10542736e-15 19.9999986,0.895333245 19.9999986,1.9999998 C20.0006653,2.51933308 19.8739986,3.11066636 19.6166653,3.7006663 C19.233332,4.58733288 18.5526654,5.4513328 17.7299988,6.0519994 C16.9033323,6.65733268 15.9686657,6.99999931 14.9999991,6.99999931 C14.3513325,6.99999931 13.7259992,6.84799932 13.1299993,6.56666602 C12.2373327,6.14866606 11.4226661,5.4193328 10.8599995,4.57066622 C10.2919996,3.7246663 9.99533294,2.77733306 9.99999961,1.9999998 C9.99999961,0.895333245 9.10466636,7.10542736e-15 7.9999998,7.10542736e-15 C6.89533325,7.10542736e-15 6,0.895333245 6,1.9999998" fill="#F07A2A" transform="translate(14.999999, 5.500000) scale(1, -1) translate(-14.999999, -5.500000)"></path></g></g> <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle> <circle cx="63" cy="3" r="3"></circle></g></g> <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle> <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></g><g class="face" data-m="shocked"><g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--shocked"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><ellipse cx="15" cy="14" rx="9" ry="10" fill="#F07A2A"></ellipse></g></g> <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle> <circle cx="63" cy="3" r="3"></circle></g></g> <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle> <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></g></svg></div>
+        <div><b>Documentation</b><span>Everything you can verify in the repository</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <div class="ph"><span class="ttl">documentation</span><span class="sub">Atypical-Consulting/ClaudeCodeUI · main</span></div>
+    <article class="md">
+      <h1>Documentation</h1>
+      <p class="intro-p">Claude Code UI is a desktop console for <a href="https://docs.claude.com/en/docs/claude-code/overview">Claude Code</a>. It drives the real <code>claude</code> CLI (stream-json protocol, the same options as the SDK and the VS Code extension) and shows sessions more readably than a terminal. The interface is available in French and English; dark themes only.</p>
+
+      <section id="installation" aria-labelledby="h-installation">
+        <h2 id="h-installation">Installation<a class="anchor" href="#installation" aria-label="Link to Installation">#</a></h2>
+        <p>Download the installer for your system from the <a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest">GitHub releases</a> page. No .NET SDK or particular browser is needed: the app bundles its own server and uses the system web view.</p>
+        <div class="tw"><table>
+          <thead><tr><th>System</th><th>File</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr><td>Windows 10/11</td><td><code>-setup.exe</code> or <code>.msi</code></td><td>WebView2 is already included in Windows 11.</td></tr>
+            <tr><td>macOS</td><td><code>.dmg</code> <code>aarch64</code> (Apple Silicon) or <code>x64</code> (Intel)</td><td>Unsigned app, see below.</td></tr>
+            <tr><td>Linux x64</td><td><code>.AppImage</code> or <code>.deb</code></td><td>Requires WebKitGTK 4.1 (<code>libwebkit2gtk-4.1-0</code> on Debian/Ubuntu, already installed on most desktops).</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>The installers are not signed.</strong> Windows and macOS therefore show a warning on first launch. This is expected; the steps are below.</p></div>
+
+        <h3>Windows</h3>
+        <p>SmartScreen shows "Windows protected your PC". Click "More info", then "Run anyway".</p>
+        <h3>macOS</h3>
+        <p>Gatekeeper blocks the app on first launch. Right-click the app, choose "Open", then confirm. Or, in a terminal:</p>
+        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"</pre></div>
+        <h3>Linux</h3>
+        <p>For the AppImage, make the file executable, then run it:</p>
+        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>chmod +x Claude*.AppImage
+./Claude*.AppImage</pre></div>
+
+        <h3>Requirement: Claude Code</h3>
+        <p>The app launches the <code>claude</code> CLI installed on your machine: it must be installed and signed in.</p>
+        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre><span class="c"># macOS, Linux, WSL</span>
+curl -fsSL https://claude.ai/install.sh | bash
+<span class="c"># Windows (PowerShell)</span>
+irm https://claude.ai/install.ps1 | iex</pre></div>
+        <p>Then run <code>claude</code> once in a terminal to sign in. If <code>claude</code> is not found in the PATH, the app shows the "Claude Code not found" screen instead of the start screen. On macOS, it reads the PATH of your login shell, so an installation done through <code>~/.zshrc</code> is picked up.</p>
+      </section>
+
+      <section id="first-launch" aria-labelledby="h-premier">
+        <h2 id="h-premier">First launch<a class="anchor" href="#first-launch" aria-label="Link to First launch">#</a></h2>
+        <p>The start screen asks "What are we working on?". It gathers everything a session fixes before it begins:</p>
+        <ul>
+          <li><strong>Working folder</strong>: the folder where <code>claude</code> will run. Recent folders are offered in one click.</li>
+          <li><strong>Isolation</strong>: "New worktree" creates a git worktree <code>worktree-&lt;name&gt;</code> from the current branch. The option only appears if the folder is a git repository.</li>
+          <li><strong>Permissions</strong>: the session mode, chosen from four.</li>
+          <li><strong>First message</strong>, then <kbd>Ctrl ⏎</kbd> or "Start".</li>
+        </ul>
+        <div class="tw"><table>
+          <thead><tr><th>Mode</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>default</code></td><td>Asks before every sensitive tool.</td></tr>
+            <tr><td><code>acceptEdits</code></td><td>Accepts edits, asks for the shell.</td></tr>
+            <tr><td><code>plan</code></td><td>Read-only, proposes a plan.</td></tr>
+            <tr><td><code>auto</code></td><td>Never interrupts; use with care.</td></tr>
+          </tbody>
+        </table></div>
+        <p>The <code>bypassPermissions</code> and <code>dontAsk</code> modes are deliberately not offered.</p>
+      </section>
+
+      <section id="sessions" aria-labelledby="h-sessions">
+        <h2 id="h-sessions">Sessions and permissions<a class="anchor" href="#sessions" aria-label="Link to Sessions and permissions">#</a></h2>
+        <p>A session shows Claude's text live, a thinking indicator, and the tool log: one line per call (<code>Read</code>, <code>Grep</code>, <code>Edit</code>, <code>Bash</code>, <code>Write</code>…), colored by tool. Selecting a line opens it in the inspector, with Output, Input and JSON tabs. <kbd>Ctrl I</kbd> shows or hides the inspector.</p>
+        <h3>Responding to a permission</h3>
+        <p>When Claude wants to edit a file or run a command, the request appears in the inspector: the full diff for an edit, the exact command for the shell.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Action</th><th>Key</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td>Allow</td><td><kbd>⏎</kbd></td><td>This call only.</td></tr>
+            <tr><td>Whole session</td><td><kbd>Shift ⏎</kbd></td><td>Applies the rule proposed by the CLI; the button only appears when it proposes one.</td></tr>
+            <tr><td>Deny</td><td><kbd>Del</kbd></td><td>Claude receives the refusal.</td></tr>
+          </tbody>
+        </table></div>
+        <p>These keys act when focus is not in a field or on a button. <kbd>Esc</kbd> interrupts the running session.</p>
+        <h3>Several sessions</h3>
+        <p>Sessions run in parallel and stay listed in the rail. The <strong>overview</strong> (<kbd>Ctrl ⇧ O</kbd>) shows their state, mode, last action and cost, and the <strong>decision queue</strong> gathers pending permissions (<kbd>J</kbd> <kbd>K</kbd> to navigate, <kbd>⏎</kbd> to open). <kbd>Ctrl ⇧ A</kbd> jumps straight to the first pending decision.</p>
+        <p>The <kbd>Ctrl K</kbd> palette finds an active or recent session and runs an action. A recent session reopens with its history. If the <code>claude</code> process stops, a card says so and lets you restart the session. The rail also shows the 5 h / 7 day quota, and each turn its cost and duration.</p>
+      </section>
+
+      <section id="composer" aria-labelledby="h-composer">
+        <h2 id="h-composer">Composer<a class="anchor" href="#composer" aria-label="Link to Composer">#</a></h2>
+        <p>The input field carries the settings for the next turn. <kbd>Ctrl ⏎</kbd> sends; during a turn, the button becomes "Interrupt" (<kbd>Esc</kbd>).</p>
+        <ul>
+          <li><strong>Model</strong>: the list comes from the CLI; the choice applies to the current session.</li>
+          <li><strong>Effort</strong>: the levels offered by the model, when it has any.</li>
+          <li><strong>Fast</strong>: the CLI's fast mode, greyed out with its reason when unavailable.</li>
+          <li><strong>Ultracode</strong>: turns on the CLI's ultracode setting for the next turn, which becomes a multi-agent workflow. Greyed out when the account or model does not allow it.</li>
+          <li><strong><code>/</code> commands</strong>: typing <code>/</code> opens the session's commands and skills, filtered as you type. <kbd>↑</kbd> <kbd>↓</kbd> to choose, <kbd>Tab</kbd> to insert, <kbd>Esc</kbd> to close.</li>
+        </ul>
+        <p>Below the field: the turn duration, the session cost, the number of tools and the context used.</p>
+      </section>
+
+      <section id="subagents" aria-labelledby="h-agents">
+        <h2 id="h-agents">Subagents<a class="anchor" href="#subagents" aria-label="Link to Subagents">#</a></h2>
+        <p>When Claude delegates to a subagent (the <code>Agent</code> or <code>Task</code> tool), the call gets its own line in the log. Opening it shows what the agent writes and the tools it calls. During an Ultracode turn, the workflow is displayed with its phases and agents, and the send button becomes "Stop workflow".</p>
+      </section>
+
+      <section id="worktrees" aria-labelledby="h-worktrees">
+        <h2 id="h-worktrees">Worktrees<a class="anchor" href="#worktrees" aria-label="Link to Worktrees">#</a></h2>
+        <p>The Worktrees page finds the worktrees of the repositories from your recent sessions, ranks them, and says why for each. The first criterion that applies wins:</p>
+        <dl class="states">
+          <dt><span class="st active"></span>Active</dt><dd>A session from the app is running there, or an external <code>claude</code> session whose process is alive. Never touched.</dd>
+          <dt><span class="st orphan"></span>Orphaned</dt><dd>The folder was deleted by hand and git still references it. Cleaned up with <code>git worktree prune</code>.</dd>
+          <dt><span class="st check"></span>Needs review</dt><dd>Uncommitted modified files, commits never pushed, a stale lock or one without a pid, a detached HEAD outside the base, or a branch not yet in the base. Waits for your decision.</dd>
+          <dt><span class="st safe"></span>Safe</dt><dd>Already merged into the base (including by squash) and nothing local. Can go.</dd>
+        </dl>
+        <p>"Delete" or "Prune" adds a worktree to the plan; the inspector shows the git commands before running them, and "Add the safe worktrees" takes them all at once. A Needs review worktree with unpushed commits offers "Push".</p>
+        <div class="callout"><svg class="i"><use href="#i-shield"/></svg><p><strong>Safeguards.</strong> Never <code>--force</code>, <code>-f</code> or <code>-D</code>: branches are removed with <code>git branch -d</code>, which git itself refuses if they are not merged. Right before each deletion, the worktree's state is read again; if it changed, it is skipped. The page also flags a <code>.claude/worktrees/</code> that git does not ignore, which a <code>git add .</code> would add to the repository.</p></div>
+      </section>
+
+      <section id="extensions" aria-labelledby="h-extensions">
+        <h2 id="h-extensions">MCP extensions<a class="anchor" href="#extensions" aria-label="Link to MCP extensions">#</a></h2>
+        <p>The Extensions page shows what the session has loaded: MCP servers, skills, agents and plugins. MCP servers are filtered by state (connected, authentication, failed); a toggle enables or disables a server for the current folder, and a failed server restarts with "Retry". Connecting a server that requires authentication is not yet available in the app.</p>
+      </section>
+
+      <section id="themes" aria-labelledby="h-themes">
+        <h2 id="h-themes">Themes<a class="anchor" href="#themes" aria-label="Link to Themes">#</a></h2>
+        <p>Five themes, all dark: <strong>Graphite</strong>, <strong>Encre</strong>, <strong>Ristretto</strong>, <strong>Mousse</strong> and <strong>High contrast</strong>. The Appearance page also sets the code size. Both choices are remembered. This site uses the same themes: the picker is in the rail.</p>
+      </section>
+
+      <section id="shortcuts" aria-labelledby="h-raccourcis">
+        <h2 id="h-raccourcis">Keyboard shortcuts<a class="anchor" href="#shortcuts" aria-label="Link to Keyboard shortcuts">#</a></h2>
+        <p>On macOS, <kbd>⌘</kbd> works everywhere <kbd>Ctrl</kbd> is shown.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Key</th><th>Action</th><th>Where</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Ctrl K</kbd></td><td>Open or close the palette (sessions and actions)</td><td>anywhere</td></tr>
+            <tr><td><kbd>Ctrl N</kbd> ou <kbd>Alt N</kbd></td><td>New session (<kbd>Alt N</kbd> when the browser keeps <kbd>Ctrl N</kbd>)</td><td>anywhere</td></tr>
+            <tr><td><kbd>Ctrl I</kbd></td><td>Show or hide the inspector</td><td>anywhere</td></tr>
+            <tr><td><kbd>Ctrl ⇧ O</kbd></td><td>Overview</td><td>anywhere</td></tr>
+            <tr><td><kbd>Ctrl ⇧ A</kbd></td><td>Go to the first pending decision</td><td>anywhere</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close the open palette or menu; otherwise interrupt the running session</td><td>anywhere</td></tr>
+            <tr><td><kbd>⏎</kbd></td><td>Allow</td><td>permission shown</td></tr>
+            <tr><td><kbd>Shift ⏎</kbd></td><td>Allow for the whole session</td><td>permission shown</td></tr>
+            <tr><td><kbd>Del</kbd></td><td>Deny</td><td>permission shown</td></tr>
+            <tr><td><kbd>Ctrl ⏎</kbd></td><td>Send the message, or start the session</td><td>composer, start screen</td></tr>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></td><td>Choose and insert a <code>/</code> command</td><td>composer</td></tr>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>⏎</kbd></td><td>Browse and open a result</td><td>palette</td></tr>
+            <tr><td><kbd>J</kbd> <kbd>K</kbd> <kbd>⏎</kbd></td><td>Browse and open a decision (also <kbd>↓</kbd> <kbd>↑</kbd>)</td><td>overview</td></tr>
+            <tr><td><kbd>⏎</kbd> or <kbd>Space</kbd></td><td>Open a log line, choose a model</td><td>log, model menu</td></tr>
+          </tbody>
+        </table></div>
+        <p>Permission keys only apply when focus is not in a field, on a button or on a link.</p>
+      </section>
+
+      <section id="security" aria-labelledby="h-securite">
+        <h2 id="h-securite">Security<a class="anchor" href="#security" aria-label="Link to Security">#</a></h2>
+        <ul>
+          <li><strong>Loopback only.</strong> The desktop app starts its server over HTTP on <code>127.0.0.1</code>, on a free port. Host filtering answers 400 to any request whose Host header is not <code>127.0.0.1</code>, which blocks DNS rebinding.</li>
+          <li><strong>Token per launch.</strong> The server draws a random token at every start and only hands it to the window, through its standard output. The first request presents it; it is then kept in an <code>HttpOnly</code>, <code>SameSite=Strict</code> cookie and compared in constant time.</li>
+          <li><strong>Markdown without HTML.</strong> Replies go through Markdig with raw HTML disabled: a reply cannot inject markup into the page.</li>
+          <li><strong>Lifetime tied to the window.</strong> The server stops when the window closes.</li>
+        </ul>
+        <p>In development mode (<code>dotnet run</code>), the web server listens on <code>http://localhost:5284</code>, without a token.</p>
+      </section>
+
+      <section id="development" aria-labelledby="h-dev">
+        <h2 id="h-dev">Development<a class="anchor" href="#development" aria-label="Link to Development">#</a></h2>
+        <p>Requirements: .NET 10 SDK. For the desktop app: Rust (stable), Node 20+ and the <a href="https://v2.tauri.app/start/prerequisites/">Tauri prerequisites</a> for your system.</p>
+        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>dotnet run                     <span class="c"># web server alone on http://localhost:5284</span>
+dotnet run -- --self-check     <span class="c"># built-in checks, non-zero exit code on failure</span></pre></div>
+        <p>Desktop app, in the <code>desktop/</code> folder:</p>
+        <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copy</button></div><pre>cd desktop
+npm install
+npm run server   <span class="c"># publishes the self-contained server for your machine into src-tauri/server</span>
+npm run dev      <span class="c"># launches the Tauri window</span>
+npm run build    <span class="c"># builds the installers into src-tauri/target/release/bundle</span></pre></div>
+        <p>The Tauri shell launches <code>ClaudeCodeUI --desktop-port 0 --parent-pid &lt;pid&gt;</code>, shows a loading screen, then opens the interface. Re-run <code>npm run server</code> after every change to the .NET code.</p>
+      </section>
+
+      <section id="publishing" aria-labelledby="h-pub">
+        <h2 id="h-pub">Publishing<a class="anchor" href="#publishing" aria-label="Link to Publishing">#</a></h2>
+        <ol>
+          <li>Commits follow <a href="https://www.conventionalcommits.org/en/">Conventional Commits</a>: <code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>ci:</code>, <code>chore:</code>.</li>
+          <li>On every push to <code>main</code>, <a href="https://github.com/googleapis/release-please">release-please</a> opens or updates a release PR: CHANGELOG, and the version in <code>ClaudeCodeUI.csproj</code>, <code>tauri.conf.json</code> and <code>Cargo.toml</code>.</li>
+          <li>Merging that PR creates the tag and the GitHub release. The <code>release.yml</code> workflow then builds the Windows, macOS (arm64 and x64) and Linux installers and attaches them to the release.</li>
+        </ol>
+        <p>This site is published to GitHub Pages by the <code>pages.yml</code> workflow whenever the <code>site/</code> folder changes on <code>main</code>.</p>
+      </section>
+
+      <section id="limits" aria-labelledby="h-limites">
+        <h2 id="h-limites">Known limitations<a class="anchor" href="#limits" aria-label="Link to Known limitations">#</a></h2>
+        <p>Open problems are tracked on GitHub. At the time of writing:</p>
+        <ul class="issues">
+          <li><span>#2</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/2">The rail's worktree cleanup counter does not update after a new scan.</a></li>
+          <li><span>#3</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/3">The composer's model menu is not yet a keyboard-navigable list and does not close on an outside click.</a></li>
+          <li><span>#4</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/4">Background subagents must stay "running" until their completion notification.</a></li>
+          <li><span>#5</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/5">Claude API errors are not yet shown as a readable, copyable card.</a></li>
+          <li><span>#6</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/6">The first session's initialization request can go unanswered for 60 s.</a></li>
+          <li><span>#7</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/7">Some CLI controls (ultracode, whole-session permissions, MCP enable and restart, <code>/compact</code>) have not yet been verified on a real run.</a></li>
+          <li><span>#8</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/8">Repositories discovered through a session disappear from the Worktrees page when its process ends.</a></li>
+          <li><span>#9</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/9">On exit, the whole <code>claude</code> process tree must be stopped, and orphaned <code>worktree-*</code> branches flagged.</a></li>
+          <li><span>#10</span><a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/10">The cost of sessions reopened from their transcript is underestimated.</a></li>
+        </ul>
+        <p>Another problem? <a href="https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/new">Open an issue</a>.</p>
+        <div class="pager"><a class="btn" href="#installation">Back to top</a><a class="btn primary" href="./">Download</a></div>
+      </section>
+    </article>
+  </main>
+
+  <aside class="insp" aria-label="Screenshot of the section">
+    <div class="insp-in">
+      <div class="ph"><span class="ttl">Preview</span><span class="sub" id="shot-sub">installation</span></div>
+      <section class="section">
+        <figure class="shot"><a id="shot-a" href="../assets/screens/04.png"><img id="shot-img" src="../assets/screens/04.png" width="1440" height="900" alt="Overview: five sessions with their state, mode and last action, and the queue of pending decisions."></a><figcaption><span id="shot-cap">Sessions overview</span><span>mockup</span></figcaption></figure>
+      </section>
+      <section class="section">
+        <h3>Download</h3>
+        <p>Windows, macOS and Linux installers are attached to every GitHub release.</p>
+        <div class="acts"><a class="btn primary" href="./#dl"><svg class="i"><use href="#i-dl"/></svg>Get the installer</a></div>
+      </section>
+    </div>
+  </aside>
+</div>
+<script src="../site.js"></script>
+</body>
+</html>
