@@ -73,7 +73,7 @@
                 <div class="input" style="font-family:var(--sans)">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
                             @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
-                    @if (branch is null)
+                    @if (branch is null && RendererInfo.IsInteractive)
                     {
                         <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
                     }
@@ -138,7 +138,7 @@
     ElementReference cwdInput;
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
-    bool claudeFound = ClaudeSession.OnPath();
+    bool claudeFound = true;   // probed once interactive, not during the prerender
 
     bool Isolated => worktree && branch is not null;
     // The desktop shell starts in ~: Claude could touch every dotfile there, with no worktree to isolate it.
@@ -147,6 +147,8 @@
 
     protected override void OnInitialized()
     {
+        if (!RendererInfo.IsInteractive) return;
+        claudeFound = ClaudeSession.OnPath();
         recents = TranscriptStore.Recent().Select(p => TranscriptStore.RootOf(p.Cwd)).Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(Directory.Exists).Take(5).ToList();
         if (recents.Count > 0) cwd = recents[0];   // the last project, rather than the process folder (~ on desktop)
@@ -176,7 +178,7 @@
         cwd = value;
         confirmRisk = false;
         exists = Local(cwd);
-        branch = exists ? await Branch(cwd) : null;
+        branch = exists && RendererInfo.IsInteractive ? await Branch(cwd) : null;   // no git process for the prerender
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.

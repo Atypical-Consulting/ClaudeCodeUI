@@ -177,7 +177,7 @@
     {
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
-        _ = Refresh();
+        if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
     }
 
     void OnChanged()
