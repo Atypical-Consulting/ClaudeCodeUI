@@ -90,6 +90,13 @@
                 });
             });
         },
+        // Native modal <dialog> (RewindDialog); after closing, focus goes to `then` (a selector) when the trigger is gone.
+        dialog(el, open, then) {
+            if (!el) return;
+            if (open) { if (!el.open) el.showModal(); return; }
+            if (el.open) el.close();
+            if (then) document.querySelector(then)?.focus();
+        },
         scrollToEnd(el) { if (el) el.scrollLeft = el.scrollWidth; },
         // A new permission card: keys stay inert for 300 ms (a held or doubled key must not answer a card nobody has
         // read), then focus moves to the card unless the user is typing a draft or using a dialog.
