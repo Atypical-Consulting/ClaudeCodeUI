@@ -7,7 +7,7 @@
     <div class="pop slash" id="mention-list" role="listbox" aria-label="@L["Mention.Title"]" aria-busy="@(index is null ? "true" : "false")">
         <div class="sh">
             <span>@L["Mention.Title"]</span>
-            <span>@(index is null ? L["Mention.Scanning"] : index.Truncated ? L["Mention.Truncated", FileIndex.MaxEntries] : "") <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span>
+            <span>@(index is null ? L["Mention.Scanning"] : index.Truncated ? L["Mention.Truncated", index.Paths.Length] : "") <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span>
         </div>
         @for (var i = 0; i < matches.Count; i++)
         {
@@ -27,6 +27,7 @@
     [Parameter] public LiveSession Session { get; set; } = null!;
     [Parameter] public string Query { get; set; } = "";
     [Parameter] public EventCallback<string> OnPick { get; set; }
+    [Parameter] public EventCallback OnReady { get; set; }   // the scan finished: the Composer re-renders its aria-activedescendant
 
     readonly CancellationTokenSource cts = new();
     FileIndex.Index? index;
@@ -49,6 +50,7 @@
             index = new([], false);
         }
         Refilter();
+        await OnReady.InvokeAsync();
     }
 
     protected override void OnParametersSet()
@@ -66,6 +68,7 @@
 
     public void Dispose()
     {
+        matches = [];   // the Composer's @ref outlives this instance until the next popover renders: no stale ActiveId
         cts.Cancel();
         cts.Dispose();
     }
