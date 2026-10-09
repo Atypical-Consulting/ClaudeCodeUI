@@ -12,7 +12,10 @@
         switch (b)
         {
             case UserItem u:
-                <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]</div>@if (u.Ultracode)
+                <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]@if (Session.CanRewind(u))
+                    {
+                        <button type="button" class="rw-btn" aria-haspopup="dialog" @onclick="() => rewind!.Open(u)"><Icon Name="undo" Sm />@L["Rewind.Action"]</button>
+                    }</div>@if (u.Ultracode)
                     {
                         <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>
                     }<span class="tx">@u.Text</span>@if (u.Images is { Count: > 0 } imgs)
@@ -55,11 +58,13 @@
     <button type="button" class="btn jump" hidden><Icon Name="down" Sm />@L["Thread.JumpLatest"]</button>
     <Ticker Active="Session.Status == SessionStatus.Running"><StatusLine Session="Session" /></Ticker>
 </div>
+<RewindDialog @ref="rewind" Session="Session" />
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
     ElementReference el;
     int prompts;
+    RewindDialog? rewind;
 
     sealed record Run(List<ToolItem> Tools, bool Agents);
 

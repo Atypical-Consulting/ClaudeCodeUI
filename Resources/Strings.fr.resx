@@ -369,6 +369,16 @@
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connexion perdue</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page en pause</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Reprise impossible</value></data>
+  <data name="Rewind.Action" xml:space="preserve"><value>Revenir ici</value></data>
+  <data name="Rewind.Confirm" xml:space="preserve"><value>Revenir</value></data>
+  <data name="Rewind.Files" xml:space="preserve"><value>Fichiers remis comme avant ce message</value></data>
+  <data name="Rewind.FilesUnavailable" xml:space="preserve"><value>Les fichiers restent tels quels : {0}</value></data>
+  <data name="Rewind.Lines" xml:space="preserve"><value>+{0} −{1} lignes</value></data>
+  <data name="Rewind.Loading" xml:space="preserve"><value>Vérification des fichiers…</value></data>
+  <data name="Rewind.NoFiles" xml:space="preserve"><value>Aucun fichier modifié depuis ce message.</value></data>
+  <data name="Rewind.Refused" xml:space="preserve"><value>La CLI a refusé le retour : {0}</value></data>
+  <data name="Rewind.Text" xml:space="preserve"><value>Ce message et tout ce qui suit sortent de la conversation. Son texte revient dans la zone de saisie.</value></data>
+  <data name="Rewind.Title" xml:space="preserve"><value>Revenir à ce message ?</value></data>
   <data name="Session.ExitShort" xml:space="preserve"><value>code {0}</value></data>
   <data name="Session.Exited" xml:space="preserve"><value>claude s’est arrêté ({0})</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>Aucun processus claude pour cette session.</value></data>
