@@ -31,8 +31,7 @@ fn main() {
             std::thread::spawn(move || {
                 let fail = |why: String| {
                     std::thread::sleep(Duration::from_millis(500)); // let the splash finish loading
-                    let msg = format!("Le serveur n'a pas démarré : {why}");
-                    let _ = window.eval(&format!("var m=document.getElementById('msg');m.className='err';m.textContent={msg:?}"));
+                    let _ = window.eval(&format!("fail({why:?})")); // index.html words it in the OS language
                 };
                 let mut child = match cmd.spawn() {
                     Ok(c) => c,

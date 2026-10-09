@@ -6,11 +6,11 @@
 <PageTitle>Extensions · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">Réglages</span><span class="sub">Extensions</span></div>
+    <div class="ph"><span class="ttl">@L["Settings.Title"]</span><span class="sub">Extensions</span></div>
     <div class="ext">
         @if (Live is not { } s)
         {
-            <div><h3>Extensions</h3><p class="lead">Démarre une session pour voir ce que le CLI charge.</p></div>
+            <div><h3>Extensions</h3><p class="lead">@L["Ext.NoSession"]</p></div>
         }
         else
         {
@@ -18,7 +18,7 @@
             var skills = s.Init?.Skills ?? [];
             var agents = Agents(s);
             var plugins = s.Init?.Plugins ?? [];
-            <div><h3>Extensions</h3><p class="lead">@servers.Count serveurs MCP, @skills.Length skills, @agents.Count agents, @plugins.Length plugins, chargés par le CLI au démarrage de chaque session.</p></div>
+            <div><h3>Extensions</h3><p class="lead">@L["Ext.Lead", servers.Count, skills.Length, agents.Count, plugins.Length]</p></div>
             <div class="subtabs" role="tablist">
                 @Tab("mcp", "MCP", servers.Count)
                 @Tab("skills", "Skills", skills.Length)
@@ -32,13 +32,13 @@
                     <div class="errbox">@note</div>
                 }
                 <div class="filters">
-                    @Filter("", "Tous", servers.Count)
-                    @Filter("connected", "Connectés", servers.Count(x => x.Status == "connected"))
-                    @Filter("needs-auth", "Authentification", servers.Count(x => x.Status == "needs-auth"))
-                    @Filter("failed", "En échec", servers.Count(x => x.Status == "failed"))
+                    @Filter("", L["Filter.All"], servers.Count)
+                    @Filter("connected", L["Ext.Filter.Connected"], servers.Count(x => x.Status == "connected"))
+                    @Filter("needs-auth", L["Ext.Filter.Auth"], servers.Count(x => x.Status == "needs-auth"))
+                    @Filter("failed", L["Ext.Filter.Failed"], servers.Count(x => x.Status == "failed"))
                 </div>
                 <table class="mcp">
-                    <thead><tr><th>Serveur</th><th>Source</th><th>État</th><th class="num">Outils</th><th class="num">Pour ce dossier</th></tr></thead>
+                    <thead><tr><th>@L["Ext.Col.Server"]</th><th>@L["Ext.Col.Source"]</th><th>@L["Col.State"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ext.Col.ThisFolder"]</th></tr></thead>
                     <tbody>
                         @foreach (var m in servers.Where(x => filter == "" || x.Status == filter))
                         {
@@ -51,14 +51,14 @@
                                     @switch (m.Status)
                                     {
                                         case "failed":
-                                            <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">Réessayer</button>
+                                            <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
                                             break;
                                         case "needs-auth":
-                                            <button class="btn" aria-disabled="true" title="bientôt">Se connecter</button>
+                                            <button class="btn" aria-disabled="true" title="@L["Ext.Soon"]">@L["Ext.SignIn"]</button>
                                             break;
                                         case "connected" or "disabled":
                                             var on = m.Status == "connected";
-                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="Activer pour ce dossier"
+                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="@L["Ext.EnableHere"]"
                                                     disabled="@busy" @onclick="() => Toggle(s, m.Name, !on)"><span class="sw"></span></button>
                                             break;
                                     }
@@ -70,12 +70,12 @@
             }
             else if (s.Init is null && tab != "agents")
             {
-                <p class="lead">Le CLI annonce cette liste au premier message de la session.</p>
+                <p class="lead">@L["Ext.AfterFirstMessage"]</p>
             }
             else if (tab == "skills")
             {
                 <table class="mcp">
-                    <thead><tr><th>Skill</th><th>Description</th></tr></thead>
+                    <thead><tr><th>Skill</th><th>@L["Ext.Col.Description"]</th></tr></thead>
                     <tbody>
                         @foreach (var k in skills)
                         {
@@ -88,7 +88,7 @@
             else if (tab == "agents")
             {
                 <table class="mcp">
-                    <thead><tr><th>Agent</th><th>Description</th><th>Modèle</th></tr></thead>
+                    <thead><tr><th>Agent</th><th>@L["Ext.Col.Description"]</th><th>@L["Model"]</th></tr></thead>
                     <tbody>
                         @foreach (var (name, desc, model) in agents)
                         {
@@ -100,7 +100,7 @@
             else
             {
                 <table class="mcp">
-                    <thead><tr><th>Plugin</th><th class="num">Serveurs MCP</th><th class="num">Skills</th></tr></thead>
+                    <thead><tr><th>Plugin</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">Skills</th></tr></thead>
                     <tbody>
                         @foreach (var p in plugins)
                         {
@@ -124,36 +124,36 @@
         @if (sel.Status == "failed")
         {
             <div class="section">
-                <h3>Le serveur n'a pas pu démarrer</h3>
+                <h3>@L["Ext.FailedTitle"]</h3>
                 @if (sel.Error is { } err)
                 {
                     <div class="errbox">@err.TrimEnd()</div>
                 }
-                <p>Ses outils manquent à cette session tant que ce n'est pas corrigé.</p>
+                <p>@L["Ext.FailedText"]</p>
                 <div class="acts">
-                    <button class="btn primary" disabled="@busy" @onclick="() => Reconnect(ls, sel.Name)"><Icon Name="refresh" Sm="true" />Réessayer</button>
-                    <button class="btn" aria-disabled="true" title="bientôt">Ouvrir la configuration</button>
+                    <button class="btn primary" disabled="@busy" @onclick="() => Reconnect(ls, sel.Name)"><Icon Name="refresh" Sm="true" />@L["Ext.Retry"]</button>
+                    <button class="btn" aria-disabled="true" title="@L["Ext.Soon"]">@L["Ext.OpenConfig"]</button>
                 </div>
             </div>
         }
         else if (sel.Status == "needs-auth")
         {
             <div class="section">
-                <h3>Authentification requise</h3>
-                <p>Le serveur attend une connexion. Ses outils restent indisponibles d'ici là.</p>
-                <div class="acts"><button class="btn" aria-disabled="true" title="bientôt">Se connecter</button></div>
+                <h3>@L["Ext.AuthTitle"]</h3>
+                <p>@L["Ext.AuthText"]</p>
+                <div class="acts"><button class="btn" aria-disabled="true" title="@L["Ext.Soon"]">@L["Ext.SignIn"]</button></div>
             </div>
         }
         <div class="section" style="border-bottom:0">
             <div class="kv">
-                <span>source</span><span>@sel.Origin</span>
+                <span>@L["Ext.Kv.Source"]</span><span>@sel.Origin</span>
                 <span>transport</span><span>@(sel.Transport ?? "—")</span>
                 @if (sel.Target is { } t)
                 {
-                    <span>cible</span><span>@t</span>
+                    <span>@L["Ext.Kv.Target"]</span><span>@t</span>
                 }
-                <span>outils</span><span>@(sel.Tools?.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
-                <span>portée</span><span>@(sel.Scope ?? "—")</span>
+                <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
+                <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope ?? "—")</span>
                 @if (sel.Version is { } v)
                 {
                     <span>version</span><span>@v</span>
@@ -249,7 +249,7 @@
     {
         if (name.StartsWith("plugin:") && name.Split(':', 3) is [_, var p, var rest]) return (rest, "plugin:" + p, "plugin");
         if (name.StartsWith("claude.ai ")) return (name[10..], "claude.ai", "claude.ai");
-        var origin = scope switch { "user" => "utilisateur", "project" => "projet", "local" => "local", _ => scope ?? source ?? "" };
+        var origin = scope switch { "user" => Strings.Get("Ext.Scope.User"), "project" => Strings.Get("Ext.Scope.Project"), "local" => Strings.Get("Ext.Scope.Local"), _ => scope ?? source ?? "" };
         return (name, origin, source switch { null or "user" => "user", "claudeai" => "claude.ai", _ => source });
     }
 
@@ -269,13 +269,13 @@
     RenderFragment Filter(string key, string label, int n) =>
         @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label <b>@n</b></button>;
 
-    static RenderFragment State(string status) => status switch
+    RenderFragment State(string status) => status switch
     {
-        "connected" => @<span class="ms ok"><i></i>connecté</span>,
-        "needs-auth" => @<span class="ms auth"><i></i>authentification requise</span>,
-        "failed" => @<span class="ms fail"><i></i>en échec</span>,
-        "disabled" => @<span class="ms off"><i></i>désactivé</span>,
-        "pending" => @<span class="ms wait"><i></i>connexion…</span>,
+        "connected" => @<span class="ms ok"><i></i>@L["Ext.State.Connected"]</span>,
+        "needs-auth" => @<span class="ms auth"><i></i>@L["Ext.State.NeedsAuth"]</span>,
+        "failed" => @<span class="ms fail"><i></i>@L["Ext.State.Failed"]</span>,
+        "disabled" => @<span class="ms off"><i></i>@L["Ext.State.Disabled"]</span>,
+        "pending" => @<span class="ms wait"><i></i>@L["Ext.State.Pending"]</span>,
         _ => @<span class="ms off"><i></i>@status</span>,
     };
 

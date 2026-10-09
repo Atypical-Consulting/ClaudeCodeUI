@@ -3,7 +3,7 @@
 @inject UiState Ui
 
 <div class="wf">
-    <div class="wh"><Icon Name="agents" /><b>Sous-agents</b><span class="tag">workflow</span><span class="r">@Head</span></div>
+    <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">workflow</span><span class="r">@Head</span></div>
     @foreach (var a in Agents)
     {
         var isOpen = open.Contains(a.Id);
@@ -66,11 +66,11 @@
         var tokens = a.Tokens > 0 ? $"{Fmt.Tokens(a.Tokens)} tokens · " : "";
         return tokens + a.State switch
         {
-            ToolState.Running => $"en cours · {Fmt.Dur(Elapsed(a))}",
-            ToolState.Done => $"terminé · {Fmt.Dur(Elapsed(a))}",
-            ToolState.Waiting => "attend ta décision",
-            ToolState.Denied => "refusé",
-            _ => "erreur",
+            ToolState.Running => Strings.Get("Status.Running") + " · " + Fmt.Dur(Elapsed(a)),
+            ToolState.Done => Strings.Get("Tool.Done") + " · " + Fmt.Dur(Elapsed(a)),
+            ToolState.Waiting => Strings.Get("Tool.Waiting"),
+            ToolState.Denied => Strings.Get("Tool.Denied"),
+            _ => Strings.Get("Tool.Error"),
         };
     }
 }

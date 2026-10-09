@@ -11,14 +11,14 @@
     var rows = Rows();
     sel = Math.Clamp(sel, 0, Math.Max(0, rows.Count - 1));
     <div class="scrim" @onclick="() => Ui.PaletteOpen = false"></div>
-    <div class="palette" role="dialog" aria-label="Rechercher">
-        <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="Rechercher une session ou une action…" aria-label="Rechercher" /><kbd>Échap</kbd></div>
+    <div class="palette" role="dialog" aria-label="@L["Rail.Search"]">
+        <div class="q-in"><Icon Name="search" /><input @ref="input" value="@q" @oninput="Search" @onkeydown="e => Key(e, rows)" placeholder="@L["Palette.Placeholder"]" aria-label="@L["Rail.Search"]" /><kbd>@L["Key.Esc"]</kbd></div>
         @for (var i = 0; i < rows.Count; i++)
         {
             var r = rows[i];
             var on = i == sel;
-            if (i == 0 && r.Session) { <div class="pg cap">Sessions</div> }
-            if (!r.Session && (i == 0 || rows[i - 1].Session)) { <div class="pg cap">Actions</div> }
+            if (i == 0 && r.Session) { <div class="pg cap">@L["Palette.Sessions"]</div> }
+            if (!r.Session && (i == 0 || rows[i - 1].Session)) { <div class="pg cap">@L["Palette.Actions"]</div> }
             <div class="pi @(on ? "on" : null)" @onclick="r.Run">
                 @if (r.Session) { <span class="dot @r.Dot"></span> } else { <span class="ic"><Icon Name="@r.Dot" Sm /></span> }
                 <div><div class="n">@Mark(r.Name)</div>@if (r.Detail is { Length: > 0 } d) { <div class="d">@d</div> }</div>
@@ -30,8 +30,8 @@
                 </span>
             </div>
         }
-        @if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">Aucun résultat</div> }
-        <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> naviguer</span><span><kbd>⏎</kbd> ouvrir</span></div>
+        @if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
+        <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
     </div>
 }
 
@@ -55,16 +55,15 @@
         var rows = all.Where(x => Hit(x.Name) || Hit(x.Branch) || Hit(x.Repo)).Take(q.Length > 0 ? 8 : 5).Select(x => x.Row).ToList();
 
         var cwd = CurrentCwd();
-        var name = char.ToUpper(theme[0]) + theme[1..];
         Row[] actions =
         [
-            new(false, cwd is null ? "Nouvelle session" : $"Nouvelle session dans {ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)}", "plus", null, 0, null, "Alt N",
+            new(false, cwd is null ? L["Rail.NewSession"] : L["Palette.NewSessionIn", ClaudeCodeUI.Components.Pages.NewSession.Chip(cwd)], "plus", null, 0, null, "Alt N",
                 Go(cwd is null ? "" : $"?cwd={Uri.EscapeDataString(cwd)}")),
-            new(false, "Vue d'ensemble", "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
-            new(false, $"Thème : {name}", "palette", null, 0, "changer…", null, NextTheme),
+            new(false, L["Nav.Overview"], "grid", null, 0, null, "Ctrl ⇧ O", Go("overview")),
+            new(false, L["Palette.Theme", L["Theme." + theme]], "palette", null, 0, L["Palette.ChangeTheme"], null, NextTheme),
             new(false, "Worktrees", "branch", null, 0, null, null, Go("worktrees")),
             new(false, "Extensions", "plug", null, 0, null, null, Go("extensions")),
-            new(false, "Apparence", "palette", null, 0, null, null, Go("settings/appearance")),
+            new(false, L["Nav.Appearance"], "palette", null, 0, null, null, Go("settings/appearance")),
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
         return rows;
@@ -73,23 +72,23 @@
     Row SessionRow(LiveSession s) => new(true, s.Name, RailSessionRow.Dot(s),
         Join(s.Branch, s.Repo, s.Status switch
         {
-            SessionStatus.Waiting when s.Pending.FirstOrDefault() is { } p => $"attend · {p.Tool}",
+            SessionStatus.Waiting when s.Pending.FirstOrDefault() is { } p => L["Status.WaitingOn", p.Tool],
             SessionStatus.Idle or SessionStatus.Exited when s.CostUsd >= 0.005m => Fmt.Cost(s.CostUsd, 2),
             _ => null,
         }),
         s.Status == SessionStatus.Waiting ? s.Pending.Count : 0,
-        s.Status switch { SessionStatus.Running => "en cours", SessionStatus.Crashed => $"exit {s.ExitCode}", SessionStatus.Waiting => null, _ => "terminée" },
+        s.Status switch { SessionStatus.Running => L["Status.Running"], SessionStatus.Crashed => $"exit {s.ExitCode}", SessionStatus.Waiting => null, _ => L["Status.Done"] },
         null, Go($"session/{s.Id}"));
 
     Row PastRow(PastSession p) => new(true, p.Title, "idle",
         Join(p.Branch, TranscriptStore.RepoName(p.Cwd), Day(p.LastWrite), p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : null),
-        0, "terminée", null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
+        0, L["Status.Done"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
 
-    static string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
+    string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
     {
         0 => Fmt.Time(t),
-        1 => "hier",
-        var d => $"il y a {d} j",
+        1 => L["Day.Yesterday"],
+        var d => L["Day.Ago", d],
     };
 
     static string Join(params string?[] parts) => string.Join(" · ", parts.Where(p => !string.IsNullOrEmpty(p)));

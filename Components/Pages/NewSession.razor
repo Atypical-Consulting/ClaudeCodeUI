@@ -3,33 +3,33 @@
 @inject SessionManager Sessions
 @inject NavigationManager Nav
 
-<PageTitle>Nouvelle session · Claude Code</PageTitle>
+<PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">Nouvelle session</span></div>
+    <div class="ph"><span class="ttl">@L["Rail.NewSession"]</span></div>
     <div class="start">
         @if (!claudeFound)
         {
             <div class="start-card">
                 <div class="hello">
                     <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="88" Color="#FCCC0A" /></div>
-                    <div><h3>Claude Code est introuvable</h3><p>Cette application pilote le CLI <code>claude</code>, qui n'est pas dans le PATH.</p></div>
+                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L["New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
-                    <label>1. Installer Claude Code</label>
-                    <p>macOS, Linux, WSL : <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
-                    <p>Windows (PowerShell) : <code>irm https://claude.ai/install.ps1 | iex</code></p>
-                    <p>Guide complet : <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
+                    <label>@L["New.Step1"]</label>
+                    <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
+                    <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
+                    <p>@L["New.Guide"] <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
                 </div>
                 <div class="field">
-                    <label>2. Se connecter</label>
-                    <p>Lance <code>claude</code> une fois dans un terminal et connecte-toi.</p>
+                    <label>@L["New.Step2"]</label>
+                    <p>@((MarkupString)L["New.Step2Text"].Value)</p>
                 </div>
                 <div class="field">
-                    <label>3. Relancer</label>
-                    <p>Redémarre Claude Code UI pour qu'il retrouve <code>claude</code> dans le PATH.</p>
+                    <label>@L["New.Step3"]</label>
+                    <p>@((MarkupString)L["New.Step3Text"].Value)</p>
                 </div>
-                <div class="row"><button class="btn primary" @onclick="() => claudeFound = ClaudeSession.OnPath()">Vérifier à nouveau</button></div>
+                <div class="row"><button class="btn primary" @onclick="() => claudeFound = ClaudeSession.OnPath()">@L["New.CheckAgain"]</button></div>
             </div>
         }
         else
@@ -37,14 +37,14 @@
         <div class="start-card">
             <div class="hello">
                 <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Happy" Size="88" Color="#FCCC0A" /></div>
-                <div><h3>Sur quoi on travaille ?</h3><p>Claude Code tournera dans ce dossier, avec tes outils et tes permissions.</p></div>
+                <div><h3>@L["New.Hello"]</h3><p>@L["New.HelloText"]</p></div>
             </div>
             <div class="field">
-                <label for="cwd">Dossier de travail</label>
+                <label for="cwd">@L["New.Folder"]</label>
                 <div class="input"><Icon Name="folder" /><input id="cwd" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
-                    <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">Ce dossier n'existe pas.</div>
+                    <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
                 }
                 @if (recents.Count > 0)
                 {
@@ -60,40 +60,40 @@
                 <label>Isolation</label>
                 <div class="input" style="font-family:var(--sans)">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
-                            @onclick="() => worktree = !worktree"><span class="sw"></span>Nouveau worktree</button>
+                            @onclick="() => worktree = !worktree"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null)
                     {
-                        <span class="branch" style="margin-left:14px">pas un dépôt git</span>
+                        <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
                     }
                     else if (Isolated && editing)
                     {
                         <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
-                        <input value="@WtName" @onchange="SetName" aria-label="Nom du worktree" spellcheck="false" />
+                        <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
                         <button class="b btn ghost" @onclick="() => editing = false">OK</button>
                     }
                     else if (Isolated)
                     {
-                        <span class="branch" style="margin-left:14px"><Icon Name="branch" />worktree-@WtName depuis @branch</span>
-                        <button class="b btn ghost" @onclick="() => editing = true">Modifier</button>
+                        <span class="branch" style="margin-left:14px"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch]</span>
+                        <button class="b btn ghost" @onclick="() => editing = true">@L["New.Edit"]</button>
                     }
                 </div>
             </div>
             <div class="field">
                 <label>Permissions</label>
                 <div class="modes" role="radiogroup" aria-label="Permissions">
-                    @foreach (var (m, text) in Modes)
+                    @foreach (var m in Modes)
                     {
-                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => mode = m"><b>@m</b><span>@text</span></button>
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => mode = m"><b>@m</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
             </div>
             <div>
                 <div class="box" style="max-width:none">
-                    <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="Décris la tâche…" aria-label="Premier message"></textarea>
-                    <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">Démarrer <kbd>Ctrl ⏎</kbd></button></div>
+                    <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
+                    <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">@L["New.Start"] <kbd>Ctrl ⏎</kbd></button></div>
                 </div>
             </div>
-            <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Alt N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
+            <div class="hint"><span><kbd>Ctrl K</kbd> @L["New.HintSwitch"]</span><span><kbd>Alt N</kbd> @L["New.HintNew"]</span><span><kbd>Ctrl I</kbd> @L["New.HintInspector"]</span></div>
         </div>
         }
     </div>
@@ -101,13 +101,7 @@
 
 @code {
     // "default" is sent as "manual" by LiveSession. bypassPermissions / dontAsk are deliberately not offered.
-    static readonly (string, string)[] Modes =
-    [
-        ("default", "Demande avant chaque outil sensible"),
-        ("acceptEdits", "Accepte les éditions, demande pour le shell"),
-        ("plan", "Lecture seule, propose un plan"),
-        ("auto", "N'interrompt jamais, à utiliser avec prudence"),
-    ];
+    static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 

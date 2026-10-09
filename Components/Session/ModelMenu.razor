@@ -2,9 +2,9 @@
 
 @inject IJSRuntime JS
 
-<div class="pop slash menu" role="listbox" aria-label="Modèle" @ref="list" tabindex="0" aria-activedescendant="mm-opt-@sel"
+<div class="pop slash menu" role="listbox" aria-label="@L["Model"]" @ref="list" tabindex="0" aria-activedescendant="mm-opt-@sel"
      @onkeydown="Key" @onkeydown:preventDefault>
-    <div class="sh"><span>Modèle</span><span>@error</span></div>
+    <div class="sh"><span>@L["Model"]</span><span>@error</span></div>
     @{ var cur = Current(Session) is { } c ? Events.Str(c, "value") : null; }
     @for (var i = 0; i < models.Count; i++)
     {
@@ -14,7 +14,7 @@
         <div id="mm-opt-@i" class="si @(current ? "on" : null) @(i == sel ? "kb" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)">
             <b>@(Events.Str(m, "displayName") ?? value)</b>
             <span title="@Events.Str(m, "description")">@Events.Str(m, "description")</span>
-            @if (current) { <span class="tag acc">actuel</span> } else { <span></span> }
+            @if (current) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
         </div>
     }
 </div>

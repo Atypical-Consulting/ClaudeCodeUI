@@ -23,11 +23,11 @@
     // Right-hand slot of a tool row; also used by the subagent rows of Workflow.
     public static RenderFragment Meta(ToolItem t) => t.State switch
     {
-        ToolState.Waiting => @<span class="m">attend ta décision</span>,
-        ToolState.Denied => @<span class="badge no">refusé</span>,
-        ToolState.Error => @<span class="badge no">erreur</span>,
+        ToolState.Waiting => @<span class="m">@Strings.Get("Tool.Waiting")</span>,
+        ToolState.Denied => @<span class="badge no">@Strings.Get("Tool.Denied")</span>,
+        ToolState.Error => @<span class="badge no">@Strings.Get("Tool.Error")</span>,
         ToolState.Running => @<span class="m">…</span>,
-        _ when t.Name == "Write" && Events.Str(t.Structured ?? default, "type") == "create" => @<span class="badge ok">créé</span>,
+        _ when t.Name == "Write" && Events.Str(t.Structured ?? default, "type") == "create" => @<span class="badge ok">@Strings.Get("Tool.Created")</span>,
         _ => Done(t) is { Length: > 0 } m ? @<span class="m">@m</span> : _ => { },
     };
 
@@ -38,11 +38,11 @@
         {
             case "Read":
                 var n = Num(Events.Prop(s, "file") ?? default, "numLines") ?? t.ResultText?.TrimEnd('\n').Split('\n').Length ?? 0;
-                return n == 1 ? "1 ligne" : $"{n} lignes";
+                return n == 1 ? Strings.Get("Tool.Lines1") : Strings.Get("Tool.LinesN", n);
             case "Grep" or "Glob":
                 var r = (Events.Str(s, "mode") switch { "content" => Num(s, "numLines"), "count" => Num(s, "numMatches"), _ => Num(s, "numFiles") })
                         ?? t.ResultText?.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length ?? 0;
-                return r == 1 ? "1 résultat" : $"{r} résultats";
+                return r == 1 ? Strings.Get("Tool.Results1") : Strings.Get("Tool.ResultsN", r);
             case "Edit" or "MultiEdit" or "Write" when Events.Prop(s, "structuredPatch") is { ValueKind: JsonValueKind.Array } patch:
                 var lines = patch.EnumerateArray().Where(h => Events.Prop(h, "lines") is { ValueKind: JsonValueKind.Array }).SelectMany(h => h.GetProperty("lines").EnumerateArray()).Select(l => l.GetString() ?? "").ToList();
                 return $"+{lines.Count(l => l.StartsWith('+'))} −{lines.Count(l => l.StartsWith('-'))}";

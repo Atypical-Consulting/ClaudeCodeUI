@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>Claude Code UI</title>
@@ -16,7 +16,18 @@
 <body>
 <main>
   <img src="icon.png" alt="" />
-  <div id="msg" role="status">Démarrage…</div>
+  <div id="msg" role="status">Starting…</div>
 </main>
+<script>
+  // The app itself follows Accept-Language; this splash follows the same OS language.
+  var fr = /^fr\b/i.test(navigator.language);
+  if (fr) { document.documentElement.lang = 'fr'; document.getElementById('msg').textContent = 'Démarrage…'; }
+  // Called by the shell (main.rs) when the server does not come up.
+  function fail(why) {
+    var m = document.getElementById('msg');
+    m.className = 'err';
+    m.textContent = (fr ? "Le serveur n'a pas démarré : " : 'The server did not start: ') + why;
+  }
+</script>
 </body>
 </html>

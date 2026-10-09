@@ -9,7 +9,7 @@
         switch (b)
         {
             case UserItem u:
-                <div class="you"><div class="w">toi · @Fmt.Time(u.At)</div>@if (u.Ultracode)
+                <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]</div>@if (u.Ultracode)
                     {
                         <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>
                     }@u.Text</div>

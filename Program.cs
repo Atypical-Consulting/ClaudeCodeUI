@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using ClaudeCodeUI;
 using ClaudeCodeUI.Components;
+using Microsoft.AspNetCore.Localization;
 
 if (args is ["--self-check"]) { Environment.ExitCode = SelfCheck.Run(); return; }
 if (args is ["--boot-probe", var probeDir, ..])
@@ -31,6 +33,7 @@ if (desktop)
     builder.Configuration["AllowedHosts"] = "127.0.0.1"; // HostFiltering answers 400 to rebound Host headers
 }
 
+builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<SessionManager>();   // IAsyncDisposable: kills the claude processes on shutdown
@@ -52,6 +55,19 @@ if (desktop)
         await next();
     });
 
+// UI language: the .AspNetCore.Culture cookie set by /culture, else Accept-Language (the desktop webview sends the OS
+// language), else English.
+app.UseRequestLocalization(new RequestLocalizationOptions()
+    .SetDefaultCulture("en").AddSupportedCultures(Strings.Cultures).AddSupportedUICultures(Strings.Cultures));
+// ponytail: one app-wide culture for code that runs outside a request (claude's event readers trigger renders);
+// two tabs in two languages would share the last one. Per-circuit capture if that ever matters.
+app.Use((ctx, next) =>
+{
+    CultureInfo.DefaultThreadCurrentCulture = CultureInfo.CurrentCulture;
+    CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.CurrentUICulture;
+    return next(ctx);
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -64,6 +80,14 @@ if (!desktop) app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+// Language selector (Appearance page): a plain GET form, then a full reload in the new culture.
+app.MapGet("/culture", (string? c, HttpContext ctx) =>
+{
+    if (c is not null && Strings.Cultures.Contains(c))
+        ctx.Response.Cookies.Append(CookieRequestCultureProvider.DefaultCookieName, CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(c)),
+            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), SameSite = SameSiteMode.Lax, IsEssential = true });
+    return Results.LocalRedirect("~/settings/appearance");
+});
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

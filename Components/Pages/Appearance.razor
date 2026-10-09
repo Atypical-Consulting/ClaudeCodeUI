@@ -1,19 +1,33 @@
 @page "/settings/appearance"
 @inject IJSRuntime JS
 
-<PageTitle>Apparence · Claude Code</PageTitle>
+<PageTitle>@L["Nav.Appearance"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">Réglages</span><span class="sub">Apparence</span></div>
+    <div class="ph"><span class="ttl">@L["Settings.Title"]</span><span class="sub">@L["Nav.Appearance"]</span></div>
     <div class="settings">
-        <div><h3>Apparence</h3><p class="lead">Le thème change les couleurs de toute l'interface, coloration syntaxique comprise. <kbd>Ctrl K</kbd> puis « thème » pour basculer sans ouvrir les réglages.</p></div>
+        <div><h3>@L["Nav.Appearance"]</h3><p class="lead">@((MarkupString)L["Appearance.Lead"].Value)</p></div>
         <div class="set-row">
-            <div><b>Thème</b><span>Appliqué tout de suite, retenu pour la prochaine fois.</span></div>
+            <div><label for="lang"><b>@L["Appearance.Language"]</b></label><span>@L["Appearance.LanguageHint"]</span></div>
+            @* A plain GET form: choosing an option changes nothing until Apply, then /culture sets the cookie and reloads. *@
+            <form class="lang" method="get" action="culture">
+                <select id="lang" name="c">
+                    @foreach (var (c, name) in Languages)
+                    {
+                        <option value="@c" lang="@c" selected="@(c == culture)">@name</option>
+                    }
+                </select>
+                <button class="btn" type="submit">@L["Appearance.Apply"]</button>
+            </form>
+        </div>
+        <div class="set-row">
+            <div><b>@L["Appearance.Theme"]</b><span>@L["Appearance.ThemeHint"]</span></div>
             <div class="themes">
-                @foreach (var (k, n) in Themes)
+                @foreach (var k in Themes)
                 {
+                    var n = L["Theme." + k].Value;
                     @* data-theme scopes the preview to the card's own tokens *@
-                    <button class="tc @(k == theme ? "on" : null)" data-theme="@k" aria-pressed="@(k == theme ? "true" : "false")" aria-label="Thème @n" @onclick="() => SetTheme(k)">
+                    <button class="tc @(k == theme ? "on" : null)" data-theme="@k" aria-pressed="@(k == theme ? "true" : "false")" aria-label="@L["Appearance.ThemeLabel", n]" @onclick="() => SetTheme(k)">
                         <div class="pv">
                             <div class="rl"><i></i><i></i><i></i><i></i></div>
                             <div class="bd">
@@ -21,7 +35,7 @@
                                 <div class="ln"><span style="color:var(--edit)">Edit</span> <span style="color:var(--fg-2)">Home.razor</span></div>
                                 <div class="ln"><span style="color:var(--syn-kw)">static</span> <span style="color:var(--syn-type)">Store</span> <span style="color:var(--syn-fn)">Load</span><span style="color:var(--fg-3)">(</span><span style="color:var(--syn-str)">"cwd"</span><span style="color:var(--fg-3)">)</span></div>
                                 <div class="ln" style="color:var(--syn-com);font-style:italic">// @n.ToLowerInvariant()</div>
-                                <span class="btnp">Autoriser</span>
+                                <span class="btnp">@L["Perm.Allow"]</span>
                             </div>
                         </div>
                         <div class="nm"><b>@n</b><span class="sw"><i style="background:var(--syn-kw)"></i><i style="background:var(--syn-str)"></i><i style="background:var(--syn-fn)"></i><i style="background:var(--syn-type)"></i></span></div>
@@ -30,9 +44,9 @@
             </div>
         </div>
         <div class="set-row">
-            <div><b>Taille du code</b><span>Blocs de code, diffs, inspecteur.</span></div>
+            <div><b>@L["Appearance.CodeSize"]</b><span>@L["Appearance.CodeSizeHint"]</span></div>
             <div>
-                <div class="seg" role="group" aria-label="Taille du code">
+                <div class="seg" role="group" aria-label="@L["Appearance.CodeSize"]">
                     @foreach (var px in Sizes)
                     {
                         var v = px + "px";
@@ -42,18 +56,21 @@
             </div>
         </div>
         <div class="set-row">
-            <div><b>Aperçu</b><span>Le rendu réel avec le thème choisi.</span></div>
+            <div><b>@L["Appearance.Preview"]</b><span>@L["Appearance.PreviewHint"]</span></div>
             <div class="sample md">@((MarkupString)Sample)</div>
         </div>
     </div>
 </div>
 
 @code {
-    static readonly (string Key, string Name)[] Themes = [("graphite", "Graphite"), ("encre", "Encre"), ("ristretto", "Ristretto"), ("mousse", "Mousse"), ("contraste", "Contraste élevé")];
+    static readonly string[] Themes = ["graphite", "encre", "ristretto", "mousse", "contraste"];
+    // Each language is named in itself.
+    static readonly (string Code, string Name)[] Languages = [("en", "English"), ("fr", "Français")];
+    readonly string culture = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     static readonly int[] Sizes = [12, 13, 14, 15];
-    static readonly string Sample = Md.Render("""
+    string Sample => Md.Render($$"""
         ```csharp
-        // Le canard change d'humeur selon l'état de la session
+        // {{L["Appearance.SampleComment"]}}
         Mood MoodFor(Session s) => s.State switch
         {
             State.WaitingPermission => Mood.Shocked,

@@ -60,7 +60,7 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        label.nodeValue = 'Copié';
+        label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
         b.classList.add('done');
         setTimeout(() => { label.nodeValue = old; b.classList.remove('done'); }, 1400);
     });

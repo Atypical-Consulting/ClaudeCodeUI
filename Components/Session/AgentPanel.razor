@@ -2,24 +2,24 @@
 @inject UiState Ui
 
 <div class="ph"><span class="ttl">Agent</span><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
-    <span class="end"><button class="btn ghost" title="Fermer" aria-label="Fermer" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+    <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div style="flex:1;min-height:0;overflow:auto">
     <div class="section" style="border-bottom:0">
-        <span class="cap">Ce que l'agent écrit</span>
+        <span class="cap">@L["Agent.Writes"]</span>
         @if (LastText is { Length: > 0 } t)
         {
             <div style="font-size:13.5px"><Markdown Text="@t" /></div>
         }
         else
         {
-            <p>@(Agent.State == ToolState.Running ? "L'agent n'a encore rien écrit." : "Aucun texte.")</p>
+            <p>@(Agent.State == ToolState.Running ? L["Agent.NothingYet"] : L["Agent.NoText"])</p>
         }
         <div class="kv">
             <span>type</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
-            <span>outils</span><span>@Math.Max(Agent.SubToolUses, Session.Items.OfType<ToolItem>().Count(i => i.ParentToolUseId == Agent.Id))</span>
+            <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Items.OfType<ToolItem>().Count(i => i.ParentToolUseId == Agent.Id))</span>
             <span>tokens</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
-            <span>coût</span><span>—</span>
+            <span>@L["Kv.Cost"]</span><span>—</span>
         </div>
     </div>
 </div>

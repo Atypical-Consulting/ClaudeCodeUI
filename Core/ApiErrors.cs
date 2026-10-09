@@ -1,28 +1,33 @@
 namespace ClaudeCodeUI;
 
-public sealed record ApiError(string Title, string Hint, string Raw);
+// Kind picks the friendly text (resources ApiError.<Kind>.Title / .Hint), read in the UI culture when shown; Raw stays untouched.
+public sealed record ApiError(string Kind, string Raw)
+{
+    public string Title => Strings.Get($"ApiError.{Kind}.Title");
+    public string Hint => Strings.Get($"ApiError.{Kind}.Hint");
+}
 
-// Maps the CLI's synthetic "API Error: ..." text to a friendly French message; Raw stays untouched.
+// Maps the CLI's synthetic "API Error: ..." text to a friendly message.
 public static class ApiErrors
 {
     // First match wins, most specific first. Case-insensitive substring match on the raw text.
-    static readonly (string[] Needles, string Title, string Hint)[] Table =
+    static readonly (string[] Needles, string Kind)[] Table =
     [
-        (["content filtering"], "La réponse a été bloquée par le filtre de contenu de l'API.", "Reformule la demande ou retire le contenu sensible, puis renvoie le message."),
-        (["prompt is too long", "413"], "La conversation dépasse la taille de contexte du modèle.", "Lance `/compact` ou démarre une nouvelle session."),
-        (["rate_limit", "429"], "Limite de requêtes atteinte.", "Patiente quelques instants avant de renvoyer le message."),
-        (["overloaded", "529"], "L'API Claude est surchargée.", "Réessaie dans un moment."),
-        (["authentication", "invalid api key", "oauth", "401", "403"], "L'authentification auprès de l'API a échoué.", "Reconnecte-toi avec `claude /login` dans un terminal."),
-        (["timed out", "timeout", "connection error", "ECONNRESET", "fetch failed"], "Impossible de joindre l'API Claude.", "Vérifie la connexion réseau puis renvoie le message."),
-        (["500", "api_error", "internal server error"], "L'API Claude a rencontré une erreur interne.", "Réessaie ; si l'erreur persiste, consulte status.anthropic.com."),
+        (["content filtering"], "ContentFilter"),
+        (["prompt is too long", "413"], "TooLong"),
+        (["rate_limit", "429"], "RateLimit"),
+        (["overloaded", "529"], "Overloaded"),
+        (["authentication", "invalid api key", "oauth", "401", "403"], "Auth"),
+        (["timed out", "timeout", "connection error", "ECONNRESET", "fetch failed"], "Network"),
+        (["500", "api_error", "internal server error"], "Server"),
     ];
 
     public static ApiError? Parse(string text)
     {
         if (text is null || !text.TrimStart().StartsWith("API Error", StringComparison.Ordinal)) return null;
-        foreach (var (needles, title, hint) in Table)
-            if (needles.Any(n => text.Contains(n, StringComparison.OrdinalIgnoreCase))) return new(title, hint, text);
-        return new("L'API Claude a renvoyé une erreur.", "Le détail brut est ci-dessous.", text);
+        foreach (var (needles, kind) in Table)
+            if (needles.Any(n => text.Contains(n, StringComparison.OrdinalIgnoreCase))) return new(kind, text);
+        return new("Generic", text);
     }
 
     internal static void Check()

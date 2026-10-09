@@ -5,7 +5,7 @@
     long max = c is { } x1 ? Long(x1, "maxTokens") : Session.ContextWindow ?? 0;
     long total = c is { } x2 ? Long(x2, "totalTokens") : Session.ContextTokens;
 }
-<div class="ph"><span class="ttl">Contexte</span>
+<div class="ph"><span class="ttl">@L["Ctx.Title"]</span>
     @if (max > 0)
     {
         <span class="sub">@Fmt.Tokens(total) / @Fmt.Tokens(max) · @Fmt.Pct(total / (double)max)</span>
@@ -30,14 +30,14 @@
                     {
                         <i style="background:@r.First().Color"></i><span>@r.Key</span><span>@Fmt.Tokens(r.Sum(x => x.Tokens))</span>
                     }
-                    <i style="background:var(--seam)"></i><span>libre</span><span>@Fmt.Tokens(Math.Max(0, max - total))</span>
+                    <i style="background:var(--seam)"></i><span>@L["Ctx.Free"]</span><span>@Fmt.Tokens(Math.Max(0, max - total))</span>
                 </div>
             </div>
             <div class="acts">
-                <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />Compacter maintenant</button>
+                <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
-                    <span class="btn ghost" title="Seuil d'auto-compactage du CLI">Auto à @Fmt.Pct(th / (double)max)</span>
+                    <span class="btn ghost" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
                 }
             </div>
             @if (error is not null)
@@ -48,16 +48,16 @@
         @if (mcpTools.Count > 0)
         {
             <div class="section" style="border-bottom:0">
-                <span class="cap">Les outils MCP pèsent @Fmt.Tokens(mcpTokens)</span>
+                <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
-                <p>@(n == 1 ? "1 outil" : $"{n} outils") de @(k == 1 ? "1 serveur" : $"{k} serveurs") @(n == 1 ? "est chargé" : "sont chargés"). Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</p>
-                <div><a class="btn" href="extensions">Gérer les serveurs MCP</a></div>
+                <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", n == 1 ? L["Tools1"] : L["ToolsN", n], k == 1 ? L["Ctx.Servers1"] : L["Ctx.ServersN", k]] @L["Ctx.DisableHint"]</p>
+                <div><a class="btn" href="extensions">@L["Ctx.ManageMcp"]</a></div>
             </div>
         }
     }
     else
     {
-        <div class="section" style="border-bottom:0"><p>Sélectionne une ligne du journal pour l'inspecter.</p></div>
+        <div class="section" style="border-bottom:0"><p>@L["Ctx.SelectRow"]</p></div>
     }
 </div>
 
@@ -76,10 +76,10 @@
         return Events.Prop(ctx, "categories") is { ValueKind: JsonValueKind.Array } cats
         ? [.. cats.EnumerateArray().Where(k => Events.Str(k, "kind") == "used" && Long(k, "tokens") > 0).Select(k => (Events.Str(k, "name") ?? "") switch
             {
-                "System prompt" => new Row("prompt système", "var(--fg-4)", Long(k, "tokens"), false),
-                "System tools" => new Row("outils intégrés", "var(--syn-fn)", Long(k, "tokens"), false),
-                var n when n.StartsWith("MCP") => new Row(mcp > 0 ? $"outils MCP · {mcp}" : "outils MCP", "var(--syn-kw)", Long(k, "tokens"), true),
-                "Memory files" => new Row("mémoire, CLAUDE.md", "var(--syn-attr)", Long(k, "tokens"), false),
+                "System prompt" => new Row(Strings.Get("Ctx.Cat.SystemPrompt"), "var(--fg-4)", Long(k, "tokens"), false),
+                "System tools" => new Row(Strings.Get("Ctx.Cat.SystemTools"), "var(--syn-fn)", Long(k, "tokens"), false),
+                var n when n.StartsWith("MCP") => new Row(mcp > 0 ? Strings.Get("Ctx.Cat.McpN", mcp) : Strings.Get("Ctx.Cat.Mcp"), "var(--syn-kw)", Long(k, "tokens"), true),
+                "Memory files" => new Row(Strings.Get("Ctx.Cat.Memory"), "var(--syn-attr)", Long(k, "tokens"), false),
                 "Custom agents" => new Row("agents", "var(--syn-type)", Long(k, "tokens"), false),
                 "Skills" => new Row("skills", "var(--syn-num)", Long(k, "tokens"), false),
                 "Messages" => new Row("messages", "var(--syn-str)", Long(k, "tokens"), false),

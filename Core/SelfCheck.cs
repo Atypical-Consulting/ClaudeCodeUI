@@ -5,8 +5,11 @@ public static class SelfCheck
 {
     public static int Run()
     {
+        // The asserts below compare the French UI text.
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("fr");
         try
         {
+            Strings.Check();
             ProcessJob.Check();
             Events.Check();
             ApiErrors.Check();

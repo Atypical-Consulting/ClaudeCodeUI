@@ -12,9 +12,9 @@
         <SlashPopover @ref="slash" Session="Session" Query="@sq" OnPick="Pick" />
     }
     <div class="box">
-        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="Message pour Claude"></textarea>
+        <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"></textarea>
         <div class="tools-row">
-            <span class="chip" title="Mode de permission">@Session.Mode</span>
+            <span class="chip" title="@L["Composer.PermissionMode"]">@Session.Mode</span>
             @if (models.Count > 0 && !crashed)
             {
                 <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => menuOpen = !menuOpen">
@@ -23,7 +23,7 @@
             }
             else
             {
-                <span class="pick dis" aria-disabled="true"><Icon Name="cpu" />@(Session.Model ?? "Modèle")</span>
+                <span class="pick dis" aria-disabled="true"><Icon Name="cpu" />@(Session.Model ?? L["Model"])</span>
             }
             @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
             {
@@ -36,53 +36,53 @@
             }
             @if (FastOk)
             {
-                <button class="pick @(Session.FastModeState == "on" ? "on" : null)" aria-pressed="@((Session.FastModeState == "on") ? "true" : "false")" title="Mode rapide" @onclick="ToggleFast"><Icon Name="zap" />Rapide</button>
+                <button class="pick @(Session.FastModeState == "on" ? "on" : null)" aria-pressed="@((Session.FastModeState == "on") ? "true" : "false")" title="@L["Composer.FastMode"]" @onclick="ToggleFast"><Icon Name="zap" />@L["Composer.Fast"]</button>
             }
             else
             {
-                <span class="pick dis" aria-disabled="true" title="Mode rapide indisponible@(FastReason is { } r ? " : " + r : "")"><Icon Name="zap" />Rapide</span>
+                <span class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</span>
             }
             @if (ultraAvailable == false || crashed)
             {
-                <span class="pick dis" aria-disabled="true" title="Ultracode indisponible pour ce compte ou ce modèle"><Icon Name="agents" />Ultracode</span>
+                <span class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</span>
             }
             else
             {
-                <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="Active le réglage ultracode du CLI pour le prochain tour" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
+                <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="@L["Composer.UltraHint"]" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
             }
             <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
                 @if (Session.Status == SessionStatus.Running)
                 {
                     @if (ultraTurn) { <span class="tag acc">ultracode</span> }
-                    <button class="btn go" @onclick="() => Run(Session.Interrupt)"><Icon Name="stop" Sm />@(ultraTurn ? "Arrêter le workflow" : "Interrompre") <kbd>Échap</kbd></button>
+                    <button class="btn go" @onclick="() => Run(Session.Interrupt)"><Icon Name="stop" Sm />@(ultraTurn ? L["Composer.StopWorkflow"] : L["Composer.Interrupt"]) <kbd>@L["Key.Esc"]</kbd></button>
                 }
                 else if (crashed)
                 {
-                    <button class="btn go" disabled>Envoyer</button>
+                    <button class="btn go" disabled>@L["Composer.Send"]</button>
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">Envoyer <kbd>Ctrl ⏎</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>Ctrl ⏎</kbd></button>
                 }
             </span>
         </div>
     </div>
     <div class="meta">
-        @if (Turn is { } d) { <span>tour <b>@Fmt.Dur(d)</b></span> }
+        @if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }
         <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
-        <span>outils <b>@Session.ToolCount</b></span>
-        @if (Session.ContextTokens > 0) { <span>contexte <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
+        <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
+        @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
         @if (error is not null)
         {
             <span class="r" style="color:var(--err-fg)">@error</span>
         }
         else if (Session.Ultracode && Session.Status != SessionStatus.Running)
         {
-            <span class="r"><span class="tag acc">ultracode</span> multi-agents pour ce tour</span>
+            <span class="r"><span class="tag acc">ultracode</span> @L["Composer.UltraThisTurn"]</span>
         }
         else
         {
-            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype)</span>
+            <span class="r">@(Session.Status == SessionStatus.Running || Session.LastResultSubtype is null or "success" ? "claude · stream-json" : Session.LastResultSubtype == "interrompu" ? L["Composer.Interrupted"] : Session.LastResultSubtype)</span>
         }
     </div>
 </div>
@@ -102,7 +102,7 @@
     bool crashed => Session.Status == SessionStatus.Crashed;
     bool ultraTurn => Session.Status == SessionStatus.Running && Session.Items.LastOrDefault(i => i is UserItem) is UserItem { Ultracode: true };
     string? Effort => appliedEffort ?? Session.Effort;
-    string ModelLabel => model is { } m ? Events.Str(m, "displayName") ?? Session.Model ?? "" : Session.Model ?? "Modèle";
+    string ModelLabel => model is { } m ? Events.Str(m, "displayName") ?? Session.Model ?? "" : Session.Model ?? L["Model"];
     TimeSpan? Turn => Session.TurnStartedAt is { } t ? DateTimeOffset.Now - t : Session.LastTurn;
 
     // While a name is being typed after "/" (no space yet).
@@ -112,18 +112,18 @@
     string? FastReason => Session.FastModeReason switch
     {
         null => null,
-        "sdk_opt_in_required" => "opt-in SDK requis",
-        "extra_usage_disabled" => "usage supplémentaire désactivé",
+        "sdk_opt_in_required" => L["Composer.FastSdkOptIn"],
+        "extra_usage_disabled" => L["Composer.FastExtraUsage"],
         var r => r,
     };
 
     string Placeholder => Session.Status switch
     {
-        SessionStatus.Crashed => "Session arrêtée. Relance-la pour continuer.",
-        SessionStatus.Waiting => "Ou explique à Claude ce que tu veux à la place…",
-        SessionStatus.Running when ultraTurn => "Le workflow tourne. Tu peux préparer la suite…",
-        SessionStatus.Running => "Claude travaille. Tu peux préparer la suite…",
-        _ => "Réponds à Claude…",
+        SessionStatus.Crashed => L["Composer.PhCrashed"],
+        SessionStatus.Waiting => L["Composer.PhWaiting"],
+        SessionStatus.Running when ultraTurn => L["Composer.PhWorkflow"],
+        SessionStatus.Running => L["Composer.PhRunning"],
+        _ => L["Composer.PhIdle"],
     };
 
     protected override void OnParametersSet()
