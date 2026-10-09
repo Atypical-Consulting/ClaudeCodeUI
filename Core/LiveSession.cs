@@ -104,15 +104,25 @@ public sealed class LiveSession : IAsyncDisposable
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         lock (gate) Resolve(p, d);
         Notify();
-        if (d == Decision.Deny) { await c.Respond(p.RequestId, false, p.Input); return; }
-        JsonNode? updated = null;
-        if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+        try
         {
-            var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
-            if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
-            else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+            if (d == Decision.Deny) { await c.Respond(p.RequestId, false, p.Input); return; }
+            JsonNode? updated = null;
+            if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
+            {
+                var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
+                if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
+                else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+            }
+            await c.Respond(p.RequestId, true, p.Input, updated);
         }
-        await c.Respond(p.RequestId, true, p.Input, updated);
+        catch
+        {
+            // The CLI never got its answer: put the card back so the error shows and the user can answer again.
+            lock (gate) Unresolve(c, p);
+            Notify();
+            throw;
+        }
     }
 
     public async Task Interrupt()
@@ -341,6 +351,15 @@ public sealed class LiveSession : IAsyncDisposable
         Pending = Pending.Remove(p);
         if (Tool(p.ToolUseId) is { } t) t.State = d == Decision.Deny ? ToolState.Denied : ToolState.Running;
         if (Pending.IsEmpty && Status == SessionStatus.Waiting) Status = SessionStatus.Running;
+    }
+
+    // Undo Resolve after a failed reply, unless the process or the turn ended meanwhile (that cleared Pending already).
+    internal void Unresolve(ClaudeSession c, PendingPermission p)
+    {
+        if (proc != c || Status is not (SessionStatus.Running or SessionStatus.Waiting) || Pending.Contains(p)) return;
+        Pending = Pending.Insert(0, p);
+        if (Tool(p.ToolUseId) is { } t) t.State = ToolState.Waiting;
+        Status = SessionStatus.Waiting;
     }
 
     // Tools still open when the turn or the process ends: they never got a result.

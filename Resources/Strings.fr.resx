@@ -59,6 +59,8 @@
   <data name="Composer.PhRunning" xml:space="preserve"><value>Claude travaille. Tu peux préparer la suite…</value></data>
   <data name="Composer.PhWaiting" xml:space="preserve"><value>Ou explique à Claude ce que tu veux à la place…</value></data>
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Tu peux préparer la suite…</value></data>
+  <data name="Composer.DenyAndSend" xml:space="preserve"><value>Refuser {0} et envoyer</value></data>
+  <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Les demandes d'autorisation en attente sont d'abord refusées, puis ton message est envoyé.</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Envoyer</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Arrêter le workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>tour</value></data>

@@ -60,6 +60,11 @@
                 {
                     <button class="btn go" disabled>@L["Composer.Send"]</button>
                 }
+                else if (Session.Pending.Count is var n and > 0)
+                {
+                    @* Sending answers the pending requests with a denial first: say so on the button itself. *@
+                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>Ctrl ⏎</kbd></button>
+                }
                 else
                 {
                     <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>Ctrl ⏎</kbd></button>
