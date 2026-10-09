@@ -132,7 +132,7 @@ jobs:
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
 
-      - uses: actions/attest-build-provenance@v3
+      - uses: actions/attest-build-provenance@v4
         if: github.event_name == 'push'
         with:
           subject-path: |
