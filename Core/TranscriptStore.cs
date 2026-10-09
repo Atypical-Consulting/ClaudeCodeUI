@@ -47,8 +47,11 @@ public static class TranscriptStore
     // Replays the user/assistant lines through Events.ParseAll and the session reducer.
     public static IReadOnlyList<Item> Load(string id) => Find(id) is { } path ? Replay(File.ReadLines(path)) : [];
 
-    static IReadOnlyList<Item> Replay(IEnumerable<string> lines)
+    static IReadOnlyList<Item> Replay(IEnumerable<string> source)
     {
+        var lines = source as IReadOnlyList<string> ?? [.. source];
+        var active = ActivePrompts(lines);
+        var keep = true;   // the last prompt before this line is on the active branch
         var s = new LiveSession("", "", "", "default");
         foreach (var line in lines)
         {
@@ -57,6 +60,8 @@ public static class TranscriptStore
             // The file names the diff field toolUseResult; the stream (and Events) say tool_use_result.
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
             catch (JsonException) { continue; }
+            if (active is not null && IsPrompt(e) && Events.Str(e, "uuid") is { } id) keep = active.Contains(id);
+            if (!keep) continue;
             DateTimeOffset? at = DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var t) ? t : null;
             if (Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }) continue;
             // A message sent mid-turn and folded into it (LiveSession.Send) is written as this attachment, after the tool
@@ -137,6 +142,48 @@ public static class TranscriptStore
         }
         catch (IOException) { return path; }
     }
+    // After a rewind, the uuids on the branch the CLI resumes; null when the file holds no rewind (replayed whole). A
+    // rewind (rewind_conversation) leaves the dropped messages in the file: a {"type":"last-prompt","rewound":true,
+    // "leafUuid"} line marks the new end (no leafUuid: back to the very first message) and the next message links to it
+    // by parentUuid; compaction restarts the chain (parentUuid null) and keeps the link in logicalParentUuid. The chain
+    // only decides which prompts stay: parallel tool calls branch too (one sibling per call), so every other line follows
+    // the prompt before it. Shapes from CLI 2.1.296 (--probe-cli rewind-conversation).
+    static HashSet<string>? ActivePrompts(IReadOnlyList<string> lines)
+    {
+        if (!lines.Any(l => l.Contains("\"rewound\":true"))) return null;
+        Dictionary<string, string?> parent = [];
+        string? leaf = null;
+        foreach (var line in lines)
+        {
+            if (!line.Contains("\"uuid\":") && !line.Contains("\"rewound\":true")) continue;
+            try
+            {
+                using var d = JsonDocument.Parse(line);
+                var e = d.RootElement;
+                if (Events.Str(e, "type") == "last-prompt")
+                {
+                    if (Events.Prop(e, "rewound") is { ValueKind: JsonValueKind.True }) leaf = Events.Str(e, "leafUuid");
+                }
+                else if (Events.Str(e, "uuid") is { } id && Events.Prop(e, "isSidechain") is not { ValueKind: JsonValueKind.True })
+                {
+                    parent[id] = Events.Str(e, "parentUuid") ?? Events.Str(e, "logicalParentUuid");
+                    leaf = id;
+                }
+            }
+            catch (JsonException) { }
+        }
+        HashSet<string> chain = [];
+        for (var id = leaf; id is not null && chain.Add(id);) id = parent.GetValueOrDefault(id);
+        return chain;
+    }
+
+    // A message the user typed (or a notification turn), not a tool result nor a meta line (skill text, caveats).
+    static bool IsPrompt(JsonElement e) =>
+        Events.Str(e, "type") == "user" && Events.Prop(e, "isMeta") is not { ValueKind: JsonValueKind.True }
+        && Events.Prop(e, "isSidechain") is not { ValueKind: JsonValueKind.True } && Events.Prop(e, "message") is { } m
+        && Events.Prop(m, "content") is { } c
+        && (c.ValueKind == JsonValueKind.String
+            || c.ValueKind == JsonValueKind.Array && !c.EnumerateArray().Any(b => Events.Str(b, "type") == "tool_result"));
 
     // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
     // Raw cost-state: what the CLI restores on --resume (EnsureProcess subtracts it).
@@ -392,6 +439,27 @@ public static class TranscriptStore
             """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_U","type":"tool_result","content":"Updated task #1 status"}]},"toolUseResult":{"success":true,"taskId":"1","updatedFields":["status"],"statusChange":{"from":"pending","to":"in_progress"}},"timestamp":"2026-10-09T12:00:03Z"}""",
         ]);
         Ok(TodoList.From(todo) is [{ Key: "1", Content: "alpha", Status: TodoStatus.InProgress }], "replay task list");
+        // Rewind (CLI 2.1.296): "deux" and its Write stay in the file, the rewound last-prompt then the next message ("trois")
+        // point back to the compaction (logicalParentUuid). The parallel Read t2 is a dead-end sibling of t1, yet stays.
+        string[] branched = [
+            """{"parentUuid":null,"type":"user","message":{"role":"user","content":"un"},"uuid":"u1"}""",
+            """{"parentUuid":"u1","type":"assistant","message":{"id":"m1","role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Read","input":{}}]},"uuid":"a1"}""",
+            """{"parentUuid":"a1","type":"assistant","message":{"id":"m1","role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Read","input":{}}]},"uuid":"a1b"}""",
+            """{"parentUuid":"a1b","type":"user","message":{"role":"user","content":[{"tool_use_id":"t2","type":"tool_result","content":"ok"}]},"uuid":"r2"}""",
+            """{"parentUuid":"a1","type":"user","message":{"role":"user","content":[{"tool_use_id":"t1","type":"tool_result","content":"ok"}]},"uuid":"r1"}""",
+            """{"parentUuid":"r1","type":"assistant","message":{"id":"m2","role":"assistant","content":[{"type":"text","text":"OK"}]},"uuid":"a2"}""",
+            """{"parentUuid":null,"logicalParentUuid":"a2","type":"system","subtype":"compact_boundary","uuid":"cb"}""",
+            """{"parentUuid":"cb","type":"user","message":{"role":"user","content":"deux"},"uuid":"u2"}""",
+            """{"parentUuid":"u2","type":"assistant","message":{"id":"m3","role":"assistant","content":[{"type":"tool_use","id":"t3","name":"Write","input":{}}]},"uuid":"b2"}""",
+        ];
+        const string cut = """{"type":"last-prompt","lastPrompt":"deux","leafUuid":"cb","explicit":true,"rewound":true,"sessionId":"s"}""";
+        Ok(Replay(branched) is [.., UserItem { Text: "deux" }, ToolItem { Id: "t3" }], "replay without a rewind keeps every line");
+        Ok(Replay([.. branched, cut]) is [UserItem { Text: "un" }, ToolItem { Id: "t1", State: ToolState.Done }, ToolItem { Id: "t2", State: ToolState.Done }, TextItem { Markdown: "OK" }],
+            "replay stops at a rewound leaf, parallel tool calls kept");
+        Ok(Replay([.. branched, cut, """{"parentUuid":"cb","type":"user","message":{"role":"user","content":"trois"},"uuid":"u3"}"""])
+            is [UserItem { Text: "un" }, ToolItem, ToolItem, TextItem, UserItem { Text: "trois" }], "replay follows the branch after a rewind");
+        Ok(Replay([.. branched, """{"type":"last-prompt","lastPrompt":"un","explicit":true,"rewound":true,"sessionId":"s"}"""]) is [],
+            "replay after a rewind to the first message");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
 
         // AskUserQuestion answered (CLI 2.1.296): the answers come back in toolUseResult.
