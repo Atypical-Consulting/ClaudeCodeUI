@@ -77,7 +77,7 @@ public sealed class LiveSession : IAsyncDisposable
     public JsonElement? InitializeInfo { get; private set; }  // "initialize" response: models, commands, agents, account
     public string? Model { get; private set; }
     public string? Effort { get; private set; }
-    public bool Ultracode { get; private set; }               // toggle "pour ce tour"
+    public bool Ultracode { get; private set; }               // toggle "for this turn"
     public string FastModeState { get; private set; } = "off";
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
@@ -208,10 +208,10 @@ public sealed class LiveSession : IAsyncDisposable
             // A cold start (new folder, -w, hooks, MCP) can keep the CLI busy past a minute. Wait ONCE on the same
             // request_id: re-sending under a new id dropped a late answer to the first one.
             var init = p.Request("initialize", null, 180);
-            if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize : still waiting after 60 s");
+            if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize: still waiting after 60 s");
             var info = await init;
             InitializeInfo = info;
-            Console.WriteLine($"[{Id}] initialize : {Count(info, "models")} modèles, {Count(info, "commands")} commandes");
+            Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
             if (applied is { } a)
             {
@@ -225,7 +225,7 @@ public sealed class LiveSession : IAsyncDisposable
                 LimitsAt = DateTimeOffset.Now;
             }
         }
-        catch (Exception ex) { Console.Error.WriteLine($"[{Id}] démarrage : {ex.Message}"); }
+        catch (Exception ex) { Console.Error.WriteLine($"[{Id}] startup: {ex.Message}"); }
         lock (gate) if (Status == SessionStatus.Starting) Status = SessionStatus.Idle;
         Notify();
 

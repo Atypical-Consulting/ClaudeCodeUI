@@ -393,22 +393,22 @@ public sealed class WorktreeService(SessionManager sessions)
     internal static void Check()
     {
         static void Is(WtFacts f, WtState s, string what) => SelfCheck.Assert(Classify(f).State == s, $"Classify {what} : {Classify(f).State}, attendu {s}");
-        Is(new(Merged: true, ActiveSessionName: "x"), WtState.Active, "session active dans l'app");
+        Is(new(Merged: true, ActiveSessionName: "x"), WtState.Active, "active session in the app");
         Is(new(Locked: true, LockPid: 42, PidAlive: true, Merged: true), WtState.Active, "verrou pid vivant");
         Is(new(Exists: false, Merged: true), WtState.Orphan, "dossier absent");
         Is(new(Prunable: true), WtState.Orphan, "prunable");
         Is(new(Dirty: 3, Merged: true), WtState.Check, "sale");
-        Is(new(Ahead: 4), WtState.Check, "non poussé non mergé");
+        Is(new(Ahead: 4), WtState.Check, "unpushed, unmerged");
         Is(new(Locked: true, LockPid: 42, Merged: true), WtState.Check, "verrou pid mort");
-        Is(new(Merged: true), WtState.Safe, "mergé propre");
+        Is(new(Merged: true), WtState.Safe, "clean merged");
         Is(new(Ahead: 2, SquashMerged: true), WtState.Safe, "squash");
-        Is(new(Merged: true, UpstreamGone: true), WtState.Safe, "branche distante supprimée");
+        Is(new(Merged: true, UpstreamGone: true), WtState.Safe, "remote branch deleted");
         Is(new(Merged: true, Ahead: 0), WtState.Safe, "frais");
-        Is(new(Detached: true), WtState.Check, "détachée hors base");
+        Is(new(Detached: true), WtState.Check, "detached outside base");
         Is(new(), WtState.Check, "inconnu");
-        Is(new(NoWorktree: true, Merged: true), WtState.Orphan, "branche sans worktree mergée");
-        Is(new(NoWorktree: true, Ahead: 2), WtState.Check, "branche sans worktree non mergée");
-        Is(new(NoWorktree: true, Ahead: 2, SquashMerged: true), WtState.Check, "branche sans worktree squash");
+        Is(new(NoWorktree: true, Merged: true), WtState.Orphan, "merged branch without worktree");
+        Is(new(NoWorktree: true, Ahead: 2), WtState.Check, "unmerged branch without worktree");
+        Is(new(NoWorktree: true, Ahead: 2, SquashMerged: true), WtState.Check, "squash-merged branch without worktree");
         SelfCheck.Assert(string.Join(',', OrphanBranches(["main", "worktree-a", "worktree-b", "feat/x"], ["main", "worktree-b", null])) == "worktree-a", "OrphanBranches");
 
         WorktreeInfo Row(string name, WtFacts f, string? branch = "b") => new("C:/r", "C:/r/.claude/worktrees/" + name, name, branch is null ? null : branch + name, "h",
@@ -423,22 +423,22 @@ public sealed class WorktreeService(SessionManager sessions)
         };
         var plan = new WorktreeService(null!).Plan(rows);
         var all = string.Join('\n', plan.Select(s => string.Join(' ', s.GitArgs)));
-        SelfCheck.Assert(plan.All(s => !s.GitArgs.Any(a => a is "--force" or "-f" or "-D" || a.StartsWith("--force"))), "Plan sans --force / -f / -D");
+        SelfCheck.Assert(plan.All(s => !s.GitArgs.Any(a => a is "--force" or "-f" or "-D" || a.StartsWith("--force"))), "Plan without --force / -f / -D");
         SelfCheck.Assert(!plan.Any(s => s.GitArgs[^1].EndsWith("/dirty") || s.GitArgs[^1].EndsWith("/ahead") || s.GitArgs[^1].EndsWith("/live")
-            || s.GitArgs[^1].EndsWith("/act") || s.GitArgs[^1].EndsWith("/det") || s.GitArgs[^1].EndsWith("/unk")), "Plan : seulement Sûr, Orphelin et verrou périmé");
-        SelfCheck.Assert(all.Contains("worktree unlock C:/r/.claude/worktrees/stale") && all.Contains("worktree remove C:/r/.claude/worktrees/stale"), "Plan verrou périmé : unlock puis remove");
-        SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/squash") && !all.Contains("branch -d bsquash"), "Plan squash : branche gardée");
+            || s.GitArgs[^1].EndsWith("/act") || s.GitArgs[^1].EndsWith("/det") || s.GitArgs[^1].EndsWith("/unk")), "Plan: only Safe, Orphan and stale lock");
+        SelfCheck.Assert(all.Contains("worktree unlock C:/r/.claude/worktrees/stale") && all.Contains("worktree remove C:/r/.claude/worktrees/stale"), "Plan stale lock: unlock then remove");
+        SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/squash") && !all.Contains("branch -d bsquash"), "Plan squash: branch kept");
         SelfCheck.Assert(all.Contains("branch -d bsafe") && all.Contains("worktree prune") && all.Contains("worktree unlock C:/r/.claude/worktrees/orph"), "Plan : branch -d, prune, unlock orphelin");
-        SelfCheck.Assert(all.Contains("branch -d worktree-gone") && !all.Contains("remove C:/r/refs/heads/worktree-gone") && !all.Contains("unlock C:/r/refs"), "Plan : branche sans worktree = un seul branch -d");
-        SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/detm"), "Plan : détachée mergée supprimée");
-        SelfCheck.Assert(plan.First(s => s.GitArgs[0] == "worktree" && s.GitArgs[1] == "remove").Display == "git worktree remove .claude/worktrees/safe", "Plan : chemin relatif affiché");
+        SelfCheck.Assert(all.Contains("branch -d worktree-gone") && !all.Contains("remove C:/r/refs/heads/worktree-gone") && !all.Contains("unlock C:/r/refs"), "Plan: branch without worktree = a single branch -d");
+        SelfCheck.Assert(all.Contains("worktree remove C:/r/.claude/worktrees/detm"), "Plan: merged detached removed");
+        SelfCheck.Assert(plan.First(s => s.GitArgs[0] == "worktree" && s.GitArgs[1] == "remove").Display == "git worktree remove .claude/worktrees/safe", "Plan: relative path displayed");
         var svc = new WorktreeService(null!); var fired = 0; svc.Changed += () => fired++;
         svc.SetCleanable("C:/r", 2);
-        SelfCheck.Assert(fired == 1 && svc.CleanableCount == 2, "CleanableCount : Changed à la première valeur");
+        SelfCheck.Assert(fired == 1 && svc.CleanableCount == 2, "CleanableCount: Changed on first value");
         svc.SetCleanable("C:/r", 2);
-        SelfCheck.Assert(fired == 1, "CleanableCount : pas de Changed si inchangé");
+        SelfCheck.Assert(fired == 1, "CleanableCount: no Changed if unchanged");
         svc.SetCleanable("C:/r", 0);
-        SelfCheck.Assert(fired == 2 && svc.CleanableCount == 0, "CleanableCount : Changed quand le compte baisse");
+        SelfCheck.Assert(fired == 2 && svc.CleanableCount == 0, "CleanableCount: Changed when the count drops");
 
         var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cc-ui-wt-" + Guid.NewGuid().ToString("N"));
         try
@@ -464,14 +464,14 @@ public sealed class WorktreeService(SessionManager sessions)
             G(repo, "switch", "-q", "-c", "worktree-bar"); G(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "b"); G(repo, "switch", "-q", "-");
             var scan = Svc(new SessionManager()).ScanAsync(repo, CancellationToken.None).GetAwaiter().GetResult().Where(w => w.BranchOnly).ToList();
             SelfCheck.Assert(scan.Count == 2 && scan.Any(w => w.Branch == "worktree-foo" && w.State == WtState.Orphan) && scan.Any(w => w.Branch == "worktree-bar" && w.State == WtState.Check),
-                "Scan : branches worktree-* sans worktree (foo orpheline, bar à vérifier, feat-x ignorée)");
+                "Scan: worktree-* branches without worktree (foo orphan, bar to check, feat-x ignored)");
             G(repo, "worktree", "remove", ".claude/worktrees/demo");
-            SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover : repo d'une session -w dont le worktree a été supprimé");
-            SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover : dépôt mémorisé après redémarrage");
+            SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover: repo of a -w session whose worktree was deleted");
+            SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover: repo remembered after restart");
             Directory.Delete(repo, true);
-            SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover : dépôt disparu oublié");
+            SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover: vanished repo forgotten");
             File.WriteAllText(file, "not json");
-            SelfCheck.Assert(Disc(Svc(new SessionManager())).Count == 0, "Discover : repos.json corrompu ignoré");
+            SelfCheck.Assert(Disc(Svc(new SessionManager())).Count == 0, "Discover: corrupt repos.json ignored");
         }
         finally { try { Directory.Delete(tmp, true); } catch (Exception) { } }
     }

@@ -54,16 +54,16 @@ public static partial class Md
         var cs = Render("```csharp\nvar x = 1;\n```");
         Ok(cs.StartsWith("""<div class="cb"><div class="h"><span>C#</span><button class="copy" """) && cs.Contains("""<code class="language-csharp">""") && cs.TrimEnd().EndsWith("</code></pre></div>"), "```csharp → .cb « C# » : " + cs);
         var bare = Render("```\nplain\n```");
-        Ok(bare.Contains("<span>texte</span>") && bare.TrimEnd().EndsWith("</div>"), "bloc sans langage → « texte » : " + bare);
+        Ok(bare.Contains("<span>texte</span>") && bare.TrimEnd().EndsWith("</div>"), "block without language → « texte »: " + bare);
         var warn = Render("> [!WARNING]\n> attention ici");
         Ok(warn.Contains("markdown-alert-warning") && warn.Contains("Attention</p>") && !warn.Contains("Warning</p>"), "[!WARNING] → « Attention » : " + warn);
-        Ok(Render("<script>x</script>").Contains("&lt;script&gt;"), "HTML brut désactivé");
+        Ok(Render("<script>x</script>").Contains("&lt;script&gt;"), "raw HTML disabled");
         var at = Render("# a {onclick=x}") + Render("[x](https://a){onmouseover=\"y\"}");
-        Ok(!at.Contains(" onclick=\"") && !at.Contains(" onmouseover=\""), "attributs génériques désactivés : " + at);
+        Ok(!at.Contains(" onclick=\"") && !at.Contains(" onmouseover=\""), "generic attributes disabled: " + at);
         var js = Render("[x](javascript:alert(1)) <javascript:alert(2)> [y](data:text/html,z) [r][1]\n\n[1]: javascript:alert(3)");
-        Ok(!js.Contains("javascript:") && !js.Contains("data:"), "liens javascript:/data: neutralisés : " + js);
+        Ok(!js.Contains("javascript:") && !js.Contains("data:"), "javascript:/data: links neutralized: " + js);
         var img = Render("![a](https://evil.example/?d=s) [ok](https://x.y/z) [rel](docs/a.md)");
-        Ok(!img.Contains("<img") && img.Contains("href=\"https://x.y/z\"") && img.Contains("href=\"docs/a.md\""), "images en liens, http et relatif gardés : " + img);
-        Ok(Render("```foo\"><b\nx\n```") is var odd && !odd.Contains("<b>"), "langage encodé");
+        Ok(!img.Contains("<img") && img.Contains("href=\"https://x.y/z\"") && img.Contains("href=\"docs/a.md\""), "images turned into links, http and relative kept: " + img);
+        Ok(Render("```foo\"><b\nx\n```") is var odd && !odd.Contains("<b>"), "encoded language");
     }
 }
