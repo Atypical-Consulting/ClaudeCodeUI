@@ -468,6 +468,7 @@ public sealed class WorktreeService(SessionManager sessions)
             G(repo, "worktree", "remove", ".claude/worktrees/demo");
             SelfCheck.Assert(Disc(Svc(sm)).Any(r => r.Contains(root)), "Discover : repo d'une session -w dont le worktree a été supprimé");
             SelfCheck.Assert(Disc(Svc(new SessionManager())).Any(r => r.Contains(root)), "Discover : dépôt mémorisé après redémarrage");
+            foreach (var f in new DirectoryInfo(repo).EnumerateFiles("*", SearchOption.AllDirectories)) f.Attributes = FileAttributes.Normal;   // object files are read-only: Windows refuses to delete them
             Directory.Delete(repo, true);
             SelfCheck.Assert(!Disc(Svc(new SessionManager())).Any(r => r.Contains(root)) && !File.ReadAllText(file).Contains("cc-ui-wt-"), "Discover : dépôt disparu oublié");
             File.WriteAllText(file, "not json");
