@@ -11,7 +11,7 @@
     case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
         <div class="status"><span class="spin"></span>@L["Status.AgentsWorking"] <small>@L["OfN", agents.Count(a => a.State == ToolState.Done), agents.Count]</small></div>
         break;
-    case SessionStatus.Running when Session.Items.LastOrDefault() is ToolItem { State: ToolState.Running } tool:
+    case SessionStatus.Running when Session.Items.LastOrDefault(i => i is not HookItem) is ToolItem { State: ToolState.Running } tool:
         <div class="status"><span class="spin"></span>@L["Status.ToolRunning", tool.Name] <small aria-hidden="true">@Elapsed</small></div>
         break;
     case SessionStatus.Running:

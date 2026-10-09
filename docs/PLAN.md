@@ -49,6 +49,8 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s11 | MCP list (state, tools, error, transport) | `mcp_status` |
 | s11 | MCP toggle and "Retry" | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}`; verified by `--probe-cli mcp-toggle` / `mcp-reconnect` (the state read in `mcp_status` follows the toggle) |
 | s11 | Skills / Agents / Plugins | `initialize` (`agents`, `commands`) + init (`skills`, `plugins`) |
+| s11 | Hooks tab (read-only: event, matcher, command, type, source) | `get_hooks_listing` → `hooks[{event,matcher,type,commandText,displayText,source,sourceLabel,pluginName?,timeout?}]` + `policy`; verified by `--probe-cli hooks` (`hooks-listing`) |
+| s2 | Hook activity row (a hook that failed, blocked or printed) | `--include-hook-events` → `system/hook_response {hook_name,outcome,exit_code,output}`; without the flag only `SessionStart` hooks are streamed. Verified by `--probe-cli hooks` (`hooks-events`: exit 2 → `outcome:"error"`, tool not run) |
 | rail | 5 h / 7 d quota | `rate_limit_event.rate_limit_info.unifiedWindows`, plus `get_usage` at startup |
 | rail | "Recent" and resuming with history | reading `~/.claude/projects/<slug>/*.jsonl` + `--resume` (the CLI **does not replay** history) |
 | header, palette, thread | "Fork" / "Fork from here": a new session `<name> (fork)` continuing the conversation, the original untouched | `--resume <id> --fork-session --session-id <new> --name <name>` (+ `--resume-session-at <assistant uuid>`); history = the source transcript, cut after that uuid; a fork not sent to yet has no transcript (`--resume` on it: "No conversation found"), so forking it forks its source at the same cut; verified by `--probe-cli fork` (5 PASS on 2.1.296) |
@@ -66,7 +68,8 @@ These requests were accepted but never tested on the real case. On failure, the 
 | Thinking text | omitted (only the indicator remains) | `thinking_delta` is always empty |
 | Workflow phases, `review-changes` name, "finding" cards, cost per agent | omitted; cost shown as `—` | no CLI data (only tokens and a duration per agent exist) |
 | "Auto at 80 %" | read-only label `Auto at {autoCompactThreshold}` if `isAutoCompactEnabled`, otherwise nothing | no verified settings request |
-| "Sign in" (MCP in `needs-auth`), "Open configuration", Hooks tab | disabled "coming soon" button; Hooks tab hidden | no authentication flow; shape of `get_hooks_listing` unknown |
+| "Sign in" (MCP in `needs-auth`), "Open configuration" | disabled "coming soon" button | no authentication flow |
+| Editing hooks | omitted (the Hooks tab is read-only) | out of scope: the CLI owns the settings files |
 | "Browse", non-image "Attach" | omitted | a browser cannot browse the server's folders; only images are attached (§1.1) |
 | "PR #212 merged", "Automatically" toggles (s8) | omitted | would need `gh`; speculative |
 | `Ctrl ⏎ open alongside` (palette) | omitted | no split view |
@@ -112,7 +115,7 @@ builder.Services.AddScoped<UiState>();
 ### 2.3 `ClaudeSession` (changes)
 
 - New signature: `ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement,Task> onEvent, Action<int,string> onExit)`. The base flags stay in the class. `args` is built by `LiveSession`:
-  - always: `--permission-mode <mode>` (`default` is sent as `manual`), `--include-partial-messages`, `--forward-subagent-text`
+  - always: `--permission-mode <mode>` (`default` is sent as `manual`), `--include-partial-messages`, `--forward-subagent-text`, `--include-hook-events`
   - new session: `--session-id <uuid>` and `--name <name>`
   - resume: `--resume <id>` (without `--session-id`; the id stays the same)
   - depending on the s1 form: `-w <name>`, `--model <m>`, `--effort <e>`
@@ -123,7 +126,7 @@ builder.Services.AddScoped<UiState>();
 
 ### 2.4 Event model (`Core/Events.cs`)
 
-A single parsing point, `static ClaudeEvent? Parse(JsonElement e)`. It returns `null` for what we ignore: `hook_*`, `system/notification`, `message_start/stop` and unknown types.
+A single parsing point, `static ClaudeEvent? Parse(JsonElement e)`. It returns `null` for what we ignore: `hook_started` (`hook_response` becomes a `HookEvt`), `system/notification`, `message_start/stop` and unknown types.
 
 ```csharp
 abstract record ClaudeEvent;
@@ -578,7 +581,7 @@ WP0 ──► { WP1, WP2, WP3, WP4, WP5 } in parallel ──► integration (lea
 | `-w` worktrees locked by pid, then stale lock | classified "To check", explicit `unlock` in the plan, never `--force` |
 | Slow scan of `~/.claude/projects` (865 folders) | last 30 days, 64 KB per file, cache, rescan on "Refresh" |
 | Ctrl N intercepted by the browser | Alt N in addition, label kept |
-| User hooks that produce noise (`hook_*`, `stop-hook-error`) | ignored by `Events.Parse` |
+| User hooks that produce noise (`hook_*`, `stop-hook-error`) | `hook_started` ignored; a `hook_response` that succeeds silently is dropped by the reducer, the others fold into one collapsed row per run of hooks |
 | `bypassPermissions` / `dontAsk` exist in the CLI | deliberately not exposed in the interface |
 
 **Default decisions (changeable):**
