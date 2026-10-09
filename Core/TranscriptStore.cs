@@ -101,6 +101,7 @@ public static class TranscriptStore
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+        catch (ArgumentException) { }   // empty or invalid cwd: no past prompts
         return list;
     }
 
