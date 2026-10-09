@@ -110,7 +110,7 @@ public sealed class LiveSession : IAsyncDisposable
         {
             var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
             if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
-            else updated = JsonNode.Parse(sg.GetRawText());   // ponytail: unverified on 2.1.295 (plan §1.2)
+            else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
         }
         await c.Respond(p.RequestId, true, p.Input, updated);
     }
