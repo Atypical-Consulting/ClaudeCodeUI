@@ -196,6 +196,7 @@
   <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d'un lien et vous ne l'avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Claude Code est introuvable</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n'est pas dans le PATH.</value></data>
+  <data name="New.NpmShimText" xml:space="preserve"><value>Seul le raccourci npm &lt;code&gt;claude.cmd&lt;/code&gt; est dans le PATH. Cette application lance &lt;code&gt;claude.exe&lt;/code&gt; directement : installe la version native avec la commande Windows ci-dessous.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Décris la tâche…</value></data>
   <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} modifie ce dossier sans demander, hors d’un worktree isolé.</value></data>
@@ -269,6 +270,7 @@
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connexion perdue</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page en pause</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Reprise impossible</value></data>
+  <data name="Session.InitTimeout" xml:space="preserve"><value>claude n'a pas répondu à la requête initialize en {0} s, il a donc été arrêté. Relance la session pour réessayer.</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>Aucun processus claude pour cette session.</value></data>
   <data name="Session.NotFound" xml:space="preserve"><value>Session introuvable</value></data>
   <data name="Session.NotFoundText" xml:space="preserve"><value>Aucune session active ni transcript récent avec cet identifiant.</value></data>

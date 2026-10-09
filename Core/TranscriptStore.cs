@@ -10,7 +10,10 @@ public record PastSession(string Id, string Cwd, string? Branch, string Title, d
 // Past sessions read from ~/.claude/projects/<slug>/<id>.jsonl (top-level files only; <id>/subagents are excluded).
 public static class TranscriptStore
 {
-    static readonly string Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+    // The CLI honours CLAUDE_CONFIG_DIR (default ~/.claude); claude inherits this process's environment, so read the same one.
+    internal static readonly string Root = Path.Combine(
+        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"), "projects");
     const int Chunk = 64 * 1024;
     static (DateTimeOffset At, int Take, IReadOnlyList<PastSession> List) cache;
 
@@ -53,21 +56,23 @@ public static class TranscriptStore
                 || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isCompactSummary") is { ValueKind: JsonValueKind.True }
                 || Events.Prop(e, "isVisibleInTranscriptOnly") is { ValueKind: JsonValueKind.True }) continue;
             DateTimeOffset? at = DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var t) ? t : null;
-            foreach (var ev in Events.ParseAll(e))
+            try
             {
-                s.Apply(ev);
-                if (at is null) continue;
-                if (ev is ToolUseEvt u && Tool(s, u.Id) is { } tu) tu.StartedAt = at.Value;
-                if (ev is ToolResultEvt r && Tool(s, r.ToolUseId) is { } tr) tr.EndedAt = tr.Background ? null : at.Value;
-                if (ev is TaskDoneEvt { DurationMs: 0 } td && (Tool(s, td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt) tt.EndedAt = at.Value;
+                foreach (var ev in Events.ParseAll(e))
+                {
+                    s.Apply(ev);
+                    if (at is null) continue;
+                    if (ev is ToolUseEvt u && Tool(s, u.Id) is { } tu) s.Set(tu, tu with { StartedAt = at.Value });
+                    if (ev is ToolResultEvt r && Tool(s, r.ToolUseId) is { } tr) s.Set(tr, tr with { EndedAt = tr.Background ? null : at.Value });
+                    if (ev is TaskDoneEvt { DurationMs: 0 } td && (Tool(s, td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
+                        s.Set(tt, tt with { EndedAt = at.Value });
+                }
             }
+            catch (Exception ex) { Console.Error.WriteLine($"transcript: line skipped ({ex.Message})"); }   // one bad line must not lose the session
         }
-        foreach (var t in s.Items.OfType<ToolItem>().Where(t => t.State is ToolState.Running or ToolState.Waiting))
-        {
-            t.State = ToolState.Error;   // no result in the file: the turn was cut short
-            t.EndedAt ??= t.StartedAt;
-        }
-        return s.Items;
+        // No result in the file: the turn was cut short.
+        return s.Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t
+            ? t with { State = ToolState.Error, EndedAt = t.EndedAt ?? t.StartedAt } : i);
 
         static ToolItem? Tool(LiveSession s, string id) => s.Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
     }
@@ -123,10 +128,10 @@ public static class TranscriptStore
         return path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
     }
 
-    static string? Find(string id)
+    internal static string? Find(string id)
     {
         try { return Directory.EnumerateDirectories(Root).Select(d => Path.Combine(d, id + ".jsonl")).FirstOrDefault(File.Exists); }
-        catch (IOException) { return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
     }
 
     // Head and tail (64 KB each) are enough: metadata lines are rewritten near the end, cwd/branch sit in the first user line.
@@ -138,7 +143,7 @@ public static class TranscriptStore
             using var fs = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             text = fs.Length <= 2 * Chunk ? ReadAt(fs, 0, (int)fs.Length) : ReadAt(fs, 0, Chunk) + "\n" + ReadAt(fs, fs.Length - Chunk, Chunk);
         }
-        catch (IOException) { return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }   // skip this file, keep scanning
 
         string? cwd = Field(text, "cwd"), branch = Field(text, "gitBranch");
         if (cwd is null) return null;   // no message yet

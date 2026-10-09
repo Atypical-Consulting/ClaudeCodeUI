@@ -41,10 +41,10 @@ public sealed class ClaudeSession : IAsyncDisposable
             psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
-        ProcessJob.Prepare(psi);
+        var grouped = ProcessJob.Prepare(psi);
         clock.Start();
         proc = Process.Start(psi)!;
-        job = ProcessJob.Attach(proc);
+        job = ProcessJob.Attach(proc, grouped);
         Trace($"spawn pid={proc.Id}");
         // Read stderr line by line so what the CLI prints while it is slow shows up live, not only after exit.
         // The readers drop the ExecutionContext of the circuit that started claude: the renders their events trigger
@@ -65,25 +65,33 @@ public sealed class ClaudeSession : IAsyncDisposable
         });
         reader = Task.Run(async () =>
         {
-            var first = true;
-            while (await proc.StandardOutput.ReadLineAsync() is { } line)
+            try
             {
-                JsonElement evt;
-                try
+                var first = true;
+                while (await proc.StandardOutput.ReadLineAsync() is { } line)
                 {
-                    using var doc = JsonDocument.Parse(line);
-                    evt = doc.RootElement.Clone();
+                    JsonElement evt;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(line);
+                        evt = doc.RootElement.Clone();
+                    }
+                    catch (JsonException) { continue; }
+                    if (first) { first = false; Trace($"first stdout {Str(evt, "type")}"); }
+                    if (Str(evt, "type") == "control_response" && Events.Prop(evt, "response") is { } resp) Complete(resp);
+                    try { await onEvent(evt); }
+                    catch (Exception ex) { Console.Error.WriteLine($"claude event handler failed: {ex}"); }
                 }
-                catch (JsonException) { continue; }
-                if (first) { first = false; Trace($"first stdout {Str(evt, "type")}"); }
-                if (Str(evt, "type") == "control_response") Complete(evt.GetProperty("response"));
-                try { await onEvent(evt); }
-                catch (Exception ex) { Console.Error.WriteLine($"claude event handler failed: {ex}"); }
+            }
+            catch (Exception ex)   // broken stdout pipe: the process can no longer be driven, stop it so the exit path below runs
+            {
+                Console.Error.WriteLine($"claude stdout reader failed: {ex}");
+                try { proc.Kill(true); } catch { }
             }
             await proc.WaitForExitAsync();
             job?.Dispose();   // external kill or crash: take the MCP servers down with it, before onExit
             foreach (var r in requests.Values) r.TrySetException(new ClaudeRequestException(Strings.Get("Session.ProcessStopped")));
-            await stderr;
+            try { await stderr; } catch (Exception) { }
             if (!disposing) onExit(proc.ExitCode, $"claude exited {proc.ExitCode}\n{string.Join('\n', errText)}".Trim());
         });
     }
@@ -153,9 +161,15 @@ public sealed class ClaudeSession : IAsyncDisposable
     internal static string TraceLine(long ms, string what) => $"+{ms} ms {what}";
 
     // Same lookup as Process.Start("claude") with UseShellExecute=false: on Windows CreateProcess only appends ".exe".
-    public static bool OnPath() =>
+    public static bool OnPath() => OnPath(OperatingSystem.IsWindows() ? "claude.exe" : "claude");
+
+    // Windows npm install: only the claude.cmd shim. Not launched through cmd.exe on purpose (its parser re-reads
+    // metacharacters such as & or | inside arguments like --name); the not-found screen points to the native installer.
+    public static bool NpmShimOnly() => OperatingSystem.IsWindows() && !OnPath() && OnPath("claude.cmd");
+
+    static bool OnPath(string exe) =>
         (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Any(d => File.Exists(Path.Combine(d.Trim('"'), OperatingSystem.IsWindows() ? "claude.exe" : "claude")));
+            .Any(d => File.Exists(Path.Combine(d.Trim('"'), exe)));
 
     static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;

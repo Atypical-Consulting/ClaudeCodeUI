@@ -16,23 +16,27 @@ internal sealed class ProcessJob : IDisposable
 
     ProcessJob() { }
 
-    // Unix only: run the command through perl so it becomes a session/group leader (.NET cannot setsid). No-op elsewhere or without perl.
-    public static void Prepare(ProcessStartInfo psi)
+    // Unix only: run the command through perl so it becomes a session/group leader (.NET cannot setsid). No-op elsewhere.
+    // false = Unix without perl: the child leads no group, pass it to Attach so it does not pretend to track the tree.
+    public static bool Prepare(ProcessStartInfo psi)
     {
-        if (OperatingSystem.IsWindows() || !OnPath("perl")) return;
+        if (OperatingSystem.IsWindows()) return true;
+        if (!OnPath("perl")) return false;
         var args = psi.ArgumentList.ToList();
         psi.ArgumentList.Clear();
         foreach (var a in new[] { "-e", "use POSIX; POSIX::setsid(); exec { $ARGV[0] } @ARGV or die \"exec $ARGV[0]: $!\"", psi.FileName }.Concat(args))
             psi.ArgumentList.Add(a);
         psi.FileName = "perl";
+        return true;
     }
 
-    // null if the OS refuses (logged, never throws); the session then runs as before.
-    public static ProcessJob? Attach(Process p)
+    // null if the OS refuses or Prepare could not make a group (logged, never throws); the session then runs as before.
+    public static ProcessJob? Attach(Process p, bool grouped)
     {
         try
         {
-            if (!OperatingSystem.IsWindows()) return new ProcessJob { pgid = p.Id };
+            if (!OperatingSystem.IsWindows())
+                return grouped ? new ProcessJob { pgid = p.Id } : throw new InvalidOperationException("perl not found, no process group to kill");
             var job = CreateJobObjectW(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
             var info = new ExtendedLimits { LimitFlags = 0x2000 };
@@ -92,9 +96,9 @@ internal sealed class ProcessJob : IDisposable
             : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", "sleep 60 & sleep 60" } };
         psi.RedirectStandardOutput = true;
         psi.UseShellExecute = false;
-        Prepare(psi);
+        var grouped = Prepare(psi);
         using var p = Process.Start(psi)!;
-        using var job = Attach(p);
+        using var job = Attach(p, grouped);
         SelfCheck.Assert(job is not null, "ProcessJob: Attach returned null");
         Thread.Sleep(win ? 2500 : 500);
         p.Kill(false);
