@@ -18,6 +18,8 @@ Télécharge l'installeur de ton système sur la page des [versions GitHub](http
 
 **Vérifier le téléchargement.** Chaque version publie un fichier `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`) et des attestations de provenance GitHub : `gh attestation verify <fichier> -R Atypical-Consulting/ClaudeCodeUI`.
 
+**Mises à jour.** Chaque version après la 0.1.0 se met à jour seule : quelques secondes après le démarrage, elle consulte la dernière version GitHub et, s'il y en a une nouvelle, propose de l'installer puis de redémarrer. Tu peux aussi vérifier à tout moment avec *Rechercher des mises à jour…* (menu de l'application sur macOS, menu Aide sur Windows et Linux), ou *Rechercher des mises à jour* dans Réglages › Apparence et la palette de commandes. Les mises à jour sont signées, et la signature est vérifiée avant toute installation. La version 0.1.0 n'a pas de mise à jour automatique : installe la suivante à la main, une seule fois. Avec le paquet `.deb` ou `.rpm`, l'installation d'une mise à jour demande ton mot de passe.
+
 ### Prérequis : Claude Code
 
 Le CLI Claude Code doit être installé et connecté :

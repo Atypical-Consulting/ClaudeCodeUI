@@ -111,6 +111,8 @@
         <p>L'application est signée avec un Developer ID et notariée par Apple : elle s'ouvre normalement, sans manipulation.</p>
         <h3>Vérifier le téléchargement</h3>
         <p>Chaque version publie un fichier <code>SHA256SUMS</code> et des attestations de provenance GitHub. Pour vérifier un fichier : <code>gh attestation verify &lt;fichier&gt; -R Atypical-Consulting/ClaudeCodeUI</code>.</p>
+        <h3>Mises à jour</h3>
+        <p>Chaque version après la 0.1.0 se met à jour seule : quelques secondes après le démarrage, elle consulte la dernière version GitHub et propose d'installer la nouvelle puis de redémarrer. Pour vérifier à tout moment : <em>Rechercher des mises à jour…</em> (menu de l'application sur macOS, menu Aide sur Windows et Linux), ou dans Réglages › Apparence et la palette de commandes. Les mises à jour sont signées, et la signature est vérifiée avant toute installation. La version 0.1.0 n'a pas de mise à jour automatique : installe la suivante à la main, une seule fois.</p>
         <h3>Linux</h3>
         <p>Pour l'AppImage, rends le fichier exécutable puis lance-le :</p>
         <div class="cb"><div class="h"><span>sh</span><button class="copy" type="button">Copier</button></div><pre>chmod +x Claude*.AppImage

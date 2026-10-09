@@ -60,6 +60,11 @@
             <div><b>@L["Appearance.Preview"]</b><span>@L["Appearance.PreviewHint"]</span></div>
             <div class="sample md">@((MarkupString)Sample)</div>
         </div>
+        <div class="set-row">
+            <div><b>@L["Appearance.Version"]</b><span>@(Shell.Desktop ? L["Appearance.VersionHintDesktop"] : L["Appearance.VersionHintWeb"])</span></div>
+            @* Desktop: the shell runs the check and answers in a native dialog. *@
+            <div class="lang"><code>Claude Code UI @Shell.Version</code>@if (Shell.Desktop) { <button class="btn" type="button" @onclick="Shell.CheckForUpdates">@L["Appearance.UpdateCheck"]</button> }</div>
+        </div>
     </div>
 </div>
 

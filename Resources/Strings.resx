@@ -42,6 +42,10 @@
   <data name="Appearance.Theme" xml:space="preserve"><value>Theme</value></data>
   <data name="Appearance.ThemeHint" xml:space="preserve"><value>Applied right away, remembered for next time.</value></data>
   <data name="Appearance.ThemeLabel" xml:space="preserve"><value>{0} theme</value></data>
+  <data name="Appearance.UpdateCheck" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="Appearance.Version" xml:space="preserve"><value>Version</value></data>
+  <data name="Appearance.VersionHintDesktop" xml:space="preserve"><value>New versions come from the GitHub releases, signed and verified before they install.</value></data>
+  <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Started with dotnet run: update the source with git pull.</value></data>
   <data name="BadRequest.Heading" xml:space="preserve"><value>The app couldn't process this request.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>It was rejected before it reached a page. Go back and try again, or start over from a new session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>

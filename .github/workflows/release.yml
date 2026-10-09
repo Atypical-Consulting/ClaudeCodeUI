@@ -108,14 +108,18 @@ jobs:
       # Build only. The installers are uploaded below, after the disk image is notarized: tauri-action notarizes the
       # .app, not the .dmg around it, and a quarantined .dmg that is not notarized is rejected by Gatekeeper
       # (spctl: "source=Unnotarized Developer ID"). Uploading ourselves also keeps release-please's notes intact.
+      # Updater bundles are signed here only (local builds have no key): a .sig next to the NSIS, MSI, AppImage, deb and
+      # rpm installers, and on macOS a .app.tar.gz (+ .sig) archived from the .app after it is signed and notarized.
       - uses: tauri-apps/tauri-action@v1
         id: tauri
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --config '{"bundle":{"createUpdaterArtifacts":true}}'
 
       - name: Check the app signature and notarization
         if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
@@ -146,7 +150,8 @@ jobs:
           {
             echo 'files<<EOF'
             find desktop/src-tauri/target/${{ matrix.target }}/release/bundle -maxdepth 2 -type f \
-              \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \)
+              \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+                 -o -name '*.app.tar.gz' -o -name '*.sig' \)
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
@@ -179,8 +184,10 @@ jobs:
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
 
-  # One SHA256SUMS file next to the installers, for users who verify their download by hand.
+  # latest.json for the in-app updater (releases/latest/download/latest.json), then one SHA256SUMS file next to the
+  # installers, for users who verify their download by hand. Runs once every installer and signature is uploaded.
   checksums:
     needs: [release-please, desktop]
     if: needs.release-please.outputs.release_created == 'true'
@@ -192,6 +199,33 @@ jobs:
       - run: |
           mkdir assets && cd assets
           gh release download "$TAG" -R "$GITHUB_REPOSITORY"
+          rm -f SHA256SUMS latest.json # a re-run regenerates both
+          # One entry per signed bundle. tauri-plugin-updater looks up {os}-{arch}-{installer} (the bundle the running
+          # app was installed from), then {os}-{arch}. Names are the uploaded asset names (GitHub turns spaces into dots).
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          platforms='{}'
+          for sig in *.sig; do
+            f=${sig%.sig}
+            case "$f" in
+              *.app.tar.gz) keys="darwin-aarch64 darwin-aarch64-app" ;;
+              *-setup.exe)  keys="windows-x86_64 windows-x86_64-nsis" ;;
+              *.msi)        keys="windows-x86_64-msi" ;;
+              *.AppImage)   keys="linux-x86_64 linux-x86_64-appimage" ;;
+              *.deb)        keys="linux-x86_64-deb" ;;
+              *.rpm)        keys="linux-x86_64-rpm" ;;
+              *) continue ;;
+            esac
+            for k in $keys; do
+              platforms=$(jq --arg k "$k" --arg u "$url/$f" --rawfile s "$sig" '.[$k] = {url: $u, signature: ($s | rtrimstr("\n"))}' <<< "$platforms")
+            done
+          done
+          for k in darwin-aarch64 windows-x86_64 linux-x86_64; do
+            jq -e --arg k "$k" 'has($k)' <<< "$platforms" > /dev/null || { echo "::error::no signed updater bundle for $k"; exit 1; }
+          done
+          jq -n --arg v "${TAG#v}" --arg n "$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body --jq .body)" \
+            --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson p "$platforms" \
+            '{version: $v, notes: $n, pub_date: $d, platforms: $p}' > latest.json
+          jq . latest.json
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
-          gh release upload "$TAG" SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" latest.json SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
