@@ -94,7 +94,12 @@ app.MapRazorComponents<App>()
 
 // No stdin watcher: a pending synchronous read on an inherited stdin pipe blocks CreateProcess (git, claude) on Windows.
 if (ArgValue("--parent-pid") is { } pid)
-    _ = System.Diagnostics.Process.GetProcessById(int.Parse(pid)).WaitForExitAsync().ContinueWith(_ => app.Lifetime.StopApplication());
+{
+    System.Diagnostics.Process parent;
+    try { parent = System.Diagnostics.Process.GetProcessById(int.Parse(pid)); }
+    catch (ArgumentException) { return; }   // the shell already exited during boot: nothing to serve
+    _ = parent.WaitForExitAsync().ContinueWith(_ => app.Lifetime.StopApplication());
+}
 
 if (!desktop) { app.Run(); return; }
 app.Start();

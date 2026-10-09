@@ -34,7 +34,7 @@
                 </div>
             </div>
             <div class="acts">
-                <button class="btn" disabled="@(Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
+                <button class="btn" disabled="@(compacting || Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onclick="Compact"><Icon Name="compress" Sm />@L["Ctx.CompactNow"]</button>
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
                     <span class="btn ghost" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
@@ -99,10 +99,15 @@
     }
 
     // Plain user text: slash commands run locally in the CLI.
+    // Send awaits apply_flag_settings (Ultracode) before the turn starts, so Status stays Idle meanwhile: refuse a second click here.
+    bool compacting;
     async Task Compact()
     {
+        if (compacting) return;
+        compacting = true;
         error = null;
         try { await Session.Send("/compact"); }
         catch (Exception ex) { error = ex.Message; }
+        finally { compacting = false; }
     }
 }

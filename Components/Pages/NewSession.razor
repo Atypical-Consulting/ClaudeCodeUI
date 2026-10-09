@@ -13,7 +13,7 @@
             <div class="start-card">
                 <div class="hello">
                     <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="88" Color="#FCCC0A" /></div>
-                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L["New.NotFoundText"].Value)</p></div>
+                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
                     <label>@L["New.Step1"]</label>

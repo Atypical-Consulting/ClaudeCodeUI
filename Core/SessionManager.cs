@@ -6,6 +6,7 @@ namespace ClaudeCodeUI;
 public sealed class SessionManager : IAsyncDisposable
 {
     ImmutableList<LiveSession> all = [];
+    readonly Lock openGate = new();
 
     public IReadOnlyList<LiveSession> All => all;   // creation order, never re-sorted
     public LiveSession? Get(string id) => all.FirstOrDefault(s => s.Id == id);
@@ -28,13 +29,17 @@ public sealed class SessionManager : IAsyncDisposable
     }
 
     // History loaded now; the --resume process starts on the first Send or Restart.
+    // Locked: two circuits opening the same past session at once would add it twice (duplicate @key in the Rail).
     public LiveSession Open(PastSession p)
     {
-        if (Get(p.Id) is { } live) return live;
-        var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
-        s.ToolCount = s.Items.OfType<ToolItem>().Count();
-        _ = s.RefreshGit();
-        return Add(s);
+        lock (openGate)
+        {
+            if (Get(p.Id) is { } live) return live;
+            var s = new LiveSession(p.Id, p.Title, p.Cwd, "default", resumable: true) { Items = [.. TranscriptStore.Load(p.Id)], CostUsd = p.CostUsd ?? 0 };
+            s.ToolCount = s.Items.OfType<ToolItem>().Count();
+            _ = s.RefreshGit();
+            return Add(s);
+        }
     }
 
     public async Task Stop(string id)
@@ -52,6 +57,8 @@ public sealed class SessionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var s in all) await s.DisposeAsync();
+        foreach (var s in all)   // one failure must not leave the other claude trees running
+            try { await s.DisposeAsync(); }
+            catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] shutdown: {ex.Message}"); }
     }
 }
