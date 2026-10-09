@@ -1,8 +1,287 @@
 @page "/extensions"
-@* Stub (WP0). Owner: WP5. *@
+@implements IDisposable
+@inject SessionManager Sessions
+@inject UiState Ui
 
 <PageTitle>Extensions · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">Extensions</span></div>
+    <div class="ph"><span class="ttl">Réglages</span><span class="sub">Extensions</span></div>
+    <div class="ext">
+        @if (Live is not { } s)
+        {
+            <div><h3>Extensions</h3><p class="lead">Démarre une session pour voir ce que le CLI charge.</p></div>
+        }
+        else
+        {
+            var servers = Servers(s);
+            var skills = s.Init?.Skills ?? [];
+            var agents = Agents(s);
+            var plugins = s.Init?.Plugins ?? [];
+            <div><h3>Extensions</h3><p class="lead">@servers.Count serveurs MCP, @skills.Length skills, @agents.Count agents, @plugins.Length plugins, chargés par le CLI au démarrage de chaque session.</p></div>
+            <div class="subtabs" role="tablist">
+                @Tab("mcp", "MCP", servers.Count)
+                @Tab("skills", "Skills", skills.Length)
+                @Tab("agents", "Agents", agents.Count)
+                @Tab("plugins", "Plugins", plugins.Length)
+            </div>
+            @if (tab == "mcp")
+            {
+                @if (note is not null)
+                {
+                    <div class="errbox">@note</div>
+                }
+                <div class="filters">
+                    @Filter("", "Tous", servers.Count)
+                    @Filter("connected", "Connectés", servers.Count(x => x.Status == "connected"))
+                    @Filter("needs-auth", "Authentification", servers.Count(x => x.Status == "needs-auth"))
+                    @Filter("failed", "En échec", servers.Count(x => x.Status == "failed"))
+                </div>
+                <table class="mcp">
+                    <thead><tr><th>Serveur</th><th>Source</th><th>État</th><th class="num">Outils</th><th class="num">Pour cette session</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in servers.Where(x => filter == "" || x.Status == filter))
+                        {
+                            <tr class="@(m.Name == selected ? "sel" : null)" @onclick="() => Select(m.Name)">
+                                <td><div class="n">@m.Short</div><div class="d">@m.Origin</div></td>
+                                <td><span class="tag">@m.Tag</span></td>
+                                <td>@State(m.Status)</td>
+                                <td class="num">@(m.Status == "failed" ? m.Tools ?? 0 : m.Status == "connected" ? m.Tools?.ToString() ?? "—" : "—")</td>
+                                <td class="num" @onclick:stopPropagation>
+                                    @switch (m.Status)
+                                    {
+                                        case "failed":
+                                            <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">Réessayer</button>
+                                            break;
+                                        case "needs-auth":
+                                            <button class="btn" aria-disabled="true" title="bientôt">Se connecter</button>
+                                            break;
+                                        case "connected" or "disabled":
+                                            var on = m.Status == "connected";
+                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="Activer pour cette session"
+                                                    disabled="@busy" @onclick="() => Toggle(s, m.Name, !on)"><span class="sw"></span></button>
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (s.Init is null && tab != "agents")
+            {
+                <p class="lead">Le CLI annonce cette liste au premier message de la session.</p>
+            }
+            else if (tab == "skills")
+            {
+                <table class="mcp">
+                    <thead><tr><th>Skill</th><th>Description</th></tr></thead>
+                    <tbody>
+                        @foreach (var k in skills)
+                        {
+                            var d = Describe(s, k);
+                            <tr><td><div class="n">@k</div></td><td><span class="last" style="max-width:72ch" title="@d">@d</span></td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (tab == "agents")
+            {
+                <table class="mcp">
+                    <thead><tr><th>Agent</th><th>Description</th><th>Modèle</th></tr></thead>
+                    <tbody>
+                        @foreach (var (name, desc, model) in agents)
+                        {
+                            <tr><td><div class="n">@name</div></td><td><span class="last" style="max-width:64ch" title="@desc">@desc</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <table class="mcp">
+                    <thead><tr><th>Plugin</th><th class="num">Serveurs MCP</th><th class="num">Skills</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in plugins)
+                        {
+                            <tr>
+                                <td><div class="n">@p</div></td>
+                                <td class="num">@servers.Count(x => x.Origin == "plugin:" + p)</td>
+                                <td class="num">@skills.Count(k => k.StartsWith(p + ":"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
 </div>
+
+@if (Ui.InspectorOpen && tab == "mcp" && Live is { } ls && Servers(ls).FirstOrDefault(x => x.Name == selected) is { } sel)
+{
+    <div class="pane insp">
+        <div class="ph"><span class="ttl">@sel.Short</span><span class="sub">@sel.Origin</span></div>
+        @if (sel.Status == "failed")
+        {
+            <div class="section">
+                <h3>Le serveur n'a pas pu démarrer</h3>
+                @if (sel.Error is { } err)
+                {
+                    <div class="errbox">@err.TrimEnd()</div>
+                }
+                <p>Ses outils manquent à cette session tant que ce n'est pas corrigé.</p>
+                <div class="acts">
+                    <button class="btn primary" disabled="@busy" @onclick="() => Reconnect(ls, sel.Name)"><Icon Name="refresh" Sm="true" />Réessayer</button>
+                    <button class="btn" aria-disabled="true" title="bientôt">Ouvrir la configuration</button>
+                </div>
+            </div>
+        }
+        else if (sel.Status == "needs-auth")
+        {
+            <div class="section">
+                <h3>Authentification requise</h3>
+                <p>Le serveur attend une connexion. Ses outils restent indisponibles d'ici là.</p>
+                <div class="acts"><button class="btn" aria-disabled="true" title="bientôt">Se connecter</button></div>
+            </div>
+        }
+        <div class="section" style="border-bottom:0">
+            <div class="kv">
+                <span>source</span><span>@sel.Origin</span>
+                <span>transport</span><span>@(sel.Transport ?? "—")</span>
+                @if (sel.Target is { } t)
+                {
+                    <span>cible</span><span>@t</span>
+                }
+                <span>outils</span><span>@(sel.Tools?.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
+                <span>portée</span><span>@(sel.Scope ?? "—")</span>
+                @if (sel.Version is { } v)
+                {
+                    <span>version</span><span>@v</span>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, int? Tools, string? Scope, string? Version);
+
+    string tab = "mcp", filter = "";
+    string? selected, note, refreshedFor;
+    bool busy;
+
+    // The most recent session that has a claude process: mcp_status needs one, and starting one here would be a side effect.
+    LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
+
+    protected override void OnInitialized()
+    {
+        Sessions.Changed += OnChanged;
+        Ui.Changed += OnChanged;
+        _ = Refresh();
+    }
+
+    void OnChanged()
+    {
+        if (Live?.Id != refreshedFor) _ = Refresh();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    async Task Refresh()
+    {
+        if (Live is not { } s) return;
+        refreshedFor = s.Id;
+        await Run(s.RefreshMcp);
+        if (selected is null && Servers(s) is { Count: > 0 } all)
+            selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    Task Toggle(LiveSession s, string name, bool enabled) =>
+        Run(async () => { await s.Request("mcp_toggle", new() { ["serverName"] = name, ["enabled"] = enabled }); await s.RefreshMcp(); });
+
+    // A server that still fails answers with its error: shown as the note.
+    Task Reconnect(LiveSession s, string name) =>
+        Run(async () => { try { await s.Request("mcp_reconnect", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
+
+    async Task Run(Func<Task> action)
+    {
+        busy = true; note = null;
+        try { await action(); }
+        catch (Exception ex) { note = ex.Message.TrimEnd(); }
+        finally { busy = false; }
+    }
+
+    void Select(string name) { selected = name; Ui.InspectorOpen = true; }
+
+    // mcp_status when available (error, transport, tools), else the init brief.
+    static List<Srv> Servers(LiveSession s)
+    {
+        if (s.McpStatus is { } st && Events.Prop(st, "mcpServers") is { ValueKind: JsonValueKind.Array } arr)
+            return arr.EnumerateArray().Select(m =>
+            {
+                var name = Events.Str(m, "name") ?? "";
+                var scope = Events.Str(m, "scope");
+                var cfg = Events.Prop(m, "config") ?? default;
+                var (shortName, origin, tag) = Split(name, Events.Str(m, "source"), scope);
+                return new Srv(name, Events.Str(m, "status") ?? "", shortName, origin, tag, Events.Str(m, "error"),
+                    Events.Str(cfg, "type"), Target(cfg),
+                    Events.Prop(m, "tools") is { ValueKind: JsonValueKind.Array } t ? t.GetArrayLength() : null,
+                    scope, Events.Prop(m, "serverInfo") is { } si ? Events.Str(si, "version") : null);
+            }).ToList();
+        return (s.Init?.Mcp ?? []).Select(m =>
+        {
+            var (shortName, origin, tag) = Split(m.Name, null, null);
+            return new Srv(m.Name, m.Status, shortName, origin, tag, null, null, null, null, null, null);
+        }).ToList();
+    }
+
+    // url for http/sse, command line for stdio.
+    static string? Target(JsonElement cfg)
+    {
+        if (Events.Str(cfg, "url") is { Length: > 0 } url) return url;
+        if (Events.Str(cfg, "command") is not { } cmd) return null;
+        return Events.Prop(cfg, "args") is { ValueKind: JsonValueKind.Array } a
+            ? cmd + " " + string.Join(" ", a.EnumerateArray().Select(x => x.ToString())) : cmd;
+    }
+
+    // "plugin:github:github" → github / plugin:github; "claude.ai Gmail" → Gmail / claude.ai; else the scope.
+    static (string Short, string Origin, string Tag) Split(string name, string? source, string? scope)
+    {
+        if (name.StartsWith("plugin:") && name.Split(':', 3) is [_, var p, var rest]) return (rest, "plugin:" + p, "plugin");
+        if (name.StartsWith("claude.ai ")) return (name[10..], "claude.ai", "claude.ai");
+        var origin = scope switch { "user" => "utilisateur", "project" => "projet", "local" => "local", _ => scope ?? source ?? "" };
+        return (name, origin, source switch { null or "user" => "user", "claudeai" => "claude.ai", _ => source });
+    }
+
+    static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>
+        s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: JsonValueKind.Array } a
+            ? a.EnumerateArray().Select(x => (Events.Str(x, "name") ?? "", Events.Str(x, "description"), Events.Str(x, "model"))).ToList()
+            : (s.Init?.Agents ?? []).Select(n => (n, (string?)null, (string?)null)).ToList();
+
+    static string? Describe(LiveSession s, string skill) =>
+        s.InitializeInfo is { } info && Events.Prop(info, "commands") is { ValueKind: JsonValueKind.Array } c
+            ? c.EnumerateArray().Where(x => Events.Str(x, "name") == skill).Select(x => Events.Str(x, "description")).FirstOrDefault()
+            : null;
+
+    RenderFragment Tab(string key, string label, int n) =>
+        @<button role="tab" aria-selected="@(tab == key ? "true" : "false")" class="@(tab == key ? "on" : null)" @onclick="() => tab = key">@label<b>@n</b></button>;
+
+    RenderFragment Filter(string key, string label, int n) =>
+        @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label <b>@n</b></button>;
+
+    static RenderFragment State(string status) => status switch
+    {
+        "connected" => @<span class="ms ok"><i></i>connecté</span>,
+        "needs-auth" => @<span class="ms auth"><i></i>authentification requise</span>,
+        "failed" => @<span class="ms fail"><i></i>en échec</span>,
+        "disabled" => @<span class="ms" style="color:var(--fg-4)"><i style="background:var(--fg-5)"></i>désactivé</span>,
+        "pending" => @<span class="ms" style="color:var(--fg-3)"><i style="background:var(--fg-4)"></i>connexion…</span>,
+        _ => @<span class="ms" style="color:var(--fg-4)"><i style="background:var(--fg-5)"></i>@status</span>,
+    };
+
+    public void Dispose()
+    {
+        Sessions.Changed -= OnChanged;
+        Ui.Changed -= OnChanged;
+    }
+}
