@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude is still working. Press Esc to interrupt, or send when the turn ends.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Fast</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>extra usage disabled</value></data>
