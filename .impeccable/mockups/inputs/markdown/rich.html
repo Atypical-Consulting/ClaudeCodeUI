@@ -1,0 +1,78 @@
+<h2 id="persistance-des-sessions-cest-en-place">Persistance des sessions : c'est en place</h2>
+<p>J'ai ajouté <code>SessionStore</code> et branché le chargement dans <code>Home.razor</code>. Les <strong>4 tests</strong> passent ; voici ce qui a changé et ce qu'il reste à décider.</p>
+<h3 id="ce-qui-a-change">Ce qui a changé</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Fichier</th>
+<th style="text-align: left;">Changement</th>
+<th style="text-align: right;">Lignes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>SessionStore.cs</code></td>
+<td style="text-align: left;">nouveau, lecture/écriture JSON</td>
+<td style="text-align: right;">+38</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Components/Pages/Home.razor</code></td>
+<td style="text-align: left;">charge au démarrage, sauvegarde après chaque événement</td>
+<td style="text-align: right;">+9 −2</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>.gitignore</code></td>
+<td style="text-align: left;">ignore <code>.claude-ui/</code></td>
+<td style="text-align: right;">+1</td>
+</tr>
+</tbody>
+</table>
+<p>La sauvegarde est <em>débouncée</em> à 500 ms pour ne pas écrire à chaque token :</p>
+<pre><code class="language-csharp">readonly Timer saveTimer;
+
+void ScheduleSave() =&gt;
+    saveTimer.Change(dueTime: 500, period: Timeout.Infinite);
+
+async Task SaveNow()
+{
+    var json = JsonSerializer.Serialize(entries, JsonOpts);
+    await File.WriteAllTextAsync(SessionStore.PathFor(cwd), json); // atomique ? voir plus bas
+}
+</code></pre>
+<p>Pour vérifier de ton côté :</p>
+<pre><code class="language-bash">dotnet test --filter SessionStore
+# Réussi : 4, Échec : 0, Ignoré : 0
+</code></pre>
+<div class="markdown-alert markdown-alert-warning">
+<p class="markdown-alert-title"><svg viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p><code>File.WriteAllTextAsync</code> n'est pas atomique : un crash pendant l'écriture laisse un JSON tronqué. Écrire dans un fichier temporaire puis faire <code>File.Move(tmp, path, overwrite: true)</code> règle le problème.</p>
+</div>
+<h3 id="format-sur-disque">Format sur disque</h3>
+<pre><code class="language-json">{
+  &quot;version&quot;: 1,
+  &quot;cwd&quot;: &quot;C:\repo\POC\ClaudeCodeUI&quot;,
+  &quot;mode&quot;: &quot;default&quot;,
+  &quot;entries&quot;: [
+    { &quot;kind&quot;: &quot;user&quot;, &quot;body&quot;: &quot;Ajoute la persistance des sessions…&quot; },
+    { &quot;kind&quot;: &quot;tool&quot;, &quot;title&quot;: &quot;Read  ClaudeSession.cs&quot; }
+  ]
+}
+</code></pre>
+<h3 id="a-decider">À décider</h3>
+<ul class="contains-task-list">
+<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Un fichier par dossier de travail</li>
+<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Rechargement automatique au démarrage</li>
+<li class="task-list-item"><input disabled="disabled" type="checkbox" /> Garder l'historique de <strong>plusieurs</strong> sessions par dossier ?
+<ul>
+<li>soit un fichier par session (<code>session-&lt;id&gt;.json</code>)</li>
+<li>soit un tableau dans <code>sessions.json</code></li>
+</ul>
+</li>
+<li class="task-list-item"><input disabled="disabled" type="checkbox" /> Limite de taille : couper au-delà de 5 Mo ?</li>
+</ul>
+<blockquote>
+<p>Les sorties d'outils volumineuses (lectures de fichiers) représentent ~80 % du poids. On peut ne garder que leur titre.</p>
+</blockquote>
+<p>Le diff complet est dans l'inspecteur ; voir aussi la <a href="https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview">doc System.Text.Json</a>.</p>
+<hr />
+<p>Je m'arrête là. Tu veux que je rende l'écriture atomique maintenant ?</p>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Claude Code UI — directions sombres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Chakra+Petch:wght@500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  ::selection{background:#E8875B55}
+  body{margin:0;background:#0B0C0E;color:#C9CDD3;font-family:Geist,system-ui,sans-serif}
+  .intro{max-width:1280px;margin:44px auto 0;padding:0 4px}
+  .intro h1{font-size:28px;color:#F3F4F6;margin:0 0 8px;font-weight:600;letter-spacing:-.02em}
+  .intro p{margin:0;color:#8B9099;max-width:72ch;line-height:1.5}
+  .label{max-width:1280px;margin:56px auto 14px;padding:0 4px}
+  .label h2{margin:0;font-size:22px;color:#F3F4F6;font-weight:600;letter-spacing:-.01em}
+  .label p{margin:4px 0 0;color:#8B9099;font-size:14px}
+  .frame{width:1280px;height:800px;margin:0 auto;overflow:hidden;position:relative;border-radius:10px;box-shadow:0 0 0 1px #ffffff14,0 30px 60px -20px #000}
+  .synthetic{position:absolute;right:12px;bottom:8px;font:500 10px "Geist Mono",monospace;opacity:.4;z-index:5;color:#fff}
+  .duck svg{display:block}
+  code{font-family:"JetBrains Mono",monospace}
+
+  /* ================= A · MISSION CONTROL ================= */
+  .A{background:#22282A;font-family:"Barlow Condensed",sans-serif;color:#D6DDD7;display:grid;grid-template-rows:auto 1fr auto;
+     background-image:linear-gradient(#ffffff06 1px,transparent 1px);background-size:100% 3px}
+  .A .top{display:flex;align-items:stretch;gap:10px;padding:14px 16px;border-bottom:2px solid #111617;background:#2B3234}
+  .A .plate{font:600 13px "Barlow Condensed";letter-spacing:.2em;text-transform:uppercase;color:#9FAAA4;display:flex;flex-direction:column;justify-content:center;padding:0 18px 0 6px;border-right:1px solid #ffffff12}
+  .A .plate b{font-size:22px;letter-spacing:.06em;color:#EDEFEA}
+  .A .stn{width:200px;background:#161B1C;border:1px solid #000;border-radius:4px;padding:8px 10px;display:grid;grid-template-columns:1fr auto;align-items:center;box-shadow:inset 0 1px 0 #ffffff10,0 2px 3px #0008}
+  .A .stn .n{font:600 16px "Barlow Condensed";letter-spacing:.04em;color:#E7ECE8}
+  .A .stn .d{font:11px "JetBrains Mono";color:#7C8781}
+  .A .lamp{font:700 12px "Barlow Condensed";letter-spacing:.16em;padding:4px 8px;border-radius:3px;background:#2C3331;color:#5E6863}
+  .A .lamp.hold{background:#E8A33A;color:#1B1306;box-shadow:0 0 14px #E8A33A88,inset 0 1px 0 #fff6}
+  .A .lamp.go{background:#3FBF6A;color:#06170C;box-shadow:0 0 12px #3FBF6A66,inset 0 1px 0 #fff6}
+  .A .stn.on{outline:2px solid #E8A33A;outline-offset:2px}
+  .A .add{margin-left:auto;align-self:center;font:600 14px "Barlow Condensed";letter-spacing:.14em;color:#C6CEC9;border:1px solid #ffffff22;border-radius:4px;padding:10px 14px}
+  .A .body{display:grid;grid-template-columns:1fr 380px;gap:14px;padding:14px 16px;min-height:0}
+  .A .crt{background:#050806;border-radius:10px;border:10px solid #151A1B;box-shadow:inset 0 0 60px #000,inset 0 0 0 1px #1f3a27,0 1px 0 #ffffff10;padding:18px 22px;font:14px/1.6 "JetBrains Mono";color:#B9F5C8;position:relative;overflow:hidden;min-height:0}
+  .A .crt:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(#0000 0 2px,#00000040 2px 3px);pointer-events:none}
+  .A .crt .hd{display:flex;justify-content:space-between;color:#4E8C61;font-size:12px;letter-spacing:.1em;border-bottom:1px solid #1d3a26;padding-bottom:8px;margin-bottom:12px}
+  .A .crt .u{color:#F1F7F2;text-shadow:0 0 8px #b9f5c855}
+  .A .crt .u:before{content:"CAPCOM  ";color:#E8A33A}
+  .A .crt .say{color:#9FD8AE;margin:8px 0 10px;max-width:70ch}
+  .A .crt .ev{display:grid;grid-template-columns:80px 70px 1fr auto;gap:10px;color:#7FCB93}
+  .A .crt .ev .t{color:#3E7A50}
+  .A .crt .ev b{color:#D7FBE0;font-weight:500}
+  .A .crt .ev.void{color:#B3563E}.A .crt .ev.void b{color:#E06A4E;text-decoration:line-through}
+  .A .crt .diff{margin:4px 0 8px 160px;font-size:12.5px;line-height:1.5;border-left:1px solid #1d3a26;padding-left:10px}
+  .A .crt .diff .m{color:#C9705A}.A .crt .diff .p{color:#8DF0A8}
+  .A .crt .wait{color:#E8A33A;margin-top:10px;animation:blink 1.2s steps(2) infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .A .poll{background:#1A2021;border:1px solid #000;border-radius:8px;box-shadow:inset 0 1px 0 #ffffff10;display:flex;flex-direction:column;padding:16px;gap:12px}
+  .A .poll h3{margin:0;font:700 15px "Barlow Condensed";letter-spacing:.22em;color:#E8A33A;text-transform:uppercase;display:flex;justify-content:space-between}
+  .A .poll .q{font:600 24px/1.15 "Barlow Condensed";color:#F1F4F0}
+  .A .poll pre{margin:0;background:#050806;border:1px solid #1f3a27;border-radius:4px;padding:12px;font:14px "JetBrains Mono";color:#D7FBE0}
+  .A .poll .why{font:13px/1.45 Geist;color:#93A09A}
+  .A .gng{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .A .key{border-radius:6px;padding:16px 10px;text-align:center;font:700 26px "Barlow Condensed";letter-spacing:.14em;border:1px solid #000}
+  .A .key small{display:block;font:500 11px "JetBrains Mono";letter-spacing:0;opacity:.75;margin-top:2px}
+  .A .key.go{background:linear-gradient(#45CC74,#2E9A55);color:#04140A;box-shadow:0 0 22px #3FBF6A55,inset 0 1px 0 #fff8}
+  .A .key.no{background:#2A1715;color:#F07A62;border-color:#5a2a22;box-shadow:inset 0 1px 0 #ffffff10}
+  .A .always{font:600 14px "Barlow Condensed";letter-spacing:.1em;color:#B7C2BC;border:1px solid #ffffff1c;border-radius:4px;padding:9px;text-align:center}
+  .A .mascot{margin-top:auto;display:flex;align-items:flex-end;gap:12px;font:13px/1.4 Geist;color:#93A09A}
+  .A .loop{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 16px 16px}
+  .A .loop .tag{font:700 13px "Barlow Condensed";letter-spacing:.2em;color:#9FAAA4}
+  .A .loop .in{background:#050806;border:1px solid #1f3a27;border-radius:6px;padding:13px 14px;font:14px "JetBrains Mono";color:#3E7A50}
+  .A .loop .send{font:700 15px "Barlow Condensed";letter-spacing:.16em;color:#5E6863;border:1px solid #ffffff14;border-radius:4px;padding:12px 18px}
+
+  /* ================= B · OSCILLOSCOPE ================= */
+  .B{background:#050607;font-family:"Chakra Petch",sans-serif;color:#C8CED4;display:grid;grid-template-columns:220px 1fr}
+  .B nav{border-right:1px solid #1A1F23;padding:18px 14px;display:flex;flex-direction:column;gap:8px}
+  .B .brand{font:700 15px "Chakra Petch";letter-spacing:.1em;color:#E9ECEF;margin:0 4px 14px;display:flex;gap:8px;align-items:center}
+  .B .brand i{width:10px;height:10px;border:2px solid #F4D03F;border-radius:50%}
+  .B .ch{border:1px solid #1E2428;border-radius:6px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+  .B .ch .c{grid-row:span 2;font:700 12px "Chakra Petch";padding:3px 6px;border-radius:3px;align-self:start;color:#050607}
+  .B .ch .n{font:600 14px "Chakra Petch";color:#E9ECEF}
+  .B .ch .d{white-space:nowrap;font:10.5px "JetBrains Mono";color:#6C7680}
+  .B .ch.on{border-color:#F4D03F;background:#F4D03F0d}
+  .B .ch.off{opacity:.55}
+  .B .new{margin-top:6px;font:600 13px "Chakra Petch";letter-spacing:.06em;border:1px dashed #2A3237;border-radius:6px;padding:10px 12px;color:#8E98A1}
+  .B .duckbox{margin-top:auto;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font:12px/1.4 Geist;color:#8E98A1}
+  .B main{display:grid;grid-template-rows:250px 1fr auto;min-width:0}
+  .B .scope{position:relative;border-bottom:1px solid #1A1F23;background:
+      linear-gradient(#ffffff0a 1px,transparent 1px) 0 0/100% 25px,
+      linear-gradient(90deg,#ffffff0a 1px,transparent 1px) 0 0/ 52.9px 100%;}
+  .B .scope svg{position:absolute;inset:0}
+  .B .ro{position:absolute;font:12px "JetBrains Mono";color:#8E98A1}
+  .B .ro b{color:#F4D03F;font-weight:500}
+  .B .trig{position:absolute;right:62px;top:14px;font:700 12px "Chakra Petch";letter-spacing:.14em;color:#050607;background:#FF5D5D;padding:3px 8px;border-radius:3px}
+  .B .tx{padding:18px 28px;overflow:hidden;display:flex;flex-direction:column;gap:10px;font:15px/1.55 Geist}
+  .B .tx .u{color:#F4F5F6;font-weight:500;font-size:16px}
+  .B .tx .u span{font:600 11px "Chakra Petch";letter-spacing:.16em;color:#F4D03F;margin-right:10px}
+  .B .tx .say{color:#AEB6BE;max-width:72ch}
+  .B .ev{display:grid;grid-template-columns:76px 64px 1fr auto;gap:12px;font:13px "JetBrains Mono";color:#8E98A1;align-items:baseline}
+  .B .ev .m{color:#F4D03F}
+  .B .ev b{color:#E9ECEF;font-weight:500}
+  .B .ev.void b{text-decoration:line-through;color:#6C7680}.B .ev.void .x{color:#FF5D5D;font:600 11px "Chakra Petch";letter-spacing:.14em}
+  .B .soft{display:grid;grid-template-columns:1fr repeat(3,auto);gap:10px;align-items:center;border-top:1px solid #1A1F23;padding:14px 28px;background:#0A0C0E}
+  .B .soft .cmd{font:14px "JetBrains Mono";color:#E9ECEF}
+  .B .soft .cmd span{font:700 11px "Chakra Petch";letter-spacing:.16em;color:#FF5D5D;display:block;margin-bottom:3px}
+  .B .sk{font:600 13px "Chakra Petch";letter-spacing:.08em;border:1px solid #2A3237;border-radius:4px;padding:10px 16px;color:#C8CED4;background:#101316}
+  .B .sk.go{background:#F4D03F;color:#050607;border-color:#F4D03F}
+  .B .sk.no{margin-left:18px}
+
+  /* ================= C · GRAPHITE ================= */
+  .C{background:#0E0F11;display:grid;grid-template-columns:248px 1fr 380px;font-family:Geist,sans-serif;color:#C7CAD0;font-size:14px}
+  .C .pane{border-right:1px solid #1F2125;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .C .ph{height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #1F2125;font:600 11px Geist;letter-spacing:.08em;text-transform:uppercase;color:#7D828C;flex:none}
+  .C .ph .r{margin-left:auto;text-transform:none;letter-spacing:0;font:500 12px "Geist Mono";color:#5E636C}
+  .C .brand{color:#F2F3F5;font:600 14px Geist;letter-spacing:-.01em;text-transform:none;display:flex;align-items:center;gap:8px}
+  .C .brand i{width:8px;height:8px;border-radius:2px;background:#E8875B}
+  .C .sess{padding:8px;display:flex;flex-direction:column;gap:2px}
+  .C .s{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;padding:9px 10px;border-radius:6px}
+  .C .s.on{background:#1A1C20;box-shadow:inset 0 0 0 1px #2A2D33}
+  .C .s .st{width:8px;height:8px;border-radius:50%}
+  .C .s .n{color:#E6E7EA;font-weight:500}
+  .C .s .d{font:11.5px "Geist Mono";color:#5E636C;margin-top:1px}
+  .C .s .c{font:12px "Geist Mono";color:#7D828C}
+  .C .grp{font:600 11px Geist;letter-spacing:.08em;text-transform:uppercase;color:#4E525A;padding:16px 10px 6px}
+  .C .newb{margin:8px;border:1px solid #2A2D33;border-radius:6px;padding:9px 12px;display:flex;justify-content:space-between;color:#C7CAD0}
+  .C kbd{font:11px "Geist Mono";color:#7D828C;border:1px solid #2A2D33;border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:#141518}
+  .C .mascot{margin-top:auto;padding:14px 16px;display:flex;align-items:center;gap:10px;border-top:1px solid #1F2125;font-size:12.5px;color:#7D828C;line-height:1.4}
+  .C .mascot b{color:#E6E7EA;font-weight:500;display:block}
+  .C .thread{flex:1;overflow:hidden;padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+  .C .u{background:#16181B;border:1px solid #23262B;border-radius:8px;padding:12px 14px;color:#EDEEF0;line-height:1.5}
+  .C .say{line-height:1.6;color:#B9BDC4;max-width:68ch}
+  .C .say code{font-size:12.5px;color:#E6C07B;background:#1A1C20;padding:1px 5px;border-radius:4px}
+  .C .tools{border:1px solid #1F2125;border-radius:8px;overflow:hidden}
+  .C .t{display:grid;grid-template-columns:56px 1fr auto;gap:12px;padding:8px 12px;font:13px "Geist Mono";border-top:1px solid #1A1C1F;align-items:center}
+  .C .t:first-child{border-top:0}
+  .C .t .k{font-weight:500}
+  .C .t .p{color:#D6D8DC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .C .t .m{color:#5E636C;font-size:12px}
+  .C .t.sel{background:#16181B;box-shadow:inset 2px 0 0 #E8875B}
+  .C .t.void .p{text-decoration:line-through;color:#5E636C}
+  .C .badge{font:600 10.5px Geist;letter-spacing:.06em;text-transform:uppercase;color:#F07178;border:1px solid #F0717855;border-radius:4px;padding:1px 6px}
+  .C .waiting{display:flex;align-items:center;gap:10px;font-size:13px;color:#E8875B}
+  .C .waiting i{width:6px;height:6px;border-radius:50%;background:#E8875B;box-shadow:0 0 0 4px #E8875B22}
+  .C .comp{border-top:1px solid #1F2125;padding:14px 20px 16px;flex:none}
+  .C .box{border:1px solid #2A2D33;border-radius:8px;background:#121316;padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-end;min-height:76px}
+  .C .box span{color:#5E636C}
+  .C .meta{display:flex;gap:16px;margin-top:8px;font:12px "Geist Mono";color:#5E636C}
+  .C .meta b{color:#9095A0;font-weight:500}
+  .C .insp{border-right:0;background:#0B0C0E}
+  .C .ask{padding:20px;display:flex;flex-direction:column;gap:14px;border-bottom:1px solid #1F2125}
+  .C .ask h3{margin:0;font:600 17px/1.3 Geist;color:#F2F3F5;letter-spacing:-.01em}
+  .C .ask p{margin:0;color:#8B9099;font-size:13px;line-height:1.5}
+  .C .ask pre{margin:0;background:#121316;border:1px solid #23262B;border-radius:6px;padding:12px;font:13.5px "Geist Mono";color:#E6E7EA}
+  .C .ask pre .c{color:#82AAFF}
+  .C .acts{display:flex;gap:8px;align-items:center}
+  .C .b{white-space:nowrap;border-radius:6px;padding:9px 14px;font:500 13.5px Geist;border:1px solid #2A2D33;color:#D6D8DC;display:flex;gap:8px;align-items:center}
+  .C .b.go{background:#E8875B;border-color:#E8875B;color:#1A0D06;font-weight:600}
+  .C .b.go kbd{background:#0000;border-color:#1A0D0644;color:#1A0D06aa}
+  .C .b.deny{margin-left:auto;color:#F07178;border-color:#F0717840}
+  .C .ctx{padding:14px 20px;display:flex;flex-direction:column;gap:8px}
+  .C .ctx h4{margin:0;font:600 11px Geist;letter-spacing:.08em;text-transform:uppercase;color:#5E636C}
+  .C .diff{font:12.5px/1.65 "Geist Mono";border:1px solid #1F2125;border-radius:6px;overflow:hidden}
+  .C .diff div{padding:0 10px;white-space:pre;color:#9095A0}
+  .C .diff .ln{color:#3E424A;display:inline-block;width:26px}
+  .C .diff .a{background:#1B2A1F;color:#C3E88D}.C .diff .r{background:#2C1A1D;color:#F07178}
+  .C .kv{display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font:12.5px "Geist Mono"}
+  .C .kv span:nth-child(odd){color:#5E636C}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Claude Code UI : trois mondes sombres</h1>
+  <p>Même session fictive partout : quatre sessions, un transcript avec outils et diff, un <code>rm -rf</code> refusé, et un <code>dotnet test</code> qui attend ton feu vert. Le canard BlazorKawaii change d'humeur selon l'état de la session.</p>
+</div>
+
+<!-- ============ A ============ -->
+<div class="label"><h2>A · Salle de contrôle</h2><p>Les sessions sont des stations, le transcript défile sur un écran CRT, et chaque permission est un vote GO / NO-GO.</p></div>
+<div class="frame A">
+  <div class="top">
+    <div class="plate"><b>CLAUDE CODE</b>Flight control</div>
+    <div class="stn on"><div><div class="n">SESSION-STORE</div><div class="d">ClaudeCodeUI · default</div></div><span class="lamp hold">Hold</span></div>
+    <div class="stn"><div><div class="n">FIX-AUTH-TEST</div><div class="d">api · acceptEdits</div></div><span class="lamp go">Go</span></div>
+    <div class="stn"><div><div class="n">DOCS-README</div><div class="d">site · plan</div></div><span class="lamp">Idle</span></div>
+    <div class="stn"><div><div class="n">MIGRATE-NET10</div><div class="d">legacy · auto</div></div><span class="lamp">Idle</span></div>
+    <div class="add">+ STATION</div>
+  </div>
+  <div class="body">
+    <div class="crt">
+      <div class="hd"><span>LOOP · SESSION-STORE · ~/repo/POC/ClaudeCodeUI</span><span>T+00:38 · $0.0912</span></div>
+      <div class="u">Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</div>
+      <div class="say">Je regarde d'abord comment ClaudeSession gère le cycle de vie du processus avant de toucher à Home.razor.</div>
+      <div class="ev"><span class="t">T+00:04</span><span>READ</span><b>ClaudeSession.cs</b><span>89 LN</span></div>
+      <div class="ev"><span class="t">T+00:06</span><span>GREP</span><b>"SendUser"</b><span>3 HITS</span></div>
+      <div class="ev"><span class="t">T+00:19</span><span>EDIT</span><b>Pages/Home.razor</b><span>+12 −3</span></div>
+      <div class="diff"><div class="m">- readonly List&lt;Entry&gt; entries = [];</div><div class="p">+ List&lt;Entry&gt; entries = SessionStore.Load(cwd);</div><div class="p">+ protected override void OnAfterRender(bool _) =&gt; SessionStore.Save(cwd, entries);</div></div>
+      <div class="ev void"><span class="t">T+00:23</span><span>BASH</span><b>rm -rf bin obj</b><span>NO-GO</span></div>
+      <div class="ev"><span class="t">T+00:38</span><span>BASH</span><b>dotnet test --filter SessionStore</b><span>POLL</span></div>
+      <div class="wait">▌ EN ATTENTE DE FLIGHT</div>
+    </div>
+    <div class="poll">
+      <h3><span>Go / No-go</span><span>Bash</span></h3>
+      <div class="q">Lancer les tests du store ?</div>
+      <pre>dotnet test --filter SessionStore</pre>
+      <div class="why">Claude veut vérifier que la sérialisation tient avant de continuer.</div>
+      <div class="gng"><div class="key go">GO<small>Entrée</small></div><div class="key no">NO-GO<small>Échap</small></div></div>
+      <div class="always">GO PERMANENT POUR « dotnet test »</div>
+      <div class="mascot"><div class="duck"><div style="position: relative; "><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120" viewBox="0 0 240 240" fill="none" aria-hidden="true">
+        <g transform="translate(0 6)">
+            <ellipse fill="#F08A3A" cx="96" cy="194" rx="17" ry="8" />
+            <ellipse fill="#F08A3A" cx="144" cy="194" rx="17" ry="8" />
+            <ellipse fill="#FCCC0A" cx="58" cy="150" rx="13" ry="24" transform="rotate(35 58 150)" />
+            <ellipse fill="#FCCC0A" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#000" opacity="0.1" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#FCCC0A" cx="120" cy="156" rx="64" ry="38" />
+            <path fill="#000" opacity="0.1" d="M115 118.12A64 38 0 1 1 115 193.88A64 38 0 0 0 115 118.12Z" />
+            <path fill="#FCCC0A" d="M118 44C112 34 114 24 124 20C121 28 125 36 128 42Z" />
+            <path fill="#FCCC0A" d="M70 90a50 50 0 1 0 100 0a50 50 0 1 0 -100 0Z" />
+            <path fill="#000" opacity="0.1" d="M115.5 139.8A50 50 0 1 0 115.5 40.2A50 50 0 0 1 115.5 139.8Z" />
+        </g>
+
+        <g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--shocked"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><ellipse cx="15" cy="14" rx="9" ry="10" fill="#F07A2A"></ellipse></g></g>
+    <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle>
+        <circle cx="63" cy="3" r="3"></circle></g></g>
+    <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle>
+            <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></svg></div></div><span>La station attend ton vote.</span></div>
+    </div>
+  </div>
+  <div class="loop"><span class="tag">LOOP</span><div class="in">Réponds à Claude…</div><span class="send">TRANSMIT</span></div>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<!-- ============ B ============ -->
+<div class="label"><h2>B · Oscilloscope</h2><p>Chaque session est un canal coloré ; la trace en haut montre l'activité dans le temps, et une permission arme le trigger.</p></div>
+<div class="frame B">
+  <nav>
+    <div class="brand"><i></i>CLAUDE CODE</div>
+    <div class="ch on"><span class="c" style="background:#F4D03F">CH1</span><span class="n">session-store</span><span class="d">default · 6 outils · $0.09</span></div>
+    <div class="ch"><span class="c" style="background:#3FD0E0">CH2</span><span class="n">fix-auth-test</span><span class="d">acceptEdits · 14 outils</span></div>
+    <div class="ch off"><span class="c" style="background:#E05FD0">CH3</span><span class="n">docs-readme</span><span class="d">plan · terminé · $0.42</span></div>
+    <div class="ch off"><span class="c" style="background:#5FE07A">CH4</span><span class="n">migrate-net10</span><span class="d">auto · terminé · $1.87</span></div>
+    <div class="new">+ Nouveau canal</div>
+    <div class="duckbox"><div class="duck"><div style="position: relative; "><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120" viewBox="0 0 240 240" fill="none" aria-hidden="true">
+        <g transform="translate(0 6)">
+            <ellipse fill="#F08A3A" cx="96" cy="194" rx="17" ry="8" />
+            <ellipse fill="#F08A3A" cx="144" cy="194" rx="17" ry="8" />
+            <ellipse fill="#FCCC0A" cx="58" cy="150" rx="13" ry="24" transform="rotate(35 58 150)" />
+            <ellipse fill="#FCCC0A" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#000" opacity="0.1" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#FCCC0A" cx="120" cy="156" rx="64" ry="38" />
+            <path fill="#000" opacity="0.1" d="M115 118.12A64 38 0 1 1 115 193.88A64 38 0 0 0 115 118.12Z" />
+            <path fill="#FCCC0A" d="M118 44C112 34 114 24 124 20C121 28 125 36 128 42Z" />
+            <path fill="#FCCC0A" d="M70 90a50 50 0 1 0 100 0a50 50 0 1 0 -100 0Z" />
+            <path fill="#000" opacity="0.1" d="M115.5 139.8A50 50 0 1 0 115.5 40.2A50 50 0 0 1 115.5 139.8Z" />
+        </g>
+
+        <g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--shocked"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><ellipse cx="15" cy="14" rx="9" ry="10" fill="#F07A2A"></ellipse></g></g>
+    <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle>
+        <circle cx="63" cy="3" r="3"></circle></g></g>
+    <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle>
+            <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></svg></div></div>CH1 a déclenché : Bash attend.</div>
+  </nav>
+  <main>
+    <div class="scope">
+      <span class="ro" style="left:14px;top:12px"><b>CH1</b> session-store · ~/repo/POC/ClaudeCodeUI</span>
+      <span class="trig">TRIG · BASH</span>
+      <span class="ro" style="left:14px;bottom:10px">0 s</span><span class="ro" style="right:14px;bottom:10px">38,2 s</span>
+      <span class="ro" style="left:50%;bottom:10px">5 s/div</span>
+      <svg viewBox="0 0 1060 250" preserveAspectRatio="none">
+        <defs><filter id="glow"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
+        <g fill="none" stroke="#3FD0E0" stroke-width="1.2" opacity=".35"><path d="M0 200 L120 200 L130 186 L150 186 L160 200 L420 200 L430 180 L470 180 L480 200 L700 200 L710 190 L760 190 L770 200 L1060 200"/></g>
+        <g fill="none" stroke="#F4D03F" stroke-width="2">
+          <path filter="url(#glow)" opacity=".7" d="M0 150 L40 150 L46 70 L90 70 L96 150 L140 150 L146 110 L160 110 L166 150 L190 150 L196 110 L212 110 L218 150 L330 150 L336 60 L430 60 L436 150 L470 150 L476 110 L496 110 L502 150 L590 150 L596 112 L612 112 L618 150 L940 150 L946 40 L1060 40"/>
+          <path d="M0 150 L40 150 L46 70 L90 70 L96 150 L140 150 L146 110 L160 110 L166 150 L190 150 L196 110 L212 110 L218 150 L330 150 L336 60 L430 60 L436 150 L470 150 L476 110 L496 110 L502 150 L590 150 L596 112 L612 112 L618 150 L940 150 L946 40 L1060 40"/>
+        </g>
+        <g font-family="JetBrains Mono" font-size="11" fill="#8E98A1">
+          <text x="48" y="62">texte</text><text x="146" y="102">Read</text><text x="194" y="102">Grep</text><text x="338" y="52">texte</text><text x="474" y="102">Edit</text><text x="590" y="104" fill="#FF5D5D">Bash ✕</text>
+        </g>
+        <line x1="943" y1="0" x2="943" y2="250" stroke="#FF5D5D" stroke-dasharray="4 4"/>
+      </svg>
+    </div>
+    <div class="tx">
+      <div class="u"><span>TOI</span>Ajoute la persistance des sessions : un fichier JSON par dossier de travail.</div>
+      <div class="say">Je regarde d'abord comment ClaudeSession gère le cycle de vie du processus avant de toucher à Home.razor.</div>
+      <div class="ev"><span>00:04.1</span><span class="m">Read</span><b>ClaudeSession.cs</b><span>89 lignes</span></div>
+      <div class="ev"><span>00:06.0</span><span class="m">Grep</span><b>"SendUser"</b><span>3 résultats</span></div>
+      <div class="ev"><span>00:19.4</span><span class="m">Edit</span><b>Components/Pages/Home.razor</b><span>+12 −3</span></div>
+      <div class="ev void"><span>00:23.2</span><span class="m">Bash</span><b>rm -rf bin obj</b><span class="x">REFUSÉ</span></div>
+    </div>
+    <div class="soft">
+      <div class="cmd"><span>TRIGGER · BASH</span>dotnet test --filter SessionStore</div>
+      <span class="sk go">AUTORISER ⏎</span><span class="sk">TOUJOURS</span><span class="sk no">REFUSER ⎋</span>
+    </div>
+  </main>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<!-- ============ C ============ -->
+<div class="label"><h2>C · Console graphite</h2><p>Panneaux fixes séparés par des filets d'un pixel, couleurs reprises de la coloration syntaxique, et la décision dans un inspecteur à droite. Le plus proche d'un IDE, mais en plus net.</p></div>
+<div class="frame C">
+  <div class="pane">
+    <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
+    <div class="newb">Nouvelle session <kbd>Ctrl N</kbd></div>
+    <div class="sess">
+      <div class="grp">Actives</div>
+      <div class="s on"><span class="st" style="background:#E8875B;box-shadow:0 0 0 3px #E8875B33"></span><div><div class="n">session-store</div><div class="d">ClaudeCodeUI</div></div><span class="c">attend</span></div>
+      <div class="s"><span class="st" style="background:#C3E88D"></span><div><div class="n">fix-flaky-auth-test</div><div class="d">api</div></div><span class="c">en cours</span></div>
+      <div class="grp">Récentes</div>
+      <div class="s"><span class="st" style="background:#3E424A"></span><div><div class="n">docs-readme</div><div class="d">site</div></div><span class="c">$0.42</span></div>
+      <div class="s"><span class="st" style="background:#3E424A"></span><div><div class="n">migrate-net10</div><div class="d">legacy</div></div><span class="c">$1.87</span></div>
+    </div>
+    <div class="mascot"><div class="duck"><div style="position: relative; "><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="56" height="56" viewBox="0 0 240 240" fill="none" aria-hidden="true">
+        <g transform="translate(0 6)">
+            <ellipse fill="#F08A3A" cx="96" cy="194" rx="17" ry="8" />
+            <ellipse fill="#F08A3A" cx="144" cy="194" rx="17" ry="8" />
+            <ellipse fill="#FCCC0A" cx="58" cy="150" rx="13" ry="24" transform="rotate(35 58 150)" />
+            <ellipse fill="#FCCC0A" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#000" opacity="0.1" cx="182" cy="150" rx="13" ry="24" transform="rotate(-35 182 150)" />
+            <ellipse fill="#FCCC0A" cx="120" cy="156" rx="64" ry="38" />
+            <path fill="#000" opacity="0.1" d="M115 118.12A64 38 0 1 1 115 193.88A64 38 0 0 0 115 118.12Z" />
+            <path fill="#FCCC0A" d="M118 44C112 34 114 24 124 20C121 28 125 36 128 42Z" />
+            <path fill="#FCCC0A" d="M70 90a50 50 0 1 0 100 0a50 50 0 1 0 -100 0Z" />
+            <path fill="#000" opacity="0.1" d="M115.5 139.8A50 50 0 1 0 115.5 40.2A50 50 0 0 1 115.5 139.8Z" />
+        </g>
+
+        <g transform="translate(91 91.06) scale(0.8787878787878788)"><g class="kawaii-face kawaii-face--shocked"><g class="kawaii-face__mouth"><g transform="translate(18.000000, 16.000000)"><ellipse cx="15" cy="14" rx="9" ry="10" fill="#F07A2A"></ellipse></g></g>
+    <g class="kawaii-face__cheeks"><g transform="translate(0.000000, 15.000000)" fill="#000000" opacity="0.2" style="--kawaii-cheeks-opacity: 0.2"><circle cx="3" cy="3" r="3"></circle>
+        <circle cx="63" cy="3" r="3"></circle></g></g>
+    <g class="kawaii-face__eyes"><g transform="translate(2.000000, 0.000000)" fill="#000000"><g transform="translate(1.000000, 2.000000)"><circle cx="4.5" cy="4.5" r="4.5"></circle>
+            <circle cx="56.5" cy="4.5" r="4.5"></circle></g></g></g></g></g></svg></div></div><div><b>Une décision t'attend</b>session-store · Bash</div></div>
+  </div>
+  <div class="pane">
+    <div class="ph">session-store <span class="r">~/repo/POC/ClaudeCodeUI · default</span></div>
+    <div class="thread">
+      <div class="u">Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</div>
+      <div class="say">Je regarde d'abord comment <code>ClaudeSession</code> gère le cycle de vie du processus avant de toucher à <code>Home.razor</code>.</div>
+      <div class="tools">
+        <div class="t"><span class="k" style="color:#82AAFF">Read</span><span class="p">ClaudeSession.cs</span><span class="m">89 lignes</span></div>
+        <div class="t"><span class="k" style="color:#C792EA">Grep</span><span class="p">"SendUser"</span><span class="m">3 résultats</span></div>
+        <div class="t"><span class="k" style="color:#C3E88D">Edit</span><span class="p">Components/Pages/Home.razor</span><span class="m">+12 −3</span></div>
+        <div class="t void"><span class="k" style="color:#FFCB6B">Bash</span><span class="p">rm -rf bin obj</span><span class="badge">Refusé</span></div>
+        <div class="t sel"><span class="k" style="color:#FFCB6B">Bash</span><span class="p">dotnet test --filter SessionStore</span><span class="m">en attente</span></div>
+      </div>
+      <div class="waiting"><i></i>Claude attend ta décision dans l'inspecteur</div>
+    </div>
+    <div class="comp">
+      <div class="box"><span>Réponds à Claude…</span><kbd>Ctrl ⏎</kbd></div>
+      <div class="meta"><span>tour <b>38,2 s</b></span><span>coût <b>$0.0912</b></span><span>outils <b>5</b></span></div>
+    </div>
+  </div>
+  <div class="pane insp">
+    <div class="ph">Permission <span class="r">Bash</span></div>
+    <div class="ask">
+      <h3>Lancer les tests du store ?</h3>
+      <pre><span class="c">dotnet</span> test --filter SessionStore</pre>
+      <p>S'exécute dans <code style="color:#C7CAD0">~/repo/POC/ClaudeCodeUI</code>. Lecture seule sur le code source.</p>
+      <div class="acts"><span class="b go">Autoriser <kbd>⏎</kbd></span><span class="b">Toujours</span><span class="b deny">Refuser</span></div>
+    </div>
+    <div class="ctx">
+      <h4>Dernière modification</h4>
+      <div class="diff"><div><span class="ln">41</span>    record Permission(...);</div><div class="r"><span class="ln">42</span>-   readonly List&lt;Entry&gt; entries = [];</div><div class="a"><span class="ln">42</span>+   List&lt;Entry&gt; entries = SessionStore.Load(cwd);</div><div class="a"><span class="ln">43</span>+   protected override void OnAfterRender(</div><div class="a"><span class="ln">44</span>+       bool _) =&gt; SessionStore.Save(cwd, entries);</div><div><span class="ln">45</span>    readonly List&lt;Permission&gt; pending = [];</div></div>
+      <h4 style="margin-top:10px">Session</h4>
+      <div class="kv"><span>dossier</span><span>~/repo/POC/ClaudeCodeUI</span><span>mode</span><span>default</span><span>démarrée</span><span>14:31</span><span>outils</span><span>5 · 1 refusé</span></div>
+    </div>
+  </div>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<div style="height:70px"></div>
+</body>
+</html>

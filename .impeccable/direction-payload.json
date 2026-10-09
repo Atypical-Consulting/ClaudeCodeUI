@@ -1,0 +1,129 @@
+{
+  "title": "Choisir le monde visuel — Claude Code UI",
+  "question": "Le tirage a assigné « Plan de ligne ». Le garder, prendre une alternative, ou relancer.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Plan de ligne (signalétique transit)",
+      "kicker": "THE ROLL",
+      "lineage": "Manuel de signalétique NYCTA (Unimark/Vignelli, 1970) et diagrammes de lignes",
+      "thesis": "Chaque session est une ligne de métro : les appels d'outils sont des stations, une permission est un signal rouge où la ligne s'arrête.",
+      "palette": ["#111111", "#FFFFFF", "#EE352E", "#FF6319", "#0039A6", "#00933C", "#FCCC0A"],
+      "materials": ["bandeau noir de signalétique", "pastilles de ligne colorées", "tracé vertical continu", "angles vifs, filets 2px"],
+      "viewport": "Sidebar noire = plan du réseau (une pastille colorée par session) ; au centre la ligne de la session active descend dans la gouttière, prose de Claude à droite, terminus = composer.",
+      "risk": "Si la métaphore s'arrête à la déco, ça devient un thème ; le tracé doit porter l'état réel (en cours, en attente, refusé).",
+      "raised": [
+        {"from": "challenger-splitflap", "raise": "La liste des sessions devient un tableau à colonnes fixes (état, dossier, mode, coût) mis à jour en place, jamais réordonné sous le doigt."},
+        {"from": "challenger-centre-rail", "raise": "Les états sont des marques imprimées : aucun rayon, filets à un pixel, focus = crochets."},
+        {"from": "challenger-orienteering", "raise": "Une seule couleur réservée à « ça attend toi » : le signal de permission actif, nulle part ailleurs."},
+        {"from": "challenger-ticket-wallet", "raise": "Rien ne disparaît : un outil refusé reste sur la ligne, tamponné REFUSÉ."}
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Strips de contrôle aérien",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Flight progress strips des tours de contrôle",
+      "thesis": "Le dev est le contrôleur : chaque session est un strip dans une baie, chaque outil demande une clairance.",
+      "palette": ["#E9ECE6", "#1C2420", "#F2C230", "#2F6FB0", "#C8372D"],
+      "materials": ["strips papier en porte-strips", "baies empilées", "écriture tampon"],
+      "viewport": "Baies verticales de strips (sessions) à gauche, strip actif déplié en transcript, clairances en attente surlignées jaune.",
+      "risk": "Densité forte et vocabulaire de métier peu connu ; le transcript long tient mal dans un strip."
+    },
+    {
+      "id": "challenger-splitflap",
+      "label": "Tableau des départs (split-flap)",
+      "verdict": "competitive",
+      "lineage": "Tableaux Solari des grandes gares",
+      "thesis": "Les sessions comme départs : statut, dossier et coût claquent en place.",
+      "palette": ["#0D0D0D", "#F2F2F2", "#F5A623", "#B3261E"],
+      "materials": ["palettes noires mates", "cadre acier", "lampes ambre"],
+      "viewport": "Le tableau des sessions plein écran, la session ouverte sous la rangée choisie.",
+      "case": "Excellent pour la vue multi-sessions, faible pour lire un long transcript markdown.",
+      "risk": "Le transcript (prose, diffs) n'a pas de place naturelle dans des cellules fixes.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp"
+    },
+    {
+      "id": "challenger-centre-rail",
+      "label": "Page à rail central",
+      "verdict": "declined",
+      "lineage": "Éditions de référence à grandes marges",
+      "palette": ["#141210", "#C8331E", "#EEE8DC"],
+      "materials": ["filets un pixel", "vermillon rubriqué"],
+      "case": "Le lecteur d'édition savante n'est pas un dev qui pilote un agent.",
+      "kept": "États en marques imprimées, aucun rayon.",
+      "thesis": "Deux colonnes autour d'un rail de clés.",
+      "viewport": "Bloc texte serré dans une marge d'annotation.",
+      "risk": "Fond os + serif : le défaut que l'on évite.",
+      "hero": "https://impeccable.style/worlds/cards/rw-centre-rail-reference-setting-hero.webp"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Carte de course d'orientation",
+      "verdict": "declined",
+      "lineage": "Cartes ISOM",
+      "palette": ["#FFFFFF", "#9B2C8C", "#B07A3A", "#F7D44A"],
+      "materials": ["courbes de niveau", "tracé violet"],
+      "case": "Métaphore spatiale sans terrain réel à cartographier.",
+      "kept": "Une couleur réservée au tronçon actif.",
+      "thesis": "Le parcours violet par-dessus le terrain.",
+      "viewport": "Carte avec la session en tracé violet.",
+      "risk": "Décoratif sans données géographiques.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map-hero.webp"
+    },
+    {
+      "id": "challenger-ticket-wallet",
+      "label": "Pochette de billets jet-age",
+      "verdict": "declined",
+      "lineage": "Billets d'avion carbone",
+      "palette": ["#1B2A55", "#C8102E", "#FFFFFF", "#6B3FA0"],
+      "materials": ["coupons carbone", "tampons VOID"],
+      "case": "Bon pour l'historique, lourd pour une conversation vivante.",
+      "kept": "Rien ne disparaît : on annule, on tamponne.",
+      "thesis": "Chaque tour est un coupon.",
+      "viewport": "Coupons empilés par tour.",
+      "risk": "Effet costume si mal dosé.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-jet-age-ticket-wallet-hero.webp"
+    },
+    {
+      "id": "challenger-zoo",
+      "label": "Plan de zoo à lobes",
+      "verdict": "declined",
+      "lineage": "Plans-guides de parcs",
+      "palette": ["#8ED462", "#F5F1E4", "#FF705D", "#2BA0FF"],
+      "materials": ["aplats", "capsules"],
+      "case": "Ludique, illisible pour du code et des diffs.",
+      "kept": "Contrôles en capsules pleines, état clair par position.",
+      "thesis": "Chaque zone un lobe de couleur.",
+      "viewport": "Un lobe dominant par écran.",
+      "risk": "Hors sujet pour un outil dev.",
+      "hero": "https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp"
+    },
+    {
+      "id": "challenger-crouwel",
+      "label": "Spécimen grille Crouwel",
+      "verdict": "declined",
+      "lineage": "Wim Crouwel, Stedelijk",
+      "palette": ["#FFFFFF", "#1A1AFF", "#111111"],
+      "materials": ["grille de construction visible"],
+      "case": "Grille forte, mais aucune métaphore pour l'agent ni les permissions.",
+      "kept": "Reflow par cellules entières.",
+      "thesis": "La grille est l'interface.",
+      "viewport": "Grille visible, lettres monumentales.",
+      "risk": "Ornemental pour un outil.",
+      "hero": "https://impeccable.style/worlds/cards/crouwel-grid-specimen-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "canon": true,
+  "canonCard": {
+    "label": "Standard de la catégorie",
+    "thesis": "Chat sombre façon IDE avec sidebar d'historique, comme Cursor ou claude.ai.",
+    "palette": ["#18181B", "#27272A", "#FAFAFA", "#D97757"],
+    "materials": ["panneaux sombres", "bulles", "accent orange"],
+    "viewport": "Sidebar sessions, fil de chat centré, composer collé en bas.",
+    "risk": "Indiscernable des autres clients par construction."
+  },
+  "buildPath": {"value": "code", "toggle": false},
+  "steer": true
+}

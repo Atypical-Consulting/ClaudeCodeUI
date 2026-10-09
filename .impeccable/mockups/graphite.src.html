@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code UI · Console graphite · mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="graphite"]{
+  --page:#08090A; --ground:#0E0F11; --sunk:#0B0C0E; --raise:#16181B; --raise-2:#1A1C20; --field:#121316; --hair:#1A1C1F;
+  --seam:#1F2125; --seam-2:#2A2D33; --seam-3:#3A3E46;
+  --fg:#EDEEF0; --fg-2:#C7CAD0; --fg-3:#9095A0; --fg-4:#83888F; --fg-5:#5C6068; --prose:#BCC0C7;
+  --accent:#E8875B; --accent-ink:#1A0D06;
+  --ok:#C3E88D; --err:#F07178;
+  --syn-kw:#C792EA; --syn-str:#C3E88D; --syn-fn:#82AAFF; --syn-type:#FFCB6B; --syn-num:#F78C6C; --syn-com:#7F848E; --syn-attr:#89DDFF; --syn-var:#F07178; --code-inline:#E6C07B;
+}
+[data-theme="encre"]{
+  --page:#060912; --ground:#0B1020; --sunk:#080C18; --raise:#121A2E; --raise-2:#162036; --field:#0E1528; --hair:#141C30;
+  --seam:#1A2338; --seam-2:#253049; --seam-3:#34415F;
+  --fg:#E6ECFA; --fg-2:#C0CAE0; --fg-3:#8D9AB8; --fg-4:#7F8BA8; --fg-5:#56617C; --prose:#B7C2DA;
+  --accent:#7DCFFF; --accent-ink:#051421;
+  --ok:#9ECE6A; --err:#F7768E;
+  --syn-kw:#BB9AF7; --syn-str:#9ECE6A; --syn-fn:#7AA2F7; --syn-type:#E0AF68; --syn-num:#FF9E64; --syn-com:#7A84AE; --syn-attr:#73DACA; --syn-var:#F7768E; --code-inline:#E0AF68;
+}
+[data-theme="ristretto"]{
+  --page:#0C0907; --ground:#15110E; --sunk:#110E0B; --raise:#1E1915; --raise-2:#241E19; --field:#1A1511; --hair:#211B16;
+  --seam:#2A231D; --seam-2:#382F27; --seam-3:#4C4036;
+  --fg:#F2E8DC; --fg-2:#D8CBBB; --fg-3:#A89887; --fg-4:#9A8B7B; --fg-5:#6A5D50; --prose:#CDBFAF;
+  --accent:#E6B450; --accent-ink:#1E1404;
+  --ok:#B8BB26; --err:#FB4934;
+  --syn-kw:#FB4934; --syn-str:#B8BB26; --syn-fn:#83A598; --syn-type:#FABD2F; --syn-num:#D3869B; --syn-com:#998B7D; --syn-attr:#8EC07C; --syn-var:#FE8019; --code-inline:#FABD2F;
+}
+[data-theme="mousse"]{
+  --page:#070B09; --ground:#0D1210; --sunk:#0A0F0D; --raise:#141B18; --raise-2:#18211D; --field:#111815; --hair:#16201C;
+  --seam:#1C2622; --seam-2:#27342F; --seam-3:#37483F;
+  --fg:#E4EEE8; --fg-2:#C1D0C7; --fg-3:#8FA398; --fg-4:#81968A; --fg-5:#56685E; --prose:#B8C8BE;
+  --accent:#F2A65A; --accent-ink:#1E1004;
+  --ok:#A6DA95; --err:#EB6F92;
+  --syn-kw:#C4A7E7; --syn-str:#F6C177; --syn-fn:#9CCFD8; --syn-type:#EBBCBA; --syn-num:#EB6F92; --syn-com:#849689; --syn-attr:#9CCFD8; --syn-var:#EA9A97; --code-inline:#F6C177;
+}
+[data-theme="contraste"]{
+  --page:#000; --ground:#000; --sunk:#000; --raise:#101010; --raise-2:#161616; --field:#0A0A0A; --hair:#262626;
+  --seam:#3A3A3A; --seam-2:#555; --seam-3:#777;
+  --fg:#FFF; --fg-2:#F0F0F0; --fg-3:#CFCFCF; --fg-4:#B5B5B5; --fg-5:#8A8A8A; --prose:#EDEDED;
+  --accent:#FFB000; --accent-ink:#000;
+  --ok:#5CFF8A; --err:#FF6B6B;
+  --syn-kw:#FF8AFF; --syn-str:#7CFF9B; --syn-fn:#7CC4FF; --syn-type:#FFE066; --syn-num:#FFA06B; --syn-com:#A0A0A0; --syn-attr:#6BF2FF; --syn-var:#FF8A8A; --code-inline:#FFE066;
+}
+:root,[data-theme]{
+  --accent-soft:color-mix(in srgb,var(--accent) 12%,transparent);
+  --accent-hover:color-mix(in srgb,var(--accent) 85%,#fff);
+  --err-fg:color-mix(in srgb,var(--err) 65%,var(--fg));
+  --ok-fg:color-mix(in srgb,var(--ok) 65%,var(--fg));
+  --read:var(--syn-fn); --grep:var(--syn-kw); --edit:var(--ok); --bash:var(--syn-type); --write:var(--syn-attr); --web:var(--syn-num);
+  --r:6px; --r-lg:8px;
+  --code-size:13px;
+  --sans:Geist,system-ui,sans-serif; --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+}
+[data-theme] .frame,[data-theme] body{transition:background-color .25s cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box}
+::selection{background:color-mix(in srgb,var(--accent) 27%,transparent);color:#fff}
+html{color-scheme:dark}
+body{margin:0;background:var(--page);color:var(--fg-2);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.sm{width:14px;height:14px}
+kbd{font:500 11px var(--mono);color:var(--fg-3);border:1px solid var(--seam-2);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--field);line-height:17px;display:inline-block}
+code{font-family:var(--mono)}
+.duck svg{display:block}
+
+/* ---------- page ---------- */
+.doc{max-width:1440px;margin:0 auto;padding:48px 0 80px}
+.doc>header h1{margin:0 0 8px;font:600 30px/1.2 var(--sans);letter-spacing:-.02em;color:var(--fg)}
+.doc>header p{margin:0;color:var(--fg-3);max-width:74ch;line-height:1.55}
+.doc>header nav{display:flex;gap:6px;margin-top:20px;flex-wrap:wrap}
+.doc>header nav a{color:var(--fg-2);text-decoration:none;font-size:13px;border:1px solid var(--seam-2);border-radius:999px;padding:5px 12px}
+.doc>header nav a:hover{border-color:var(--seam-3);color:var(--fg)}
+.screen{margin-top:64px}
+.screen>h2{margin:0;font:600 20px var(--sans);color:var(--fg);letter-spacing:-.01em}
+.screen>p{margin:6px 0 16px;color:var(--fg-3);max-width:80ch}
+.frame{width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #ffffff12,0 40px 80px -30px #000;background:var(--ground)}
+.synthetic{position:absolute;right:12px;bottom:6px;font:500 10px var(--mono);color:var(--fg-5);z-index:30}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:256px minmax(0,1fr) 420px;height:100%}
+.app.no-insp{grid-template-columns:256px minmax(0,1fr)}
+.pane{border-right:1px solid var(--seam);display:flex;flex-direction:column;min-width:0;min-height:0}
+.pane:last-child{border-right:0}
+.ph{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--seam)}
+.ph .ttl{font:600 13px var(--sans);color:var(--fg);white-space:nowrap}
+.ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph .end{margin-left:auto;display:flex;gap:8px;align-items:center}
+.cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
+
+/* rail */
+.brand{display:flex;align-items:center;gap:9px;font:600 14px var(--sans);color:var(--fg);letter-spacing:-.01em}
+.brand i{width:9px;height:9px;border-radius:2px;background:var(--accent)}
+.rail-actions{padding:10px;display:flex;flex-direction:column;gap:6px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--seam-2);border-radius:var(--r);padding:7px 12px;font:500 13px var(--sans);color:var(--fg-2);background:transparent;white-space:nowrap}
+.btn.block{display:flex;width:100%}
+.btn.block kbd{margin-left:auto}
+.btn.ghost{border-color:transparent;color:var(--fg-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary kbd{background:transparent;border-color:color-mix(in srgb,var(--accent-ink) 25%,transparent);color:color-mix(in srgb,var(--accent-ink) 69%,transparent)}
+.btn.danger{color:var(--err);border-color:color-mix(in srgb,var(--err) 25%,transparent)}
+.btn.is-hover{border-color:var(--seam-3);color:var(--fg);background:var(--raise)}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--seam);border-radius:var(--r);padding:7px 10px;color:var(--fg-4);font-size:13px}
+.search kbd{margin-left:auto}
+.grp{padding:14px 18px 6px;display:flex;justify-content:space-between}
+.list{padding:0 8px;display:flex;flex-direction:column;gap:1px}
+.s{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);position:relative}
+.s.on{background:var(--raise-2);box-shadow:inset 0 0 0 1px var(--seam-2)}
+.s .n{color:var(--fg);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s .d{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s .c{font:12px var(--mono);color:var(--fg-4)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--fg-5)}
+.dot.wait{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.dot.run{background:var(--ok);animation:pulse 1.6s ease-out infinite}
+.dot.err{background:var(--err)}
+.dot.idle{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-5)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 33%,transparent)}100%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
+.pill{font:600 11px var(--sans);border-radius:999px;padding:1px 7px}
+.pill.wait{background:var(--accent);color:var(--accent-ink)}
+.pill.err{color:var(--err);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--err) 33%,transparent)}
+.mascot{margin-top:auto;padding:14px 16px;display:flex;align-items:center;gap:12px;border-top:1px solid var(--seam);font-size:12.5px;line-height:1.4;color:var(--fg-4)}
+.mascot b{display:block;color:var(--fg);font-weight:500}
+
+/* thread */
+.thread{flex:1;min-height:0;overflow:auto;padding:28px 32px 12px;display:flex;flex-direction:column;gap:16px}
+.thread>*{max-width:760px;width:100%;flex-shrink:0}
+.you{background:var(--raise);border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;color:var(--fg);line-height:1.55}
+.you .w{font:500 11.5px var(--mono);color:var(--fg-4);margin-bottom:4px;display:flex;gap:8px}
+.prose{line-height:1.65;color:var(--prose)}
+.prose p{margin:0 0 10px}.prose p:last-child{margin:0}
+.prose h3{margin:16px 0 6px;font:600 15px var(--sans);color:var(--fg)}
+.prose ol,.prose ul{margin:0 0 10px;padding-left:20px}.prose li{margin:3px 0}
+.prose li::marker{color:var(--fg-4)}
+.prose code{font-size:12.5px;color:var(--code-inline);background:var(--raise-2);padding:1px 5px;border-radius:4px}
+.prose strong{color:var(--fg);font-weight:600}
+.cb{border:1px solid var(--seam);border-radius:var(--r);overflow:hidden;margin:6px 0 12px}
+.cb .h{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid var(--seam);font:12px var(--mono);color:var(--fg-4);background:var(--sunk)}
+.cb pre{margin:0;padding:12px 14px;font:13px/1.6 var(--mono);color:var(--fg-2);background:var(--sunk);overflow:hidden}
+
+/* tool ledger */
+.ledger{border:1px solid var(--seam);border-radius:var(--r-lg);overflow:hidden}
+.ledger .lh{display:flex;align-items:center;gap:8px;padding:7px 12px;font:12px var(--sans);color:var(--fg-4);border-bottom:1px solid var(--seam);background:var(--sunk)}
+.t{display:grid;grid-template-columns:16px 52px minmax(0,1fr) auto;gap:10px;padding:8px 12px;font:13px var(--mono);border-top:1px solid var(--hair);align-items:center}
+.ledger .lh+.t,.ledger>.t:first-child{border-top:0}
+.t .kind{font-weight:500}
+.t .p{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t .m{color:var(--fg-4);font-size:12px;white-space:nowrap}
+.t .chev{color:var(--fg-5)}
+.t.sel{background:var(--raise);box-shadow:inset 2px 0 0 var(--accent)}
+.t.void .p{text-decoration:line-through;color:var(--fg-4)}
+.t.wait{background:color-mix(in srgb,var(--accent) 6%,transparent);box-shadow:inset 2px 0 0 var(--accent)}
+.t.wait .m{color:var(--accent)}
+.badge{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;border-radius:4px;padding:1px 6px}
+.badge.no{color:var(--err);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--err) 33%,transparent)}
+.badge.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 27%,transparent)}
+.status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3)}
+.status.wait{color:var(--accent)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--seam-2);border-top-color:var(--ok);animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.caret{display:inline-block;width:7px;height:15px;background:var(--fg-2);vertical-align:-2px;margin-left:2px;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:0}}
+
+/* composer */
+.composer{flex:none;border-top:1px solid var(--seam);padding:14px 32px 14px}
+.box{max-width:760px;border:1px solid var(--seam-2);border-radius:var(--r-lg);background:var(--field);padding:12px 12px 10px 14px}
+.box.focus{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
+.box .ph-text{color:var(--fg-4);min-height:40px}
+.box .typed{color:var(--fg);min-height:40px}
+.box .row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--fg-3);border:1px solid var(--seam);border-radius:999px;padding:2px 9px}
+.box .row .go{margin-left:auto}
+.meta{max-width:760px;display:flex;gap:18px;margin-top:8px;font:12px var(--mono);color:var(--fg-4)}
+.meta b{color:var(--fg-3);font-weight:500}
+.meta .r{margin-left:auto}
+
+/* inspector */
+.insp{background:var(--sunk)}
+.section{padding:18px 20px;border-bottom:1px solid var(--seam);display:flex;flex-direction:column;gap:12px}
+.section h3{margin:0;font:600 17px/1.3 var(--sans);color:var(--fg);letter-spacing:-.01em}
+.section p{margin:0;color:var(--fg-3);font-size:13px;line-height:1.55}
+.cmd{margin:0;background:var(--field);border:1px solid var(--seam);border-radius:var(--r);padding:12px;font:13.5px var(--mono);color:var(--fg);white-space:pre-wrap}
+.acts{display:flex;gap:8px;align-items:center}
+.acts .btn.danger{margin-left:auto}
+.diff{font:12.5px/1.65 var(--mono);border:1px solid var(--seam);border-radius:var(--r);overflow:hidden;background:var(--field)}
+.diff .fh{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--seam);color:var(--fg-3);font-size:12px}
+.diff .fh .a{color:var(--ok)}.diff .fh .d{color:var(--err)}
+.diff div.l{padding:0 10px 0 0;white-space:pre;color:var(--fg-3);display:grid;grid-template-columns:34px 14px 1fr}
+.diff .n{color:var(--fg-5);text-align:right;padding-right:8px}
+.diff .add{background:color-mix(in srgb,var(--ok) 7%,transparent);color:var(--ok-fg)}.diff .add .g{color:var(--ok)}
+.diff .del{background:color-mix(in srgb,var(--err) 8%,transparent);color:var(--err-fg)}.diff .del .g{color:var(--err)}
+.diff .hunk{color:color-mix(in srgb,var(--syn-fn) 60%,transparent);background:color-mix(in srgb,var(--syn-fn) 4%,transparent);padding:0 10px;white-space:pre}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:7px 12px;font:12.5px var(--mono)}
+.kv span:nth-child(odd){color:var(--fg-4)}
+.kv span:nth-child(even){color:var(--fg-2)}
+.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--seam);height:40px;align-items:flex-end}
+.tab{padding:0 10px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent}
+.tab.on{color:var(--fg);border-color:var(--accent)}
+.filev{font:12.5px/1.7 var(--mono);color:var(--fg-3);padding:10px 0}
+.filev div{display:grid;grid-template-columns:40px 1fr;white-space:pre}
+.filev .n{color:var(--fg-5);text-align:right;padding-right:12px}
+.filev .hl{background:color-mix(in srgb,var(--syn-fn) 6%,transparent);box-shadow:inset 2px 0 0 var(--read)}
+
+/* ---------- 1. start ---------- */
+.start{flex:1;display:grid;place-items:center;padding:24px}
+.start-card{width:640px;display:flex;flex-direction:column;gap:22px}
+.hello{display:flex;align-items:center;gap:18px}
+.hello h3{margin:0;font:600 24px/1.2 var(--sans);color:var(--fg);letter-spacing:-.02em}
+.hello p{margin:4px 0 0;color:var(--fg-3)}
+.field label{display:block;font:500 13px var(--sans);color:var(--fg-2);margin-bottom:8px}
+.input{display:flex;align-items:center;gap:10px;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);padding:10px 12px;font:13.5px var(--mono);color:var(--fg)}
+.input .i{color:var(--fg-4)}
+.input .b{margin-left:auto}
+.recents{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mode{border:1px solid var(--seam-2);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.mode b{font:500 13px var(--mono);color:var(--fg)}
+.mode span{font-size:12px;color:var(--fg-4);line-height:1.4}
+.mode.on{border-color:var(--accent);background:var(--accent-soft)}
+.mode.on b{color:var(--accent)}
+.hint{font-size:12.5px;color:var(--fg-4);display:flex;gap:16px}
+
+/* ---------- 4. overview ---------- */
+.ov{flex:1;min-height:0;padding:24px 28px;display:flex;flex-direction:column;gap:18px;overflow:hidden}
+.ovhead{display:flex;align-items:flex-end;gap:24px}
+.ovhead h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.tot{display:flex;gap:28px;margin-left:auto;font:12px var(--sans);color:var(--fg-4)}
+.tot b{display:block;font:500 20px var(--mono);color:var(--fg);letter-spacing:-.02em}
+.tot .w b{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4);text-align:left;padding:0 12px 10px;border-bottom:1px solid var(--seam)}
+td{padding:13px 12px;border-bottom:1px solid var(--hair);vertical-align:middle}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td .n{color:var(--fg);font-weight:500}
+td .d{font:12px var(--mono);color:var(--fg-4)}
+td .last{font:12.5px var(--mono);color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:330px;display:block}
+tr.hot td{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.stt{display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+.mtag{font:12px var(--mono);color:var(--fg-3);border:1px solid var(--seam-2);border-radius:4px;padding:1px 6px}
+.queue{border:1px solid var(--seam);border-radius:var(--r-lg);background:var(--sunk)}
+.queue .qh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--seam)}
+.q{display:grid;grid-template-columns:160px 52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 16px;border-top:1px solid var(--hair);font:13px var(--mono)}
+.q:first-of-type{border-top:0}
+.q .who{font:500 13px var(--sans);color:var(--fg)}
+.q .p{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 5. palette + error ---------- */
+.scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--sunk) 60%,transparent);backdrop-filter:blur(2px);z-index:10}
+.palette{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:640px;background:var(--raise);border:1px solid var(--seam-2);border-radius:12px;box-shadow:0 24px 60px -10px #000c,0 0 0 1px #00000080;z-index:11;overflow:hidden}
+.palette .q-in{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--seam);font-size:15px;color:var(--fg)}
+.palette .q-in .i{color:var(--fg-4)}
+.palette .q-in kbd{margin-left:auto}
+.pg{padding:10px 16px 4px}
+.pi{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0 6px;border-radius:var(--r)}
+.pi .n{color:var(--fg)}
+.pi .n mark{background:none;color:var(--accent);font-weight:600}
+.pi .d{font:12px var(--mono);color:var(--fg-4)}
+.pi.on{background:var(--raise-2)}
+.pi .r{display:flex;gap:8px;align-items:center;font:12px var(--mono);color:var(--fg-4)}
+.pi .ic{display:grid;place-items:center;color:var(--fg-3)}
+.pfoot{display:flex;gap:18px;padding:10px 16px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4);margin-top:6px}
+.crash{border:1px solid color-mix(in srgb,var(--err) 25%,transparent);background:color-mix(in srgb,var(--err) 5%,transparent);border-radius:var(--r-lg);padding:16px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+.crash h4{margin:0 0 4px;font:600 15px var(--sans);color:var(--fg)}
+.crash p{margin:0 0 10px;font-size:13px;color:var(--fg-3)}
+.crash pre{margin:0 0 12px;font:12px/1.5 var(--mono);color:var(--err-fg);background:var(--sunk);border:1px solid var(--seam);border-radius:var(--r);padding:8px 10px;white-space:pre-wrap}
+
+/* polish: interaction states, browser surfaces */
+.btn,.s,.t,.pi,.mode,.chip,.tab,.q{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
+.btn:hover{border-color:var(--seam-3);color:var(--fg);background:var(--raise)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:var(--accent-ink)}
+.btn.danger:hover{background:color-mix(in srgb,var(--err) 10%,transparent);border-color:color-mix(in srgb,var(--err) 50%,transparent);color:var(--err-fg)}
+.btn[aria-disabled=true]{opacity:.4;pointer-events:none}
+.s:not(.on):hover,.pi:not(.on):hover{background:var(--raise)}
+.t:not(.sel):not(.wait):hover{background:var(--raise)}
+.mode:not(.on):hover,.chip:hover{border-color:var(--seam-3);color:var(--fg-2)}
+.tab:hover{color:var(--fg-2)}
+:focus-visible,.focus-demo{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r)}
+.t,.pi,.mode,.s{cursor:default}
+td.num,.meta,.kv,.tot b,.s .c{font-variant-numeric:tabular-nums}
+*{scrollbar-width:thin;scrollbar-color:var(--seam-2) transparent}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--seam-2);border-radius:10px;border:3px solid var(--ground)}::-webkit-scrollbar-track{background:transparent}
+textarea,input{caret-color:var(--accent)}
+.caret{background:var(--accent)}
+.filev div,.diff div.l{font-size:12px}
+
+/* ---------- markdown (Markdig output) ---------- */
+.md{line-height:1.7;color:var(--prose);font-size:14.5px}
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md p{margin:0 0 12px}
+.md h1,.md h2,.md h3,.md h4{color:var(--fg);font-family:var(--sans);letter-spacing:-.01em;line-height:1.3;margin:28px 0 10px}
+.md h1{font-size:22px;font-weight:600}.md h2{font-size:18px;font-weight:600}.md h3{font-size:15px;font-weight:600}.md h4{font-size:14px;font-weight:600;color:var(--fg-2)}
+.md h2{padding-bottom:8px;border-bottom:1px solid var(--seam)}
+.md strong{color:var(--fg);font-weight:600}
+.md em{color:var(--fg-2)}
+.md a{color:var(--syn-fn);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--syn-fn) 40%,transparent);text-underline-offset:3px;text-decoration-thickness:1px}
+.md a:hover{text-decoration-color:var(--syn-fn)}
+.md :not(pre)>code{font:calc(var(--code-size) - .5px) var(--mono);color:var(--code-inline);background:var(--raise-2);border:1px solid var(--seam);padding:0 5px;border-radius:4px;white-space:nowrap}
+.md ul,.md ol{margin:0 0 12px;padding-left:22px}
+.md li{margin:4px 0;padding-left:2px}
+.md li>ul,.md li>ol{margin:4px 0 0}
+.md ul>li::marker{color:var(--fg-5)}
+.md ol>li::marker{color:var(--fg-4);font:500 12.5px var(--mono)}
+.md ul.contains-task-list{list-style:none;padding-left:4px}
+.md .task-list-item{display:block;position:relative;padding-left:26px}
+.md .task-list-item>ul{list-style:disc;padding-left:20px}
+.md .task-list-item input{appearance:none;position:absolute;left:0;top:4px;width:16px;height:16px;margin:0;border:1.5px solid var(--seam-3);border-radius:4px;background:var(--field)}
+.md .task-list-item input:checked{background:var(--ok);border-color:var(--ok)}
+.md .task-list-item input:checked::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid var(--ground);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.md .task-list-item:has(>input:checked){color:var(--fg-3)}
+.md blockquote{margin:0 0 12px;padding:2px 0 2px 16px;border-left:2px solid var(--seam-3);color:var(--fg-3)}
+.md blockquote p{margin:0}
+.md hr{border:0;border-top:1px solid var(--seam);margin:24px 0}
+.md table{width:100%;border-collapse:separate;border-spacing:0;margin:4px 0 16px;font-size:13.5px;border:1px solid var(--seam);border-radius:var(--r);overflow:hidden}
+.md th{font:600 12px var(--sans);letter-spacing:.02em;text-transform:none;color:var(--fg-3);background:var(--sunk);padding:8px 12px;border-bottom:1px solid var(--seam)}
+.md td{padding:8px 12px;border-bottom:1px solid var(--hair);color:var(--prose);vertical-align:top}
+.md tr:last-child td{border-bottom:0}
+.md td[style*="right"]{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--fg-2)}
+.md .markdown-alert{--al:var(--syn-fn);margin:0 0 14px;padding:10px 14px;border:1px solid color-mix(in srgb,var(--al) 45%,transparent);background:color-mix(in srgb,var(--al) 7%,transparent);border-radius:var(--r)}
+.md .markdown-alert-tip{--al:var(--ok)}.md .markdown-alert-important{--al:var(--syn-kw)}.md .markdown-alert-warning{--al:var(--syn-type)}.md .markdown-alert-caution{--al:var(--err)}
+.md .markdown-alert-title{display:flex;align-items:center;gap:8px;font:600 13px var(--sans);color:var(--al);margin:0 0 4px}
+.md .markdown-alert-title svg{fill:currentColor}
+.md .markdown-alert p:last-child{margin:0}
+
+/* ---------- code blocks (highlight.js, themed by tokens) ---------- */
+.cb{border:1px solid var(--seam);border-radius:var(--r-lg);overflow:hidden;margin:4px 0 16px;background:var(--sunk)}
+.cb .h{display:flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 12px;border-bottom:1px solid var(--seam);font:12px var(--mono);color:var(--fg-4)}
+.cb .copy{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--fg-4);border:0;background:none;padding:5px 8px;border-radius:5px;cursor:pointer}
+.cb .copy:hover{color:var(--fg);background:var(--raise)}
+.cb .copy.done{color:var(--ok)}
+.cb pre{margin:0;padding:14px 16px;overflow:auto;background:none;border:0}
+.cb pre code{font:var(--code-size)/1.65 var(--mono);color:var(--fg-2);background:none;border:0;padding:0;white-space:pre;tab-size:4}
+.hljs{color:var(--fg-2);background:none}
+.hljs-keyword,.hljs-built_in,.hljs-selector-tag,.hljs-literal,.hljs-meta .hljs-keyword{color:var(--syn-kw)}
+.hljs-string,.hljs-regexp,.hljs-template-string,.hljs-char.escape_{color:var(--syn-str)}
+.hljs-title,.hljs-title.function_,.hljs-section{color:var(--syn-fn)}
+.hljs-type,.hljs-title.class_,.hljs-class .hljs-title{color:var(--syn-type)}
+.hljs-number,.hljs-symbol,.hljs-bullet{color:var(--syn-num)}
+.hljs-comment,.hljs-quote{color:var(--syn-com);font-style:italic}
+.hljs-attr,.hljs-attribute,.hljs-property,.hljs-variable.language_{color:var(--syn-attr)}
+.hljs-variable,.hljs-template-variable,.hljs-params{color:var(--syn-var)}
+.hljs-meta,.hljs-meta .hljs-string{color:var(--syn-com)}
+.hljs-punctuation,.hljs-operator{color:var(--fg-3)}
+.hljs-addition{color:var(--ok-fg);background:color-mix(in srgb,var(--ok) 10%,transparent);display:inline-block;min-width:100%}
+.hljs-deletion{color:var(--err-fg);background:color-mix(in srgb,var(--err) 10%,transparent);display:inline-block;min-width:100%}
+.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:600}
+
+/* ---------- theme switcher (doc) + appearance screen ---------- */
+.themebar{display:flex;align-items:center;gap:6px;margin-top:22px;flex-wrap:wrap}
+.themebar .lab{font-size:13px;color:var(--fg-4);margin-right:6px}
+.themebar button{display:inline-flex;align-items:center;gap:8px;font:500 13px var(--sans);color:var(--fg-2);background:none;border:1px solid var(--seam-2);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer}
+.themebar button i{width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--ground) 50%,var(--accent) 50%);box-shadow:0 0 0 1px var(--seam-3)}
+.themebar button[aria-pressed=true]{border-color:var(--accent);color:var(--fg);background:var(--accent-soft)}
+.settings{flex:1;min-height:0;overflow:hidden;padding:28px 32px;display:flex;flex-direction:column;gap:28px}
+.settings h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.settings .lead{margin:6px 0 0;color:var(--fg-3);max-width:70ch}
+.set-row{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px}
+.set-row>div:first-child b{display:block;color:var(--fg);font-weight:500}
+.set-row>div:first-child span{font-size:13px;color:var(--fg-4);line-height:1.5}
+.themes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.tc{border:1px solid var(--seam-2);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;background:var(--ground);color:var(--fg-2);transition:border-color .15s,box-shadow .15s}
+.tc:hover{border-color:var(--seam-3)}
+.tc.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tc .pv{display:grid;grid-template-columns:30px minmax(0,1fr);height:122px;border-bottom:1px solid var(--seam)}
+.tc .pv .rl{background:var(--sunk);border-right:1px solid var(--seam);display:flex;flex-direction:column;gap:6px;padding:10px 7px}
+.tc .pv .rl i{height:5px;border-radius:3px;background:var(--seam-2)}
+.tc .pv .rl i:first-child{background:var(--accent);width:70%}
+.tc .pv .bd{padding:10px;display:flex;flex-direction:column;gap:4px;font:10.5px/1.5 var(--mono);overflow:hidden}
+.tc .pv .ln{white-space:nowrap}
+.tc .pv .btnp{margin-top:auto;align-self:flex-start;background:var(--accent);color:var(--accent-ink);font:600 10px var(--sans);border-radius:4px;padding:3px 8px}
+.tc .nm{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tc .nm b{color:var(--fg);font-weight:500;font-size:13.5px;white-space:nowrap}
+.tc .sw{display:flex;gap:3px}.tc .sw i{width:9px;height:9px;border-radius:50%}
+.seg{display:inline-flex;border:1px solid var(--seam-2);border-radius:var(--r);overflow:hidden}
+.seg span{padding:7px 14px;font:500 13px var(--mono);color:var(--fg-3);border-left:1px solid var(--seam-2);cursor:pointer}
+.seg span:first-child{border-left:0}
+.seg span.on{background:var(--raise-2);color:var(--fg)}
+.sample{border:1px solid var(--seam);border-radius:var(--r-lg);padding:14px;background:var(--ground)}
+.sample .cb{margin:0}
+
+/* ---------- parity: shared bits ---------- */
+.branch{display:inline-flex;align-items:center;gap:4px;font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.branch .i{width:12px;height:12px;flex:none}
+.quota{padding:12px 16px 4px;display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--seam)}
+.quota .qrow{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center;font:11.5px var(--mono);color:var(--fg-4)}
+.quota .qrow span:last-child{text-align:right;color:var(--fg-3)}
+.bar{height:4px;border-radius:2px;background:var(--seam-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px;background:var(--fg-3)}
+.toggle{display:inline-flex;align-items:center;gap:8px;font:500 13px var(--sans);color:var(--fg-2)}
+.toggle .sw{width:28px;height:16px;border-radius:999px;background:var(--seam-2);position:relative;flex:none}
+.toggle .sw::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--fg-3);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.toggle.on .sw{background:var(--accent)}
+.toggle.on .sw::after{transform:translateX(12px);background:var(--accent-ink)}
+.tag{font:500 11px var(--mono);color:var(--fg-3);border:1px solid var(--seam-2);border-radius:4px;padding:0 6px;white-space:nowrap}
+.tag.acc{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:var(--accent-soft)}
+.state{display:inline-flex;align-items:center;gap:7px;font:500 12.5px var(--sans);white-space:nowrap}
+.state i{width:8px;height:8px;border-radius:50%;flex:none}
+.st-safe{color:var(--ok)}.st-safe i{background:var(--ok)}
+.st-check{color:var(--syn-type)}.st-check i{background:var(--syn-type)}
+.st-active{color:var(--fg-3)}.st-active i{background:transparent;box-shadow:inset 0 0 0 2px var(--fg-3)}
+.st-orphan{color:var(--fg-4)}.st-orphan i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-4);border-radius:2px}
+.why{font-size:12.5px;color:var(--fg-3);line-height:1.45}
+.why b{color:var(--fg-2);font-weight:500}
+
+/* ---------- 8. worktrees ---------- */
+.wt{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+.wt-head{display:flex;align-items:flex-end;gap:24px}
+.wt-head h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.wt-head p{margin:6px 0 0;color:var(--fg-3);font-size:13.5px}
+.filters{display:flex;gap:6px}
+.filters .chip.on{color:var(--fg);border-color:var(--seam-3);background:var(--raise)}
+.filters .chip b{font-weight:600;margin-left:2px}
+.wtt td{padding:11px 12px}
+.wtt td.num{white-space:nowrap}
+.wtt{table-layout:fixed}.wtt th:nth-child(1){width:236px}.wtt th:nth-child(2){width:112px}.wtt th:nth-child(4){width:76px}.wtt th:nth-child(5){width:108px}.wtt td{overflow:hidden}
+.wtt td .n{display:flex;align-items:center;gap:8px}
+.wtt tr.sel td{background:var(--raise)}
+.wtt tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.wtt tr.dim td{color:var(--fg-4)}
+.wtt .rowacts{display:flex;gap:6px;justify-content:flex-end}
+.wtt .btn{padding:4px 10px;font-size:12.5px}
+.grp-row td{padding:16px 12px 6px;border-bottom:1px solid var(--seam);font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4);background:none!important;box-shadow:none!important}
+.plan{display:flex;flex-direction:column;gap:2px}
+.plan .it{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 0;border-top:1px solid var(--hair)}
+.plan .it:first-child{border-top:0}
+.plan .it .i{color:var(--ok);margin-top:2px}
+.plan .it .n{color:var(--fg);font-weight:500}
+.plan .it .w{font:12px var(--mono);color:var(--fg-4);margin-top:2px;line-height:1.5}
+.plan .it .sz{font:12px var(--mono);color:var(--fg-3)}
+.cmdlog{font:12px/1.7 var(--mono);color:var(--fg-3);background:var(--field);border:1px solid var(--seam);border-radius:var(--r);padding:10px 12px;white-space:pre}
+.cmdlog .c{color:var(--fg-5)}
+.guard{display:grid;grid-template-columns:18px 1fr;gap:10px;font-size:12.5px;color:var(--fg-3);line-height:1.5}
+.guard .i{color:var(--syn-type);margin-top:2px}
+
+/* ---------- 9. composer ---------- */
+.composer.rich .box{padding:12px 12px 10px 14px}
+.tools-row{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.pick{display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--sans);color:var(--fg-2);border:1px solid var(--seam-2);border-radius:var(--r);padding:4px 8px;white-space:nowrap}
+.pick .i{width:12px;height:12px;color:var(--fg-4)}
+.pick small{font:11.5px var(--mono);color:var(--fg-4)}
+.pick.on{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-soft);color:var(--accent)}
+.pick.dis{opacity:.45}
+.effort{display:inline-flex;border:1px solid var(--seam-2);border-radius:var(--r);overflow:hidden}
+.effort span{font:500 12px var(--mono);color:var(--fg-4);padding:4px 8px;border-left:1px solid var(--seam-2)}
+.effort span:first-child{border-left:0}
+.effort span.on{background:var(--raise-2);color:var(--fg)}
+.pop{position:absolute;background:var(--raise);border:1px solid var(--seam-2);border-radius:10px;box-shadow:0 18px 40px -12px #000c;z-index:6;overflow:hidden}
+.slash{left:32px;bottom:196px;width:560px}
+.slash .sh{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
+.slash .si{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 12px}
+.slash .si.on{background:var(--raise-2);box-shadow:inset 2px 0 0 var(--accent)}
+.slash .si b{font:500 13px var(--mono);color:var(--fg)}
+.slash .si b mark{background:none;color:var(--accent)}
+.slash .si span{font-size:12.5px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx{display:flex;flex-direction:column;gap:10px}
+.ctxbar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--seam)}
+.ctxbar i{display:block;height:100%}
+.legend{display:grid;grid-template-columns:12px 1fr auto;gap:6px 10px;font:12.5px var(--mono);align-items:center}
+.legend i{width:10px;height:10px;border-radius:3px}
+.legend span:nth-child(3n){color:var(--fg-2);text-align:right}
+.legend span:nth-child(3n+2){color:var(--fg-3)}
+
+/* ---------- 10. ultracode ---------- */
+.ultra-chip{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:999px;padding:1px 8px;margin-right:6px}
+.wf{border:1px solid var(--seam);border-radius:var(--r-lg);overflow:hidden}
+.wf .wh{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--seam);background:var(--sunk)}
+.wf .wh b{color:var(--fg);font-weight:600}
+.wf .wh .r{margin-left:auto;font:12px var(--mono);color:var(--fg-4)}
+.phases{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--seam)}
+.ph-step{padding:10px 14px;border-left:1px solid var(--seam);display:flex;flex-direction:column;gap:6px}
+.ph-step:first-child{border-left:0}
+.ph-step .t1{display:flex;justify-content:space-between;font:500 13px var(--sans);color:var(--fg-2)}
+.ph-step .t1 span{font:12px var(--mono);color:var(--fg-4)}
+.ph-step.done .t1{color:var(--fg-3)}
+.ph-step.now .t1{color:var(--fg)}
+.agent{display:grid;grid-template-columns:16px 10px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--hair);font-size:13px}
+.agent:first-of-type{border-top:0}
+.agent .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent .nm small{font:12px var(--mono);color:var(--fg-4);margin-left:6px}
+.agent .m{font:12px var(--mono);color:var(--fg-4);white-space:nowrap}
+.agent.sel{background:var(--raise);box-shadow:inset 2px 0 0 var(--accent)}
+.agent .chev{color:var(--fg-5)}
+.subrun{padding:0 14px 8px 52px;display:flex;flex-direction:column;gap:2px;border-top:0}
+.subrun .sl{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;font:12.5px var(--mono);color:var(--fg-3);padding:3px 0}
+.subrun .sl .p{color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finding{border:1px solid var(--seam);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:4px;background:var(--field)}
+.finding .fh{display:flex;gap:8px;align-items:center;font:500 13px var(--sans);color:var(--fg)}
+.finding .loc{font:12px var(--mono);color:var(--fg-4)}
+
+/* ---------- 11. extensions ---------- */
+.ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:16px}
+.ext h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.ext .lead{margin:6px 0 0;color:var(--fg-3);font-size:13.5px;max-width:80ch}
+.subtabs{display:flex;gap:2px;border-bottom:1px solid var(--seam)}
+.subtabs span{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;margin-bottom:-1px}
+.subtabs span b{font:500 11.5px var(--mono);color:var(--fg-4);margin-left:6px}
+.subtabs span.on{color:var(--fg);border-color:var(--accent)}
+.mcp td{padding:10px 12px}
+.mcp tr.sel td{background:var(--raise)}
+.mcp tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.ms{display:inline-flex;align-items:center;gap:7px;font:500 12.5px var(--sans);white-space:nowrap}
+.ms i{width:8px;height:8px;border-radius:50%}
+.ms.ok{color:var(--ok)}.ms.ok i{background:var(--ok)}
+.ms.auth{color:var(--syn-type)}.ms.auth i{background:var(--syn-type)}
+.ms.fail{color:var(--err)}.ms.fail i{background:var(--err)}
+.errbox{font:12px/1.5 var(--mono);color:var(--err-fg);background:var(--field);border:1px solid color-mix(in srgb,var(--err) 35%,transparent);border-radius:var(--r);padding:10px 12px;white-space:pre-wrap}
+
+.lc{font:inherit;color:inherit;background:none;padding:0;white-space:pre}
+.diff .del .lc{opacity:.85}
+
+/* polish 2: states for parity components, rail details */
+.pick,.effort span,.filters .chip,.subtabs span,.agent,.slash .si,.wtt tbody tr:not(.grp-row),.mcp tbody tr,.tc,.toggle{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
+.pick:not(.dis):not(.on):hover,.filters .chip:not(.on):hover{border-color:var(--seam-3);color:var(--fg)}
+.pick.on:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+.pick.dis{cursor:not-allowed}
+.effort span:not(.on):hover,.subtabs span:not(.on):hover{color:var(--fg-2)}
+.agent:not(.sel):hover,.slash .si:not(.on):hover,.wtt tbody tr:not(.grp-row):not(.sel):hover td,.mcp tbody tr:not(.sel):hover td,table tbody tr:not(.hot):hover td{background:var(--raise)}
+.toggle{cursor:pointer}
+.toggle:hover .sw{box-shadow:0 0 0 3px var(--accent-soft)}
+.branch{display:block}
+.branch .i{display:inline-block;vertical-align:-1px;margin-right:4px}
+.quota .qh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
+.quota .qh span:last-child{font:11.5px var(--mono);color:var(--fg-4)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 19a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.3-2.4l7.9-7.9"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10M18 9c0 5-7 3-11.5 8.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.4 8 9 4.6-.6 8-4.5 8-9V6Z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></symbol>
+  <symbol id="i-agents" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M12 11.5 6.5 16M12 11.5l5.5 4.5"/></symbol>
+  <symbol id="i-compress" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0Z M12 17v5"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.7-1.3-.7-2.2 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</svg>
+
+<div class="doc">
+<header>
+  <h1>Claude Code UI · Console graphite</h1>
+  <p>Onze écrans de la même console : démarrer une session, suivre Claude au travail, approuver une modification, garder l'œil sur toutes les sessions, passer de l'une à l'autre au clavier, lire une réponse riche, choisir son thème, faire le ménage dans les worktrees, régler chaque tour, suivre un workflow ultracode et gérer les extensions. Le canard BlazorKawaii change d'humeur selon l'état. Les noms, coûts et durées sont fictifs.</p>
+  <div class="themebar" role="group" aria-label="Thème"><span class="lab">Thème</span><button type="button" data-set-theme="graphite" aria-pressed="false"><i data-theme="graphite"></i>Graphite</button><button type="button" data-set-theme="encre" aria-pressed="false"><i data-theme="encre"></i>Encre</button><button type="button" data-set-theme="ristretto" aria-pressed="false"><i data-theme="ristretto"></i>Ristretto</button><button type="button" data-set-theme="mousse" aria-pressed="false"><i data-theme="mousse"></i>Mousse</button><button type="button" data-set-theme="contraste" aria-pressed="false"><i data-theme="contraste"></i>Contraste élevé</button></div>
+  <nav><a href="#s1">1 · Démarrage</a><a href="#s2">2 · Session en cours</a><a href="#s3">3 · Permission</a><a href="#s4">4 · Vue d'ensemble</a><a href="#s5">5 · Sélecteur et crash</a><a href="#s6">6 · Markdown</a><a href="#s7">7 · Apparence</a><a href="#s8">8 · Worktrees</a><a href="#s9">9 · Composer</a><a href="#s10">10 · Ultracode</a><a href="#s11">11 · Extensions</a></nav>
+</header>
+
+{{RAIL_DEF}}
+
+<!-- ======================= 1. START ======================= -->
+<section class="screen" id="s1">
+  <h2>1 · Démarrage d'une session</h2>
+  <p>Le dossier et le mode de permission se fixent avant le premier message, parce que le CLI les prend au lancement. Les dossiers récents sont à un clic, et le premier prompt démarre tout.</p>
+  <div class="frame"><div class="app no-insp">
+    {{RAIL:new}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">Nouvelle session</span></div>
+      <div class="start"><div class="start-card">
+        <div class="hello"><div class="duck">{{duck-happy-88}}</div><div><h3>Sur quoi on travaille ?</h3><p>Claude Code tournera dans ce dossier, avec tes outils et tes permissions.</p></div></div>
+        <div class="field">
+          <label>Dossier de travail</label>
+          <div class="input"><svg class="i"><use href="#i-folder"/></svg>C:\repo\POC\ClaudeCodeUI<span class="b btn ghost">Parcourir</span></div>
+          <div class="recents"><span class="chip">~/repo/api</span><span class="chip">~/repo/site</span><span class="chip">~/repo/legacy</span><span class="chip">~/repo/BlazorKawaii</span></div>
+        </div>
+        <div class="field">
+          <label>Isolation</label>
+          <div class="input" style="font-family:var(--sans)"><span class="toggle on" role="switch" aria-checked="true"><span class="sw"></span>Nouveau worktree</span><span class="branch" style="margin-left:14px"><svg class="i"><use href="#i-branch"/></svg>claude/persistance-sessions depuis main</span><span class="b btn ghost">Modifier</span></div>
+        </div>
+        <div class="field">
+          <label>Permissions</label>
+          <div class="modes">
+            <div class="mode on focus-demo"><b>default</b><span>Demande avant chaque outil sensible</span></div>
+            <div class="mode"><b>acceptEdits</b><span>Accepte les éditions, demande pour le shell</span></div>
+            <div class="mode"><b>plan</b><span>Lecture seule, propose un plan</span></div>
+            <div class="mode"><b>auto</b><span>N'interrompt jamais, à utiliser avec prudence</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="box focus" style="max-width:none"><div class="typed">Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.<span class="caret"></span></div>
+            <div class="row"><span class="chip"><svg class="i sm"><use href="#i-paperclip"/></svg>Joindre</span><span class="btn primary go">Démarrer <kbd>Ctrl ⏎</kbd></span></div></div>
+        </div>
+        <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Ctrl N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
+      </div></div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 2. RUNNING ======================= -->
+<section class="screen" id="s2">
+  <h2>2 · Session en cours</h2>
+  <p>Claude écrit en streaming. Les outils s'empilent dans un journal compact où chaque ligne s'ouvre en place, et l'inspecteur affiche le fichier lu, à la bonne ligne. <kbd>Échap</kbd> interrompt.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:run}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">session-store</span><span class="sub">feat/session-store · ClaudeCodeUI · default</span><span class="end"><span class="btn ghost"><svg class="i sm"><use href="#i-panel"/></svg></span></span></div>
+      <div class="thread">
+        <div class="you"><div class="w">toi · 14:31</div>Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</div>
+        <div class="ledger">
+          <div class="lh"><svg class="i sm"><use href="#i-down"/></svg>3 outils · 2,4 s</div>
+          <div class="t sel"><svg class="i sm chev"><use href="#i-down"/></svg><span class="kind" style="color:var(--read)">Read</span><span class="p">ClaudeSession.cs</span><span class="m">89 lignes</span></div>
+          <div class="t"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind" style="color:var(--grep)">Grep</span><span class="p">"SendUser" · **/*.razor</span><span class="m">3 résultats</span></div>
+          <div class="t"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind" style="color:var(--read)">Read</span><span class="p">Components/Pages/Home.razor</span><span class="m">191 lignes</span></div>
+        </div>
+        <div class="prose md">{{MD:running}}</div>
+        <div class="status"><span class="spin"></span>Claude écrit… <span style="color:var(--fg-4);font-family:var(--mono);font-size:12px">12,8 s</span></div>
+      </div>
+      <div class="composer">
+        <div class="box"><div class="ph-text">Claude travaille. Tu peux préparer la suite…</div><div class="row"><span class="chip">default</span><span class="btn go"><svg class="i sm"><use href="#i-stop"/></svg>Interrompre <kbd>Échap</kbd></span></div></div>
+        <div class="meta"><span>tour <b>12,8 s</b></span><span>session <b>$0.0391</b></span><span>outils <b>3</b></span><span class="r">claude · stream-json</span></div>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Inspecteur</span><span class="sub">Read · ClaudeSession.cs</span></div>
+      <div class="tabs"><span class="tab on">Sortie</span><span class="tab">Entrée</span><span class="tab">JSON brut</span></div>
+      <div class="filev" data-hl="csharp">
+        <div><span class="n">49</span><code class="lc">public sealed class ClaudeSession : IAsyncDisposable</code></div>
+        <div><span class="n">50</span><code class="lc">{</code></div>
+        <div><span class="n">51</span><code class="lc">    readonly Process proc;</code></div>
+        <div><span class="n">52</span><code class="lc">    readonly Task reader;</code></div>
+        <div><span class="n">53</span><code class="lc">    readonly SemaphoreSlim writeLock = new(1, 1);</code></div>
+        <div><span class="n">54</span><code class="lc"></code></div>
+        <div class="hl"><span class="n">55</span><code class="lc">    public ClaudeSession(string cwd, string permissionMode,</code></div>
+        <div class="hl"><span class="n">56</span><code class="lc">        Func&lt;JsonElement, Task&gt; onEvent, Action&lt;string&gt; onExit)</code></div>
+        <div><span class="n">57</span><code class="lc">    {</code></div>
+        <div><span class="n">58</span><code class="lc">        var psi = new ProcessStartInfo("claude")</code></div>
+        <div><span class="n">59</span><code class="lc">        {</code></div>
+        <div><span class="n">60</span><code class="lc">            WorkingDirectory = cwd,</code></div>
+        <div><span class="n">61</span><code class="lc">            RedirectStandardInput = true,</code></div>
+        <div><span class="n">62</span><code class="lc">            RedirectStandardOutput = true,</code></div>
+        <div><span class="n">63</span><code class="lc">            RedirectStandardError = true,</code></div>
+        <div><span class="n">64</span><code class="lc">        };</code></div>
+        <div><span class="n">65</span><code class="lc"></code></div>
+        <div><span class="n">66</span><code class="lc">        proc = Process.Start(psi)!;</code></div>
+        <div><span class="n">67</span><code class="lc">        var stderr = proc.StandardError.ReadToEndAsync();</code></div>
+        <div><span class="n">68</span><code class="lc">        reader = Task.Run(async () =&gt;</code></div>
+        <div><span class="n">69</span><code class="lc">        {</code></div>
+        <div><span class="n">70</span><code class="lc">            while (await proc.StandardOutput.ReadLineAsync() is { } line)</code></div>
+      </div>
+      <div class="section" style="margin-top:auto;border-top:1px solid var(--seam);border-bottom:0">
+        <div class="kv"><span>outil</span><span>Read</span><span>fichier</span><span>ClaudeSession.cs</span><span>lignes</span><span>1–89</span><span>durée</span><span>0,2 s</span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 3. PERMISSION ======================= -->
+<section class="screen" id="s3">
+  <h2>3 · Demande de permission</h2>
+  <p>Le journal marque la ligne qui attend. L'inspecteur s'ouvre dessus avec le diff complet de l'édition proposée. Une seule couleur signale « ça t'attend », et le refus est isolé à droite pour ne pas le déclencher par erreur.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:wait}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">session-store</span><span class="sub">feat/session-store · ClaudeCodeUI · default</span></div>
+      <div class="thread">
+        <div class="you"><div class="w">toi · 14:31</div>Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</div>
+        <div class="ledger">
+          <div class="lh"><svg class="i sm"><use href="#i-right"/></svg>3 outils · 2,4 s</div>
+        </div>
+        <div class="prose"><p>La session vit entièrement dans <code>Home.razor</code>. Je crée un <strong>SessionStore</strong> statique puis je branche le chargement et la sauvegarde.</p></div>
+        <div class="ledger">
+          <div class="t"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind" style="color:var(--write)">Write</span><span class="p">SessionStore.cs</span><span class="badge ok">créé</span></div>
+          <div class="t void"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind" style="color:var(--bash)">Bash</span><span class="p">rm -rf bin obj</span><span class="badge no">refusé</span></div>
+          <div class="t wait"><svg class="i sm chev"><use href="#i-right"/></svg><span class="kind" style="color:var(--edit)">Edit</span><span class="p">Components/Pages/Home.razor</span><span class="m">attend ta décision</span></div>
+        </div>
+        <div class="status wait"><span class="dot wait"></span>Claude est en pause : une édition attend ton accord</div>
+      </div>
+      <div class="composer">
+        <div class="box"><div class="ph-text">Ou explique à Claude ce que tu veux à la place…</div><div class="row"><span class="chip">default</span><span class="btn go">Envoyer <kbd>Ctrl ⏎</kbd></span></div></div>
+        <div class="meta"><span>tour <b>31,0 s</b></span><span>session <b>$0.0912</b></span><span>outils <b>5</b></span></div>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Permission</span><span class="sub">Edit</span><span class="end"><span class="pill wait">1 sur 2</span></span></div>
+      <div class="section">
+        <h3>Modifier Home.razor ?</h3>
+        <p>Remplace la liste en mémoire par le store, et sauvegarde après chaque rendu.</p>
+        <div class="diff" data-hl="csharp">
+          <div class="fh"><span>Components/Pages/Home.razor</span><span><span class="a">+3</span> <span class="d">−1</span></span></div>
+          <div class="hunk">@@ -66,7 +66,9 @@ @code {</div>
+          <div class="l"><span class="n">66</span><span></span><code class="lc">    record Permission(string Id, string Tool, JsonElement Input);</code></div>
+          <div class="l"><span class="n">67</span><span></span><code class="lc"></code></div>
+          <div class="l del"><span class="n">68</span><span class="g">−</span><code class="lc">    readonly List&lt;Entry&gt; entries = [];</code></div>
+          <div class="l add"><span class="n">68</span><span class="g">+</span><code class="lc">    List&lt;Entry&gt; entries = [];</code></div>
+          <div class="l add"><span class="n">69</span><span class="g">+</span><code class="lc">    protected override void OnInitialized() =&gt;</code></div>
+          <div class="l add"><span class="n">70</span><span class="g">+</span><code class="lc">        entries = SessionStore.Load(cwd);</code></div>
+          <div class="l"><span class="n">71</span><span></span><code class="lc">    readonly List&lt;Permission&gt; pending = [];</code></div>
+          <div class="l"><span class="n">72</span><span></span><code class="lc">    string cwd = Directory.GetCurrentDirectory();</code></div>
+        </div>
+        <div class="acts"><span class="btn primary">Autoriser <kbd>⏎</kbd></span><span class="btn">Toute la session</span><span class="btn danger">Refuser</span></div>
+        <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> autoriser · <kbd>Maj ⏎</kbd> toute la session · <kbd>Suppr</kbd> refuser</p>
+      </div>
+      <div class="section" style="border-bottom:0">
+        <span class="cap">Aussi en attente</span>
+        <div class="q" style="grid-template-columns:auto 52px minmax(0,1fr);padding:0;border:0"><span class="dot wait"></span><span style="color:var(--bash)">Bash</span><span class="p" style="color:var(--fg-2)">fix-flaky-auth-test · <span style="color:var(--fg)">npm test -- auth</span></span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 4. OVERVIEW ======================= -->
+<section class="screen" id="s4">
+  <h2>4 · Vue d'ensemble multi-sessions</h2>
+  <p>Toutes les sessions sur une table qui se met à jour en place, sans jamais se réordonner sous ton curseur. En dessous, la file des décisions en attente, toutes sessions confondues, à traiter au clavier.</p>
+  <div class="frame"><div class="app no-insp">
+    {{RAIL:ov}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">Vue d'ensemble</span><span class="end"><span class="btn primary"><svg class="i sm"><use href="#i-plus"/></svg>Nouvelle session</span></span></div>
+      <div class="ov">
+        <div class="ovhead"><h3>5 sessions, 2 décisions t'attendent</h3>
+          <div class="tot"><div class="w"><b>2</b>en attente</div><div><b>1</b>en cours</div><div><b>$2.71</b>aujourd'hui</div><div><b>71</b>outils</div></div></div>
+        <table>
+          <thead><tr><th style="width:250px">Session</th><th>État</th><th>Mode</th><th>Dernière action</th><th class="num">Outils</th><th class="num">Durée</th><th class="num">Coût</th></tr></thead>
+          <tbody>
+            <tr class="hot"><td><div class="n">session-store</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>feat/session-store · ClaudeCodeUI</div></td><td><span class="stt" style="color:var(--accent)"><span class="dot wait"></span>attend · Edit</span></td><td><span class="mtag">default</span></td><td><span class="last"><span style="color:var(--edit)">Edit</span> Components/Pages/Home.razor</span></td><td class="num">5</td><td class="num">4 min</td><td class="num">$0.09</td></tr>
+            <tr class="hot"><td><div class="n">fix-flaky-auth-test</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>fix/flaky-auth · api</div></td><td><span class="stt" style="color:var(--accent)"><span class="dot wait"></span>attend · Bash</span></td><td><span class="mtag">acceptEdits</span></td><td><span class="last"><span style="color:var(--bash)">Bash</span> npm test -- auth</span></td><td class="num">14</td><td class="num">11 min</td><td class="num">$0.31</td></tr>
+            <tr><td><div class="n">bump-markdig</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>chore/bump-markdig · ClaudeCodeUI</div></td><td><span class="stt" style="color:var(--ok)"><span class="dot run"></span>en cours</span></td><td><span class="mtag">auto</span></td><td><span class="last"><span style="color:var(--read)">Read</span> ClaudeCodeUI.csproj</span></td><td class="num">3</td><td class="num">40 s</td><td class="num">$0.02</td></tr>
+            <tr><td><div class="n">docs-readme</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>main · site</div></td><td><span class="stt" style="color:var(--fg-3)"><span class="dot idle"></span>terminée</span></td><td><span class="mtag">plan</span></td><td><span class="last">Plan prêt : 6 étapes</span></td><td class="num">9</td><td class="num">6 min</td><td class="num">$0.42</td></tr>
+            <tr><td><div class="n">migrate-net10</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>chore/net10 · legacy</div></td><td><span class="stt" style="color:var(--err)"><span class="dot err"></span>processus arrêté</span></td><td><span class="mtag">auto</span></td><td><span class="last" style="color:var(--err-fg)">claude exited 1</span></td><td class="num">40</td><td class="num">38 min</td><td class="num">$1.87</td></tr>
+          </tbody>
+        </table>
+        <div class="queue">
+          <div class="qh"><span class="cap">File des décisions</span><span style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> naviguer · <kbd>⏎</kbd> ouvrir</span></div>
+          <div class="q"><span class="who">session-store</span><span style="color:var(--edit)">Edit</span><span class="p">Components/Pages/Home.razor <span style="color:var(--fg-4)">+3 −1</span></span><span class="btn">Ouvrir</span></div>
+          <div class="q"><span class="who">fix-flaky-auth-test</span><span style="color:var(--bash)">Bash</span><span class="p">npm test -- auth</span><span class="btn">Ouvrir</span></div>
+        </div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 5. PALETTE + CRASH ======================= -->
+<section class="screen" id="s5">
+  <h2>5 · Sélecteur de sessions et processus arrêté</h2>
+  <p><kbd>Ctrl K</kbd> filtre les sessions et les actions. Derrière, une session dont le processus <code>claude</code> s'est arrêté : l'erreur dit ce qui s'est passé et comment repartir.</p>
+  <div class="frame"><div class="app no-insp">
+    {{RAIL:err}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">migrate-net10</span><span class="sub">chore/net10 · legacy · auto</span></div>
+      <div class="thread">
+        <div class="ledger">
+          <div class="lh"><svg class="i sm"><use href="#i-right"/></svg>38 outils · 37 min</div>
+        </div>
+        <div class="prose"><p>Les 14 projets ciblent maintenant <code>net10.0</code>. Il reste deux avertissements d'API obsolètes dans <code>Legacy.Web</code>.</p></div>
+        <div class="crash">
+          <div class="duck">{{duck-ko-72}}</div>
+          <div>
+            <h3 style="margin:0 0 4px;font:600 15px var(--sans);color:var(--fg)">Le processus Claude s’est arrêté</h3>
+            <p>La session s'est interrompue en plein tour. Le transcript est conservé ; tu peux relancer dans le même dossier.</p>
+            <pre>claude exited 1 · Error: ENOENT: no such file or directory, open '~/repo/legacy/.claude/settings.json'</pre>
+            <div class="acts" style="justify-content:flex-start"><span class="btn primary"><svg class="i sm"><use href="#i-refresh"/></svg>Relancer la session</span><span class="btn">Copier l'erreur</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box"><div class="ph-text">Session arrêtée. Relance-la pour continuer.</div><div class="row"><span class="btn go" aria-disabled="true">Envoyer</span></div></div></div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+  <div class="palette">
+    <div class="q-in"><svg class="i"><use href="#i-search"/></svg>auth<span class="caret" style="height:17px"></span><kbd>Échap</kbd></div>
+    <div class="pg cap">Sessions</div>
+    <div class="pi on"><span class="dot wait"></span><div><div class="n">fix-flaky-<mark>auth</mark>-test</div><div class="d">fix/flaky-auth · api · attend · Bash</div></div><span class="r"><span class="pill wait">1</span><kbd>⏎</kbd></span></div>
+    <div class="pi"><span class="dot idle"></span><div><div class="n"><mark>auth</mark>-refactor-jwt</div><div class="d">feat/auth-jwt · api · hier · $0.66</div></div><span class="r">terminée</span></div>
+    <div class="pg cap">Actions</div>
+    <div class="pi"><span class="ic"><svg class="i sm"><use href="#i-plus"/></svg></span><div><div class="n">Nouvelle session dans ~/repo/api</div></div><span class="r"><kbd>Ctrl N</kbd></span></div>
+    <div class="pi"><span class="ic"><svg class="i sm"><use href="#i-grid"/></svg></span><div><div class="n">Vue d'ensemble</div></div><span class="r"><kbd>Ctrl ⇧ O</kbd></span></div>
+    <div class="pi"><span class="ic"><svg class="i sm"><use href="#i-palette"/></svg></span><div><div class="n">Thème : Graphite</div></div><span class="r">changer…</span></div>
+    <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> naviguer</span><span><kbd>⏎</kbd> ouvrir</span><span><kbd>Ctrl ⏎</kbd> ouvrir à côté</span></div>
+  </div>
+  <div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 6. MARKDOWN ======================= -->
+<section class="screen" id="s6">
+  <h2>6 · Rendu markdown</h2>
+  <p>Une réponse longue telle que Markdig la produit dans l'app : titres, tableau aligné, alerte GFM, cases à cocher, citation, lien. Chaque bloc de code est coloré par highlight.js avec les couleurs du thème, et son en-tête porte le langage et un bouton Copier.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:md}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">session-store</span><span class="sub">feat/session-store · ClaudeCodeUI · default</span></div>
+      <div class="thread">
+        <div class="you"><div class="w">toi · 14:52</div>Fais le point : qu'est-ce qui a changé, et qu'est-ce qu'il reste à décider ?</div>
+        <div class="ledger"><div class="lh"><svg class="i sm"><use href="#i-right"/></svg>7 outils · 41 s</div></div>
+        <div class="prose md">{{MD:rich}}</div>
+      </div>
+      <div class="composer">
+        <div class="box"><div class="ph-text">Réponds à Claude…</div><div class="row"><span class="chip">default</span><span class="btn go">Envoyer <kbd>Ctrl ⏎</kbd></span></div></div>
+        <div class="meta"><span>tour <b>41,3 s</b></span><span>session <b>$0.1840</b></span><span>outils <b>12</b></span><span class="r">success</span></div>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Inspecteur</span><span class="sub">Edit · Home.razor</span></div>
+      <div class="tabs"><span class="tab on">Diff</span><span class="tab">Entrée</span><span class="tab">JSON brut</span></div>
+      <div style="padding:16px 16px 0" class="md"><pre><code class="language-diff">@@ -66,7 +66,9 @@ @code {
+     record Permission(string Id, ...);
+
+-    readonly List&lt;Entry&gt; entries = [];
++    List&lt;Entry&gt; entries = [];
++    protected override void OnInitialized() =&gt;
++        entries = SessionStore.Load(cwd);
+     readonly List&lt;Permission&gt; pending = [];
+     string cwd = Directory.GetCurrentDirectory();</code></pre></div>
+      <div class="section" style="margin-top:auto;border-top:1px solid var(--seam);border-bottom:0">
+        <div class="kv"><span>outil</span><span>Edit</span><span>fichier</span><span>Components/Pages/Home.razor</span><span>diff</span><span>+3 −1</span><span>statut</span><span style="color:var(--ok)">appliqué</span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 7. APPEARANCE ======================= -->
+<section class="screen" id="s7">
+  <h2>7 · Apparence et thèmes</h2>
+  <p>Cinq thèmes, tous sombres. Chacun est un jeu de tokens : fonds, filets, texte, accent, et une palette syntaxique qui colore à la fois le code et les types d'outils. Le choix s'applique immédiatement et le navigateur le retient. Clique une carte, ou utilise les boutons en haut de la page.</p>
+  <div class="frame"><div class="app no-insp">
+    {{RAIL:set}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">Réglages</span><span class="sub">Apparence</span></div>
+      <div class="settings">
+        <div><h3>Apparence</h3><p class="lead">Le thème change les couleurs de toute l'interface, coloration syntaxique comprise. <kbd>Ctrl K</kbd> puis « thème » pour basculer sans ouvrir les réglages.</p></div>
+        <div class="set-row"><div><b>Thème</b><span>Appliqué tout de suite, retenu pour la prochaine fois.</span></div>
+          <div class="themes">{{THEMECARDS}}</div></div>
+        <div class="set-row"><div><b>Taille du code</b><span>Blocs de code, diffs, inspecteur.</span></div>
+          <div><div class="seg" role="group" aria-label="Taille du code"><span data-code-size="12px">12</span><span data-code-size="13px">13</span><span data-code-size="14px">14</span><span data-code-size="15px">15</span></div></div></div>
+        <div class="set-row"><div><b>Aperçu</b><span>Le rendu réel avec le thème choisi.</span></div>
+          <div class="sample md"><pre><code class="language-csharp">// Le canard change d'humeur selon l'état de la session
+Mood MoodFor(Session s) => s.State switch
+{
+    State.WaitingPermission => Mood.Shocked,
+    State.Running           => Mood.Excited,
+    State.Crashed           => Mood.Ko,
+    _                       => Mood.Happy,
+};</code></pre></div></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 8. WORKTREES ======================= -->
+<section class="screen" id="s8">
+  <h2>8 · Worktrees : le ménage sans risque</h2>
+  <p>Chaque worktree est classé selon ce que sa suppression ferait perdre. <b>Sûr</b> : mergé, propre, aucune session. <b>À vérifier</b> : du travail non commité ou non poussé, avec la raison écrite. <b>Actif</b> : une session tourne dedans. <b>Orphelin</b> : le dossier n'existe plus. Le nettoyage ne touche que ce qui est sûr, et montre les commandes git avant de les lancer.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:wt}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">Worktrees</span><span class="sub">4 dépôts · 9 worktrees · 2,9 Go</span><span class="end"><span class="btn"><svg class="i sm"><use href="#i-refresh"/></svg>Rafraîchir</span></span></div>
+      <div class="wt">
+        <div class="wt-head"><div><h3>4 worktrees peuvent partir sans risque</h3><p>1,34 Go récupérables. Deux autres attendent ta décision, et rien d'actif ne sera touché.</p></div></div>
+        <div class="filters"><span class="chip on">Tous <b>9</b></span><span class="chip"><span class="state st-safe"><i></i></span>Sûrs <b>3</b></span><span class="chip">Orphelins <b>1</b></span><span class="chip">À vérifier <b>2</b></span><span class="chip">Actifs <b>3</b></span></div>
+        <table class="wtt">
+          <thead><tr><th>Worktree</th><th>État</th><th>Pourquoi</th><th class="num">Taille</th><th></th></tr></thead>
+          <tbody>
+            <tr class="grp-row"><td colspan="5">Peuvent partir</td></tr>
+            <tr><td><div class="n">tooltip-a11y</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>feat/tooltip-a11y · ClaudeCodeUI</div></td><td><span class="state st-safe"><i></i>Sûr</span></td><td class="why">Mergé dans <b>main</b> il y a 3 j, aucun changement local</td><td class="num">412 Mo</td><td><div class="rowacts"><span class="btn">Supprimer</span></div></td></tr>
+            <tr><td><div class="n">hotfix-login</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>fix/login-redirect · api</div></td><td><span class="state st-safe"><i></i>Sûr</span></td><td class="why">PR <b>#212</b> mergée, branche distante supprimée</td><td class="num">388 Mo</td><td><div class="rowacts"><span class="btn">Supprimer</span></div></td></tr>
+            <tr><td><div class="n">docs-v2</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>docs/v2 · site</div></td><td><span class="state st-safe"><i></i>Sûr</span></td><td class="why">Mergé il y a 21 j, inactif depuis</td><td class="num">540 Mo</td><td><div class="rowacts"><span class="btn">Supprimer</span></div></td></tr>
+            <tr class="dim"><td><div class="n">old-experiment</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>branche introuvable · legacy</div></td><td><span class="state st-orphan"><i></i>Orphelin</span></td><td class="why">Dossier supprimé à la main, git le référence encore</td><td class="num">—</td><td><div class="rowacts"><span class="btn">Élaguer</span></div></td></tr>
+            <tr class="grp-row"><td colspan="5">À vérifier</td></tr>
+            <tr class="sel"><td><div class="n">migrate-net10</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>chore/net10 · legacy</div></td><td><span class="state st-check"><i></i>À vérifier</span></td><td class="why"><b>14 fichiers</b> modifiés non commités, session arrêtée</td><td class="num">611 Mo</td><td><div class="rowacts"><span class="btn">Ouvrir</span></div></td></tr>
+            <tr><td><div class="n">spike-signalr</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>spike/signalr · ClaudeCodeUI</div></td><td><span class="state st-check"><i></i>À vérifier</span></td><td class="why"><b>4 commits</b> jamais poussés, inactif depuis 12 j</td><td class="num">205 Mo</td><td><div class="rowacts"><span class="btn">Pousser</span></div></td></tr>
+            <tr class="grp-row"><td colspan="5">Actifs</td></tr>
+            <tr><td><div class="n">session-store</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>feat/session-store · ClaudeCodeUI</div></td><td><span class="state st-active"><i></i>Actif</span></td><td class="why">Session <b>session-store</b> attend une décision</td><td class="num">182 Mo</td><td><div class="rowacts"><span class="btn">Aller</span></div></td></tr>
+            <tr><td><div class="n">bump-markdig</div><div class="branch"><svg class="i"><use href="#i-branch"/></svg>chore/bump-markdig · ClaudeCodeUI</div></td><td><span class="state st-active"><i></i>Actif</span></td><td class="why">Session en cours</td><td class="num">176 Mo</td><td><div class="rowacts"><span class="btn">Aller</span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Nettoyage</span><span class="sub">4 worktrees · 1,34 Go</span></div>
+      <div class="section">
+        <h3>Ce qui va se passer</h3>
+        <div class="plan">
+          <div class="it"><svg class="i sm"><use href="#i-check"/></svg><div><div class="n">tooltip-a11y</div><div class="w">dossier + branche locale (mergée)</div></div><span class="sz">412 Mo</span></div>
+          <div class="it"><svg class="i sm"><use href="#i-check"/></svg><div><div class="n">hotfix-login</div><div class="w">dossier + branche locale (PR #212)</div></div><span class="sz">388 Mo</span></div>
+          <div class="it"><svg class="i sm"><use href="#i-check"/></svg><div><div class="n">docs-v2</div><div class="w">dossier + branche locale (mergée)</div></div><span class="sz">540 Mo</span></div>
+          <div class="it"><svg class="i sm"><use href="#i-check"/></svg><div><div class="n">old-experiment</div><div class="w">référence git seulement</div></div><span class="sz">—</span></div>
+        </div>
+        <div class="cmdlog"><span class="c"># ~/repo/POC/ClaudeCodeUI</span>
+git worktree remove tooltip-a11y
+git branch -d feat/tooltip-a11y
+<span class="c"># ~/repo/api</span>
+git worktree remove hotfix-login
+git branch -d fix/login-redirect
+<span class="c"># … 2 autres · ~/repo/legacy</span>
+git worktree prune</div>
+        <div class="guard"><svg class="i sm"><use href="#i-shield"/></svg><span><code>git branch -d</code>, jamais <code>-D</code> : git refusera de lui-même toute branche qui n'est pas mergée.</span></div>
+        <div class="acts"><span class="btn primary">Nettoyer 4 worktrees</span><span class="btn ghost">Annuler</span></div>
+      </div>
+      <div class="section" style="border-bottom:0">
+        <span class="cap">Automatiquement</span>
+        <span class="toggle on" role="switch" aria-checked="true"><span class="sw"></span>Proposer le ménage quand une PR est mergée</span>
+        <span class="toggle" role="switch" aria-checked="false"><span class="sw"></span>Élaguer les orphelins au démarrage</span>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 9. COMPOSER ======================= -->
+<section class="screen" id="s9">
+  <h2>9 · Composer complet : modèle, effort, ultracode, commandes</h2>
+  <p>Tout ce qui se règle par tour est sous la saisie : modèle, effort (le CLI annonce <code>per_turn_effort_active</code>), mode rapide (grisé avec la raison quand le CLI le refuse), ultracode, worktree. <kbd>/</kbd> ouvre les 118 commandes et skills du CLI, filtrées en direct. L'inspecteur montre ce qui remplit le contexte.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:comp}}
+    <div class="pane" style="position:relative">
+      <div class="ph"><span class="ttl">session-store</span><span class="sub">feat/session-store · ClaudeCodeUI · default</span></div>
+      <div class="thread">
+        <div class="you"><div class="w">toi · 14:52</div>Fais le point : qu'est-ce qui a changé, et qu'est-ce qu'il reste à décider ?</div>
+        <div class="ledger"><div class="lh"><svg class="i sm"><use href="#i-right"/></svg>7 outils · 41 s</div></div>
+        <div class="prose md"><p>La persistance est en place et les <strong>4 tests</strong> passent. Il reste à décider du format multi-sessions et d'une limite de taille.</p></div>
+      </div>
+      <div class="pop slash">
+        <div class="sh"><span>Commandes et skills</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
+        <div class="si on"><b>/<mark>co</mark>mpact</b><span>Résume la conversation pour libérer du contexte</span><span class="tag">intégrée</span></div>
+        <div class="si"><b>/<mark>co</mark>ntext</b><span>Ce qui occupe la fenêtre de contexte</span><span class="tag">intégrée</span></div>
+        <div class="si"><b>/<mark>co</mark>de-review</b><span>Revue du diff courant, niveau low à max</span><span class="tag">intégrée</span></div>
+        <div class="si"><b>/<mark>co</mark>mmit</b><span>Crée un commit git</span><span class="tag">commit-commands</span></div>
+        <div class="si"><b>/<mark>co</mark>mmit-push-pr</b><span>Commit, push et ouvre une PR</span><span class="tag">commit-commands</span></div>
+      </div>
+      <div class="composer rich">
+        <div class="box focus"><div class="typed">/co<span class="caret"></span></div>
+          <div class="tools-row">
+            <span class="pick"><svg class="i"><use href="#i-cpu"/></svg>Opus 5.5 <small>1M</small><svg class="i"><use href="#i-down"/></svg></span>
+            <span class="effort" title="Effort"><span>low</span><span>medium</span><span class="on">high</span><span>xhigh</span><span>max</span></span>
+            <span class="pick dis" title="Mode rapide indisponible : opt-in SDK requis"><svg class="i"><use href="#i-zap"/></svg>Rapide</span>
+            <span class="pick on"><svg class="i"><use href="#i-agents"/></svg>Ultracode</span>
+            <span class="pick"><svg class="i"><use href="#i-paperclip"/></svg></span>
+            <span class="btn primary go" style="margin-left:auto">Envoyer <kbd>Ctrl ⏎</kbd></span>
+          </div></div>
+        <div class="meta"><span>contexte <b>212k</b> / 1M</span><span>session <b>$0.1840</b></span><span class="r"><span class="tag acc">ultracode</span> multi-agents pour ce tour</span></div>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Contexte</span><span class="sub">212k / 1M · 21 %</span></div>
+      <div class="section">
+        <div class="ctx">
+          <div class="ctxbar"><i style="width:2%;background:var(--fg-4)"></i><i style="width:4%;background:var(--syn-fn)"></i><i style="width:3%;background:var(--syn-kw)"></i><i style="width:1%;background:var(--syn-attr)"></i><i style="width:11%;background:var(--syn-str)"></i></div>
+          <div class="legend">
+            <i style="background:var(--fg-4)"></i><span>prompt système</span><span>18k</span>
+            <i style="background:var(--syn-fn)"></i><span>outils intégrés</span><span>41k</span>
+            <i style="background:var(--syn-kw)"></i><span>outils MCP · 142</span><span>33k</span>
+            <i style="background:var(--syn-attr)"></i><span>mémoire, CLAUDE.md</span><span>6k</span>
+            <i style="background:var(--syn-str)"></i><span>messages</span><span>114k</span>
+            <i style="background:var(--seam)"></i><span>libre</span><span>788k</span>
+          </div>
+        </div>
+        <div class="acts"><span class="btn"><svg class="i sm"><use href="#i-compress"/></svg>Compacter maintenant</span><span class="btn ghost">Auto à 80 %</span></div>
+      </div>
+      <div class="section" style="border-bottom:0">
+        <span class="cap">Les outils MCP pèsent 33k</span>
+        <p>142 outils de 21 serveurs sont chargés. Désactiver ceux qui ne servent pas à cette session libère du contexte à chaque tour.</p>
+        <div><span class="btn">Gérer les serveurs MCP</span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 10. ULTRACODE ======================= -->
+<section class="screen" id="s10">
+  <h2>10 · Ultracode et sous-agents</h2>
+  <p>Un tour lancé en ultracode devient un workflow : des phases, et dans chaque phase des agents qui travaillent en parallèle. Chaque agent est un sous-fil repliable, avec ses propres outils, rattachés par <code>parent_tool_use_id</code>. L'inspecteur suit l'agent sélectionné, et le coût par agent vient de <code>subagent_stats</code>.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:ultra}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">review-session-store</span><span class="sub">feat/session-store · ClaudeCodeUI · auto</span></div>
+      <div class="thread">
+        <div class="you"><div class="w">toi · 15:04</div><span class="ultra-chip"><svg class="i sm"><use href="#i-agents"/></svg>ultracode</span>Revois toute la branche session-store : bugs, perfs, accessibilité. Vérifie chaque trouvaille avant de me la remonter.</div>
+        <div class="wf">
+          <div class="wh"><svg class="i"><use href="#i-agents"/></svg><b>review-changes</b><span class="tag">workflow</span><span class="r">6 agents · 2 min 14 · $0.62</span></div>
+          <div class="phases">
+            <div class="ph-step done"><div class="t1">Revue <span>3/3</span></div><div class="bar"><i style="width:100%;background:var(--ok)"></i></div></div>
+            <div class="ph-step now"><div class="t1">Vérification <span>1/3</span></div><div class="bar"><i style="width:40%;background:var(--accent)"></i></div></div>
+            <div class="ph-step"><div class="t1">Synthèse <span>—</span></div><div class="bar"><i style="width:0"></i></div></div>
+          </div>
+          <div class="agent"><svg class="i sm chev"><use href="#i-right"/></svg><span class="dot idle" style="box-shadow:inset 0 0 0 1.5px var(--ok)"></span><span class="nm">review:bugs <small>Explore</small></span><span class="m">2 trouvailles</span><span class="m">$0.11</span></div>
+          <div class="agent"><svg class="i sm chev"><use href="#i-right"/></svg><span class="dot idle" style="box-shadow:inset 0 0 0 1.5px var(--ok)"></span><span class="nm">review:perf <small>Explore</small></span><span class="m">1 trouvaille</span><span class="m">$0.09</span></div>
+          <div class="agent"><svg class="i sm chev"><use href="#i-right"/></svg><span class="dot idle" style="box-shadow:inset 0 0 0 1.5px var(--ok)"></span><span class="nm">review:a11y <small>Explore</small></span><span class="m">0 trouvaille</span><span class="m">$0.07</span></div>
+          <div class="agent sel"><svg class="i sm chev"><use href="#i-down"/></svg><span class="dot run"></span><span class="nm">verify:écriture non atomique <small>general-purpose</small></span><span class="m">en cours · 38 s</span><span class="m">$0.14</span></div>
+          <div class="subrun">
+            <div class="sl"><span style="color:var(--read)">Read</span><span class="p">SessionStore.cs</span><span>38 lignes</span></div>
+            <div class="sl"><span style="color:var(--bash)">Bash</span><span class="p">dotnet test --filter Crash</span><span>1 échec</span></div>
+            <div class="sl"><span style="color:var(--edit)">Write</span><span class="p">tests/CrashDuringSave.cs</span><span class="m" style="color:var(--ok)">en cours</span></div>
+          </div>
+          <div class="agent"><svg class="i sm chev"><use href="#i-right"/></svg><span class="dot idle"></span><span class="nm">verify:débounce perdu à la fermeture <small>general-purpose</small></span><span class="m">en file</span><span class="m">—</span></div>
+          <div class="agent"><svg class="i sm chev"><use href="#i-right"/></svg><span class="dot idle"></span><span class="nm">verify:double chargement <small>general-purpose</small></span><span class="m">en file</span><span class="m">—</span></div>
+        </div>
+        <div class="status"><span class="spin"></span>Vérification en cours… <span style="color:var(--fg-4);font-family:var(--mono);font-size:12px">1 sur 3</span></div>
+      </div>
+      <div class="composer"><div class="box"><div class="ph-text">Le workflow tourne. Tu peux préparer la suite…</div><div class="row"><span class="tag acc">ultracode</span><span class="btn go"><svg class="i sm"><use href="#i-stop"/></svg>Arrêter le workflow <kbd>Échap</kbd></span></div></div></div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">Agent</span><span class="sub">verify:écriture non atomique</span></div>
+      <div class="section">
+        <span class="cap">Trouvaille à vérifier</span>
+        <div class="finding"><div class="fh"><span class="badge no">bug</span>Écriture JSON non atomique</div><div class="loc">SessionStore.cs:31</div><div class="why">Un crash pendant <code>WriteAllTextAsync</code> laisse un fichier tronqué que <code>Load</code> ne sait pas relire.</div></div>
+      </div>
+      <div class="section" style="border-bottom:0">
+        <span class="cap">Ce que l'agent écrit</span>
+        <div class="prose md" style="font-size:13.5px"><p>Je reproduis en tuant le processus pendant la sauvegarde : le test <code>CrashDuringSave</code> échoue bien, avec <code>JsonException</code> au rechargement.</p><p>J'écris maintenant le correctif (fichier temporaire puis <code>File.Move</code>) pour confirmer que le test passe.<span class="caret"></span></p></div>
+        <div class="kv"><span>type</span><span>general-purpose</span><span>outils</span><span>3</span><span>tokens</span><span>48k</span><span>coût</span><span>$0.14</span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+<!-- ======================= 11. EXTENSIONS ======================= -->
+<section class="screen" id="s11">
+  <h2>11 · Extensions : MCP, skills, agents, plugins, hooks</h2>
+  <p>Tout ce que l'événement <code>init</code> du CLI annonce, au même endroit. Les statuts MCP sont ceux du CLI (<code>connected</code>, <code>needs-auth</code>, <code>failed</code>), avec l'erreur réelle quand un serveur tombe. On peut couper un serveur pour la session sans toucher à sa configuration.</p>
+  <div class="frame"><div class="app">
+    {{RAIL:ext}}
+    <div class="pane">
+      <div class="ph"><span class="ttl">Réglages</span><span class="sub">Extensions</span></div>
+      <div class="ext">
+        <div><h3>Extensions</h3><p class="lead">21 serveurs MCP, 72 skills, 9 agents, 14 plugins, chargés par le CLI au démarrage de chaque session.</p></div>
+        <div class="subtabs"><span class="on">MCP<b>21</b></span><span>Skills<b>72</b></span><span>Agents<b>9</b></span><span>Plugins<b>14</b></span><span>Hooks<b>4</b></span></div>
+        <div class="filters"><span class="chip on">Tous <b>21</b></span><span class="chip">Connectés <b>17</b></span><span class="chip">Authentification <b>3</b></span><span class="chip">En échec <b>1</b></span></div>
+        <table class="mcp">
+          <thead><tr><th>Serveur</th><th>Source</th><th>État</th><th class="num">Outils</th><th class="num">Pour cette session</th></tr></thead>
+          <tbody>
+            <tr class="sel"><td><div class="n">github</div><div class="d">plugin:github</div></td><td><span class="tag">plugin</span></td><td><span class="ms fail"><i></i>en échec</span></td><td class="num">0</td><td class="num"><span class="btn">Réessayer</span></td></tr>
+            <tr><td><div class="n">context7</div><div class="d">plugin:context7</div></td><td><span class="tag">plugin</span></td><td><span class="ms auth"><i></i>authentification requise</span></td><td class="num">—</td><td class="num"><span class="btn">Se connecter</span></td></tr>
+            <tr><td><div class="n">chrome-devtools</div><div class="d">plugin:chrome-devtools-mcp</div></td><td><span class="tag">plugin</span></td><td><span class="ms ok"><i></i>connecté</span></td><td class="num">29</td><td class="num"><span class="toggle on" role="switch" aria-checked="true" aria-label="Activer pour cette session"><span class="sw"></span></span></td></tr>
+            <tr><td><div class="n">roseline</div><div class="d">plugin:tagout-migrate</div></td><td><span class="tag">plugin</span></td><td><span class="ms ok"><i></i>connecté</span></td><td class="num">18</td><td class="num"><span class="toggle" role="switch" aria-checked="false" aria-label="Activer pour cette session"><span class="sw"></span></span></td></tr>
+            <tr><td><div class="n">Claude Docs</div><div class="d">claude.ai</div></td><td><span class="tag">claude.ai</span></td><td><span class="ms ok"><i></i>connecté</span></td><td class="num">8</td><td class="num"><span class="toggle on" role="switch" aria-checked="true" aria-label="Activer pour cette session"><span class="sw"></span></span></td></tr>
+            <tr><td><div class="n">Gmail</div><div class="d">claude.ai</div></td><td><span class="tag">claude.ai</span></td><td><span class="ms ok"><i></i>connecté</span></td><td class="num">24</td><td class="num"><span class="toggle" role="switch" aria-checked="false" aria-label="Activer pour cette session"><span class="sw"></span></span></td></tr>
+            <tr><td><div class="n">codebase-memory-mcp</div><div class="d">utilisateur</div></td><td><span class="tag">user</span></td><td><span class="ms ok"><i></i>connecté</span></td><td class="num">14</td><td class="num"><span class="toggle on" role="switch" aria-checked="true" aria-label="Activer pour cette session"><span class="sw"></span></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pane insp">
+      <div class="ph"><span class="ttl">github</span><span class="sub">plugin:github</span></div>
+      <div class="section">
+        <h3>Le serveur n'a pas pu démarrer</h3>
+        <div class="errbox">Error POSTing to endpoint: bad request: Authorization header is badly formatted</div>
+        <p>Le jeton GitHub du plugin est mal formé. Ses outils manquent à toutes les sessions tant que ce n'est pas corrigé.</p>
+        <div class="acts"><span class="btn primary"><svg class="i sm"><use href="#i-refresh"/></svg>Réessayer</span><span class="btn">Ouvrir la configuration</span></div>
+      </div>
+      <div class="section" style="border-bottom:0">
+        <div class="kv"><span>source</span><span>github@claude-plugins-official</span><span>transport</span><span>http</span><span>outils</span><span>0</span><span>sessions</span><span>toutes</span></div>
+      </div>
+    </div>
+  </div><div class="synthetic">données fictives</div></div>
+</section>
+
+</div>
+<script src="../../wwwroot/lib/highlight/highlight.min.js"></script>
+<script>
+// Same enhancer the app would run from its MutationObserver: highlight, wrap in a titled block, localize alerts.
+const LANG = { csharp: 'C#', cs: 'C#', bash: 'Bash', sh: 'Shell', shell: 'Shell', json: 'JSON', diff: 'Diff', javascript: 'JavaScript', js: 'JavaScript', typescript: 'TypeScript', ts: 'TypeScript', xml: 'XML', html: 'HTML', css: 'CSS', sql: 'SQL', yaml: 'YAML', python: 'Python' };
+const ALERT = { Note: 'Note', Tip: 'Astuce', Important: 'Important', Warning: 'Attention', Caution: 'Prudence' };
+function enhance(root) {
+  root.querySelectorAll('pre>code:not([data-done])').forEach(code => {
+    code.dataset.done = 1;
+    const lang = (code.className.match(/language-(\S+)/) || [])[1] || '';
+    if (window.hljs && (!lang || hljs.getLanguage(lang))) hljs.highlightElement(code);
+    const pre = code.parentElement, box = document.createElement('div');
+    box.className = 'cb';
+    box.innerHTML = `<div class="h"><span>${LANG[lang] || lang || 'texte'}</span><button class="copy" type="button"><svg class="i sm"><use href="#i-copy"/></svg><span>Copier</span></button></div>`;
+    pre.replaceWith(box); box.appendChild(pre);
+    box.querySelector('.copy').onclick = e => {
+      const b = e.currentTarget, label = b.lastChild;
+      navigator.clipboard?.writeText(code.innerText);
+      b.classList.add('done'); label.textContent = 'Copié';
+      setTimeout(() => { b.classList.remove('done'); label.textContent = 'Copier'; }, 1400);
+    };
+  });
+  // Hand-built code views (inspector file viewer, permission diff): highlight each line in place,
+  // keeping line numbers and +/- gutters outside the highlighted text.
+  root.querySelectorAll('[data-hl]').forEach(view => {
+    const language = view.dataset.hl;
+    if (!window.hljs || !hljs.getLanguage(language)) return;
+    view.querySelectorAll('code.lc:not([data-done])').forEach(c => {
+      c.dataset.done = 1;
+      c.innerHTML = hljs.highlight(c.textContent, { language, ignoreIllegals: true }).value;
+    });
+  });
+  root.querySelectorAll('.markdown-alert-title').forEach(t => {
+    const n = t.lastChild, k = n && n.textContent.trim();
+    if (ALERT[k]) n.textContent = ALERT[k];
+  });
+}
+enhance(document);
+
+// Theme system: one attribute on <html>, remembered in localStorage.
+const THEME_KEY = 'claude-ui.theme', SIZE_KEY = 'claude-ui.code-size';
+const THEME_NAMES = { graphite: 'Graphite', encre: 'Encre', ristretto: 'Ristretto', mousse: 'Mousse', contraste: 'Contraste élevé' };
+function setTheme(t) {
+  if (!THEME_NAMES[t]) t = 'graphite';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(THEME_KEY, t);
+  document.querySelectorAll('[data-set-theme]').forEach(b => {
+    const on = b.dataset.setTheme === t;
+    b.setAttribute('aria-pressed', on); b.classList.toggle('on', on);
+  });
+  document.querySelectorAll('.pi .n').forEach(n => { if (n.textContent.startsWith('Thème :')) n.textContent = 'Thème : ' + THEME_NAMES[t]; });
+}
+function setCodeSize(v) {
+  document.documentElement.style.setProperty('--code-size', v);
+  localStorage.setItem(SIZE_KEY, v);
+  document.querySelectorAll('[data-code-size]').forEach(x => x.classList.toggle('on', x.dataset.codeSize === v));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-set-theme]'); if (b) setTheme(b.dataset.setTheme);
+  const z = e.target.closest('[data-code-size]'); if (z) setCodeSize(z.dataset.codeSize);
+});
+setTheme(new URLSearchParams(location.search).get('theme') || localStorage.getItem(THEME_KEY) || 'graphite');
+setCodeSize(localStorage.getItem(SIZE_KEY) || '13px');
+
+</script>
+<script>const m=location.search.match(/only=([0-9]+)/);if(m){document.querySelector(".doc>header").remove();document.querySelectorAll(".screen").forEach(s=>{if(s.id!=="s"+m[1])s.remove();else{s.querySelector("h2").remove();s.querySelector("p").remove();s.style.margin=0}});document.querySelector(".doc").style.padding=0;document.body.style.background="var(--ground)"}</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<p>La session vit entièrement dans <code>Home.razor</code> : la liste <code>entries</code> est en mémoire et disparaît au rechargement. Je propose un petit <strong>SessionStore</strong> statique, sans dépendance :</p>
+<pre><code class="language-csharp">static class SessionStore
+{
+    static string PathFor(string cwd) =&gt;
+        Path.Combine(cwd, &quot;.claude-ui&quot;, &quot;session.json&quot;);
+
+    // Load / Save sérialisent List&lt;Entry&gt; avec System.Text.Json
+    public static List&lt;Entry&gt; Load(string cwd) =&gt;
+        File.Exists(PathFor(cwd))
+            ? JsonSerializer.Deserialize&lt;List&lt;Entry&gt;&gt;(File.ReadAllText(PathFor(cwd))) ?? []
+            : [];
+}
+</code></pre>
+<h3 id="ensuite">Ensuite</h3>
+<ol>
+<li>Charger au démarrage de la page, sauvegarder après chaque événement.</li>
+<li>Ignorer <code>.claude-ui/</code> dans git</li>
+</ol>

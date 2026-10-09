@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Claude Code UI — aperçu des directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Archivo+Narrow:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#d9d9d6;font-family:Archivo,Arial,sans-serif;color:#111}
+  .intro{max-width:1280px;margin:40px auto 8px;padding:0 4px}
+  .intro h1{font-size:28px;margin:0 0 6px;letter-spacing:-.01em}
+  .intro p{margin:0;color:#444;max-width:70ch}
+  .label{max-width:1280px;margin:48px auto 12px;display:flex;align-items:baseline;gap:14px;padding:0 4px}
+  .label b{font-size:13px;letter-spacing:.12em;text-transform:uppercase;background:#111;color:#fff;padding:3px 8px}
+  .label span{font-size:22px;font-weight:700}
+  .label em{font-style:normal;color:#555;font-size:14px}
+  .frame{width:1280px;height:800px;margin:0 auto;overflow:hidden;position:relative;box-shadow:0 1px 0 #0002,0 20px 50px -20px #0005}
+  .mono{font-family:"JetBrains Mono",Consolas,monospace}
+  .synthetic{position:absolute;right:10px;bottom:8px;font:500 10px "JetBrains Mono",monospace;opacity:.55;z-index:5}
+  .duck svg{display:block}
+
+  /* ============ A. PLAN DE LIGNE ============ */
+  .A{display:grid;grid-template-columns:300px 1fr;background:#fff;font-family:Archivo,Arial,sans-serif}
+  .A .net{background:#111;color:#fff;display:flex;flex-direction:column}
+  .A .net h2{margin:0;padding:22px 22px 14px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#bbb;font-weight:600;border-bottom:2px solid #fff}
+  .A .brand{padding:18px 22px;display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.01em}
+  .A .brand i{width:14px;height:14px;background:#FF6319;display:block}
+  .A .line{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:14px 22px;border-bottom:1px solid #333}
+  .A .line.on{background:#fff;color:#111}
+  .A .bul{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff}
+  .A .line .n{font-weight:700;font-size:15px}
+  .A .line .d{font:12px "JetBrains Mono",monospace;color:#999;margin-top:2px}
+  .A .line.on .d{color:#555}
+  .A .st{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .A .st.hold{background:#EE352E;color:#fff;padding:3px 6px}
+  .A .st.run{color:#6CBE45}
+  .A .st.end{color:#888}
+  .A .newline{margin:18px 22px;border:2px solid #fff;padding:12px;font-weight:700;font-size:14px;display:flex;justify-content:space-between}
+  .A .newline kbd{font:12px "JetBrains Mono";color:#aaa}
+  .A .master{margin-top:auto;display:flex;align-items:flex-end;gap:10px;padding:0 18px 18px}
+  .A .master p{margin:0 0 18px;font-size:13px;color:#ddd;line-height:1.35}
+  .A .master p b{color:#fff}
+  .A main{display:flex;flex-direction:column;min-width:0}
+  .A .band{background:#111;color:#fff;display:flex;align-items:center;gap:16px;padding:14px 28px;border-left:1px solid #333}
+  .A .band .bul{width:46px;height:46px;font-size:24px;background:#0039A6}
+  .A .band h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+  .A .band .meta{margin-left:auto;display:flex;gap:22px;font:12px "JetBrains Mono";color:#bbb}
+  .A .band .meta b{color:#fff;font-weight:500;display:block;font-family:Archivo;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#888}
+  .A .track{flex:1;overflow:hidden;padding:26px 40px 0 28px;position:relative}
+  .A .track:before{content:"";position:absolute;left:62px;top:0;bottom:0;width:10px;background:#0039A6}
+  .A .stop{display:grid;grid-template-columns:70px 1fr;gap:18px;position:relative;margin-bottom:16px}
+  .A .stop .k{position:relative;height:100%}
+  .A .stop .k:after{content:"";position:absolute;left:26px;top:4px;width:26px;height:26px;border-radius:50%;background:#fff;border:6px solid #111;box-sizing:border-box}
+  .A .stop.tool .k:after{left:29px;top:6px;width:20px;height:6px;border-radius:0;border:0;background:#fff}
+  .A .stop.tool .k:before{content:"";position:absolute;left:62px;top:9px;width:14px;height:2px;background:#111}
+  .A .you{font-weight:600;font-size:17px;line-height:1.4;max-width:62ch}
+  .A .you small{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#777;font-weight:700;margin-bottom:2px}
+  .A .say{font-size:15px;line-height:1.55;color:#222;max-width:68ch}
+  .A .say code{font:13px "JetBrains Mono";background:#eee;padding:1px 4px}
+  .A .tl{font:13px "JetBrains Mono";display:flex;gap:12px;align-items:baseline}
+  .A .tl b{font-family:Archivo;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;min-width:48px}
+  .A .tl span{color:#666}
+  .A .diff{margin-top:6px;font:12px/1.55 "JetBrains Mono";border-left:2px solid #111;max-width:640px}
+  .A .diff div{padding:0 10px}
+  .A .diff .p{background:#e3f4e8}.A .diff .m{background:#fde7e6;text-decoration:line-through;text-decoration-color:#0003}
+  .A .void{position:relative}
+  .A .void .tl{color:#999}
+  .A .stamp{font:800 11px Archivo;letter-spacing:.14em;border:2px solid #EE352E;color:#EE352E;padding:1px 6px;transform:rotate(-3deg);display:inline-block;margin-left:8px}
+  .A .signal{display:grid;grid-template-columns:70px 1fr;gap:18px;position:relative;z-index:1}
+  .A .signal .k{position:relative}
+  .A .signal .k:after{content:"";position:absolute;left:21px;top:0;width:36px;height:36px;background:#EE352E;transform:rotate(45deg)}
+  .A .sig{border:3px solid #EE352E;background:#fff;max-width:720px}
+  .A .sig header{background:#EE352E;color:#fff;padding:8px 14px;font-weight:800;font-size:13px;letter-spacing:.12em;text-transform:uppercase;display:flex;justify-content:space-between}
+  .A .sig .body{padding:14px}
+  .A .sig h3{margin:0 0 8px;font-size:18px}
+  .A .sig pre{margin:0;background:#111;color:#fff;font:14px "JetBrains Mono";padding:12px 14px}
+  .A .sig .acts{display:flex;gap:10px;margin-top:14px}
+  .A .btn{font:700 14px Archivo;padding:10px 16px;border:2px solid #111;background:#fff;display:flex;gap:10px;align-items:center}
+  .A .btn.go{background:#111;color:#fff}
+  .A .btn kbd{font:11px "JetBrains Mono";opacity:.7}
+  .A .terminus{border-top:2px solid #111;display:grid;grid-template-columns:70px 1fr auto;gap:18px;padding:16px 28px 18px;align-items:center;background:#fff;position:relative}
+  .A .terminus .end{width:46px;height:10px;background:#0039A6;margin-left:6px}
+  .A .terminus .in{font-size:16px;color:#999;border:2px solid #ddd;padding:14px;}
+  .A .terminus .btn{opacity:.4}
+
+  /* ============ B. STRIPS ============ */
+  .B{display:grid;grid-template-columns:330px 1fr;background:#DDE2DA;font-family:"Archivo Narrow",Archivo,sans-serif}
+  .B .bay{background:#3B4741;padding:16px 14px;display:flex;flex-direction:column;gap:10px}
+  .B .bay h2{margin:0 4px 4px;color:#cfd8cf;font:700 12px Archivo;letter-spacing:.16em;text-transform:uppercase;display:flex;justify-content:space-between}
+  .B .strip{display:grid;grid-template-columns:8px 1fr 70px;background:#F5F1D8;border:1px solid #1C2420;height:74px;font-size:13px}
+  .B .strip.blue{background:#DCE8F3}.B .strip.done{background:#E8E8E3;opacity:.75}
+  .B .strip .tab{background:#2F6FB0}.B .strip.hold .tab{background:#F2C230}.B .strip.done .tab{background:#888}
+  .B .strip .c{padding:7px 10px;border-right:1px solid #1C2420}
+  .B .strip .cs{font:700 17px "JetBrains Mono";letter-spacing:.02em}
+  .B .strip .r{color:#444;font-family:"JetBrains Mono";font-size:11px}
+  .B .strip .x{padding:7px;font:600 11px "JetBrains Mono";display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}
+  .B .strip.hold{outline:3px solid #F2C230;outline-offset:2px}
+  .B .strip.hold .x b{background:#C8372D;color:#fff;padding:1px 4px}
+  .B .desk{margin-top:auto;display:flex;align-items:flex-end;gap:8px;color:#cfd8cf;font:13px Archivo}
+  .B main{display:flex;flex-direction:column}
+  .B .hdr{display:flex;align-items:center;gap:20px;padding:14px 24px;border-bottom:2px solid #1C2420;background:#F5F1D8}
+  .B .hdr .cs{font:700 26px "JetBrains Mono"}
+  .B .hdr .f{font:12px "JetBrains Mono";color:#333;border-left:1px solid #1C2420;padding-left:14px}
+  .B .hdr .f b{display:block;font:700 10px Archivo;letter-spacing:.14em;text-transform:uppercase;color:#666}
+  .B .log{flex:1;padding:16px 24px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .B .row{display:grid;grid-template-columns:64px 90px 1fr;background:#fff;border:1px solid #1C2420;font-size:14px}
+  .B .row>*{padding:8px 10px;border-right:1px solid #c5c9bf}
+  .B .row .t{font:12px "JetBrains Mono";color:#666}
+  .B .row .ty{font:700 12px Archivo;letter-spacing:.1em;text-transform:uppercase}
+  .B .row.u{background:#DCE8F3}
+  .B .row .m{font-family:"JetBrains Mono";font-size:13px}
+  .B .row.void .m{text-decoration:line-through;color:#888}
+  .B .row.void .ty{color:#C8372D}
+  .B .clr{border:3px solid #1C2420;background:#F2C230;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .B .clr h3{margin:0;font:700 13px Archivo;letter-spacing:.14em;text-transform:uppercase}
+  .B .clr pre{margin:6px 0 0;font:15px "JetBrains Mono";background:#1C2420;color:#F5F1D8;padding:10px 12px}
+  .B .clr .a{display:flex;flex-direction:column;gap:8px}
+  .B .clr button{font:700 14px Archivo;padding:10px 18px;border:2px solid #1C2420;background:#F5F1D8}
+  .B .clr button.go{background:#1C2420;color:#F2C230}
+  .B .cmp{border-top:2px solid #1C2420;background:#F5F1D8;padding:14px 24px;font:15px Archivo;color:#777}
+
+  /* ============ C. SPLIT-FLAP ============ */
+  .C{background:#0D0D0D;color:#F2F2F2;font-family:"Archivo Narrow",Archivo,sans-serif;display:flex;flex-direction:column}
+  .C .board{background:linear-gradient(#2a2a2a,#1b1b1b);border-bottom:6px solid #555;padding:16px 22px 18px}
+  .C .bh{display:grid;grid-template-columns:40px 300px 330px 150px 150px 1fr;gap:12px;font:700 11px Archivo;letter-spacing:.18em;color:#F5A623;text-transform:uppercase;padding:0 0 8px}
+  .C .br{display:grid;grid-template-columns:40px 300px 330px 150px 150px 1fr;gap:12px;align-items:center;margin-bottom:6px}
+  .C .cells{display:flex;gap:2px}
+  .C .cells i{font-style:normal;width:20px;height:30px;background:#111;display:grid;place-items:center;font:700 18px "JetBrains Mono";position:relative;color:#f2f2f2}
+  .C .cells i:after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#000}
+  .C .lamp{width:14px;height:14px;border-radius:50%;background:#333;margin-left:12px}
+  .C .lamp.amb{background:#F5A623;box-shadow:0 0 10px #F5A623}
+  .C .lamp.grn{background:#4CAF50;box-shadow:0 0 8px #4CAF50}
+  .C .br.sel{outline:2px solid #F5A623;outline-offset:3px}
+  .C .cells.amber i{color:#F5A623}
+  .C .cells.red i{color:#E5534B}
+  .C .below{flex:1;display:grid;grid-template-columns:1fr 280px;min-height:0}
+  .C .tx{padding:18px 26px;font-size:15px;line-height:1.5;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+  .C .tx .u{color:#F5A623;font-weight:600;font-size:17px}
+  .C .tx .tool{font:13px "JetBrains Mono";color:#aaa;border-left:3px solid #333;padding-left:10px}
+  .C .tx .tool b{color:#fff}
+  .C .tx .tool.v{color:#666;text-decoration:line-through}
+  .C .hold{border:2px solid #F5A623;padding:12px 14px;background:#1a1408}
+  .C .hold pre{margin:6px 0 10px;font:14px "JetBrains Mono";color:#fff}
+  .C .hold button{font:700 13px Archivo;background:#F5A623;color:#111;border:0;padding:8px 14px;margin-right:8px}
+  .C .hold button.n{background:#333;color:#fff}
+  .C aside{border-left:1px solid #333;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;color:#aaa;font-size:13px;text-align:center}
+
+  /* ============ D. CANON ============ */
+  .D{display:grid;grid-template-columns:260px 1fr;background:#18181B;color:#FAFAFA;font-family:system-ui,"Segoe UI",sans-serif}
+  .D nav{background:#111113;border-right:1px solid #27272A;padding:14px;display:flex;flex-direction:column;gap:4px}
+  .D nav .new{background:#27272A;border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+  .D nav .s{padding:9px 12px;border-radius:8px;font-size:14px;color:#A1A1AA;display:flex;justify-content:space-between}
+  .D nav .s.on{background:#27272A;color:#fff}
+  .D nav .dot{width:8px;height:8px;border-radius:50%;background:#D97757;align-self:center}
+  .D main{display:flex;flex-direction:column}
+  .D .top{padding:12px 24px;border-bottom:1px solid #27272A;font-size:13px;color:#A1A1AA;display:flex;gap:12px}
+  .D .top b{color:#fff}
+  .D .chat{flex:1;max-width:820px;width:100%;margin:0 auto;padding:22px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+  .D .ub{align-self:flex-end;background:#27272A;border-radius:16px;padding:10px 14px;max-width:70%;font-size:15px}
+  .D .ab{font-size:15px;line-height:1.6;color:#E4E4E7}
+  .D .tc{font:12.5px "JetBrains Mono";color:#A1A1AA;background:#1F1F23;border:1px solid #27272A;border-radius:8px;padding:8px 12px}
+  .D .perm{border:1px solid #D97757;border-radius:12px;padding:14px;background:#1F1F23}
+  .D .perm pre{background:#111113;border-radius:6px;padding:10px;font:13px "JetBrains Mono";margin:8px 0 12px}
+  .D .perm button{background:#D97757;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;margin-right:8px}
+  .D .perm button.n{background:#3F3F46}
+  .D .comp{max-width:820px;width:100%;margin:0 auto 20px;border:1px solid #3F3F46;border-radius:16px;padding:14px 16px;color:#71717A;font-size:15px;background:#1F1F23}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Claude Code UI : quatre mondes visuels, un même écran</h1>
+  <p>Même session fictive dans chaque direction : le canard (BlazorKawaii <code>RubberDuck</code>) joue la mascotte, et son humeur suit l'état de la session. Tout le contenu (noms, coûts, durées) est synthétique.</p>
+</div>
+
+<!-- ================= A ================= -->
+<div class="label"><b>Le tirage</b><span>A · Plan de ligne</span><em>Chaque session est une ligne, chaque outil une station, une permission un signal rouge.</em></div>
+<div class="frame A">
+  <aside class="net">
+    <div class="brand"><i></i>Claude Code</div>
+    <h2>Réseau · 4 lignes</h2>
+    <div class="line on"><div class="bul" style="background:#0039A6">A</div><div><div class="n">session-store</div><div class="d">~/repo/POC/ClaudeCodeUI</div></div><span class="st hold">Signal</span></div>
+    <div class="line"><div class="bul" style="background:#00933C">B</div><div><div class="n">fix-flaky-auth-test</div><div class="d">~/repo/api · acceptEdits</div></div><span class="st run">En route</span></div>
+    <div class="line"><div class="bul" style="background:#FF6319">C</div><div><div class="n">docs-readme</div><div class="d">~/repo/site · plan</div></div><span class="st end">Terminus</span></div>
+    <div class="line"><div class="bul" style="background:#B933AD">D</div><div><div class="n">migrate-net10</div><div class="d">~/repo/legacy · auto</div></div><span class="st end">Terminus</span></div>
+    <div class="newline">+ Nouvelle ligne <kbd>Ctrl N</kbd></div>
+    <div class="master"><div class="duck">{{duck-shocked}}</div><p><b>Ligne A à l'arrêt.</b><br>Bash attend ton feu vert.</p></div>
+  </aside>
+  <main>
+    <div class="band">
+      <div class="bul">A</div>
+      <h1>session-store</h1>
+      <div class="meta"><div><b>Dossier</b>~/repo/POC/ClaudeCodeUI</div><div><b>Mode</b>default</div><div><b>Tour</b>38,2 s · $0.0912</div></div>
+    </div>
+    <div class="track">
+      <div class="stop"><div class="k"></div><div class="you"><small>Toi</small>Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</div></div>
+      <div class="stop"><div class="k" style="visibility:hidden"></div><div class="say">Je regarde d'abord comment <code>ClaudeSession</code> gère le cycle de vie du processus avant de toucher à <code>Home.razor</code>.</div></div>
+      <div class="stop tool"><div class="k"></div><div class="tl"><b>Read</b>ClaudeSession.cs <span>89 lignes</span></div></div>
+      <div class="stop tool"><div class="k"></div><div class="tl"><b>Grep</b>"SendUser" <span>3 résultats · 2 fichiers</span></div></div>
+      <div class="stop tool"><div class="k"></div><div><div class="tl"><b>Edit</b>Components/Pages/Home.razor <span>+12 −3</span></div>
+        <div class="diff"><div class="m">    readonly List&lt;Entry&gt; entries = [];</div><div class="p">    List&lt;Entry&gt; entries = SessionStore.Load(cwd);</div><div class="p">    protected override void OnAfterRender(bool _) =&gt; SessionStore.Save(cwd, entries);</div></div></div></div>
+      <div class="stop tool void"><div class="k"></div><div class="tl"><b>Bash</b>rm -rf bin obj <span class="stamp">Refusé</span></div></div>
+      <div class="signal"><div class="k"></div>
+        <div class="sig"><header><span>Signal · la ligne attend</span><span>Bash</span></header><div class="body">
+          <h3>Lancer les tests du store ?</h3>
+          <pre>dotnet test --filter SessionStore</pre>
+          <div class="acts"><span class="btn go">Autoriser <kbd>Entrée</kbd></span><span class="btn">Toujours pour <code>dotnet test</code></span><span class="btn">Refuser <kbd>Échap</kbd></span></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="terminus"><div class="end"></div><div class="in">Réponds à Claude… <span class="mono" style="font-size:12px">Ctrl Entrée</span></div><span class="btn go">Envoyer</span></div>
+  </main>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<!-- ================= B ================= -->
+<div class="label"><b>Pick Impeccable</b><span>B · Strips de contrôle</span><em>Tu es le contrôleur : chaque session est un strip, chaque outil demande une clairance.</em></div>
+<div class="frame B">
+  <aside class="bay">
+    <h2><span>Baie active</span><span>4</span></h2>
+    <div class="strip hold"><div class="tab"></div><div class="c"><div class="cs">SESS-A</div><div class="r">ClaudeCodeUI · default</div><div class="r">session-store</div></div><div class="x"><b>CLR</b><span>14:32</span></div></div>
+    <div class="strip blue"><div class="tab"></div><div class="c"><div class="cs">AUTH-B</div><div class="r">api · acceptEdits</div><div class="r">fix-flaky-auth-test</div></div><div class="x"><span>RUN</span><span>14:29</span></div></div>
+    <h2 style="margin-top:12px"><span>Posés</span><span>2</span></h2>
+    <div class="strip done"><div class="tab"></div><div class="c"><div class="cs">DOCS-C</div><div class="r">site · plan</div><div class="r">docs-readme</div></div><div class="x"><span>$0.42</span><span>13:05</span></div></div>
+    <div class="strip done"><div class="tab"></div><div class="c"><div class="cs">MIGR-D</div><div class="r">legacy · auto</div><div class="r">migrate-net10</div></div><div class="x"><span>$1.87</span><span>11:40</span></div></div>
+    <div class="desk"><div class="duck">{{duck-shocked}}</div><span>SESS-A demande une clairance.</span></div>
+  </aside>
+  <main>
+    <div class="hdr"><span class="cs">SESS-A</span><div class="f"><b>Dossier</b>~/repo/POC/ClaudeCodeUI</div><div class="f"><b>Mode</b>default</div><div class="f"><b>Tour</b>38,2 s · $0.0912</div></div>
+    <div class="log">
+      <div class="row u"><span class="t">14:31:50</span><span class="ty">Toi</span><span>Ajoute la persistance des sessions : un fichier JSON par dossier de travail, rechargé au démarrage.</span></div>
+      <div class="row"><span class="t">14:31:54</span><span class="ty">Claude</span><span>Je regarde d'abord comment ClaudeSession gère le cycle de vie du processus.</span></div>
+      <div class="row"><span class="t">14:31:55</span><span class="ty">Read</span><span class="m">ClaudeSession.cs · 89 lignes</span></div>
+      <div class="row"><span class="t">14:31:57</span><span class="ty">Grep</span><span class="m">"SendUser" · 3 résultats</span></div>
+      <div class="row"><span class="t">14:32:10</span><span class="ty">Edit</span><span class="m">Components/Pages/Home.razor · +12 −3</span></div>
+      <div class="row void"><span class="t">14:32:14</span><span class="ty">Refusé</span><span class="m">Bash · rm -rf bin obj</span></div>
+      <div class="clr"><div><h3>Clairance demandée · Bash</h3><pre>dotnet test --filter SessionStore</pre></div><div class="a"><button class="go">Autoriser ⏎</button><button>Refuser ⎋</button></div></div>
+    </div>
+    <div class="cmp">Réponds à Claude… (Ctrl Entrée)</div>
+  </main>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<!-- ================= C ================= -->
+<div class="label"><b>Challenger</b><span>C · Tableau des départs</span><em>Les sessions claquent en place comme des départs ; la session ouverte se lit dessous.</em></div>
+<div class="frame C">
+  <div class="board">
+    <div class="bh"><span></span><span>Session</span><span>Dossier</span><span>Mode</span><span>Statut</span><span>Coût</span></div>
+    <div class="br sel"><span class="lamp amb"></span><span class="cells">{{flap:SESSION-STORE}}</span><span class="cells">{{flap:CLAUDECODEUI}}</span><span class="cells">{{flap:DEFAULT}}</span><span class="cells amber">{{flap:SIGNAL}}</span><span class="cells">{{flap:$0.09}}</span></div>
+    <div class="br"><span class="lamp grn"></span><span class="cells">{{flap:FIX-AUTH-TEST}}</span><span class="cells">{{flap:API}}</span><span class="cells">{{flap:ACCEPT}}</span><span class="cells">{{flap:EN ROUTE}}</span><span class="cells">{{flap:$0.31}}</span></div>
+    <div class="br"><span class="lamp"></span><span class="cells">{{flap:DOCS-README}}</span><span class="cells">{{flap:SITE}}</span><span class="cells">{{flap:PLAN}}</span><span class="cells">{{flap:TERMINE}}</span><span class="cells">{{flap:$0.42}}</span></div>
+    <div class="br"><span class="lamp"></span><span class="cells">{{flap:MIGRATE-NET10}}</span><span class="cells">{{flap:LEGACY}}</span><span class="cells">{{flap:AUTO}}</span><span class="cells">{{flap:TERMINE}}</span><span class="cells">{{flap:$1.87}}</span></div>
+  </div>
+  <div class="below">
+    <div class="tx">
+      <div class="u">› Ajoute la persistance des sessions : un fichier JSON par dossier de travail.</div>
+      <div>Je regarde d'abord comment ClaudeSession gère le cycle de vie du processus.</div>
+      <div class="tool"><b>Read</b> ClaudeSession.cs · 89 lignes</div>
+      <div class="tool"><b>Grep</b> "SendUser" · 3 résultats</div>
+      <div class="tool"><b>Edit</b> Home.razor · +12 −3</div>
+      <div class="tool v"><b>Bash</b> rm -rf bin obj · refusé</div>
+      <div class="hold"><b style="color:#F5A623;letter-spacing:.12em;font-size:12px">EN ATTENTE · BASH</b><pre>dotnet test --filter SessionStore</pre><button>Autoriser ⏎</button><button class="n">Refuser ⎋</button></div>
+    </div>
+    <aside><div class="duck">{{duck-shocked-160}}</div>La session-store attend ta décision.</aside>
+  </div>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<!-- ================= D ================= -->
+<div class="label"><b>Standard</b><span>D · Le standard de la catégorie</span><em>Ce que font Cursor ou claude.ai, exécuté proprement. Sûr, mais interchangeable.</em></div>
+<div class="frame D">
+  <nav>
+    <div class="new">+ Nouvelle session</div>
+    <div class="s on">session-store <span class="dot"></span></div>
+    <div class="s">fix-flaky-auth-test</div>
+    <div class="s">docs-readme</div>
+    <div class="s">migrate-net10</div>
+    <div style="margin-top:auto" class="duck">{{duck-happy}}</div>
+  </nav>
+  <main>
+    <div class="top"><b>session-store</b> ~/repo/POC/ClaudeCodeUI · default · $0.0912</div>
+    <div class="chat">
+      <div class="ub">Ajoute la persistance des sessions : un fichier JSON par dossier de travail.</div>
+      <div class="ab">Je regarde d'abord comment ClaudeSession gère le cycle de vie du processus.</div>
+      <div class="tc">● Read ClaudeSession.cs</div>
+      <div class="tc">● Grep "SendUser"</div>
+      <div class="tc">● Edit Home.razor  +12 −3</div>
+      <div class="perm">Autoriser <b>Bash</b> ?<pre>dotnet test --filter SessionStore</pre><button>Autoriser</button><button class="n">Refuser</button></div>
+    </div>
+    <div class="comp">Demande à Claude…</div>
+  </main>
+  <div class="synthetic">données fictives</div>
+</div>
+
+<div style="height:60px"></div>
+</body>
+</html>
