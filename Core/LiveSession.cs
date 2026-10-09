@@ -328,6 +328,12 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task<string?> TaskOutput(string taskId) =>
         proc is { } p ? Events.Str(await p.Request("get_task_output", new() { ["task_id"] = taskId }), "output") ?? "" : null;
     public Task StopTask(string taskId) => proc?.Request("stop_task", new() { ["task_id"] = taskId }) ?? Task.CompletedTask;
+    // UI only: the CLI keeps no list to clear. A task that ended stays ended, so nothing can bring it back.
+    public void ClearEndedTasks()
+    {
+        lock (gate) Tasks = Tasks.RemoveAll(t => !t.Running);
+        Raise();
+    }
 
     // ---------- process ----------
 
@@ -988,6 +994,9 @@ public sealed class LiveSession : IAsyncDisposable
         bg.Apply(new TaskStartedEvt("b3", "toolu_U", "fg", "", "local_bash", false));
         bg.EndTools(DateTimeOffset.Now, false);
         Ok(bg.Tasks is [{ Status: "killed" }, { Id: "b2", Status: "killed", EndedAt: not null }], "process exit ends running tasks, foreground shells not listed");
+        bg.Apply(new TaskStartedEvt("b4", "toolu_V", "live", "", "local_bash", true));
+        bg.ClearEndedTasks();
+        Ok(bg.Tasks is [{ Id: "b4", Running: true }], "clear drops ended tasks only");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
