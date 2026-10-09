@@ -97,6 +97,9 @@ public static class TranscriptStore
 
     public static string Slug(string cwd) => Regex.Replace(cwd, "[^A-Za-z0-9]", "-");
 
+    // Has claude ever run in this folder (it keeps a ~/.claude/projects/<slug> folder per cwd)?
+    public static bool Used(string cwd) => Directory.Exists(Path.Combine(Root, Slug(Path.TrimEndingDirectorySeparator(cwd))));
+
     // "ClaudeCodeUI" for C:\repo\ClaudeCodeUI and for its -w worktrees (…\ClaudeCodeUI\.claude\worktrees\x).
     internal static string RepoName(string cwd)
     {

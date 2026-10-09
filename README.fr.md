@@ -48,7 +48,7 @@ Lance ensuite `claude` une fois dans un terminal pour te connecter. Si `claude` 
 Prérequis : SDK .NET 10. Pour l'application de bureau : Rust (stable), Node 20+ et les [prérequis Tauri](https://v2.tauri.app/start/prerequisites/) de ton système.
 
 ```sh
-dotnet run                     # serveur web seul sur http://localhost:5284
+dotnet run                     # serveur web seul : ouvrir l'URL http://localhost:5284/?token=… qu'il affiche
 dotnet run -- --self-check     # vérifications intégrées, code de sortie non nul en cas d'échec
 ```
 

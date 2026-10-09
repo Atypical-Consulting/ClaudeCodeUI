@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Rapide</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>usage supplémentaire désactivé</value></data>
@@ -89,6 +90,8 @@
   <data name="Ctx.Title" xml:space="preserve"><value>Contexte</value></data>
   <data name="Day.Ago" xml:space="preserve"><value>il y a {0} j</value></data>
   <data name="Day.Yesterday" xml:space="preserve"><value>hier</value></data>
+  <data name="Diff.MoreLines" xml:space="preserve"><value>Lignes non affichées : {0}</value></data>
+  <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences non affichées : {0}</value></data>
   <data name="Error.Copy" xml:space="preserve"><value>Copier l'erreur</value></data>
   <data name="Error.CopyApi" xml:space="preserve"><value>Copier l'erreur API</value></data>
   <data name="Error.CopyId" xml:space="preserve"><value>Copier l'ID de requête</value></data>
@@ -183,6 +186,8 @@
   <data name="New.HintNew" xml:space="preserve"><value>nouvelle session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>changer de session</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n'existe pas.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d'un lien et vous ne l'avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Claude Code est introuvable</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n'est pas dans le PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
@@ -227,8 +232,11 @@
   <data name="Perm.Create" xml:space="preserve"><value>Créer {0} ?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Refuser</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Modifier {0} ?</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>passe la session en mode {0}</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>autorise {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>autoriser</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>refuser</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>cliquez sur la carte pour utiliser ces touches</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>toute la session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Écraser {0} ?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
