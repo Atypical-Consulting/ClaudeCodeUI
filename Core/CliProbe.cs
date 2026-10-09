@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -724,8 +724,11 @@ public static class CliProbe
             await Task.Delay(3000);
             var o = await c.S.Request("get_task_output", new() { ["task_id"] = ts.TaskId });
             var output = Events.Str(o, "output") ?? "";
-            var detail = $"task {ts.TaskId} is_backgrounded={ts.Backgrounded}, output {Events.Prop(o, "total_bytes")?.GetRawText() ?? "?"} bytes \"{output.Trim().Split('\n')[^1]}\"";
-            var read = ts.Backgrounded && output.Contains("tick") ? ("PASS", detail) : ("FAIL", detail);
+            // The panel shows the launching tool's input.command.
+            var cmd = turn.SelectMany(Events.ParseAll).OfType<ToolUseEvt>().FirstOrDefault(u => u.Id == ts.ToolUseId) is { } launcher ? Events.Str(launcher.Input, "command") : null;
+            var detail = $"task {ts.TaskId} is_backgrounded={ts.Backgrounded}, input.command {(cmd is null ? "absent" : "present")}, "
+                + $"output {Events.Prop(o, "total_bytes")?.GetRawText() ?? "?"} bytes \"{output.Trim().Split('\n')[^1]}\"";
+            var read = ts.Backgrounded && cmd is not null && output.Contains("tick") ? ("PASS", detail) : ("FAIL", detail);
 
             var stop = await Stopped(c, ts.TaskId);
 
@@ -760,6 +763,41 @@ public static class CliProbe
             return [(listed ? stop.Verdict : "FAIL", $"task_type {ts.TaskType} is_backgrounded={ts.Backgrounded} "
                 + $"input.command {(Events.Str(monitor.Input, "command") is null ? "absent" : "present")}; {stop.Detail}")];
         });
+    }
+
+    // exit-ends-tasks: ending the claude process (ClaudeSession.DisposeAsync → ProcessJob) takes its background shells
+    // with it, which LiveSession.EndTools records as "killed". Unix only (pgrep); a sleep of a random length marks the shell.
+    static async Task<IEnumerable<(string, string, string)>> ExitEndsTasks(string dir)
+    {
+        if (OperatingSystem.IsWindows()) return [("SKIP", "exit-ends-tasks", "pgrep: Unix only")];
+        var marker = $"sleep {Random.Shared.Next(600, 999)}";
+        var c = await Cli.Start(dir);
+        var r = await Guard(["exit-ends-tasks"], async () =>
+        {
+            var turn = await c.Turn($"With your shell tool and run_in_background set to true, run exactly: {marker}. Do not wait for it. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } ts)
+                return [("FAIL", "no task_started with task_type local_bash")];
+            await Task.Delay(2000);
+            var before = Pgrep(marker);   // the witness: without it "gone after exit" would prove nothing
+            await c.DisposeAsync();
+            await Task.Delay(1000);
+            var after = Pgrep(marker);
+            return [(before.Length > 0 && after.Length == 0 ? "PASS" : "FAIL",
+                $"task {ts.TaskId} \"{marker}\": pids [{before}] while claude runs, [{after}] 1 s after it is disposed")];
+        });
+        await c.DisposeAsync();
+        return r;
+    }
+
+    static string Pgrep(string pattern)
+    {
+        var psi = new ProcessStartInfo("pgrep") { RedirectStandardOutput = true };
+        psi.ArgumentList.Add("-f");
+        psi.ArgumentList.Add(pattern);
+        using var p = Process.Start(psi)!;
+        var pids = p.StandardOutput.ReadToEnd().Trim().ReplaceLineEndings(" ");
+        p.WaitForExit();
+        return pids;
     }
 
     // stop_task, then the task_updated that reports the task's new status.
@@ -872,9 +910,11 @@ public static class CliProbe
                 if (await events.Reader.ReadAsync() is var e && match(e)) return e;
         }
 
+        bool disposed;   // exit-ends-tasks disposes inside the probe, then again on the way out
+
         public async ValueTask DisposeAsync()
         {
-            if (S is not null) await S.DisposeAsync();
+            if (S is not null && !disposed) { disposed = true; await S.DisposeAsync(); }
         }
     }
 }
