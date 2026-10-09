@@ -1,5 +1,5 @@
 @page "/"
-@* Stub (WP0). Owner: WP3. *@
+@using System.Diagnostics
 @inject SessionManager Sessions
 @inject NavigationManager Nav
 
@@ -15,27 +15,141 @@
             </div>
             <div class="field">
                 <label for="cwd">Dossier de travail</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" @bind="cwd" /></div>
+                <div class="input"><Icon Name="folder" /><input id="cwd" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                @if (!exists)
+                {
+                    <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">Ce dossier n'existe pas.</div>
+                }
+                @if (recents.Count > 0)
+                {
+                    <div class="recents">
+                        @foreach (var r in recents)
+                        {
+                            <button class="chip" title="@r" @onclick="() => SetCwd(r)">@Chip(r)</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="field">
+                <label>Isolation</label>
+                <div class="input" style="font-family:var(--sans)">
+                    <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
+                            @onclick="() => worktree = !worktree"><span class="sw"></span>Nouveau worktree</button>
+                    @if (branch is null)
+                    {
+                        <span class="branch" style="margin-left:14px">pas un dépôt git</span>
+                    }
+                    else if (Isolated && editing)
+                    {
+                        <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
+                        <input value="@WtName" @onchange="SetName" aria-label="Nom du worktree" spellcheck="false" />
+                        <button class="b btn ghost" @onclick="() => editing = false">OK</button>
+                    }
+                    else if (Isolated)
+                    {
+                        <span class="branch" style="margin-left:14px"><Icon Name="branch" />worktree-@WtName depuis @branch</span>
+                        <button class="b btn ghost" @onclick="() => editing = true">Modifier</button>
+                    }
+                </div>
+            </div>
+            <div class="field">
+                <label>Permissions</label>
+                <div class="modes" role="radiogroup" aria-label="Permissions">
+                    @foreach (var (m, text) in Modes)
+                    {
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => mode = m"><b>@m</b><span>@text</span></button>
+                    }
+                </div>
             </div>
             <div>
                 <div class="box" style="max-width:none">
-                    <textarea @bind="prompt" @bind:event="oninput" placeholder="Décris la tâche…"></textarea>
-                    <div class="row"><button class="btn primary go" @onclick="Start">Démarrer <kbd>Ctrl ⏎</kbd></button></div>
+                    <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="Décris la tâche…" aria-label="Premier message"></textarea>
+                    <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">Démarrer <kbd>Ctrl ⏎</kbd></button></div>
                 </div>
             </div>
+            <div class="hint"><span><kbd>Ctrl K</kbd> changer de session</span><span><kbd>Ctrl N</kbd> nouvelle session</span><span><kbd>Ctrl I</kbd> inspecteur</span></div>
         </div>
     </div>
 </div>
 
 @code {
-    string cwd = Directory.GetCurrentDirectory();
-    string prompt = "";
+    // "default" is sent as "manual" by LiveSession. bypassPermissions / dontAsk are deliberately not offered.
+    static readonly (string, string)[] Modes =
+    [
+        ("default", "Demande avant chaque outil sensible"),
+        ("acceptEdits", "Accepte les éditions, demande pour le shell"),
+        ("plan", "Lecture seule, propose un plan"),
+        ("auto", "N'interrompt jamais, à utiliser avec prudence"),
+    ];
+
+    [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
+
+    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default";
+    string? branch, wtName, lastQuery;
+    bool exists = true, worktree = true, editing, busy;
+    List<string> recents = [];
+
+    bool Isolated => worktree && branch is not null;
+    string WtName => wtName ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
+
+    protected override void OnInitialized() =>
+        recents = TranscriptStore.Recent().Select(p => TranscriptStore.RootOf(p.Cwd)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(Directory.Exists).Take(5).ToList();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Query is { Length: > 0 } q && q != lastQuery) { lastQuery = q; cwd = q; }
+        await SetCwd(cwd);
+    }
+
+    async Task SetCwd(string value)
+    {
+        cwd = value.Trim().Trim('"');
+        exists = cwd.Length > 0 && Directory.Exists(cwd);
+        branch = exists ? await Branch(cwd) : null;
+    }
+
+    // Current branch ("HEAD" when detached), null outside a git repo.
+    static async Task<string?> Branch(string dir)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            foreach (var a in new[] { "-C", dir, "branch", "--show-current" }) psi.ArgumentList.Add(a);
+            using var p = Process.Start(psi)!;
+            var output = (await p.StandardOutput.ReadToEndAsync()).Trim();
+            await p.WaitForExitAsync();
+            return p.ExitCode != 0 ? null : output.Length > 0 ? output : "HEAD";
+        }
+        catch (Exception) { return null; }
+    }
+
+    // ~/repo/api; long paths keep their last two folders.
+    static string Chip(string dir)
+    {
+        var s = TranscriptStore.Short(dir).Replace('\\', '/');
+        return s.Length <= 32 ? s : "…/" + string.Join('/', s.Split('/')[^2..]);
+    }
+
+    void SetName(ChangeEventArgs e) => wtName = TranscriptStore.NameFrom(e.Value?.ToString() ?? "", 8) is { Length: > 0 } n ? n : null;
+
+    async Task Keys(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) await Start();
+    }
 
     async Task Start()
     {
-        if (!Directory.Exists(cwd)) return;
-        var s = Sessions.Start(cwd, "default", Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)), null, "haiku", null);
-        if (prompt.Trim() is { Length: > 0 } p) await s.Send(p);
+        if (busy) return;
+        if (!(exists = Directory.Exists(cwd))) return;
+        busy = true;
+        var name = Isolated ? WtName : TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
+        var s = Sessions.Start(cwd, mode, name, Isolated ? WtName : null, null, null);
+        if (prompt.Trim() is { Length: > 0 } text)
+        {
+            try { await s.Send(text); }
+            catch (Exception ex) { Console.Error.WriteLine($"[{s.Id}] premier message : {ex.Message}"); }   // the session page shows the crash
+        }
         Nav.NavigateTo($"session/{s.Id}");
     }
 }

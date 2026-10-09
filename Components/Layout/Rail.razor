@@ -1,6 +1,6 @@
-@* Stub (WP0). Owner: WP3. *@
 @implements IDisposable
 @inject SessionManager Sessions
+@inject WorktreeService Worktrees
 @inject UiState Ui
 
 <div class="pane">
@@ -9,21 +9,49 @@
         <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="is-hover"><Icon Name="plus" Sm />Nouvelle session<kbd>Ctrl N</kbd></NavLink>
         <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />Rechercher<kbd>Ctrl K</kbd></button>
         <NavLink class="btn block ghost" href="overview" ActiveClass="is-hover"><Icon Name="grid" Sm />Vue d'ensemble</NavLink>
-        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees</NavLink>
-        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions</NavLink>
+        <NavLink class="btn block ghost" href="worktrees" ActiveClass="is-hover"><Icon Name="branch" Sm />Worktrees
+            @if (Worktrees.CleanableCount is > 0)
+            {
+                <span class="tag" style="margin-left:auto">@Worktrees.CleanableCount à nettoyer</span>
+            }
+        </NavLink>
+        <NavLink class="btn block ghost" href="extensions" ActiveClass="is-hover"><Icon Name="plug" Sm />Extensions
+            @if (FailedMcp > 0)
+            {
+                <span class="pill err" style="margin-left:auto">@FailedMcp</span>
+            }
+        </NavLink>
     </div>
-    <div class="grp"><span class="cap">Actives</span></div>
-    <div class="list">
-        @foreach (var s in Sessions.All)
-        {
-            <RailSessionRow Session="s" />
-        }
+    <div style="flex:1;min-height:0;overflow:auto">
+    @if (Sessions.All.Count > 0)
+    {
+        <div class="grp"><span class="cap">Actives</span></div>
+        <div class="list">
+            @foreach (var s in Sessions.All)
+            {
+                <RailSessionRow @key="s.Id" Session="s" />
+            }
+        </div>
+    }
+    @{ var past = TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null).Take(8).ToList(); }   @* the palette searches the full list *@
+    @if (past.Count > 0)
+    {
+        <div class="grp"><span class="cap">Récentes</span></div>
+        <div class="list">
+            @foreach (var p in past)
+            {
+                <RailSessionRow @key="p.Id" Past="p" />
+            }
+        </div>
+    }
     </div>
     <QuotaMeter />
     <Mascot />
 </div>
 
 @code {
+    int FailedMcp => Sessions.All.LastOrDefault(s => s.Init is not null)?.Init!.Mcp.Count(m => m.Status == "failed") ?? 0;
+
     protected override void OnInitialized() => Sessions.Changed += Refresh;
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Sessions.Changed -= Refresh;
