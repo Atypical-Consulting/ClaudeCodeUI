@@ -64,6 +64,7 @@
         <p>@L["Dirs.LiveHint"]</p>
         @* Idle, or no process (the folder then goes into --add-dir at the next launch): the only states the probe covers. *@
         <ExtraDirs Id="ctx-add-dir" Dirs="Session.AddDirs" Cwd="@Session.Cwd" OnAdd="Session.AddDir"
+                   Confirm="@(LiveSession.Risky(Session.Mode) ? L["Dirs.ConfirmRisky", Strings.Name("Mode.Name.", Session.Mode)].Value : null)"
                    Disabled="Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting" />
     </div>
     <MemoryPanel Session="Session" />
