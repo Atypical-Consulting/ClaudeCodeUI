@@ -46,7 +46,7 @@
     refuse: sz => ` (${sz}). Deny opens the installation docs.`,
     desc: {
       win: 'Installer for Windows 10/11. Unsigned: SmartScreen will ask for confirmation ("More info", then "Run anyway").',
-      mac: 'Disk image for Mac. Unsigned: on first launch, right-click the app, choose "Open", then confirm.',
+      mac: 'Disk image for Mac. Signed and notarized by Apple: it opens normally.',
       linux: 'AppImage for Linux x64. Requires WebKitGTK 4.1; make it executable with chmod +x before running it.',
     },
     paused: 'Claude is paused: the download is waiting for your approval.',
@@ -93,7 +93,7 @@
     refuse: sz => ` (${sz}). Refuser ouvre la documentation d'installation.`,
     desc: {
       win: 'Installeur pour Windows 10/11. Non signé : SmartScreen demandera une confirmation (« Informations complémentaires », puis « Exécuter quand même »).',
-      mac: 'Image disque pour Mac. Non signée : au premier lancement, fais un clic droit sur l\'app, « Ouvrir », puis confirme.',
+      mac: 'Image disque pour Mac. Signée et notariée par Apple : elle s\'ouvre normalement.',
       linux: 'AppImage pour Linux x64. Nécessite WebKitGTK 4.1 ; rends-la exécutable avec chmod +x avant de la lancer.',
     },
     paused: 'Claude est en pause : le téléchargement attend ton accord.',

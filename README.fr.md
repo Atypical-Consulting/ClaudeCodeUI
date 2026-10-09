@@ -13,8 +13,10 @@ Télécharge l'installeur de ton système sur la page des [versions GitHub](http
 | Système | Fichier | Remarque |
 |---|---|---|
 | Windows 10/11 | `.msi` ou `-setup.exe` | Installeur non signé : SmartScreen affiche « Windows a protégé votre ordinateur ». Clique sur « Informations complémentaires » puis « Exécuter quand même ». WebView2 est déjà présent sur Windows 11. |
-| macOS (Apple Silicon ou Intel) | `.dmg` (`aarch64` ou `x64`) | Application non signée : Gatekeeper la bloque au premier lancement. Clic droit sur l'app, « Ouvrir », puis confirmer. Ou : `xattr -dr com.apple.quarantine "/Applications/Claude Code UI.app"`. |
+| macOS (Apple Silicon ou Intel) | `.dmg` (`aarch64` ou `x64`) | Signée avec un Developer ID et notariée par Apple : elle s'ouvre normalement, sans manipulation. |
 | Linux x64 | `.AppImage` ou `.deb` | Nécessite WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` sur Debian/Ubuntu, déjà installé sur la plupart des bureaux). Pour l'AppImage : `chmod +x` puis lancer. |
+
+**Vérifier le téléchargement.** Chaque version publie un fichier `SHA256SUMS` (`shasum -a 256 -c SHA256SUMS`) et des attestations de provenance GitHub : `gh attestation verify <fichier> -R Atypical-Consulting/ClaudeCodeUI`.
 
 ### Prérequis : Claude Code
 
