@@ -77,6 +77,15 @@ app.Use((ctx, next) =>
 
 if (!app.Environment.IsDevelopment())
 {
+    // Defense in depth for rendered model output: no foreign script, image or connection (Blazor sends frame-ancestors).
+    // Inline script stays allowed for the theme bootstrap and the import map in App.razor. Development skips it
+    // (browser-refresh injection).
+    app.Use((ctx, next) =>
+    {
+        ctx.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            + $"connect-src 'self' ws://{ctx.Request.Host} wss://{ctx.Request.Host}; object-src 'none'; base-uri 'self'";
+        return next(ctx);
+    });
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     if (!desktop) app.UseHsts();

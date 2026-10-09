@@ -54,6 +54,10 @@
                         <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
                     </div>
                 }
+                else if (IsHome)
+                {
+                    <div role="status" style="margin-top:8px;font-size:12.5px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
+                }
                 @if (recents.Count > 0)
                 {
                     <div class="recents">
@@ -137,11 +141,16 @@
     bool claudeFound = ClaudeSession.OnPath();
 
     bool Isolated => worktree && branch is not null;
+    // The desktop shell starts in ~: Claude could touch every dotfile there, with no worktree to isolate it.
+    bool IsHome => string.Equals(Path.TrimEndingDirectorySeparator(cwd), Path.TrimEndingDirectorySeparator(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), StringComparison.OrdinalIgnoreCase);
     string WtName => wtName ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
 
-    protected override void OnInitialized() =>
+    protected override void OnInitialized()
+    {
         recents = TranscriptStore.Recent().Select(p => TranscriptStore.RootOf(p.Cwd)).Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(Directory.Exists).Take(5).ToList();
+        if (recents.Count > 0) cwd = recents[0];   // the last project, rather than the process folder (~ on desktop)
+    }
 
     protected override async Task OnParametersSetAsync()
     {

@@ -190,6 +190,7 @@
   <data name="New.HintInspector" xml:space="preserve"><value>inspecteur</value></data>
   <data name="New.HintNew" xml:space="preserve"><value>nouvelle session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>changer de session</value></data>
+  <data name="New.HomeFolder" xml:space="preserve"><value>C'est ton dossier personnel : Claude peut y lire et modifier tout, sans worktree pour l'isoler. Préfère un dossier de projet.</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n'existe pas.</value></data>
   <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
   <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d'un lien et vous ne l'avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
