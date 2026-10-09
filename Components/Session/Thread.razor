@@ -17,6 +17,9 @@
             case TextItem t:
                 <Markdown Text="@t.Markdown" />
                 break;
+            case ApiErrorItem e:
+                <ApiErrorCard Error="e.Error" />
+                break;
             case Run { Agents: true } r:
                 <Workflow @key="r.Tools[0].Id" Session="Session" Agents="r.Tools" />
                 break;
@@ -51,7 +54,7 @@
                     if (blocks.LastOrDefault() is Run r && r.Agents == agent) r.Tools.Add(t);
                     else blocks.Add(new Run([t], agent));
                     break;
-                case UserItem or TextItem { ParentToolUseId: null }:
+                case UserItem or ApiErrorItem or TextItem { ParentToolUseId: null }:
                     blocks.Add(item);
                     break;
             }

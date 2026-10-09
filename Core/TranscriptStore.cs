@@ -255,6 +255,8 @@ public static class TranscriptStore
             """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_A","type":"tool_result","content":"Async agent launched"}]},"toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aa5"},"timestamp":"2026-10-09T12:00:01Z"}""",
             """{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens></usage>\n</task-notification>"},"timestamp":"2026-10-09T12:00:05Z"}""",
         ]);
+        var api = Replay(["""{"type":"assistant","isApiErrorMessage":true,"message":{"model":"<synthetic>","id":"m3","role":"assistant","content":[{"type":"text","text":"API Error: Output blocked by content filtering policy"}]},"timestamp":"2026-10-09T12:00:00Z"}"""]);
+        Ok(api is [ApiErrorItem], "replay api error");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
     }
 }

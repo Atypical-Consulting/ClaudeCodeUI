@@ -8,6 +8,7 @@ public static class SelfCheck
         try
         {
             Events.Check();
+            ApiErrors.Check();
             LiveSession.Check();
             Md.Check();
             EditDiff.Check();
