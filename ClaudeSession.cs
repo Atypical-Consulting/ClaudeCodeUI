@@ -127,18 +127,20 @@ public sealed class ClaudeSession : IAsyncDisposable
         ["message"] = new JsonObject { ["role"] = "user", ["content"] = text },
     });
 
-    // Answer a "can_use_tool" control_request.
-    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null)
+    // Answer a "can_use_tool" control_request. A deny's message reaches the model verbatim as the tool_result.
+    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) => Write(new JsonObject
+    {
+        ["type"] = "control_response",
+        ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = Reply(allow, input, updatedPermissions, message) },
+    });
+
+    internal static JsonObject Reply(bool allow, JsonElement input, JsonNode? updatedPermissions, string? message)
     {
         var res = allow
             ? new JsonObject { ["behavior"] = "allow", ["updatedInput"] = JsonNode.Parse(input.GetRawText()) }
-            : new JsonObject { ["behavior"] = "deny", ["message"] = "The user denied this tool use." };
+            : new JsonObject { ["behavior"] = "deny", ["message"] = string.IsNullOrWhiteSpace(message) ? "The user denied this tool use." : message.Trim() };
         if (allow && updatedPermissions is not null) res["updatedPermissions"] = updatedPermissions.DeepClone();
-        return Write(new JsonObject
-        {
-            ["type"] = "control_response",
-            ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = res },
-        });
+        return res;
     }
 
     public Task Interrupt() => Request("interrupt");
