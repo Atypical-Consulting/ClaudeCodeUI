@@ -26,6 +26,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s3 | "Whole session" when the suggestion is `setMode` | `set_permission_mode` then `allow` |
 | s3 | "Whole session" for the other suggestions (`addRules`, `addDirectories`) | `allow` + `updatedPermissions`; verified by `--probe-cli permission-session` (0 new requests on the next turn, 1 without `updatedPermissions`) |
 | s3 | Plan approval: the plan as Markdown, approve (auto-accept or review edits) or keep planning with feedback | `can_use_tool` `ExitPlanMode` → `set_permission_mode` then `allow`, or `deny` + `message`; verified by `--probe-cli plan` (§2.5) |
+| s3 | AskUserQuestion answer form (radios / checkboxes + free-text "Other", Answer or Skip) | the tool's `can_use_tool` (`input.questions[{question,header,options[{label,description}],multiSelect}]`) answered `allow` + `updatedInput` = input + `answers {question text: answer}`, multi-select labels joined by `", "`; Skip = `deny`. Verified by `--probe-cli ask-user-question` (the next assistant turn quotes a free-text answer); a bare `allow` makes the tool answer "The user did not answer the questions." The answers come back in `tool_use_result.answers` (`toolUseResult` in the transcript) for the ledger and replay |
 | s4 | Overview, decision queue | in-memory state of all sessions |
 | s5 | Ctrl K palette, crash card, restart | process exit + `--resume <id>` |
 | s6 | Markdig Markdown + code blocks + hljs | existing; `.cb` wrapper done server-side |
