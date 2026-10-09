@@ -2,16 +2,17 @@
 @using System.Text.Encodings.Web
 @inject UiState Ui
 
-<div class="ph"><span class="ttl">@L["Inspector"]</span><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
+<div class="ph"><h2 class="ttl">@L["Inspector"]</h2><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
-<div class="tabs" role="tablist">
+<div class="tabs" role="tablist" aria-label="@L["Inspector"]">
     @foreach (var (t, label) in new[] { (0, edit ? "Diff" : L["Tool.Output"].Value), (1, L["Tool.Input"].Value), (2, L["Tool.RawJson"].Value) })
     {
-        <button class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" @onclick="() => tab = t">@label</button>
+        <button id="td-tab-@t" class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" aria-controls="td-panel"
+                tabindex="@(tab == t ? 0 : -1)" @onclick="() => tab = t">@label</button>
     }
 </div>
-<div style="flex:1;min-height:0;overflow:auto">
+<div id="td-panel" role="tabpanel" aria-labelledby="td-tab-@tab" tabindex="0" style="flex:1;min-height:0;overflow:auto">
     @switch (tab)
     {
         case 0 when edit && Tool.State is not (ToolState.Denied or ToolState.Error):
@@ -36,10 +37,10 @@
             <div style="padding:16px"><pre class="cmdlog" style="margin:0;overflow:auto">@(Tool.ResultText ?? "…")</pre></div>
             break;
         case 1:
-            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Pretty(Tool.Input)}\n```")" /></div>
+            <div style="padding:16px 16px 0"><Markdown Text="@(input ??= $"```json\n{Pretty(Tool.Input)}\n```")" /></div>
             break;
         default:
-            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Raw()}\n```")" /></div>
+            <div style="padding:16px 16px 0"><Markdown Text="@(raw ??= $"```json\n{Raw()}\n```")" /></div>
             break;
     }
 </div>
@@ -50,7 +51,7 @@
         {
             <span>@L["Tool.Kv.File"]</span><span>@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
         }
-        @if (Tool.Name == "Read" && ReadRange is { } range)
+        @if (readRange is { } range)
         {
             <span>@L["Tool.Kv.Lines"]</span><span>@range</span>
         }
@@ -88,11 +89,19 @@
 
     string? FilePath => Events.Str(Tool.Input, "file_path");
 
-    string? ReadRange => System.Text.RegularExpressions.Regex.Matches(Tool.ResultText ?? "", @"^\s*(\d+)[→\t]", System.Text.RegularExpressions.RegexOptions.Multiline) is { Count: > 0 } m
-        ? $"{m[0].Groups[1].Value}–{m[^1].Groups[1].Value}" : null;
+    // Built once per (state, result), not per render: the Input/Raw JSON, and the Read line range.
+    (ToolState, string?)? seen;
+    string? input, raw, readRange;
 
     protected override void OnParametersSet()
     {
+        if (seen != (Tool.State, Tool.ResultText))
+        {
+            seen = (Tool.State, Tool.ResultText);
+            raw = null;
+            readRange = Tool.Name == "Read" && System.Text.RegularExpressions.Regex.Matches(Tool.ResultText ?? "", @"^\s*(\d+)[→\t]", System.Text.RegularExpressions.RegexOptions.Multiline) is { Count: > 0 } m
+                ? $"{m[0].Groups[1].Value}–{m[^1].Groups[1].Value}" : null;
+        }
         edit = ToolKinds.IsEdit(Tool.Name);
         if (!edit || diffState == Tool.State) return;
         diffState = Tool.State;

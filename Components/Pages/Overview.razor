@@ -2,35 +2,58 @@
 @implements IDisposable
 @inject SessionManager Sessions
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@L["Nav.Overview"] · Claude Code</PageTitle>
 
 @{
-    var all = Sessions.All;
+    var all = Sessions.Active;
     var queue = Sessions.DecisionQueue.ToList();
-    var today = all.Where(s => s.StartedAt.LocalDateTime.Date == DateTime.Today).Sum(s => s.CostUsd);
+    var spent = all.Sum(s => s.CostUsd - s.CostAtOpen);   // reopened sessions bring their lifetime cost: only this run counts
     qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));
 }
 <div class="pane">
-    <div class="ph"><span class="ttl">@L["Nav.Overview"]</span><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></span></div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></span></div>
     <div class="ov">
+        @if (all.Count == 0)
+        {
+            var recent = TranscriptStore.Recent().Take(3).ToList();
+            <div class="empty">
+                <h3>@L["Ov.Empty"]</h3>
+                <p class="lead">@L["Ov.EmptyText"]</p>
+            </div>
+            @if (recent.Count > 0)
+            {
+                <div>
+                    <span class="cap">@L["Rail.Recent"]</span>
+                    <div class="acts" style="margin-top:8px;flex-wrap:wrap">
+                        @foreach (var p in recent)
+                        {
+                            <a class="btn" href="session/@p.Id" title="@p.Cwd">@p.Title</a>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
         <div class="ovhead">
             <h3>@(all.Count == 1 ? L["Ov.Sessions1"] : L["Ov.SessionsN", all.Count])@(queue.Count > 0 ? ", " + (queue.Count == 1 ? L["Ov.Decision1"] : L["Ov.DecisionN", queue.Count]) : "")</h3>
             <div class="tot">
-                <div class="w"><b>@queue.Count</b>@L["Ov.Pending"]</div>
+                <div class="@(queue.Count > 0 ? "w" : null)"><b>@queue.Count</b>@L["Ov.Pending"]</div>
                 <div><b>@all.Count(s => s.Status == SessionStatus.Running)</b>@L["Status.Running"]</div>
-                <div><b>@Fmt.Cost(today, 2)</b>@L["Ov.Today"]</div>
+                <div><b>@Fmt.Cost(spent, 2)</b>@L["Ov.ThisRun"]</div>
                 <div><b>@all.Sum(s => s.ToolCount)</b>@L["Kv.Tools"]</div>
             </div>
         </div>
-        <table>
-            <thead><tr><th style="width:250px">Session</th><th>@L["Col.State"]</th><th>Mode</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
+        <table class="ovt">
+            <thead><tr><th>Session</th><th>@L["Col.State"]</th><th>Mode</th><th>@L["Ov.Col.Last"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ov.Col.Duration"]</th><th class="num">@L["Ov.Col.Cost"]</th></tr></thead>
             <tbody>
                 @foreach (var s in all)
                 {
                     var (label, color) = State(s);
                     <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
-                        <td><div class="n"><a href="@Url(s)" style="color:inherit;text-decoration:none">@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
+                        <td><div class="n" title="@s.Name"><a href="@Url(s)" style="color:inherit;text-decoration:none" @onclick:stopPropagation>@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }</td>
                         <td><span class="stt" style="color:@color"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
                         <td><span class="mtag">@s.Mode</span></td>
                         <td>@Last(s)</td>
@@ -43,26 +66,40 @@
         </table>
         @if (queue.Count > 0)
         {
-            <div class="queue" tabindex="0" @onkeydown="e => QueueKey(e, queue)" @onfocusin="() => focused = true" @onfocusout="() => focused = false">
-                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
+            var (cs, cp) = queue[qi];
+            <div class="queue" role="group" tabindex="0" @ref="queueEl" aria-label="@L["Ov.Queue"]" aria-describedby="q-keys" @onkeydown="e => QueueKey(e, queue)">
+                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · <kbd>A</kbd> @L["Perm.HintAllow"] · <kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
+                @* The J/K cursor is visual; this announces it to screen readers. *@
+                <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Input, cs.Cwd)</div>
+                @if (error is not null)
+                {
+                    <div class="errbox" style="margin:10px 16px">@error</div>
+                }
                 @for (var i = 0; i < queue.Count; i++)
                 {
                     var (s, p) = queue[i];
-                    <div @key="p.RequestId" class="q" style="@(focused && i == qi ? "background:var(--raise)" : null)">
-                        <span class="who">@s.Name</span>
-                        <span style="color:@ToolKinds.Color(p.Tool)">@p.Tool</span>
+                    <div @key="p.RequestId" class="q @(i == qi ? "sel" : null)" aria-current="@(i == qi ? "true" : null)">
+                        <span class="who" title="@s.Name">@s.Name</span>
+                        <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
                         <span class="p">@ToolKinds.Target(p.Input, s.Cwd)@Delta(p)</span>
-                        <a class="btn" href="@Url(s)">@L["Action.Open"]</a>
+                        <span class="qa" @onkeydown:stopPropagation>   @* Enter on a button must not also open the session *@
+                            <button type="button" class="btn primary" @onclick="() => Answer(s, p, Decision.Allow)">@L["Perm.Allow"]</button>
+                            <button type="button" class="btn danger" @onclick="() => Answer(s, p, Decision.Deny)">@L["Perm.Deny"]</button>
+                            <a class="btn" href="@Url(s)">@L["Action.Open"]</a>
+                        </span>
                     </div>
                 }
             </div>
+        }
         }
     </div>
 </div>
 
 @code {
     int qi;
-    bool focused;
+    string? error;
+    ElementReference queueEl;
+    bool autofocused;
 
     static string Url(LiveSession s) => $"session/{s.Id}";
     static string Where(LiveSession s) => string.Join(" · ", new[] { s.Branch, s.Repo }.Where(x => !string.IsNullOrEmpty(x)));
@@ -96,14 +133,36 @@
         return add + del == 0 ? @<text></text> : @<text> <span style="color:var(--fg-4)">+@add −@del</span></text>;
     }
 
-    void QueueKey(KeyboardEventArgs e, List<(LiveSession S, PendingPermission P)> queue)
+    async Task QueueKey(KeyboardEventArgs e, List<(LiveSession S, PendingPermission P)> queue)
     {
+        if (e.CtrlKey || e.MetaKey || e.AltKey) return;   // Ctrl Shift A, Ctrl A, Cmd D… are not answers
         switch (e.Key)
         {
             case "j" or "J" or "ArrowDown": qi = (qi + 1) % queue.Count; break;
             case "k" or "K" or "ArrowUp": qi = (qi + queue.Count - 1) % queue.Count; break;
             case "Enter": Nav.NavigateTo(Url(queue[qi].S)); break;
+            case "a" or "A": await Answer(queue[qi].S, queue[qi].P, Decision.Allow); break;
+            case "d" or "D": await Answer(queue[qi].S, queue[qi].P, Decision.Deny); break;
         }
+    }
+
+    async Task Answer(LiveSession s, PendingPermission p, Decision d)
+    {
+        if (!s.Pending.Contains(p)) return;   // already answered: a second A/D before the re-render
+        error = null;
+        try { await s.Answer(p, d); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    // Focus the queue once when it has something to triage, so J/K/A/D work without a click first —
+    // unless focus is already somewhere (the Ctrl K palette, a field).
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (autofocused || !Sessions.DecisionQueue.Any()) return;
+        autofocused = true;
+        try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", queueEl); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 
     protected override void OnInitialized() => Sessions.Changed += Refresh;

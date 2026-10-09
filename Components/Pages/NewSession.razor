@@ -2,31 +2,32 @@
 @using System.Diagnostics
 @inject SessionManager Sessions
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><span class="ttl">@L["Rail.NewSession"]</span></div>
+    <div class="ph"><h1 class="ttl">@L["Rail.NewSession"]</h1></div>
     <div class="start">
         @if (!claudeFound)
         {
             <div class="start-card">
                 <div class="hello">
                     <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="Mood.Ko" Size="88" Color="#FCCC0A" /></div>
-                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L["New.NotFoundText"].Value)</p></div>
+                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step1"]</label>
+                    <h4 class="lbl">@L["New.Step1"]</h4>
                     <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
                     <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
                     <p>@L["New.Guide"] <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step2"]</label>
+                    <h4 class="lbl">@L["New.Step2"]</h4>
                     <p>@((MarkupString)L["New.Step2Text"].Value)</p>
                 </div>
                 <div class="field">
-                    <label>@L["New.Step3"]</label>
+                    <h4 class="lbl">@L["New.Step3"]</h4>
                     <p>@((MarkupString)L["New.Step3Text"].Value)</p>
                 </div>
                 <div class="row"><button class="btn primary" @onclick="() => claudeFound = ClaudeSession.OnPath()">@L["New.CheckAgain"]</button></div>
@@ -41,10 +42,21 @@
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
-                    <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                }
+                else if (untrusted)
+                {
+                    <div role="alert" style="margin-top:8px;font-size:12.5px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        <span>@L["New.Untrusted"]</span>
+                        <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
+                    </div>
+                }
+                else if (IsHome)
+                {
+                    <div role="status" style="margin-top:8px;font-size:12.5px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
                 }
                 @if (recents.Count > 0)
                 {
@@ -57,11 +69,11 @@
                 }
             </div>
             <div class="field">
-                <label>Isolation</label>
-                <div class="input" style="font-family:var(--sans)">
+                <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
+                <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
-                            @onclick="() => worktree = !worktree"><span class="sw"></span>@L["New.Worktree"]</button>
-                    @if (branch is null)
+                            @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
+                    @if (branch is null && RendererInfo.IsInteractive)
                     {
                         <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
                     }
@@ -69,7 +81,7 @@
                     {
                         <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
                         <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
-                        <button class="b btn ghost" @onclick="() => editing = false">OK</button>
+                        <button class="b btn ghost" @onclick="() => editing = false">@L["New.Ok"]</button>
                     }
                     else if (Isolated)
                     {
@@ -79,18 +91,34 @@
                 </div>
             </div>
             <div class="field">
-                <label>Permissions</label>
-                <div class="modes" role="radiogroup" aria-label="Permissions">
-                    @foreach (var m in Modes)
+                <label for="model">@L["Model"]</label>
+                <div class="picks">
+                    <select id="model" @bind="model">
+                        <option value="">@L["New.DefaultModel"]</option>
+                        @foreach (var m in Models) { <option value="@m">@m</option> }
+                    </select>
+                    <select @bind="effort" aria-label="@L["New.Effort"]">
+                        <option value="">@L["New.DefaultEffort"]</option>
+                        @foreach (var e in Efforts) { <option value="@e">@e</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <span class="lbl" id="perm-lbl">@L["New.Permissions"]</span>
+                <div class="modes" role="radiogroup" aria-labelledby="perm-lbl">
+                    @foreach (var m in LiveSession.Modes)
                     {
-                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" @onclick="() => mode = m"><b>@m</b><span>@L["Mode." + m]</span></button>
+                        <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@m</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
             </div>
             <div>
                 <div class="box" style="max-width:none">
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
-                    <div class="row"><button class="btn primary go" disabled="@(busy || !exists)" @onclick="Start">@L["New.Start"] <kbd>Ctrl ⏎</kbd></button></div>
+                    <div class="row">
+                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", mode]</span> }
+                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>Ctrl ⏎</kbd></button>
+                    </div>
                 </div>
             </div>
             <div class="hint"><span><kbd>Ctrl K</kbd> @L["New.HintSwitch"]</span><span><kbd>Alt N</kbd> @L["New.HintNew"]</span><span><kbd>Ctrl I</kbd> @L["New.HintInspector"]</span></div>
@@ -100,51 +128,76 @@
 </div>
 
 @code {
-    // "default" is sent as "manual" by LiveSession. bypassPermissions / dontAsk are deliberately not offered.
-    static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
+    // CLI aliases and `claude --effort` levels; "" keeps the CLI / settings default.
+    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["low", "medium", "high", "xhigh", "max"];
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default";
-    string? branch, wtName, lastQuery;
-    bool exists = true, worktree = true, editing, busy;
+    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
+    string? branch, wtName, lastQuery, shownCwd;
+    ElementReference cwdInput;
+    bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
-    bool claudeFound = ClaudeSession.OnPath();
+    bool claudeFound = true;   // probed once interactive, not during the prerender
 
     bool Isolated => worktree && branch is not null;
+    // The desktop shell starts in ~: Claude could touch every dotfile there, with no worktree to isolate it.
+    bool IsHome => string.Equals(Path.TrimEndingDirectorySeparator(cwd), Path.TrimEndingDirectorySeparator(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), StringComparison.OrdinalIgnoreCase);
     string WtName => wtName ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
 
-    protected override void OnInitialized() =>
+    protected override void OnInitialized()
+    {
+        if (!RendererInfo.IsInteractive) return;
+        claudeFound = ClaudeSession.OnPath();
         recents = TranscriptStore.Recent().Select(p => TranscriptStore.RootOf(p.Cwd)).Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(Directory.Exists).Take(5).ToList();
+        if (recents.Count > 0) cwd = recents[0];   // the last project, rather than the process folder (~ on desktop)
+    }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Query is { Length: > 0 } q && q != lastQuery) { lastQuery = q; cwd = q; }
+        var link = Query is { Length: > 0 } q && q != lastQuery;
+        if (link) { lastQuery = Query; cwd = Query!; }
         await SetCwd(cwd);
+        // A folder handed over by a URL and never used before: claude would load its .claude settings and hooks, so ask first.
+        if (link) untrusted = exists && !TranscriptStore.Used(cwd) && !TranscriptStore.Used(TranscriptStore.RootOf(cwd));
+    }
+
+    // A long path shows its distinguishing end, not its start.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!claudeFound || cwd == shownCwd) return;
+        shownCwd = cwd;
+        await JS.InvokeVoidAsync("claudeUi.scrollToEnd", cwdInput);
     }
 
     async Task SetCwd(string value)
     {
-        cwd = value.Trim().Trim('"');
+        value = value.Trim().Trim('"');
+        if (value != cwd) untrusted = false;   // the user picked another folder themselves
+        cwd = value;
+        confirmRisk = false;
         exists = Local(cwd);
-        branch = exists ? await Branch(cwd) : null;
+        branch = exists && RendererInfo.IsInteractive ? await Branch(cwd) : null;   // no git process for the prerender
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
     static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
 
     // Current branch ("HEAD" when detached), null outside a git repo.
-    static async Task<string?> Branch(string dir)
+    static async Task<string?> Branch(string dir) => await Git(dir, "branch", "--show-current") is { } b ? b.Length > 0 ? b : "HEAD" : null;
+
+    // Trimmed stdout, null when git fails.
+    static async Task<string?> Git(string dir, params string[] args)
     {
         try
         {
             var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-            foreach (var a in new[] { "-C", dir, "branch", "--show-current" }) psi.ArgumentList.Add(a);
+            foreach (var a in (string[])["-C", dir, .. args]) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
             var output = (await p.StandardOutput.ReadToEndAsync()).Trim();
             await p.WaitForExitAsync();
-            return p.ExitCode != 0 ? null : output.Length > 0 ? output : "HEAD";
+            return p.ExitCode != 0 ? null : output;
         }
         catch (Exception) { return null; }
     }
@@ -154,6 +207,16 @@
     {
         var s = TranscriptStore.Short(dir).Replace('\\', '/');
         return s.Length <= 32 ? s : "…/" + string.Join('/', s.Split('/')[^2..]);
+    }
+
+    // A generated worktree name gets -2, -3… when the repo already has that worktree or a live session uses it.
+    async Task<string> Free(string name)
+    {
+        var root = await Git(cwd, "rev-parse", "--show-toplevel") ?? cwd;
+        bool Taken(string n) => Directory.Exists(Path.Combine(root, ".claude", "worktrees", n)) || Sessions.All.Any(s => s.Worktree == n);
+        var free = name;
+        for (var i = 2; Taken(free); i++) free = $"{name}-{i}";
+        return free;
     }
 
     void SetName(ChangeEventArgs e) => wtName = TranscriptStore.NameFrom(e.Value?.ToString() ?? "", 8) is { Length: > 0 } n ? n : null;
@@ -166,10 +229,14 @@
     async Task Start()
     {
         if (busy) return;
-        if (!(exists = Local(cwd))) return;
+        if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
-        var name = Isolated ? WtName : TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
-        var s = Sessions.Start(cwd, mode, name, Isolated ? WtName : null, null, null);
+        branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
+        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, the second Start confirms.
+        if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; busy = false; return; }
+        var wt = Isolated ? wtName ?? await Free(WtName) : null;
+        var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null);
         if (prompt.Trim() is { Length: > 0 } text)
         {
             try { await s.Send(text); }

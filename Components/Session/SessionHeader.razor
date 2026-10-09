@@ -1,11 +1,29 @@
 @inject UiState Ui
+@inject SessionManager Sessions
+@inject NavigationManager Nav
 
 <div class="ph">
-    <span class="ttl" tabindex="-1">@Session.Name</span>
-    <span class="sub">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
-    <span class="end"><button class="btn ghost" title="@L["Inspector"] (Ctrl I)" aria-label="@L["Inspector"]" aria-pressed="@Ui.InspectorOpen" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
+    <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
+    @* The working directory first: a -w worktree replaces it, and that is the checkout Claude edits. *@
+    <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { TranscriptStore.Short(Session.Cwd), Session.Branch, Session.Repo, Session.Mode }.Where(x => !string.IsNullOrEmpty(x)))</span>
+    @if (Session.Cwd.Length > 0)
+    {
+        <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Error.Copy"]</button>
+    }
+    <span class="end">
+        @if (Session.Status != SessionStatus.Exited)
+        {
+            <button class="btn ghost" title="@L["Session.StopHint"]" @onclick="Stop"><Icon Name="x" Sm />@L["Session.Stop"]</button>
+        }
+        <button class="btn ghost" title="@L["Inspector"] (Ctrl I)" aria-label="@L["Inspector"]" aria-pressed="@(Ui.InspectorOpen ? "true" : "false")" @onclick="() => Ui.InspectorOpen = !Ui.InspectorOpen"><Icon Name="panel" Sm /></button></span>
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    async Task Stop()
+    {
+        await Sessions.Stop(Session.Id);
+        Nav.NavigateTo("overview");
+    }
 }
