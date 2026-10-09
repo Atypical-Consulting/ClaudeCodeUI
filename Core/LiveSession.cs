@@ -37,6 +37,10 @@ public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Ins
         Events.Prop(r, "insertions") is { ValueKind: JsonValueKind.Number } i ? i.GetInt32() : 0,
         Events.Prop(r, "deletions") is { ValueKind: JsonValueKind.Number } d ? d.GetInt32() : 0,
         Events.Str(r, "error"));
+
+    // Something to put back on disk. A hosted or persistent transport drops filesChanged from the answer (CLI source,
+    // rewind_files handler) while the line counts stay: count those too.
+    public bool Changes => CanRewind && (Files.Count > 0 || Insertions + Deletions > 0);
 }
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
@@ -849,6 +853,10 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
         Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
             "rewind preview drops empty paths");
+        Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"insertions":3,"deletions":0}""").RootElement).Changes
+           && !RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[]}""").RootElement).Changes
+           && !RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":false,"insertions":3}""").RootElement).Changes,
+            "rewind preview: changes without the file list still count");
 
         // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
         var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };

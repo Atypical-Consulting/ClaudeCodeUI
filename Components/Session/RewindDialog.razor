@@ -13,12 +13,15 @@
             {
                 <p role="status">@L["Rewind.Loading"]</p>
             }
-            else if (preview is { CanRewind: true, Files.Count: > 0 } p)
+            else if (preview is { Changes: true } p)
             {
                 <div class="cap">@L["Rewind.Files"] · @L["Rewind.Lines", p.Insertions, p.Deletions]</div>
-                <ul class="files">
-                    @foreach (var f in p.Files) { <li><code>@Path.GetRelativePath(Session.Cwd, f)</code></li> }
-                </ul>
+                @if (p.Files.Count > 0)
+                {
+                    <ul class="files">
+                        @foreach (var f in p.Files) { <li><code>@Path.GetRelativePath(Session.Cwd, f)</code></li> }
+                    </ul>
+                }
             }
             else if (preview is { CanRewind: true })
             {
@@ -61,7 +64,7 @@
         busy = true; error = null;
         try
         {
-            await Session.Rewind(u, preview is { CanRewind: true, Files.Count: > 0 });
+            await Session.Rewind(u, preview.Changes);
             // The message (and its button, where focus would return) is gone: its text waits in the Composer.
             await JS.InvokeVoidAsync("claudeUi.dialog", el, false, ".composer textarea");
         }
