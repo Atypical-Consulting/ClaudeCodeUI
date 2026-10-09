@@ -14,12 +14,13 @@
 }
 else
 {
-    <div class="pane">
+    @* Keyed: the page is reused across /session/{Id}, its children must not carry one session's state into the next. *@
+    <div class="pane" @key="S.Id">
         <SessionHeader Session="S" />
         <Thread Session="S" />
         <Composer Session="S" />
     </div>
-    <Inspector Session="S" />
+    <Inspector @key="S.Id" Session="S" />
 }
 
 @code {

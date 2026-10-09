@@ -43,6 +43,7 @@
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
+  <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Fast" xml:space="preserve"><value>Rapide</value></data>
   <data name="Composer.FastExtraUsage" xml:space="preserve"><value>usage supplémentaire désactivé</value></data>
@@ -182,6 +183,8 @@
   <data name="New.HintNew" xml:space="preserve"><value>nouvelle session</value></data>
   <data name="New.HintSwitch" xml:space="preserve"><value>changer de session</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n'existe pas.</value></data>
+  <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d'un lien et vous ne l'avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Claude Code est introuvable</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n'est pas dans le PATH.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
