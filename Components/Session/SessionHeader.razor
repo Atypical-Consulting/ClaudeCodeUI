@@ -11,6 +11,7 @@
         <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
     }
     <span class="end">
+        <button class="btn ghost" title="@L["Session.ForkHint"]" aria-label="@L["Session.Fork"]" disabled="@(!Session.CanFork)" @onclick="Fork"><Icon Name="branch" Sm />@L["Session.ForkShort"]</button>
         @if (Session.Status != SessionStatus.Exited)
         {
             <button class="btn ghost" title="@L["Session.StopHint"]" @onclick="Stop"><Icon Name="x" Sm />@L["Session.Stop"]</button>
@@ -26,4 +27,6 @@
         await Sessions.Stop(Session.Id);
         Nav.NavigateTo("overview");
     }
+
+    void Fork() => Nav.NavigateTo($"session/{Sessions.Fork(Session).Id}");
 }

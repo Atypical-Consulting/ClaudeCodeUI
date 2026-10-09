@@ -1,6 +1,8 @@
 @* Top-level items only; subagent items (ParentToolUseId set) live under their Workflow row.
    Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
 @inject IJSRuntime JS
+@inject SessionManager Sessions
+@inject NavigationManager Nav
 
 @* role=log wraps the blocks only: finished blocks are announced as they are added; the token-by-token stream is hidden
    until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
@@ -34,6 +36,12 @@
                             }
                         </ul>
                     }</div>
+                break;
+            case TextItem { Uuid: { } at } t when Session.CanFork:
+                <div class="said">
+                    <Markdown Text="@t.Markdown" />
+                    <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
+                </div>
                 break;
             case TextItem t:
                 <Markdown Text="@t.Markdown" />
@@ -72,6 +80,7 @@
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;
     List<object> blocks = [];
     (LiveSession, int)? scrolled;
+    void Fork(string at) => Nav.NavigateTo($"session/{Sessions.Fork(Session, at).Id}");
 
     List<object> Blocks()
     {

@@ -56,6 +56,21 @@ public sealed class SessionManager : IAsyncDisposable
         }
     }
 
+    // A new live session continuing src's conversation under a new id; src is left as it is (--probe-cli fork).
+    // History = src's transcript, what the CLI copies, cut after the message `at` for "Fork from here".
+    public LiveSession Fork(LiveSession src, string? at = null)
+    {
+        var s = new LiveSession(Guid.NewGuid().ToString(), Strings.Get("Session.ForkName", src.Name), src.Cwd, src.Mode, model: src.Model, effort: src.Effort)
+        {
+            ForkOf = src.Id, ForkAt = at, Items = LiveSession.Upto(TranscriptStore.Load(src.Id), at), CostUsd = TranscriptStore.PersistedCost(src.Id),
+        };
+        s.ToolCount = s.Items.OfType<ToolItem>().Count();
+        Add(s);
+        try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
+        _ = s.RefreshGit();
+        return s;
+    }
+
     // Kills the process and forgets the session: it goes back to Recent, its transcript intact.
     public async Task Stop(string id)
     {

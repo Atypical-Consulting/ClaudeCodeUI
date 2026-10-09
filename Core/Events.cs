@@ -11,7 +11,7 @@ public record McpBrief(string Name, string Status);                             
 public record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;
 public record ThinkingEvt(int EstimatedTokens) : ClaudeEvent;
 public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
-public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic) : ClaudeEvent;
+public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic, string? Uuid = null) : ClaudeEvent; // Uuid = the line's (stream and .jsonl alike)
 public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
 public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result (objects only)
 public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
@@ -57,7 +57,7 @@ public static class Events
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
-                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic); break;
+                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic, Str(e, "uuid")); break;
                             case "tool_use" when Str(c, "id") is { } id && Prop(c, "input") is { } input:
                                 yield return new ToolUseEvt(id, Str(c, "name") ?? "", input, parent); break;
                         }
@@ -225,7 +225,8 @@ public static class Events
 
         var tu = P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_1","content":[{"type":"tool_use","id":"toolu_01Y","name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"}}]},"parent_tool_use_id":null}""") as ToolUseEvt;
         Ok(tu is { Id: "toolu_01Y", Name: "Write", ParentToolUseId: null } && Str(tu.Input, "file_path") == @"C:\w\b.txt", "tool_use");
-        Ok(P("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"Total cost"}]},"parent_tool_use_id":null}""") is AssistantTextEvt { Synthetic: true, Text: "Total cost", MessageId: "m" }, "synthetic text");
+        Ok(P("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"Total cost"}]},"parent_tool_use_id":null}""") is AssistantTextEvt { Synthetic: true, Text: "Total cost", MessageId: "m", Uuid: null }, "synthetic text");
+        Ok(P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_2","role":"assistant","content":[{"type":"text","text":"OK"}]},"parent_tool_use_id":null,"session_id":"s","uuid":"66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11"}""") is AssistantTextEvt { Text: "OK", Uuid: "66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11" }, "assistant uuid");
 
         static List<ClaudeEvent> All(string json) => ParseAll(JsonDocument.Parse(json).RootElement.Clone()).ToList();
         Ok(All("""{"type":"assistant"}""") is [] && All("""{"type":"user","message":"x"}""") is []
