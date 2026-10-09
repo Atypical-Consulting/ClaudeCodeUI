@@ -27,7 +27,8 @@ else
         <Thread @key="S.Id" Session="S" />
         <Composer Session="S" />
     </div>
-    <Inspector @key="S.Id" Session="S" />
+    @* Keyed by the session object, not S.Id: sibling keys must differ or Blazor throws on render. *@
+    <Inspector @key="S" Session="S" />
 }
 
 @code {
