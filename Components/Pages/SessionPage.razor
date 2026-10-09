@@ -25,6 +25,7 @@ else
         <SessionHeader Session="S" />
         @* Keyed per session: switching sessions mounts a fresh log, whose initial content is not announced. *@
         <Thread @key="S.Id" Session="S" />
+        <TodoPanel Session="S" />
         <Composer Session="S" />
     </div>
     @* Keyed by the session object, not S.Id: sibling keys must differ or Blazor throws on render. *@
