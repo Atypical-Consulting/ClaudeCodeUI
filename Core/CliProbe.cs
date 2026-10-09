@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -711,26 +711,64 @@ public static class CliProbe
     // background-tasks: a run_in_background shell command reports task_started (task_type local_bash, is_backgrounded)
     // and get_task_output returns the end of what it printed so far.
     // stop-task: stop_task on it is answered and followed by task_updated patch.status "killed".
+    // task-completed: a background command that exits on its own is reported by task_updated "completed" with an end_time.
     static async Task<IEnumerable<(string, string, string)>> BackgroundTasks(string dir)
     {
         await using var c = await Cli.Start(dir);
-        return await Guard(["background-tasks", "stop-task"], async () =>
+        return await Guard(["background-tasks", "stop-task", "task-completed"], async () =>
         {
             var turn = await c.Turn("With your shell tool and run_in_background set to true, run a command that prints \"tick N\" once per second for 60 seconds. "
                 + "Do not wait for it and do not read its output. Reply only 'started'.");
             if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } ts)
-                return [("FAIL", "no task_started with task_type local_bash"), ("SKIP", "no background task to stop")];
+                return [("FAIL", "no task_started with task_type local_bash"), ("SKIP", "no background task to stop"), ("SKIP", "no background task")];
             await Task.Delay(3000);
             var o = await c.S.Request("get_task_output", new() { ["task_id"] = ts.TaskId });
             var output = Events.Str(o, "output") ?? "";
             var detail = $"task {ts.TaskId} is_backgrounded={ts.Backgrounded}, output {Events.Prop(o, "total_bytes")?.GetRawText() ?? "?"} bytes \"{output.Trim().Split('\n')[^1]}\"";
             var read = ts.Backgrounded && output.Contains("tick") ? ("PASS", detail) : ("FAIL", detail);
 
-            await c.S.Request("stop_task", new() { ["task_id"] = ts.TaskId });
-            var upd = await c.Until(e => Events.Parse(e) is TaskUpdatedEvt { Status: not null } u && u.TaskId == ts.TaskId);
-            var status = (Events.Parse(upd) as TaskUpdatedEvt)?.Status;
-            return [read, status == "killed" ? ("PASS", "answered, task_updated status killed") : ("FAIL", $"answered, task_updated status {status}")];
+            var stop = await Stopped(c, ts.TaskId);
+
+            turn = await c.Turn("With your shell tool and run_in_background set to true, run: echo done; sleep 2. Do not wait for it. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } t2)
+                return [read, stop, ("FAIL", "second command: no task_started with task_type local_bash")];
+            // It may end inside the turn, before the result: look there first.
+            bool Done(JsonElement e) => Events.Parse(e) is TaskUpdatedEvt { Status: not (null or "running" or "pending") } u && u.TaskId == t2.TaskId;
+            var done = Events.Parse(turn.FirstOrDefault(Done) is { ValueKind: JsonValueKind.Object } inTurn ? inTurn : await c.Until(Done)) as TaskUpdatedEvt;
+            return [read, stop, done is { Status: "completed", EndedAt: not null }
+                ? ("PASS", $"task {t2.TaskId} task_updated status completed, end_time {done.EndedAt:O}")
+                : ("FAIL", $"task {t2.TaskId} task_updated status {done?.Status}, end_time {done?.EndedAt}")];
         });
+    }
+
+    // monitor-stop: a Monitor command is a local_bash task too, and stop_task ends it (task_updated "killed"). stop_task
+    // answers {} even for an id it ignores, so only the task_updated proves the stop.
+    static async Task<IEnumerable<(string, string, string)>> MonitorStop(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["monitor-stop"], async () =>
+        {
+            var turn = await c.Turn("Use the Monitor tool (not the shell tool) to watch a command that prints \"tick N\" once per second for 60 seconds. "
+                + "Do not wait for it. Reply only 'started'.");
+            if (turn.SelectMany(Events.ParseAll).OfType<ToolUseEvt>().FirstOrDefault(u => u.Name == "Monitor") is not { } monitor)
+                return [("SKIP", $"haiku called no Monitor tool ({string.Join(", ", turn.SelectMany(ToolUses).Distinct())})")];
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.ToolUseId == monitor.Id) is not { } ts)
+                return [("FAIL", "Monitor called, no task_started for it")];
+            // The panel lists local_bash + is_backgrounded tasks and shows input.command.
+            var listed = ts is { TaskType: "local_bash", Backgrounded: true };
+            var stop = await Stopped(c, ts.TaskId);
+            return [(listed ? stop.Verdict : "FAIL", $"task_type {ts.TaskType} is_backgrounded={ts.Backgrounded} "
+                + $"input.command {(Events.Str(monitor.Input, "command") is null ? "absent" : "present")}; {stop.Detail}")];
+        });
+    }
+
+    // stop_task, then the task_updated that reports the task's new status.
+    static async Task<(string Verdict, string Detail)> Stopped(Cli c, string taskId)
+    {
+        await c.S.Request("stop_task", new() { ["task_id"] = taskId });
+        var upd = await c.Until(e => Events.Parse(e) is TaskUpdatedEvt { Status: not null } u && u.TaskId == taskId);
+        var status = (Events.Parse(upd) as TaskUpdatedEvt)?.Status;
+        return status == "killed" ? ("PASS", "answered, task_updated status killed") : ("FAIL", $"answered, task_updated status {status}");
     }
 
     // ---------- plumbing ----------
