@@ -4,6 +4,11 @@ using ClaudeCodeUI;
 using ClaudeCodeUI.Components;
 
 if (args is ["--self-check"]) { Environment.ExitCode = SelfCheck.Run(); return; }
+if (args is ["--boot-probe", var probeDir, ..])
+{
+    Environment.ExitCode = await BootProbe.Run(Path.GetFullPath(probeDir), args is [_, _, var sec] && int.TryParse(sec, out var n) ? n : 90);
+    return;
+}
 
 // Desktop shell (desktop/): `--desktop-port 0 --parent-pid <pid>`. Loopback HTTP only, Production,
 // content root next to the executable, and stop (disposing SessionManager, so claude children die) when the shell exits.
