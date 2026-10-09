@@ -553,5 +553,5 @@ button.mode{text-align:left}
 /* integration */
 .ph .ttl:focus{outline:none}
 .pop.menu{max-height:60vh;overflow:auto}
-.lang{display:flex;gap:8px;align-items:center}
-.lang select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}
+.lang,.picks{display:flex;gap:8px;align-items:center}
+.lang select,.picks select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}

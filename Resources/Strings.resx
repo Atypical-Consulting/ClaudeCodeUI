@@ -172,8 +172,11 @@
   <data name="Nav.Appearance" xml:space="preserve"><value>Appearance</value></data>
   <data name="Nav.Overview" xml:space="preserve"><value>Overview</value></data>
   <data name="New.CheckAgain" xml:space="preserve"><value>Check again</value></data>
+  <data name="New.DefaultEffort" xml:space="preserve"><value>Default effort</value></data>
+  <data name="New.DefaultModel" xml:space="preserve"><value>Default model</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="New.FirstMessage" xml:space="preserve"><value>First message</value></data>
+  <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Working folder</value></data>
   <data name="New.Guide" xml:space="preserve"><value>Full guide:</value></data>
   <data name="New.Hello" xml:space="preserve"><value>What are we working on?</value></data>

@@ -2,6 +2,7 @@
 @using System.Diagnostics
 @inject SessionManager Sessions
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
@@ -41,7 +42,7 @@
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
                     <div style="margin-top:8px;font-size:12.5px;color:var(--err-fg)">@L["New.NoFolder"]</div>
@@ -79,6 +80,19 @@
                 </div>
             </div>
             <div class="field">
+                <label for="model">@L["Model"]</label>
+                <div class="picks">
+                    <select id="model" @bind="model">
+                        <option value="">@L["New.DefaultModel"]</option>
+                        @foreach (var m in Models) { <option value="@m">@m</option> }
+                    </select>
+                    <select @bind="effort" aria-label="@L["New.Effort"]">
+                        <option value="">@L["New.DefaultEffort"]</option>
+                        @foreach (var e in Efforts) { <option value="@e">@e</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
                 <label>Permissions</label>
                 <div class="modes" role="radiogroup" aria-label="Permissions">
                     @foreach (var m in Modes)
@@ -102,11 +116,14 @@
 @code {
     // "default" is sent as "manual" by LiveSession. bypassPermissions / dontAsk are deliberately not offered.
     static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
+    // CLI aliases and `claude --effort` levels; "" keeps the CLI / settings default.
+    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["low", "medium", "high", "xhigh", "max"];
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default";
-    string? branch, wtName, lastQuery;
+    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
+    string? branch, wtName, lastQuery, shownCwd;
+    ElementReference cwdInput;
     bool exists = true, worktree = true, editing, busy;
     List<string> recents = [];
     bool claudeFound = ClaudeSession.OnPath();
@@ -124,6 +141,14 @@
         await SetCwd(cwd);
     }
 
+    // A long path shows its distinguishing end, not its start.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!claudeFound || cwd == shownCwd) return;
+        shownCwd = cwd;
+        await JS.InvokeVoidAsync("claudeUi.scrollToEnd", cwdInput);
+    }
+
     async Task SetCwd(string value)
     {
         cwd = value.Trim().Trim('"');
@@ -135,16 +160,19 @@
     static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
 
     // Current branch ("HEAD" when detached), null outside a git repo.
-    static async Task<string?> Branch(string dir)
+    static async Task<string?> Branch(string dir) => await Git(dir, "branch", "--show-current") is { } b ? b.Length > 0 ? b : "HEAD" : null;
+
+    // Trimmed stdout, null when git fails.
+    static async Task<string?> Git(string dir, params string[] args)
     {
         try
         {
             var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-            foreach (var a in new[] { "-C", dir, "branch", "--show-current" }) psi.ArgumentList.Add(a);
+            foreach (var a in (string[])["-C", dir, .. args]) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
             var output = (await p.StandardOutput.ReadToEndAsync()).Trim();
             await p.WaitForExitAsync();
-            return p.ExitCode != 0 ? null : output.Length > 0 ? output : "HEAD";
+            return p.ExitCode != 0 ? null : output;
         }
         catch (Exception) { return null; }
     }
@@ -154,6 +182,16 @@
     {
         var s = TranscriptStore.Short(dir).Replace('\\', '/');
         return s.Length <= 32 ? s : "…/" + string.Join('/', s.Split('/')[^2..]);
+    }
+
+    // A generated worktree name gets -2, -3… when the repo already has that worktree or a live session uses it.
+    async Task<string> Free(string name)
+    {
+        var root = await Git(cwd, "rev-parse", "--show-toplevel") ?? cwd;
+        bool Taken(string n) => Directory.Exists(Path.Combine(root, ".claude", "worktrees", n)) || Sessions.All.Any(s => s.Worktree == n);
+        var free = name;
+        for (var i = 2; Taken(free); i++) free = $"{name}-{i}";
+        return free;
     }
 
     void SetName(ChangeEventArgs e) => wtName = TranscriptStore.NameFrom(e.Value?.ToString() ?? "", 8) is { Length: > 0 } n ? n : null;
@@ -168,8 +206,10 @@
         if (busy) return;
         if (!(exists = Local(cwd))) return;
         busy = true;
-        var name = Isolated ? WtName : TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
-        var s = Sessions.Start(cwd, mode, name, Isolated ? WtName : null, null, null);
+        branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
+        var wt = Isolated ? wtName ?? await Free(WtName) : null;
+        var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null);
         if (prompt.Trim() is { Length: > 0 } text)
         {
             try { await s.Send(text); }

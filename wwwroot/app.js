@@ -20,6 +20,7 @@
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
+        scrollToEnd(el) { if (el) el.scrollLeft = el.scrollWidth; },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // Pin a scroller to its bottom after each render, unless the user scrolled up.
         scrollEnd(el) {
