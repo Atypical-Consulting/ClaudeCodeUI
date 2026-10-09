@@ -2,6 +2,7 @@
    No phases, workflow name or per-agent cost: the CLI does not provide them. *@
 @inject UiState Ui
 
+<Ticker Active="Agents.Any(a => a.EndedAt is null)">
 <div class="wf">
     <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">workflow</span><span class="r">@Head</span></div>
     @foreach (var a in Agents)
@@ -32,6 +33,7 @@
         }
     }
 </div>
+</Ticker>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
@@ -46,7 +48,7 @@
     }
 
     List<ToolItem> Children(ToolItem a) =>
-        Session.Items.OfType<ToolItem>().Where(t => t.ParentToolUseId == a.Id && t.Name != "SubagentHandback").ToList();
+        Session.Children[a.Id].OfType<ToolItem>().Where(t => t.Name != "SubagentHandback").ToList();
 
     static TimeSpan Elapsed(ToolItem t) => (t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt;
 

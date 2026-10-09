@@ -1,0 +1,15 @@
+@* Re-renders only its content, once a second while Active: elapsed times move without events. *@
+@implements IDisposable
+
+@ChildContent
+
+@code {
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    Timer? tick;
+
+    protected override void OnInitialized() => tick = new(_ => InvokeAsync(StateHasChanged), null, Timeout.Infinite, 1000);
+    protected override void OnParametersSet() => tick?.Change(Active ? 1000 : Timeout.Infinite, 1000);
+    public void Dispose() => tick?.Dispose();
+}

@@ -42,7 +42,7 @@
             }
             @foreach (var e in errors)
             {
-                <div class="errbox">@e</div>
+                <div class="errbox" role="alert">@e</div>
             }
             <div class="filters">
                 <button class="chip @(filter is null ? "on" : null)" aria-pressed="@(filter is null ? "true" : "false")" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
@@ -113,7 +113,7 @@
             <div class="section">
                 <h3>@L["Wt.PushTitle", pw.Name]</h3>
                 <p>@((MarkupString)(pw.Unpushed == 1 ? L["Wt.Unpushed1", Enc(pw.Branch)] : L["Wt.UnpushedN", pw.Unpushed, Enc(pw.Branch)]).Value)</p>
-                <div class="cmdlog">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
+                <div class="cmdlog" role="status">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
                 <div class="acts">
                     @if (pushResult != "ok")
                     {

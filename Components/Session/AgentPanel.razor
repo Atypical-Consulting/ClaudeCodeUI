@@ -17,7 +17,7 @@
         }
         <div class="kv">
             <span>type</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
-            <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Items.OfType<ToolItem>().Count(i => i.ParentToolUseId == Agent.Id))</span>
+            <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Children[Agent.Id].OfType<ToolItem>().Count())</span>
             <span>tokens</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
             <span>@L["Kv.Cost"]</span><span>—</span>
         </div>
@@ -29,7 +29,7 @@
     [Parameter] public ToolItem Agent { get; set; } = null!;
 
     // The agent's own messages (parent_tool_use_id), else its handback report once done.
-    string? LastText => Session.Items.OfType<TextItem>().LastOrDefault(i => i.ParentToolUseId == Agent.Id)?.Markdown
+    string? LastText => Session.Children[Agent.Id].OfType<TextItem>().LastOrDefault()?.Markdown
         ?? (Agent.Structured is { } s && Events.Prop(s, "handbackReport") is { } h ? Events.Str(h, "text") : null)
         ?? Agent.ResultText;
 }

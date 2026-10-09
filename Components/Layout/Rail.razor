@@ -23,17 +23,18 @@
         </NavLink>
     </div>
     <div style="flex:1;min-height:0;overflow:auto">
-    @if (Sessions.All.Count > 0)
+    @{ var active = Sessions.Active; }
+    @if (active.Count > 0)
     {
         <div class="grp"><span class="cap">@L["Rail.Active"]</span></div>
         <div class="list">
-            @foreach (var s in Sessions.All)
+            @foreach (var s in active)
             {
                 <RailSessionRow @key="s.Id" Session="s" />
             }
         </div>
     }
-    @{ var past = TranscriptStore.Recent().Where(p => Sessions.Get(p.Id) is null).Take(8).ToList(); }   @* the palette searches the full list *@
+    @{ var past = TranscriptStore.Recent().Where(p => !Sessions.IsActive(p.Id)).Take(8).ToList(); }   @* the palette searches the full list *@
     @if (past.Count > 0)
     {
         <div class="grp"><span class="cap">@L["Rail.Recent"]</span></div>

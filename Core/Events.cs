@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ClaudeCodeUI;
 
@@ -71,7 +72,7 @@ public static class Events
                         break;
                     }
                     if (content.ValueKind != JsonValueKind.Array) break;
-                    JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? tur : null;
+                    JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? Slim(tur) : null;
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
@@ -156,6 +157,16 @@ public static class Events
             int.TryParse(Tag(rest, "duration_ms"), out var d) ? d : 0);
     }
 
+    // tool_use_result minus the whole files the UI never reads (Edit's originalFile, Read's file.content), copied into its
+    // own small document: kept on every ToolItem, the original would pin the full stdout line for the session's lifetime.
+    static JsonElement Slim(JsonElement tur)
+    {
+        var o = JsonObject.Create(tur)!;
+        o.Remove("originalFile");
+        (o["file"] as JsonObject)?.Remove("content");
+        return JsonSerializer.SerializeToElement(o);
+    }
+
     // tool_result content is a string or an array of blocks.
     public static string ResultText(JsonElement content) => content.ValueKind switch
     {
@@ -202,6 +213,9 @@ public static class Events
 
         var tr = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_E","type":"tool_result","content":"The file a.txt has been updated."}]},"parent_tool_use_id":null,"tool_use_result":{"filePath":"C:\\w\\a.txt","oldString":"hello","newString":"bye","originalFile":"hello\n","structuredPatch":[{"oldStart":1,"oldLines":1,"newStart":1,"newLines":1,"lines":["-hello","+bye"]}]}}""") as ToolResultEvt;
         Ok(tr is { ToolUseId: "toolu_E", IsError: false, Structured: { } st } && st.GetProperty("structuredPatch")[0].GetProperty("lines")[1].GetString() == "+bye", "tool_result + tool_use_result");
+        Ok(tr?.Structured is { } ts && Prop(ts, "originalFile") is null && Str(ts, "filePath") == @"C:\w\a.txt", "tool_use_result drops originalFile");
+        var rd = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"r","type":"tool_result","content":"1→x"}]},"tool_use_result":{"type":"text","file":{"filePath":"a","content":"x","numLines":1}}}""") as ToolResultEvt;
+        Ok(rd?.Structured is { } rs && Prop(rs.GetProperty("file"), "content") is null && rs.GetProperty("file").GetProperty("numLines").GetInt32() == 1, "tool_use_result drops file.content");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null }, "tool_result error");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null,"timestamp":"2026-10-09T12:41:34.602Z"}""") is UserTextEvt { Text: "[Request interrupted by user]", At: not null }, "user text");
 

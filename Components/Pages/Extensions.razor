@@ -30,7 +30,7 @@
             {
                 @if (note is not null)
                 {
-                    <div class="errbox">@note</div>
+                    <div class="errbox" role="alert">@note</div>
                 }
                 <div class="filters">
                     @Filter("", L["Filter.All"], servers.Count)

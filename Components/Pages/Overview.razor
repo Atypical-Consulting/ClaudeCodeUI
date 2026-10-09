@@ -6,7 +6,7 @@
 <PageTitle>@L["Nav.Overview"] · Claude Code</PageTitle>
 
 @{
-    var all = Sessions.All;
+    var all = Sessions.Active;
     var queue = Sessions.DecisionQueue.ToList();
     var today = all.Where(s => s.StartedAt.LocalDateTime.Date == DateTime.Today).Sum(s => s.CostUsd);
     qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));

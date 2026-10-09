@@ -37,10 +37,10 @@
             <div style="padding:16px"><pre class="cmdlog" style="margin:0;overflow:auto">@(Tool.ResultText ?? "…")</pre></div>
             break;
         case 1:
-            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Pretty(Tool.Input)}\n```")" /></div>
+            <div style="padding:16px 16px 0"><Markdown Text="@(input ??= $"```json\n{Pretty(Tool.Input)}\n```")" /></div>
             break;
         default:
-            <div style="padding:16px 16px 0"><Markdown Text="@($"```json\n{Raw()}\n```")" /></div>
+            <div style="padding:16px 16px 0"><Markdown Text="@(raw ??= $"```json\n{Raw()}\n```")" /></div>
             break;
     }
 </div>
@@ -51,7 +51,7 @@
         {
             <span>@L["Tool.Kv.File"]</span><span>@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
         }
-        @if (Tool.Name == "Read" && ReadRange is { } range)
+        @if (readRange is { } range)
         {
             <span>@L["Tool.Kv.Lines"]</span><span>@range</span>
         }
@@ -89,11 +89,19 @@
 
     string? FilePath => Events.Str(Tool.Input, "file_path");
 
-    string? ReadRange => System.Text.RegularExpressions.Regex.Matches(Tool.ResultText ?? "", @"^\s*(\d+)[→\t]", System.Text.RegularExpressions.RegexOptions.Multiline) is { Count: > 0 } m
-        ? $"{m[0].Groups[1].Value}–{m[^1].Groups[1].Value}" : null;
+    // Built once per (state, result), not per render: the Input/Raw JSON, and the Read line range.
+    (ToolState, string?)? seen;
+    string? input, raw, readRange;
 
     protected override void OnParametersSet()
     {
+        if (seen != (Tool.State, Tool.ResultText))
+        {
+            seen = (Tool.State, Tool.ResultText);
+            raw = null;
+            readRange = Tool.Name == "Read" && System.Text.RegularExpressions.Regex.Matches(Tool.ResultText ?? "", @"^\s*(\d+)[→\t]", System.Text.RegularExpressions.RegexOptions.Multiline) is { Count: > 0 } m
+                ? $"{m[0].Groups[1].Value}–{m[^1].Groups[1].Value}" : null;
+        }
         edit = ToolKinds.IsEdit(Tool.Name);
         if (!edit || diffState == Tool.State) return;
         diffState = Tool.State;
