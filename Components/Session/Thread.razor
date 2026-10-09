@@ -28,11 +28,8 @@
                 break;
         }
     }
-    @if (Session.StreamingText.Length > 0)
-    {
-        <div class="prose md"><p style="white-space:pre-wrap">@Session.StreamingText<span class="caret"></span></p></div>
-    }
-    <StatusLine Session="Session" />
+    <StreamingTail Session="Session" />
+    <Ticker Active="Session.Status == SessionStatus.Running"><StatusLine Session="Session" /></Ticker>
     <CrashBanner Session="Session" />
 </div>
 
@@ -42,10 +39,18 @@
 
     sealed record Run(List<ToolItem> Tools, bool Agents);
 
+    // Rebuilt only when Items is replaced: tool state changes in place and does not move blocks.
+    System.Collections.Immutable.ImmutableList<Item>? blocksOf;
+    List<object> blocks = [];
+    (LiveSession, int)? scrolled;
+
     List<object> Blocks()
     {
-        var blocks = new List<object>();
-        foreach (var item in Session.Items)
+        var items = Session.Items;
+        if (blocksOf == items) return blocks;
+        blocksOf = items;
+        blocks = [];
+        foreach (var item in items)
         {
             switch (item)
             {
@@ -63,8 +68,11 @@
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).
+    // StreamingTail pins it while text streams; here only after a change of the session, not after a selection.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (scrolled == (Session, Session.Version)) return;
+        scrolled = (Session, Session.Version);
         try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el); }
         catch (JSException) { }
         catch (JSDisconnectedException) { }

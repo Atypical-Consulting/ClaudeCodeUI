@@ -45,7 +45,13 @@ public sealed class SessionManager : IAsyncDisposable
     LiveSession Add(LiveSession s)
     {
         ImmutableInterlocked.Update(ref all, l => l.Add(s));
-        s.Changed += () => Changed?.Invoke();
+        // Streamed text alone (Version unchanged) concerns the session page only, not the rail, quota, mascot or queue.
+        var seen = -1;
+        s.Changed += () =>
+        {
+            var v = s.Version;
+            if (Interlocked.Exchange(ref seen, v) != v) Changed?.Invoke();
+        };
         Changed?.Invoke();
         return s;
     }

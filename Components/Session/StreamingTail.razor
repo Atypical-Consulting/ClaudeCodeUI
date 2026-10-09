@@ -1,0 +1,44 @@
+@* The text being streamed. Renders on its own (the page skips text-only notifies), one text node per paragraph:
+   a render only resends the paragraph being written. *@
+@implements IDisposable
+@inject IJSRuntime JS
+
+@if (text.Length > 0)
+{
+    <div class="prose md" @ref="el"><p style="white-space:pre-wrap">@foreach (var part in Parts()) { @part }<span class="caret"></span></p></div>
+}
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    string text = "";
+    ElementReference el;
+
+    protected override void OnInitialized() => Session.Changed += Refresh;
+    protected override void OnParametersSet() => text = Session.StreamingText;
+
+    void Refresh() => InvokeAsync(() =>
+    {
+        var t = Session.StreamingText;   // same instance until a delta arrives
+        if (ReferenceEquals(t, text)) return;
+        text = t;
+        StateHasChanged();
+    });
+
+    // Completed paragraphs keep their exact text (so their frame diffs as unchanged); only the last one grows.
+    IEnumerable<string> Parts()
+    {
+        var start = 0;
+        for (int i; (i = text.IndexOf("\n\n", start, StringComparison.Ordinal)) >= 0; start = i + 2) yield return text[start..(i + 2)];
+        yield return text[start..];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (text.Length == 0) return;
+        try { await JS.InvokeVoidAsync("claudeUi.scrollEnd", el); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+    }
+
+    public void Dispose() => Session.Changed -= Refresh;
+}

@@ -21,34 +21,82 @@
         registerShortcuts(ref) { net = ref; },
         focus(el) { el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
-        // Pin a scroller to its bottom after each render, unless the user scrolled up.
+        // Pin a scroller (or the .thread holding el) to its bottom after each render, unless the user scrolled up.
         scrollEnd(el) {
+            el = el?.closest('.thread') || el;
             if (!el) return;
             if (!el.onscroll) el.onscroll = () => el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
             if (!el._free) el.scrollTop = el.scrollHeight;
         },
     };
 
-    function highlight() {
-        queued = false;
-        if (!window.hljs) return;
-        document.querySelectorAll('pre>code:not(.hljs)').forEach(code => {
-            const lang = (code.className.match(/language-(\S+)/) || [])[1];
-            if (!lang || hljs.getLanguage(lang)) hljs.highlightElement(code);
-            else code.classList.add('hljs');
-        });
-        // Hand-built code views (file viewer, diff): highlight each line in place, gutters stay outside.
-        document.querySelectorAll('[data-hl]').forEach(view => {
-            const language = view.dataset.hl;
-            if (!hljs.getLanguage(language)) return;
-            view.querySelectorAll('code.lc:not([data-done])').forEach(c => {
-                c.dataset.done = 1;
-                c.innerHTML = hljs.highlight(c.textContent, { language, ignoreIllegals: true }).value;
-            });
+    // Highlighting only looks at the nodes each mutation added, never at the whole document.
+    // Markdown code blocks are highlighted when first visible, so remounting a long thread does not redo them all.
+    const added = new Set(), views = new Set();
+    const visible = new IntersectionObserver(entries => entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        visible.unobserve(e.target);
+        paintCode(e.target);
+    }));
+
+    function paintCode(code) {
+        if (!window.hljs || code.classList.contains('hljs')) return;
+        const lang = (code.className.match(/language-(\S+)/) || [])[1];
+        if (!lang || hljs.getLanguage(lang)) hljs.highlightElement(code);
+        else code.classList.add('hljs');
+    }
+
+    // Hand-built code views (file viewer, diff), one code.lc per line, gutters outside: each side (new = context + added,
+    // old = context + removed) is highlighted as ONE text, then split back per line, closing and reopening the spans
+    // open at each \n. One hljs call per view, and block comments or multi-line strings keep their colour.
+    function paintView(view) {
+        const language = view.dataset.hl;
+        if (!window.hljs || !hljs.getLanguage(language)) return;
+        const lines = [...view.querySelectorAll('code.lc:not([data-done])')];
+        const side = c => c.parentElement.classList.contains('del') ? -1 : c.parentElement.classList.contains('add') ? 1 : 0;
+        const dels = lines.filter(c => side(c) < 0);
+        paintLines(language, lines.filter(c => side(c) >= 0), null);
+        if (dels.length) paintLines(language, lines.filter(c => side(c) <= 0), new Set(dels));
+    }
+
+    function paintLines(language, src, only) {
+        if (!src.length) return;
+        const html = hljs.highlight(src.map(c => c.textContent).join('\n'), { language, ignoreIllegals: true }).value;
+        const out = [], open = [];
+        let cur = '';
+        for (const [t] of html.matchAll(/<span[^>]*>|<\/span>|\n|[^<\n]+/g)) {
+            if (t === '\n') { out.push(cur + '</span>'.repeat(open.length)); cur = open.join(''); continue; }
+            cur += t;
+            if (t === '</span>') open.pop(); else if (t.startsWith('<span')) open.push(t);
+        }
+        out.push(cur);
+        src.forEach((c, i) => {
+            if (only && !only.has(c)) return;
+            c.dataset.done = 1;
+            c.innerHTML = out[i] ?? '';
         });
     }
-    new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(highlight); } })
-        .observe(document.body, { childList: true, subtree: true });
+
+    function highlight() {
+        queued = false;
+        for (const n of added) {
+            if (!n.isConnected) continue;
+            (n.matches('pre>code') ? [n] : n.querySelectorAll('pre>code:not(.hljs)')).forEach(c => visible.observe(c));
+            const view = n.closest('[data-hl]');
+            if (view) views.add(view); else n.querySelectorAll('[data-hl]').forEach(v => views.add(v));
+        }
+        added.clear();
+        views.forEach(paintView);
+        views.clear();
+    }
+    new MutationObserver(records => {
+        for (const r of records) {
+            r.addedNodes.forEach(n => { if (n.nodeType === 1) added.add(n); });
+            r.removedNodes.forEach(n => { if (n.nodeType === 1) (n.matches('pre>code') ? [n] : n.querySelectorAll('pre>code:not(.hljs)')).forEach(c => visible.unobserve(c)); });
+        }
+        if (added.size && !queued) { queued = true; requestAnimationFrame(highlight); }
+    }).observe(document.body, { childList: true, subtree: true });
+    added.add(document.body);
     highlight();
 
     // Copy buttons: code blocks and [data-copy]. The label's text node is edited in place, not replaced.

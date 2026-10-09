@@ -61,9 +61,10 @@
     [Parameter] public PendingPermission Permission { get; set; } = null!;
 
     List<(LiveSession S, PendingPermission P)> queue = [];
+    List<string> names = [];
     IReadOnlyList<DiffLine>? diff;
     PendingPermission? shown;
-    bool answered;
+    bool answered, exists;
     string? error;
 
     // "Toute la session": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions.
@@ -73,7 +74,7 @@
     string Title => Permission.Tool switch
     {
         "Edit" or "MultiEdit" => L["Perm.Edit", File],
-        "Write" => System.IO.File.Exists(Events.Str(Permission.Input, "file_path")) ? L["Perm.Overwrite", File] : L["Perm.Create", File],
+        "Write" => exists ? L["Perm.Overwrite", File] : L["Perm.Create", File],
         var t when ToolKinds.IsShell(t) => L["Perm.Run"],
         var t => L["Perm.AllowTool", t],
     };
@@ -86,11 +87,12 @@
 
     protected override void OnParametersSet()
     {
-        queue = [.. Sessions.DecisionQueue];
+        Load();
         if (shown == Permission) return;
         shown = Permission;
         answered = false;
         error = null;
+        exists = Permission.Tool == "Write" && System.IO.File.Exists(Events.Str(Permission.Input, "file_path"));   // once, not per render
         diff = ToolKinds.IsEdit(Permission.Tool) ? EditDiff.FromInput(Permission.Tool, Permission.Input) : null;
     }
 
@@ -116,7 +118,17 @@
 
     void Open(LiveSession s) => Nav.NavigateTo("session/" + s.Id);
 
-    void Refresh() => InvokeAsync(() => { queue = [.. Sessions.DecisionQueue]; StateHasChanged(); });
+    // Re-render only when the queue (or a listed session name) changed, not on every event of every session.
+    void Refresh() => InvokeAsync(() => { if (Load()) StateHasChanged(); });
+
+    bool Load()
+    {
+        List<(LiveSession S, PendingPermission P)> q = [.. Sessions.DecisionQueue];
+        var n = q.ConvertAll(x => x.S.Name);
+        if (q.SequenceEqual(queue) && n.SequenceEqual(names)) return false;
+        (queue, names) = (q, n);
+        return true;
+    }
 
     public void Dispose()
     {

@@ -39,6 +39,7 @@ public sealed class LiveSession : IAsyncDisposable
     int turns;                                                 // sent and not yet answered by a result (the CLI queues them)
     long lastNotify;
     int notifyQueued;
+    int version;
 
     public LiveSession(string id, string name, string cwd, string mode, string? worktree = null, string? model = null, string? effort = null, bool resumable = false)
     {
@@ -57,7 +58,11 @@ public sealed class LiveSession : IAsyncDisposable
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
     public ImmutableList<PendingPermission> Pending { get; private set; } = [];
-    public string StreamingText { get; private set; } = "";
+    // Appended per text_delta under gate; the string is only materialized when read (once per render, not per delta).
+    readonly System.Text.StringBuilder stream = new();
+    string? streamText = "";
+    public string StreamingText { get { lock (gate) return streamText ??= stream.ToString(); } }
+    void ClearStream() { stream.Clear(); streamText = ""; }
     public int ThinkingTokens { get; private set; }
     public decimal CostUsd { get; internal set; }
     public decimal LastTurnCostUsd { get; private set; }
@@ -234,14 +239,18 @@ public sealed class LiveSession : IAsyncDisposable
         static DateTimeOffset Reset(JsonElement w) => DateTimeOffset.TryParse(Events.Str(w, "resets_at"), out var t) ? t : default;
     }
 
+    // One notification per batch, coalesced to 50 ms; a permission or a result is shown at once.
     internal Task OnEvent(JsonElement raw)
     {
+        bool any = false, urgent = false;
         foreach (var e in Events.ParseAll(raw))
         {
             var cwd = Cwd;
             Apply(e);
+            any = true;
+            if (e is PermissionEvt or ResultEvt) urgent = true;
+            else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
-            if (e is TextDeltaEvt) Throttled(); else Notify();
             if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
             if (e is ResultEvt && turnUltra)
             {
@@ -251,6 +260,7 @@ public sealed class LiveSession : IAsyncDisposable
                     .ContinueWith(t => Console.Error.WriteLine($"[{Id}] ultracode off : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
             }
         }
+        if (urgent) Notify(); else if (any) Throttled();
         return Task.CompletedTask;
     }
 
@@ -264,7 +274,7 @@ public sealed class LiveSession : IAsyncDisposable
             ExitCode = code; ExitText = text;
             Pending = [];
             TurnStartedAt = null;
-            StreamingText = "";
+            ClearStream();
             EndTools(DateTimeOffset.Now, false);
         }
         Notify();
@@ -308,9 +318,18 @@ public sealed class LiveSession : IAsyncDisposable
         Notify();
     }
 
-    // ---------- notifications: at most one per 50 ms while text streams ----------
+    // ---------- notifications: at most one per 50 ms while events stream ----------
+
+    // Bumped by every change except streamed text: views that do not show StreamingText skip renders where only it moved.
+    public int Version => Volatile.Read(ref version);
 
     void Notify()
+    {
+        Interlocked.Increment(ref version);
+        Raise();
+    }
+
+    void Raise()
     {
         Interlocked.Exchange(ref lastNotify, Environment.TickCount64);
         Changed?.Invoke();
@@ -319,9 +338,9 @@ public sealed class LiveSession : IAsyncDisposable
     void Throttled()
     {
         var wait = 50 - (Environment.TickCount64 - Interlocked.Read(ref lastNotify));
-        if (wait <= 0) { Notify(); return; }
+        if (wait <= 0) { Raise(); return; }
         if (Interlocked.Exchange(ref notifyQueued, 1) == 1) return;
-        _ = Task.Delay((int)wait).ContinueWith(_ => { Interlocked.Exchange(ref notifyQueued, 0); Notify(); });
+        _ = Task.Delay((int)wait).ContinueWith(_ => { Interlocked.Exchange(ref notifyQueued, 0); Raise(); });
     }
 
     // ---------- reducer ----------
@@ -332,7 +351,7 @@ public sealed class LiveSession : IAsyncDisposable
         Status = SessionStatus.Running;
         turns++;
         TurnStartedAt = DateTimeOffset.Now;
-        StreamingText = "";
+        ClearStream();
         ThinkingTokens = 0;
     }
 
@@ -354,7 +373,23 @@ public sealed class LiveSession : IAsyncDisposable
         }
     }
 
-    ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+    public ToolItem? Tool(string? id) => id is null ? null : Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+
+    // Subagent items by parent tool id, in order; rebuilt once per Items snapshot (ids and parents never change in place).
+    sealed record ChildIndex(ImmutableList<Item> Of, ILookup<string, Item> By);
+    ChildIndex? children;
+    public ILookup<string, Item> Children
+    {
+        get
+        {
+            var items = Items;
+            if (children is { } c && c.Of == items) return c.By;
+            var by = items.Select(i => (P: i switch { ToolItem t => t.ParentToolUseId, TextItem x => x.ParentToolUseId, _ => null }, I: i))
+                          .Where(x => x.P is not null).ToLookup(x => x.P!, x => x.I);
+            children = new(items, by);
+            return by;
+        }
+    }
 
     internal void Apply(ClaudeEvent e)
     {
@@ -385,21 +420,22 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case TextDeltaEvt { ParentToolUseId: null } d:
-                StreamingText += d.Text;
+                stream.Append(d.Text);
+                streamText = null;
                 break;
 
             case AssistantTextEvt { Synthetic: true, ParentToolUseId: null } a when ApiErrors.Parse(a.Text) is { } err:
-                StreamingText = "";
+                ClearStream();
                 Items = Items.Add(new ApiErrorItem(err));
                 break;
 
             case AssistantTextEvt a:
-                if (a.ParentToolUseId is null) StreamingText = "";
+                if (a.ParentToolUseId is null) ClearStream();
                 Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId));
                 break;
 
             case ToolUseEvt u:
-                if (u.ParentToolUseId is null) StreamingText = "";
+                if (u.ParentToolUseId is null) ClearStream();
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
                 break;
@@ -447,7 +483,7 @@ public sealed class LiveSession : IAsyncDisposable
                 EndTools(now);
                 turns = left;
                 Pending = [];
-                StreamingText = "";
+                ClearStream();
                 ThinkingTokens = 0;
                 if (left > 0) break;   // a message sent during the turn runs next
                 TurnStartedAt = null;
@@ -463,12 +499,12 @@ public sealed class LiveSession : IAsyncDisposable
                 t.TaskId = ts.TaskId;
                 break;
 
-            case TaskProgressEvt tp when Items.OfType<ToolItem>().LastOrDefault(t => t.TaskId == tp.TaskId) is { } t:
+            case TaskProgressEvt tp when Items.LastOrDefault(i => i is ToolItem t && t.TaskId == tp.TaskId) is ToolItem t:   // IList: scans from the end
                 t.Tokens = tp.TotalTokens;
                 t.SubToolUses = tp.ToolUses;
                 break;
 
-            case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.OfType<ToolItem>().LastOrDefault(x => td.TaskId.Length > 0 && x.TaskId == td.TaskId)) is { } t
+            case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.LastOrDefault(i => i is ToolItem x && td.TaskId.Length > 0 && x.TaskId == td.TaskId) as ToolItem) is { } t
                                      && (t.State == ToolState.Running || t.Background):   // a resumed background agent notifies again
                 t.State = td.Status == "completed" ? ToolState.Done : ToolState.Error;
                 t.EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now;
@@ -519,6 +555,9 @@ public sealed class LiveSession : IAsyncDisposable
         s.Apply(new TextDeltaEvt("je ", null));
         s.Apply(new TextDeltaEvt("crée", null));
         Ok(s.StreamingText == "je crée", "streaming text");
+        var v = s.Version;
+        s.OnEvent(JsonDocument.Parse("""{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"!"}}}""").RootElement);
+        Ok(s.StreamingText == "je crée!" && s.Version == v, "text delta leaves Version unchanged");
         s.Apply(new AssistantTextEvt("m1", "je crée", null, false));
         Ok(s.StreamingText == "" && s.Items[^1] is TextItem { Markdown: "je crée" }, "text block replaces stream");
         s.Apply(new ToolUseEvt("t1", "Write", input, null));

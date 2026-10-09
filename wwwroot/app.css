@@ -110,6 +110,9 @@ code{font-family:var(--mono)}
 /* thread */
 .thread{flex:1;min-height:0;overflow:auto;padding:28px 32px 12px;display:flex;flex-direction:column;gap:16px}
 .thread>*{max-width:760px;width:100%;flex-shrink:0}
+/* Off-screen blocks skip layout and paint. That also clips paint at the box, so .md gets 4px of room (net zero) for focus rings. */
+.thread>:is(.you,.ledger,.wf,.md){content-visibility:auto;contain-intrinsic-size:auto 120px}
+.thread>.md{padding:4px;margin:-4px;width:calc(100% + 8px);max-width:768px}
 .you{background:var(--raise);border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;color:var(--fg);line-height:1.55}
 .you .w{font:500 11.5px var(--mono);color:var(--fg-4);margin-bottom:4px;display:flex;gap:8px}
 .prose{line-height:1.65;color:var(--prose)}

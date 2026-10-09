@@ -13,6 +13,16 @@
     [Parameter] public ToolItem Tool { get; set; } = null!;
 
     bool Selected => Ui.SelectedToolId == Tool.Id;
+
+    // A row only changes with its tool's state, its selection or the session cwd, not on every page render.
+    (ToolState, DateTimeOffset?, bool, string)? drawn;
+    protected override bool ShouldRender()
+    {
+        var k = (Tool.State, Tool.EndedAt, Selected, Session.Cwd);
+        if (drawn == k) return false;
+        drawn = k;
+        return true;
+    }
     string? Class => Tool.State switch
     {
         ToolState.Waiting => "wait",
@@ -31,7 +41,18 @@
         _ => Done(t) is { Length: > 0 } m ? @<span class="m">@m</span> : _ => { },
     };
 
+    // Computed once per finished tool, keyed on EndedAt (a background agent can finish again).
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ToolItem, Tuple<DateTimeOffset?, string>> metas = new();
+
     static string Done(ToolItem t)
+    {
+        if (metas.TryGetValue(t, out var c) && c.Item1 == t.EndedAt) return c.Item2;
+        var m = Compute(t);
+        metas.AddOrUpdate(t, Tuple.Create(t.EndedAt, m));
+        return m;
+    }
+
+    static string Compute(ToolItem t)
     {
         var s = t.Structured ?? default;
         switch (t.Name)
