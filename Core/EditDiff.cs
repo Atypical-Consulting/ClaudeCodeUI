@@ -127,10 +127,18 @@ public static class EditDiff
     {
         try
         {
-            if (path.Length == 0 || new FileInfo(path) is not { Exists: true } fi || fi.Length > MaxRead) return null;
-            // Devices and FIFOs (/dev/zero, a pipe) report length 0 and would block or never end: never open them.
-            // A regular empty file reads as "" anyway.
-            return fi.Length == 0 ? "" : Norm(File.ReadAllText(path));
+            if (path.Length == 0) return null;
+            var fi = new FileInfo(path);
+            // A symlink's Length is the link's own size: check its final target instead (ReadAllText follows it).
+            if (fi.LinkTarget is not null)
+            {
+                if (fi.ResolveLinkTarget(true) is not FileInfo target) return null;
+                fi = target;
+            }
+            if (!fi.Exists || fi.Length > MaxRead) return null;
+            // Length 0: never open it. Devices and FIFOs (/dev/zero, a pipe) report 0 and would block or never end;
+            // they (and the rare non-empty zero-length file, like procfs) are diffed as empty, which shows the block unnumbered.
+            return fi.Length == 0 ? "" : Norm(File.ReadAllText(fi.FullName));
         }
         catch (IOException) { return null; }
         catch (ArgumentException) { return null; }
@@ -198,6 +206,17 @@ public static class EditDiff
             Ok(Show(bigEdit) == "Del:a|Add:b", "file too large, block without numbers: " + Show(bigEdit));
             var bigWrite = FromInput("Write", J($$"""{"file_path":"{{big}}","content":"c"}"""));
             Ok(Show(bigWrite) == "Add:c", "Write over a file too large is not a creation: " + Show(bigWrite));
+
+            if (!OperatingSystem.IsWindows())   // creating a symlink needs a privilege there
+            {
+                File.CreateSymbolicLink(Path.Combine(dir, "big.lnk"), Path.Combine(dir, "big.txt"));
+                var lnk = Path.Combine(dir, "big.lnk");
+                var lnkEdit = FromInput("Edit", J($$"""{"file_path":"{{lnk}}","old_string":"a","new_string":"b"}"""));
+                Ok(Show(lnkEdit) == "Del:a|Add:b", "symlink to a file too large, block without numbers: " + Show(lnkEdit));
+                File.CreateSymbolicLink(Path.Combine(dir, "zero.lnk"), "/dev/zero");
+                var zero = FromInput("Edit", J($$"""{"file_path":"{{Path.Combine(dir, "zero.lnk")}}","old_string":"a","new_string":"b"}"""));
+                Ok(Show(zero) == "Del:a|Add:b", "symlink to a device is never read: " + Show(zero));
+            }
 
             var gone = FromInput("Edit", J("""{"file_path":"C:\\nope\\x.cs","old_string":"a","new_string":"b"}"""));
             Ok(Show(gone) == "Del:a|Add:b", "missing file: " + Show(gone));
