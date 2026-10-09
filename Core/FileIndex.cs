@@ -73,6 +73,7 @@ public static class FileIndex
             foreach (var e in entries.Take(MaxEntries).OrderBy(e => e.Name, StringComparer.Ordinal))   // a huge folder is cut before the sort
             {
                 if (set.Count >= MaxEntries) return true;
+                if (e.Name.Any(char.IsControl)) continue;   // tab, newline: not insertable, like git's C-quoted names
                 if (e is DirectoryInfo d)
                 {
                     if (Skipped.Contains(d.Name)) continue;
@@ -108,6 +109,7 @@ public static class FileIndex
     public static string Insert(string text, string path)
     {
         var at = text.LastIndexOf('@');
+        if (at < 0) return text;   // a late click after the '@' was deleted: nothing to replace
         return text[..at] + (path.Any(char.IsWhiteSpace) ? $"@\"{path}\"" : "@" + path) + " ";
     }
 
@@ -147,6 +149,7 @@ public static class FileIndex
         Ok(Query("no mention") is null, "no @");
         Ok(Insert("fix @Fo", "src/Foo.cs") == "fix @src/Foo.cs ", "insert replaces the query");
         Ok(Insert("@my", "my notes/a b.txt") == "@\"my notes/a b.txt\" ", "spaces are quoted");
+        Ok(Insert("no mention left", "src/Foo.cs") == "no mention left", "insert without an @ keeps the text");
 
         var cwd = Path.Combine(Path.GetTempPath(), "ccui-cwd");
         Ok(Inside(cwd, "src/a.cs") && Inside(cwd, "src/../a.cs") && Inside(cwd, "src/"), "relative paths inside");
@@ -166,18 +169,19 @@ public static class FileIndex
         var dir = Path.Combine(Path.GetTempPath(), "ccui-index-" + Guid.NewGuid().ToString("N"));
         try
         {
-            foreach (var f in new[] { "src/a b.cs", "node_modules/x.js", "bin/y.dll", "out/z.log", ".gitignore" })
+            var tabbed = !OperatingSystem.IsWindows();   // a tab is not a legal file-name character on Windows
+            foreach (var f in new[] { "src/a b.cs", "node_modules/x.js", "bin/y.dll", "out/z.log", ".gitignore" }.Concat(tabbed ? ["src/t\tab.cs"] : []))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(dir, f))!);
                 File.WriteAllText(Path.Combine(dir, f), f == ".gitignore" ? "out/\n" : "");
             }
             var walk = Scan(dir, default).GetAwaiter().GetResult().Paths;
-            Ok(walk.Contains("src/") && walk.Contains("src/a b.cs") && walk.Contains("out/z.log") && !walk.Any(p => p.StartsWith("node_modules") || p.StartsWith("bin")),
+            Ok(walk.Contains("src/") && walk.Contains("src/a b.cs") && walk.Contains("out/z.log") && !walk.Any(p => p.StartsWith("node_modules") || p.StartsWith("bin") || p.Contains('\t')),
                 $"walk: {string.Join(",", walk)}");
             var git = Process.Start(new ProcessStartInfo("git", ["-C", dir, "init", "-q"]) { RedirectStandardError = true })!;
             git.WaitForExit();
             var listed = Scan(dir, default).GetAwaiter().GetResult().Paths;
-            Ok(listed.Contains("src/") && listed.Contains("src/a b.cs") && listed.Contains("node_modules/x.js") && !listed.Any(p => p.StartsWith("out")),
+            Ok(listed.Contains("src/") && listed.Contains("src/a b.cs") && listed.Contains("node_modules/x.js") && !listed.Any(p => p.StartsWith("out") || p.Contains('\t')),
                 $"git ls-files: {string.Join(",", listed)}");
         }
         finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
