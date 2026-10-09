@@ -69,6 +69,10 @@
                 }
             </div>
             <div class="field">
+                <label for="add-dir">@L["Dirs.Label"]</label>
+                <ExtraDirs Id="add-dir" Dirs="addDirs" Cwd="@cwd" OnAdd="d => addDirs = addDirs.Add(d)" OnRemove="d => addDirs = addDirs.Remove(d)" />
+            </div>
+            <div class="field">
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
                 <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
@@ -138,6 +142,7 @@
     ElementReference cwdInput;
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
+    System.Collections.Immutable.ImmutableList<string> addDirs = [];
     bool claudeFound = true;   // probed once interactive, not during the prerender
 
     bool Isolated => worktree && branch is not null;
@@ -182,7 +187,7 @@
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
-    static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
+    internal static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
 
     // Current branch ("HEAD" when detached), null outside a git repo.
     static async Task<string?> Branch(string dir) => await Git(dir, "branch", "--show-current") is { } b ? b.Length > 0 ? b : "HEAD" : null;
@@ -236,7 +241,7 @@
         if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; busy = false; return; }
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
-        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null);
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
         if (prompt.Trim() is { Length: > 0 } text)
         {
             try { await s.Send(text); }

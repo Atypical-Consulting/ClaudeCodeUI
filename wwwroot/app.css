@@ -259,6 +259,10 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .input .i{color:var(--fg-4)}
 .input .b{margin-left:auto}
 .recents{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dirs{list-style:none;margin:0 0 8px;padding:0;display:flex;gap:6px;flex-wrap:wrap}
+.dirs .x{display:inline-flex;border:0;background:none;padding:0;margin-right:-4px;color:var(--fg-4);cursor:pointer;border-radius:var(--r-full)}
+.dirs .x:hover{color:var(--fg)}
+.ph .dirs-n{flex:none}
 .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));gap:8px}
 .mode{border:1px solid var(--seam-2);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
 .mode b{font:500 13px var(--mono);color:var(--fg)}

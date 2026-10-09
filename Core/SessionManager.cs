@@ -27,9 +27,10 @@ public sealed class SessionManager : IAsyncDisposable
 
     public event Action? Changed;
 
-    public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort)
+    public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort, IReadOnlyList<string> addDirs)
     {
-        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort));
+        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs));
+        if (addDirs.Count > 0) TranscriptStore.RecordDirs(s.Id, addDirs);
         try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
         _ = s.RefreshGit();
         return s;
@@ -45,7 +46,8 @@ public sealed class SessionManager : IAsyncDisposable
             var items = TranscriptStore.Load(p.Id);
             // The transcript's mode, if the UI offers it (bypassPermissions / dontAsk fall back to default).
             var mode = p.Mode is { } m && LiveSession.Modes.Contains(m) ? m : "default";
-            var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true)
+            // The CLI skips a missing --add-dir folder silently: list only those still there.
+            var s = new LiveSession(p.Id, p.Title, p.Cwd, mode, resumable: true, addDirs: TranscriptStore.RecordedDirs(p.Id).Where(Directory.Exists))
             {
                 Items = [.. items], CostUsd = p.CostUsd ?? 0, CostAtOpen = p.CostUsd ?? 0,
                 StartedAt = items.OfType<UserItem>().FirstOrDefault()?.At ?? p.LastWrite, LastEventAt = p.LastWrite,
