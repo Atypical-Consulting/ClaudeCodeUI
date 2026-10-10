@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.2.0...v0.3.0) (2026-10-10)
+
+
+### Features
+
+* **session:** open the session first, write the prompt in its composer ([#98](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/98)) ([e6c8c8c](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/e6c8c8c502692a64924ae6ddd4d3ba3d4b5d6011))
+* **session:** parity quick wins with the Claude Code CLI ([#101](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/101)) ([9aba062](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/9aba06298bccbcb9e847db0e01c5b360c989caef))
+
+
+### Bug Fixes
+
+* **thread:** hide the skill body the CLI injects as a user message ([#95](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/95)) ([6fa9262](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/6fa9262e2c46f43df037555688e57cd3885ccdc7))
+* **ui:** 36 visual bugs from a WebKit /impeccable audit ([#97](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/97)) ([2f0d9c8](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/2f0d9c895ba4f7b3d258b14e1873abfd7947bffb))
+
 ## [0.2.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.1.0...v0.2.0) (2026-10-10)
 
 
