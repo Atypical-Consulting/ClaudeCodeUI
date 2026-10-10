@@ -503,6 +503,7 @@
   <data name="Status.WhatCommand" xml:space="preserve"><value>une commande</value></data>
   <data name="Status.WhatEdit" xml:space="preserve"><value>une édition</value></data>
   <data name="Status.WhatTool" xml:space="preserve"><value>un outil</value></data>
+  <data name="Status.PausedQuestion" xml:space="preserve"><value>Claude est en pause : une question attend ta réponse</value></data>
   <data name="Status.Writing" xml:space="preserve"><value>Claude écrit…</value></data>
   <data name="Theme.contraste" xml:space="preserve"><value>Contraste élevé</value></data>
   <data name="Theme.encre" xml:space="preserve"><value>Encre</value></data>
@@ -539,6 +540,7 @@
   <data name="Tool.Results1" xml:space="preserve"><value>1 résultat</value></data>
   <data name="Tool.ResultsN" xml:space="preserve"><value>{0} résultats</value></data>
   <data name="Tool.Waiting" xml:space="preserve"><value>attend ta décision</value></data>
+  <data name="Tool.Label.Question" xml:space="preserve"><value>Question</value></data>
   <data name="Tools1" xml:space="preserve"><value>1 outil</value></data>
   <data name="ToolsN" xml:space="preserve"><value>{0} outils</value></data>
   <data name="Workflow.Subagents" xml:space="preserve"><value>Sous-agents</value></data>

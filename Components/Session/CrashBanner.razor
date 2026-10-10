@@ -3,11 +3,11 @@
     <div class="crash" role="alert">
         <div class="duck" aria-hidden="true"><Duck Mood="Mood.Ko" Size="72" /></div>
         <div>
-            <h4>@L[Session.StartFailed ? "Crash.StartFailed.Title" : "Crash.Title"]</h4>
+            <h2>@L[Session.StartFailed ? "Crash.StartFailed.Title" : "Crash.Title"]</h2>
             <p>@L[Session.StartFailed ? "Crash.StartFailed.Text" : "Crash.Text"]</p>
             <pre>@Session.ExitText</pre>
-            <div class="acts" style="justify-content:flex-start">
-                <button class="btn primary" disabled="@restarting" @onclick="Restart"><Icon Name="refresh" Sm />@L["Crash.Restart"]</button>
+            <div class="acts">
+                <button class="btn primary" disabled="@restarting" aria-busy="@(restarting ? "true" : null)" @onclick="Restart">@if (restarting) { <span class="spin" aria-hidden="true"></span> } else { <Icon Name="refresh" Sm /> }@L["Crash.Restart"]</button>
                 <button class="btn" data-copy="@Session.ExitText">@L["Error.Copy"]</button>
             </div>
         </div>

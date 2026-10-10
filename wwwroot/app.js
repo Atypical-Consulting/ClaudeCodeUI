@@ -132,10 +132,15 @@
             if (!el) return;
             const jump = el.nextElementSibling?.querySelector('.jump');
             if (!el.onscroll) {
+                // Only a scroll UP frees the view: content growing under a pinned view (lazy layout, late highlighting) must not.
                 el.onscroll = () => {
-                    el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
-                    if (!el._free && jump) jump.hidden = true;
+                    const d = el.scrollHeight - el.scrollTop - el.clientHeight;
+                    if (d <= 40) { el._free = false; if (jump) jump.hidden = true; }
+                    else if (el.scrollTop < (el._st ?? 0)) el._free = true;
+                    el._st = el.scrollTop;
                 };
+                const content = el.querySelector('[role=log]') || el.firstElementChild;
+                if (content) new ResizeObserver(() => { if (!el._free) el.scrollTop = el.scrollHeight; }).observe(content);
                 if (jump) jump.onclick = () => { el._free = false; el.scrollTop = el.scrollHeight; jump.hidden = true; };
             }
             if (force) { el._free = false; if (jump) jump.hidden = true; }

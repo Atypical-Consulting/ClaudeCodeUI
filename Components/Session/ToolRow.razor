@@ -1,6 +1,6 @@
 @inject UiState Ui
 
-<button type="button" class="t @Class" @onclick="Select">
+<button type="button" class="t @Class" aria-pressed="@(Selected ? "true" : "false")" @onclick="Select">
     <Icon Name="@(Selected ? "down" : "right")" Sm Class="chev" />
     <span class="kind" style="color:@ToolKinds.Color(Tool.Name)" title="@Tool.Name">@ToolKinds.Label(Tool.Name)</span>
     <span class="p">@ToolKinds.Target(Tool.Name, Tool.Input, Session.Cwd)</span>

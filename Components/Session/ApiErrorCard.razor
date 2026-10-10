@@ -2,10 +2,10 @@
 <div class="crash" role="alert">
     <div class="duck" aria-hidden="true"><Duck Mood="Mood.Sad" Size="56" /></div>
     <div>
-        <h4>@Error.Title</h4>
+        <h2>@Error.Title</h2>
         <p>@Error.Hint</p>
         <pre>@Error.Raw</pre>
-        <div class="acts" style="justify-content:flex-start">
+        <div class="acts">
             <button type="button" class="btn" data-copy="@Error.Raw">@L["Error.Copy"]</button>
         </div>
     </div>

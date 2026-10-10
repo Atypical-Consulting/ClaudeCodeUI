@@ -5,7 +5,7 @@
 
 @if (text.Length > 0)
 {
-    <div class="prose md" aria-hidden="true" @ref="el"><p style="white-space:pre-wrap">@foreach (var part in Parts()) { @part }<span class="caret"></span></p></div>
+    <div class="prose md" aria-hidden="true" @ref="el"><p class="stream">@foreach (var part in Parts()) { @part }<span class="caret"></span></p></div>
 }
 
 @code {
