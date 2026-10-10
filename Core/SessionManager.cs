@@ -63,6 +63,7 @@ public sealed class SessionManager : IAsyncDisposable
         ImmutableInterlocked.Update(ref all, l => l.Remove(s));
         await s.DisposeAsync();
         TranscriptStore.ForgetHeld();
+        TranscriptStore.Invalidate();   // its Recent row must show the cost and title of the turns just run
         Changed?.Invoke();
     }
 
