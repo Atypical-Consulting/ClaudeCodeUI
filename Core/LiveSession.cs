@@ -317,6 +317,9 @@ public sealed class LiveSession : IAsyncDisposable
 
     public Task SetFast(bool on) => Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["fastMode"] = on } });
 
+    // Ultracode, the effort slider's last stop, runs on max effort, or the highest level the model offers (levels are ordered).
+    internal static string UltraEffort(IReadOnlyList<string> levels) => levels.Contains("max") ? "max" : levels[^1];
+
     public Task SetUltracode(bool on)
     {
         Ultracode = on;
@@ -841,6 +844,7 @@ public sealed class LiveSession : IAsyncDisposable
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
+        Ok(UltraEffort(["low", "medium", "high", "xhigh", "max"]) == "max" && UltraEffort(["low", "max", "xhigh"]) == "max" && UltraEffort(["low", "high"]) == "high", "UltraEffort");
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
         Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");

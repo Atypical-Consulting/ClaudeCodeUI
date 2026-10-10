@@ -171,6 +171,7 @@
   <data name="Dirs.Root" xml:space="preserve"><value>Pick a folder, not the whole drive.</value></data>
   <data name="Diff.MoreLines" xml:space="preserve"><value>Lines not shown: {0}</value></data>
   <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences not shown: {0}</value></data>
+  <data name="Effort.default" xml:space="preserve"><value>default</value></data>
   <data name="Effort.high" xml:space="preserve"><value>high</value></data>
   <data name="Effort.low" xml:space="preserve"><value>low</value></data>
   <data name="Effort.max" xml:space="preserve"><value>max</value></data>
@@ -321,7 +322,6 @@
   <data name="Nav.Overview" xml:space="preserve"><value>Overview</value></data>
   <data name="Nav.Worktrees" xml:space="preserve"><value>Worktrees</value></data>
   <data name="New.CheckAgain" xml:space="preserve"><value>Check again</value></data>
-  <data name="New.DefaultEffort" xml:space="preserve"><value>Default effort</value></data>
   <data name="New.DefaultModel" xml:space="preserve"><value>Default model</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="New.FirstMessage" xml:space="preserve"><value>First message</value></data>

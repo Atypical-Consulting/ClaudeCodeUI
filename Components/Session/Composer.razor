@@ -82,14 +82,12 @@
             {
                 <span class="pick dis" aria-disabled="true"><Icon Name="cpu" />@(Session.Model ?? L["Model"])</span>
             }
-            @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
+            @if (!crashed && EffortLevels is { } levels)
             {
-                <span class="effort" title="@L["Composer.Effort"]" role="group" aria-label="@L["Composer.Effort"]">
-                    @foreach (var l in levels.EnumerateArray().Select(x => x.GetString() ?? ""))
-                    {
-                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@Strings.Name("Effort.", l)</button>
-                    }
-                </span>
+                @* Ultracode rides on the top effort for one turn, so it is the slider's last stop; after the turn it shows max again. *@
+                <EffortSlider Levels="levels" Value="@(Session.Ultracode ? Ultra : Effort ?? "")" ValueChanged="PickEffort" Name='l => Strings.Name("Effort.", l)'
+                              Label="@L["Composer.Effort"]" Special="@Ultra" SpecialIcon="agents" SpecialEnabled="ultraAvailable != false"
+                              SpecialTitle="@(ultraAvailable == false ? L["Composer.UltraUnavailable"] : L["Composer.UltraHint"])" />
             }
             @if (FastOk)
             {
@@ -99,11 +97,12 @@
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</button>
             }
-            @if (ultraAvailable == false || crashed)
+            @* Without effort levels to slide along, ultracode keeps its own toggle. *@
+            @if (crashed || EffortLevels is null && ultraAvailable == false)
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</button>
             }
-            else
+            else if (EffortLevels is null)
             {
                 <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="@L["Composer.UltraHint"]" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
             }
@@ -239,6 +238,24 @@
         }
         catch (Exception ex) { Console.Error.WriteLine($"[{Session.Id}] get_settings : {ex.Message}"); }
         await InvokeAsync(StateHasChanged);
+    }
+
+    const string Ultra = "Ultracode";
+
+    IReadOnlyList<string>? EffortLevels => model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True }
+        && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } a ? [.. a.EnumerateArray().Select(x => x.GetString() ?? "")] : null;
+
+    async Task PickEffort(string level)
+    {
+        if (level == Ultra)
+        {
+            var top = LiveSession.UltraEffort(EffortLevels!);
+            if (Effort != top) await SetEffort(top);
+            if (error is null) await Run(() => Session.SetUltracode(true));
+            return;
+        }
+        if (Session.Ultracode) await Run(() => Session.SetUltracode(false));
+        await SetEffort(level);
     }
 
     async Task SetEffort(string level)

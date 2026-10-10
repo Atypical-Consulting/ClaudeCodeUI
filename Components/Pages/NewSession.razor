@@ -108,11 +108,11 @@
                         <option value="">@L["New.DefaultModel"]</option>
                         @foreach (var m in Models) { <option value="@m">@m</option> }
                     </select>
-                    <select @bind="effort" aria-label="@L["New.Effort"]">
-                        <option value="">@L["New.DefaultEffort"]</option>
-                        @foreach (var e in Efforts) { <option value="@e">@Strings.Name("Effort.", e)</option> }
-                    </select>
                 </div>
+            </div>
+            <div class="field">
+                <label for="effort">@L["New.Effort"]</label>
+                <EffortSlider Id="effort" Levels="Efforts" @bind-Value="effort" Name='e => Strings.Name("Effort.", e is "" ? "default" : e)' />
             </div>
             <div class="field">
                 <span class="lbl" id="perm-lbl">@L["New.Permissions"]</span>
@@ -140,7 +140,7 @@
 
 @code {
     // CLI aliases and `claude --effort` levels; "" keeps the CLI / settings default.
-    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["low", "medium", "high", "xhigh", "max"];
+    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["", "low", "medium", "high", "xhigh", "max"];
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
