@@ -142,7 +142,7 @@
     bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
-    readonly List<UserImage> images = [];
+    IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
     bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy, reading;
     int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
     bool? ultraAvailable;
@@ -242,9 +242,9 @@
         if (t.Length == 0 && images.Count == 0 || reading || crashed) return;
         // The Send button is replaced by Interrupt while running: acknowledge Ctrl+Enter instead of ignoring it.
         if (Session.Status == SessionStatus.Running) { busy = true; return; }
-        UserImage[] imgs = [.. images];
+        var imgs = images;
         text = "";
-        images.Clear();
+        images = [];
         recall = -1;
         menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
@@ -253,7 +253,11 @@
             foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
             await Session.Send(t, imgs);
         });
-        if (error is not null && text.Length == 0) text = t;   // never lose the prompt to a failed send
+        if (error is not null)   // never lose the prompt to a failed send
+        {
+            if (text.Length == 0) text = t;
+            if (images.Count == 0) images = imgs;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -278,8 +282,8 @@
                     await using var s = f.OpenReadStream(Images.MaxBytes);
                     await s.CopyToAsync(bytes);
                 }
-                catch (Exception ex) when (ex is IOException or JSException or TaskCanceledException) { error = ex.Message; continue; }
-                if (Images.From(bytes.ToArray()) is { } img) images.Add(img);
+                catch (Exception ex) when (ex is IOException or JSException or TaskCanceledException) { error = L["Composer.ActionFailed", ex.Message]; continue; }
+                if (Images.From(bytes.ToArray()) is { } img) images = [.. images, img];
                 else error = L["Composer.ImageType", f.Name];
             }
         }
@@ -288,7 +292,7 @@
 
     async Task Remove(int i)
     {
-        images.RemoveAt(i);
+        images = [.. images.Where((_, j) => j != i)];
         await JS.InvokeVoidAsync("claudeUi.focus", area);   // the removed button took the focus with it
     }
 
@@ -296,7 +300,7 @@
     // Only while the box still holds the recalled prompt untouched.
     bool Recall(int dir)
     {
-        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).ToList();
+        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).ToList();   // image-only messages have no text to recall
         if (recall < 0 || recall >= past.Count || text != past[recall])
         {
             recall = -1;

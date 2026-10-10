@@ -105,6 +105,7 @@ public sealed class LiveSession : IAsyncDisposable
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
+    public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
 
     public event Action? Changed;
