@@ -46,7 +46,7 @@
                             <span class="dot @WorkflowCard.Dot(p.State)" aria-hidden="true"></span>
                             <span class="nm">@p.Title@if (p.Detail is { Length: > 0 } pd)
                                 {
-                                    <small>@pd</small>
+                                    <small>@(" " + pd)</small>
                                 }<span class="sr-only"> · @WorkflowCard.Label(p.State)</span></span>
                             <span class="m">@p.Done/@p.Total</span>
                         </button>
