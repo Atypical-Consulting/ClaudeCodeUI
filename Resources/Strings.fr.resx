@@ -508,7 +508,7 @@
   <data name="Status.WhatCommand" xml:space="preserve"><value>une commande</value></data>
   <data name="Status.WhatEdit" xml:space="preserve"><value>une édition</value></data>
   <data name="Status.WhatTool" xml:space="preserve"><value>un outil</value></data>
-  <data name="Status.PausedQuestion" xml:space="preserve"><value>Claude est en pause : une question attend ta réponse</value></data>
+  <data name="Status.PausedQuestion" xml:space="preserve"><value>Claude est en pause : une question attend ta réponse</value></data>
   <data name="Status.Writing" xml:space="preserve"><value>Claude écrit…</value></data>
   <data name="Theme.contraste" xml:space="preserve"><value>Contraste élevé</value></data>
   <data name="Theme.encre" xml:space="preserve"><value>Encre</value></data>
@@ -641,8 +641,8 @@
   <data name="Wt.WorktreesN" xml:space="preserve"><value>{0} worktrees</value></data>
   <data name="Tool.NoOutput" xml:space="preserve"><value>Aucune sortie.</value></data>
   <data name="Ctx.Unknown" xml:space="preserve"><value>L’usage du contexte s’affiche après le prochain tour.</value></data>
-  <data name="Ctx.NoProcess" xml:space="preserve"><value>Aucun processus : envoie un message pour reprendre et mesurer le contexte.</value></data>
+  <data name="Ctx.NoProcess" xml:space="preserve"><value>Aucun processus : envoie un message pour reprendre et mesurer le contexte.</value></data>
   <data name="Tool.Diff" xml:space="preserve"><value>Diff</value></data>
   <data name="Tool.Kv.Diff" xml:space="preserve"><value>diff</value></data>
-  <data name="Bg.StopFailed" xml:space="preserve"><value>Impossible d’arrêter la tâche : {0}</value></data>
+  <data name="Bg.StopFailed" xml:space="preserve"><value>Impossible d’arrêter la tâche : {0}</value></data>
 </root>
