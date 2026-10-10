@@ -57,7 +57,7 @@
             </div>
         </div>
         <div class="set-row">
-            <div><b>@L["Appearance.Notify"]</b><span>@L[Notifications.ViaShell ? "Appearance.NotifyHintDesktop" : "Appearance.NotifyHint"]</span></div>
+            <div><b>@L["Appearance.Notify"]</b><span>@L[Shell.Desktop ? "Appearance.NotifyHintDesktop" : "Appearance.NotifyHint"]</span></div>
             <div>
                 @* id="notify": app.js asks the browser's permission on this very click (it needs the user gesture). *@
                 <button id="notify" class="toggle @(notify == "on" ? "on" : null)" role="switch" aria-checked="@(notify == "on" ? "true" : "false")"
@@ -65,7 +65,7 @@
                         @onclick="ToggleNotify"><span class="sw"></span>@L["Appearance.NotifyLabel"]</button>
                 @if (Blocked is { } why)
                 {
-                    <p id="notify-why" class="hint" style="margin-top:8px">@why</p>
+                    <p id="notify-why" class="hint why">@why</p>
                 }
             </div>
         </div>
@@ -112,7 +112,7 @@
 
     protected override void OnInitialized()
     {
-        if (Notifications.ViaShell) notify = Shell();
+        if (Shell.Desktop) notify = ShellState();
     }
 
     // localStorage is only reachable once the circuit is up.
@@ -121,7 +121,7 @@
         if (!firstRender) return;
         theme = await JS.InvokeAsync<string>("claudeUi.getTheme");
         size = await JS.InvokeAsync<string>("claudeUi.getCodeSize");
-        if (!Notifications.ViaShell) notify = await JS.InvokeAsync<string>("claudeUi.notifyState");
+        if (!Shell.Desktop) notify = await JS.InvokeAsync<string>("claudeUi.notifyState");
         StateHasChanged();
     }
 
@@ -129,11 +129,11 @@
     // Browser: no interop timeout, the permission prompt stays open as long as the user leaves it.
     async Task ToggleNotify()
     {
-        if (Notifications.ViaShell) { Notifications.ShellOn = notify != "on"; notify = Shell(); }
+        if (Shell.Desktop) { Notifications.ShellOn = notify != "on"; notify = ShellState(); }
         else notify = await JS.InvokeAsync<string>("claudeUi.setNotify", CancellationToken.None, [notify != "on"]);
     }
 
-    static string Shell() => Notifications.ShellOn ? "on" : "off";
+    static string ShellState() => Notifications.ShellOn ? "on" : "off";
 
     async Task SetTheme(string k)
     {

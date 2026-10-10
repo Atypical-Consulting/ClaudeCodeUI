@@ -536,6 +536,7 @@ textarea,input{caret-color:var(--accent)}
 .toggle:disabled{opacity:.45;cursor:not-allowed}
 .toggle:not(:disabled):hover .sw{box-shadow:inset 0 0 0 1px var(--fg-4),0 0 0 3px var(--accent-soft)}
 .toggle.on:not(:disabled):hover .sw{box-shadow:0 0 0 3px var(--accent-soft)}
+.hint.why{margin-top:8px}
 .quota .qh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
 .quota .qh span:last-child{font:12px var(--mono);color:var(--fg-4)}
 
