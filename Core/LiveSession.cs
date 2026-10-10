@@ -135,7 +135,14 @@ public sealed class LiveSession : IAsyncDisposable
             lock (gate) { turnUltra = Ultracode; BeginTurn(text, images); }
         }
         Notify();
-        await p.SendUser(text, images, uuid);
+        try { await p.SendUser(text, images, uuid); }
+        catch when (queued)
+        {
+            // Never written: drop the chip, the Composer puts the text back in the box (never lose a prompt, no duplicate).
+            lock (gate) Queued = Queued.RemoveAll(m => m.Uuid == uuid);
+            Notify();
+            throw;
+        }
     }
 
     // cancel_async_message drops a message the CLI has not started: {cancelled:true}, then a `cancelled` frame removes the
