@@ -252,7 +252,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 
 /* ---------- 1. start ---------- */
 .start{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);place-items:safe center;padding:24px}
-.start-card{width:min(640px,100%);display:flex;flex-direction:column;gap:22px}
+.start-card{width:min(640px,100%);container-type:inline-size;display:flex;flex-direction:column;gap:22px}
 .hello{display:flex;align-items:center;gap:18px}
 .hello h3,.hello h2{margin:0;font:600 24px/1.2 var(--sans);color:var(--fg);letter-spacing:-.02em}
 .hello p{margin:4px 0 0;color:var(--fg-3)}
@@ -286,12 +286,13 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .dirs .x{display:inline-flex;border:0;background:none;padding:0;margin-right:-4px;color:var(--fg-4);cursor:pointer;border-radius:var(--r-full)}
 .dirs .x:hover{color:var(--fg)}
 .ph .dirs-n{flex:none}
-.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));gap:8px}
+.modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}   /* 4 or 2 a row, never an orphan */
+@container (max-width:559px){.modes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .mode{border:1px solid var(--seam-2);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
 .mode b{font:500 13px var(--mono);color:var(--fg)}
 .mode span{font-size:12px;color:var(--fg-4);line-height:1.4}
 .mode.on{border-color:var(--accent);background:var(--accent-soft)}
-.mode.on b{color:var(--accent)}
+.mode.on span{color:var(--fg-3)}   /* fg-4 drops under 4.5:1 on the accent tint (encre) */
 .hint{font-size:12px;color:var(--fg-4);display:flex;gap:16px}
 
 /* ---------- 4. overview ---------- */
@@ -540,7 +541,7 @@ textarea,input{caret-color:var(--accent)}
 .pick.dis{opacity:.45}
 /* EffortSlider: n equal columns put the evenly spaced thumb stops under the tick centres; the range spans the k reachable ones,
    inset by half a column less half a thumb. The fill (accent: it is the current selection) ends under the thumb centre. */
-.effort-slider{--col:64px;--thumb:12px;display:inline-grid;grid-template-columns:repeat(var(--n),var(--col));row-gap:1px;align-items:center;padding-inline:8px}
+.effort-slider{--col:64px;--thumb:12px;display:inline-grid;max-width:100%;grid-template-columns:repeat(var(--n),minmax(0,var(--col)));row-gap:1px;align-items:center;padding-inline:8px}
 .effort-slider input{grid-column:1/span var(--k);margin:0 calc(var(--col)/2 - var(--thumb)/2);height:16px;-webkit-appearance:none;appearance:none;background:none;border-radius:var(--r-full);cursor:pointer}
 .effort-slider input::-webkit-slider-runnable-track{height:4px;border-radius:var(--r-full);background:linear-gradient(to right,var(--accent) calc(var(--thumb)/2 + (100% - var(--thumb))*var(--p)),var(--seam-2) 0)}
 .effort-slider input::-moz-range-track{height:4px;border-radius:var(--r-full);background:linear-gradient(to right,var(--accent) calc(var(--thumb)/2 + (100% - var(--thumb))*var(--p)),var(--seam-2) 0)}
@@ -665,7 +666,8 @@ button.mode{text-align:left}
 .chip.risk{color:var(--syn-type);border-color:color-mix(in srgb,var(--syn-type) 40%,transparent)}
 .box .row .risk{font-size:12px}
 .box:focus-within,.input:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
-.box textarea{display:block;width:100%;min-height:40px;max-height:40vh;resize:none;border:0;outline:0;background:none;color:var(--fg);font:inherit;line-height:1.55;padding:0}
+.input:has(input[aria-invalid=true]){border-color:var(--err-fg)}
+.box textarea{display:block;width:100%;min-height:40px;max-height:40vh;field-sizing:content;resize:none;border:0;outline:0;background:none;color:var(--fg);font:inherit;line-height:1.55;padding:0}
 .box textarea::placeholder{color:var(--fg-4)}
 .box[data-drop]{border-style:dashed;border-color:var(--accent)}   /* app.js claudeUi.images, while files are dragged over */
 /* image thumbnails: composer (removable) and user messages */
