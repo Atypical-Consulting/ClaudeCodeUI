@@ -559,8 +559,8 @@ button.mode{text-align:left}
 /* image thumbnails: composer (removable) and user messages */
 .thumbs{display:flex;flex-wrap:wrap;gap:10px;list-style:none;margin:0 0 10px;padding:0}
 .thumbs li{position:relative}
-.thumbs img,.thumbs .ph{display:block;height:64px;max-width:160px;object-fit:cover;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--sunk)}
-.thumbs .ph{display:flex;align-items:center;gap:6px;padding:0 10px;font:12px var(--mono);color:var(--fg-4)}
+.thumbs img,.thumbs .miss{display:block;height:64px;max-width:160px;object-fit:cover;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--sunk)}
+.thumbs .miss{display:flex;align-items:center;gap:6px;padding:0 10px;font:12px var(--mono);color:var(--fg-4)}
 .thumbs .x{position:absolute;top:-8px;right:-8px;display:grid;place-items:center;width:24px;height:24px;border-radius:var(--r-full);border:1px solid var(--seam-3);background:var(--raise-2);color:var(--fg-2);cursor:pointer}
 .thumbs .x:hover{color:var(--fg);border-color:var(--fg-4)}
 .you .thumbs{margin:8px 0 0}
