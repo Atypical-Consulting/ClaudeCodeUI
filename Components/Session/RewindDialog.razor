@@ -1,0 +1,85 @@
+@* "Rewind to here" (Thread): rewind_files {dry_run} lists what goes back on disk, then LiveSession.Rewind restores the
+   files and cuts the conversation. Native modal <dialog>: focus trap, Escape and focus return come from the browser. *@
+@inject IJSRuntime JS
+
+<dialog @ref="el" class="modal" aria-labelledby="rw-title" aria-describedby="rw-text" @onclose="Closed">
+    @if (target is { } u)
+    {
+        <div class="rw">
+            <h2 id="rw-title">@L["Rewind.Title"]</h2>
+            <p id="rw-text">@L["Rewind.Text"]</p>
+            <blockquote>@u.Text</blockquote>
+            @if (preview is null && error is null)
+            {
+                <p role="status">@L["Rewind.Loading"]</p>
+            }
+            else if (preview is { Changes: true } p)
+            {
+                <div class="cap">@L["Rewind.Files"] · @L["Rewind.Lines", p.Insertions, p.Deletions]</div>
+                @if (p.Files.Count > 0)
+                {
+                    <ul class="files">
+                        @foreach (var f in p.Files) { <li><code>@Path.GetRelativePath(Session.Cwd, f)</code></li> }
+                    </ul>
+                }
+            }
+            else if (preview is { CanRewind: true })
+            {
+                <p>@L["Rewind.NoFiles"]</p>
+            }
+            else if (preview is { } np)
+            {
+                <p>@L["Rewind.FilesUnavailable", np.Error ?? ""]</p>
+            }
+            @if (error is not null) { <p class="errbox" role="alert">@error</p> }
+            <div class="acts">
+                <button type="button" class="btn" autofocus @onclick="Close">@L["Action.Cancel"]</button>
+                <button type="button" class="btn danger" disabled="@(busy || preview is null)" @onclick="Confirm"><Icon Name="undo" Sm />@L["Rewind.Confirm"]</button>
+            </div>
+        </div>
+    }
+</dialog>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+
+    ElementReference el;
+    UserItem? target;
+    RewindPreview? preview;
+    string? error;
+    bool busy, show;
+
+    public async Task Open(UserItem u)
+    {
+        target = u; preview = null; error = null; busy = false; show = true;
+        StateHasChanged();
+        try { preview = await Session.PreviewRewind(u); }
+        catch (Exception ex) { error = ex.Message; }
+        StateHasChanged();
+    }
+
+    async Task Confirm()
+    {
+        if (target is not { } u || preview is null) return;
+        busy = true; error = null;
+        try
+        {
+            await Session.Rewind(u, preview.Changes);
+            // The message (and its button, where focus would return) is gone: its text waits in the Composer.
+            await JS.InvokeVoidAsync("claudeUi.dialog", el, false, ".composer textarea");
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    async Task Close() => await JS.InvokeVoidAsync("claudeUi.dialog", el, false);
+
+    void Closed() => target = null;   // Escape, Cancel or after a rewind
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!show) return;
+        show = false;
+        await JS.InvokeVoidAsync("claudeUi.dialog", el, true);
+    }
+}

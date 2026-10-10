@@ -118,6 +118,21 @@ code{font-family:var(--mono)}
 .you{background:var(--raise);border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;color:var(--fg);line-height:1.55}
 .you .tx{white-space:pre-wrap;overflow-wrap:anywhere}
 .you .w{font:500 12px var(--mono);color:var(--fg-4);margin-bottom:4px;display:flex;gap:8px}
+/* "Rewind to here": shown while the message is hovered or the button has focus (it stays in the tab order). */
+.rw-btn{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0 2px;font:inherit;color:var(--fg-4);opacity:0;cursor:pointer}
+.you:hover .rw-btn,.rw-btn:focus-visible{opacity:1}
+.rw-btn:hover{color:var(--fg)}
+@media (hover:none){.rw-btn{opacity:1}}   /* touch: no hover to reveal it */
+/* Modal dialog: Overlay vocabulary (DESIGN.md), like the reconnect dialog. */
+dialog.modal{width:min(520px,calc(100vw - 32px));margin:18vh auto auto;padding:0;border:1px solid var(--seam-2);border-radius:var(--r-overlay);background:var(--raise);color:var(--fg-2);box-shadow:var(--shadow-overlay)}
+dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent);backdrop-filter:blur(2px)}
+.rw{display:flex;flex-direction:column;gap:10px;padding:20px 22px 22px;font-size:13px;line-height:1.55}
+.rw h2{margin:0;font:600 17px/1.3 var(--sans);letter-spacing:-.01em;color:var(--fg)}
+.rw p{margin:0;color:var(--fg-3)}
+.rw blockquote{margin:0;padding:8px 12px;border-left:2px solid var(--seam-3);background:var(--sunk);border-radius:var(--r);color:var(--fg-2);white-space:pre-wrap;overflow-wrap:anywhere;max-height:6.5em;overflow:hidden}
+.rw .files{margin:0;padding:0;list-style:none;max-height:30vh;overflow:auto}
+.rw .files code{font:12px var(--mono);color:var(--fg-2);overflow-wrap:anywhere}
+.rw .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .prose{line-height:1.65;color:var(--prose)}
 .prose p{margin:0 0 10px}.prose p:last-child{margin:0}
 .prose h3{margin:16px 0 6px;font:600 15px var(--sans);color:var(--fg)}

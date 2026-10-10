@@ -369,6 +369,19 @@
   <data name="Reconnect.Title.Lost" xml:space="preserve"><value>Connection lost</value></data>
   <data name="Reconnect.Title.Paused" xml:space="preserve"><value>Page paused</value></data>
   <data name="Reconnect.Title.ResumeFailed" xml:space="preserve"><value>Couldn't resume</value></data>
+  <data name="Rewind.Action" xml:space="preserve"><value>Rewind to here</value></data>
+  <data name="Rewind.ActionLabel" xml:space="preserve"><value>Rewind to here, message of {0}</value></data>
+  <data name="Rewind.Confirm" xml:space="preserve"><value>Rewind</value></data>
+  <data name="Rewind.Files" xml:space="preserve"><value>Files put back as they were before this message</value></data>
+  <data name="Rewind.FilesFailed" xml:space="preserve"><value>The conversation was rewound, but the files stay as they are: {0}. Rewind again to retry the files only.</value></data>
+  <data name="Rewind.FilesUnavailable" xml:space="preserve"><value>Files stay as they are: {0}</value></data>
+  <data name="Rewind.Lines" xml:space="preserve"><value>+{0} −{1} lines</value></data>
+  <data name="Rewind.Loading" xml:space="preserve"><value>Checking the files…</value></data>
+  <data name="Rewind.NoFiles" xml:space="preserve"><value>No file changed since this message.</value></data>
+  <data name="Rewind.Refused" xml:space="preserve"><value>The CLI refused the rewind: {0}</value></data>
+  <data name="Rewind.Text" xml:space="preserve"><value>This message and everything after it leave the conversation. Its text goes back to the prompt box.</value></data>
+  <data name="Rewind.Title" xml:space="preserve"><value>Rewind to this message?</value></data>
+  <data name="Rewind.Unavailable" xml:space="preserve"><value>Rewind is no longer possible: a turn or a background agent is running, or the session restarted.</value></data>
   <data name="Session.ExitShort" xml:space="preserve"><value>exit {0}</value></data>
   <data name="Session.Exited" xml:space="preserve"><value>claude exited ({0})</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>No claude process for this session.</value></data>

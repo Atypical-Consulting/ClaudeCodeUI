@@ -40,6 +40,9 @@ public sealed class ClaudeSession : IAsyncDisposable
         foreach (var a in new[] { "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--permission-prompt-tool=stdio" })
             psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
+        // A non-interactive CLI only snapshots files before edits (what rewind_files restores) when asked to, like the
+        // Agent SDK's enableFileCheckpointing; without it rewind_files answers "File rewinding is not enabled."
+        psi.Environment["CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"] = "1";
 
         var grouped = ProcessJob.Prepare(psi);
         clock.Start();
@@ -121,7 +124,9 @@ public sealed class ClaudeSession : IAsyncDisposable
         finally { requests.TryRemove(id, out _); }
     }
 
-    // uuid: the CLI reports the message's fate as command_lifecycle frames keyed on it (none without one).
+    // uuid: the CLI reports the message's fate as command_lifecycle frames keyed on it (none without one), and it is the
+    // id rewind_files / rewind_conversation then take for this message. The transcript stores the message under an id of
+    // the CLI's own, so it only names the message for this process.
     public Task SendUser(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
     {
         var msg = new JsonObject { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = Images.Content(text, images) } };

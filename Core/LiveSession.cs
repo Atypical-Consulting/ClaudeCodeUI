@@ -10,7 +10,7 @@ public enum ToolState { Running, Done, Error, Waiting, Denied }
 public enum Decision { Allow, AllowSession, Deny }
 
 public abstract record Item;
-public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null) : Item;
+public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null, string? Uuid = null) : Item;   // Uuid: sent with the message (Send)
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
@@ -28,6 +28,20 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
 }
 public record QueuedMessage(string Uuid, string Text, DateTimeOffset At);   // written to stdin mid-turn, not started yet
+// rewind_files {dry_run:true}: what rewinding the files to a message would change, or why it can't (CLI text).
+public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Insertions, int Deletions, string? Error)
+{
+    public static RewindPreview Parse(JsonElement r) => new(
+        Events.Prop(r, "canRewind") is { ValueKind: JsonValueKind.True },
+        Events.Prop(r, "filesChanged") is { ValueKind: JsonValueKind.Array } f ? [.. f.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : null).OfType<string>().Where(x => x.Length > 0)] : [],
+        Events.Prop(r, "insertions") is { ValueKind: JsonValueKind.Number } i ? i.GetInt32() : 0,
+        Events.Prop(r, "deletions") is { ValueKind: JsonValueKind.Number } d ? d.GetInt32() : 0,
+        Events.Str(r, "error"));
+
+    // Something to put back on disk. A hosted or persistent transport drops filesChanged from the answer (CLI source,
+    // rewind_files handler) while the line counts stay: count those too.
+    public bool Changes => CanRewind && (Files.Count > 0 || Insertions + Deletions > 0);
+}
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
                                 JsonElement? Suggestions, DateTimeOffset At = default);
 
@@ -43,6 +57,7 @@ public sealed class LiveSession : IAsyncDisposable
     bool turnUltra;
     bool draining;                                             // a result came with messages still queued: the CLI runs the next one
     bool ultraCarry;                                           // ...and that result ended an ultracode turn
+    ImmutableHashSet<string> sent = [];                        // UserItem.Uuid the current process knows (rewind targets)
     long lastNotify;
     int notifyQueued;
     int version;
@@ -128,11 +143,12 @@ public sealed class LiveSession : IAsyncDisposable
         {
             queued = Status is SessionStatus.Running or SessionStatus.Waiting;
             if (queued) Queued = Queued.Add(new(uuid, text, DateTimeOffset.Now));
+            sent = sent.Add(uuid);
         }
         if (!queued)
         {
             if (Ultracode) await p.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
-            lock (gate) { turnUltra = Ultracode; BeginTurn(text, images); }
+            lock (gate) { turnUltra = Ultracode; BeginTurn(text, images, uuid); }
         }
         Notify();
         try { await p.SendUser(text, images, uuid); }
@@ -144,6 +160,59 @@ public sealed class LiveSession : IAsyncDisposable
             throw;
         }
     }
+
+    // "Rewind to here": only between turns with no background agent still writing files, and only to a message this very
+    // process received (its uuid dies with it).
+    public bool CanRewind(UserItem u) => u.Uuid is { } id && sent.Contains(id) && proc is not null && Status == SessionStatus.Idle
+                                         && !Items.Any(i => i is ToolItem { Background: true, State: ToolState.Running });
+
+    public async Task<RewindPreview> PreviewRewind(UserItem u) =>
+        RewindPreview.Parse(await Request("rewind_files", new() { ["user_message_id"] = u.Uuid, ["dry_run"] = true }));
+
+    // The conversation first: rewind_conversation only takes the latest message ("stale target" otherwise), so it goes
+    // back one message at a time from the newest to the target; a refusal leaves the files untouched and the thread cut
+    // where the CLI's is. Then the files (rewind_files still answers after rewind_conversation). Both verified by
+    // --probe-cli rewind-files / rewind-conversation. The message's text goes back to the Composer.
+    public async Task Rewind(UserItem u, bool files)
+    {
+        if (!CanRewind(u)) throw new ClaudeRequestException(Strings.Get("Rewind.Unavailable"));
+        string? cut = null, prefill = null;
+        try
+        {
+            foreach (var id in RewindSteps(u.Uuid!))
+            {
+                var r = await Request("rewind_conversation", new() { ["target_message_uuid"] = id });
+                if (Events.Prop(r, "rewound") is not { ValueKind: JsonValueKind.True })
+                    throw new ClaudeRequestException(Strings.Get("Rewind.Refused", Events.Str(r, "error") ?? Events.Str(r, "reason") ?? r.GetRawText()));
+                (cut, prefill) = (id, Events.Str(r, "prefillText"));
+            }
+        }
+        finally
+        {
+            if (cut is not null)
+            {
+                lock (gate) CutBack(cut, prefill);
+                Notify();
+            }
+        }
+        if (!files) return;
+        try { await Request("rewind_files", new() { ["user_message_id"] = u.Uuid }); }
+        catch (ClaudeRequestException ex) { throw new ClaudeRequestException(Strings.Get("Rewind.FilesFailed", ex.Message)); }
+    }
+
+    // Cuts the thread at `uuid` and puts that message back in the Composer, ahead of anything not sent yet. The text is
+    // the UI's own (what was typed): prefillText is the CLI's stored form, internal XML for a slash command
+    // (<command-name>/compact</command-name>…), so it only serves, normalised, when the message is not in the thread.
+    internal void CutBack(string uuid, string? prefill)
+    {
+        if ((Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid)?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
+            Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
+        Truncate(uuid);
+    }
+
+    // The rewind_conversation targets for a rewind to `uuid`: it and every message sent after it, newest first.
+    internal IReadOnlyList<string> RewindSteps(string uuid) =>
+        [.. Items.OfType<UserItem>().SkipWhile(x => x.Uuid != uuid).Select(x => x.Uuid).OfType<string>().Reverse()];
 
     // cancel_async_message drops a message the CLI has not started: {cancelled:true}, then a `cancelled` frame removes the
     // chip (verified by --probe-cli queue). A cancel that loses the race to `started` is not probed: the chip leaves on that frame.
@@ -258,6 +327,7 @@ public sealed class LiveSession : IAsyncDisposable
                 throw;
             }
             proc = s;
+            sent = [];
             ExitCode = null; ExitText = null;
             Status = SessionStatus.Starting;
         }
@@ -436,9 +506,16 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- reducer ----------
 
-    internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null)
+    // The message with this uuid and everything after it (its tools, answers, later turns) leave the thread.
+    internal void Truncate(string uuid)
     {
-        Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images));
+        var i = Items.FindIndex(x => x is UserItem u && u.Uuid == uuid);
+        if (i >= 0) Items = Items.RemoveRange(i, Items.Count - i);
+    }
+
+    internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
+    {
+        Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images, uuid));
         Status = SessionStatus.Running;
         TurnStartedAt = DateTimeOffset.Now;
         ClearStream();
@@ -620,7 +697,7 @@ public sealed class LiveSession : IAsyncDisposable
                     // Folded into an ultracode turn, or started right after one: the CLI starts it as it emits that result,
                     // before OnEvent's ultracode:false can land, so it very likely runs with ultracode still on (not probed).
                     // Labelled ultracode so the stop button says what may be running.
-                    Items = Items.Add(new UserItem(m.Text, now, turnUltra || draining && ultraCarry));
+                    Items = Items.Add(new UserItem(m.Text, now, turnUltra || draining && ultraCarry, Uuid: m.Uuid));
                     draining = false;
                     if (Status == SessionStatus.Idle) { Status = SessionStatus.Running; TurnStartedAt = now; }
                 }
@@ -760,6 +837,39 @@ public sealed class LiveSession : IAsyncDisposable
         s.BeginTurn("quinze"); Enqueue("u16", "seize"); s.Apply(Done()); s.Apply(new QueueEvt("u16", "started"));
         Ok(s.Items[^1] is UserItem { Ultracode: false }, "after a plain turn: not ultracode");
         s.Apply(Done());
+
+        // Rewind: the CLI 2.1.296 dry_run answers (--probe-cli rewind-files), then the thread cut at the target message.
+        var pv = RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":["/w/notes.txt","/w/keep.txt"],"insertions":1,"deletions":2}""").RootElement);
+        Ok(pv is { CanRewind: true, Files: ["/w/notes.txt", "/w/keep.txt"], Insertions: 1, Deletions: 2, Error: null }, "rewind preview");
+        Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":false,"error":"No file checkpoint found for this message."}""").RootElement)
+            is { CanRewind: false, Files: [], Error: "No file checkpoint found for this message." }, "rewind preview error");
+        var rw = new LiveSession("r", "r", @"C:\w", "default");
+        rw.BeginTurn("un", uuid: "u1");
+        rw.Apply(new AssistantTextEvt("m", "ok", null, false));
+        rw.BeginTurn("deux", uuid: "u2");
+        rw.Apply(new ToolUseEvt("t9", "Write", input, null));
+        rw.Apply(new ResultEvt("success", false, 0.01m, 10, 1, 0, null, null, null));
+        rw.BeginTurn("trois", uuid: "u3");
+        Ok(rw.RewindSteps("u2") is ["u3", "u2"] && rw.RewindSteps("u1") is ["u3", "u2", "u1"] && rw.RewindSteps("u3") is ["u3"],
+            "rewind_conversation steps: newest back to the target");
+        rw.Truncate("u2");
+        Ok(rw.Items is [UserItem { Uuid: "u1" }, TextItem], "rewind cuts from the target message");
+        // A slash command comes back as typed, not as the CLI's prefillText XML, and ahead of what the box already holds.
+        const string compactXml = "<command-message>compact</command-message>\n<command-name>/compact</command-name>\n<command-args>keep tests</command-args>";
+        var cb = new LiveSession("c", "c", @"C:\w", "default") { Draft = "unsent" };
+        cb.BeginTurn("/compact keep tests", uuid: "c1");
+        cb.CutBack("c1", compactXml);
+        Ok(cb.Draft == "/compact keep tests\n\nunsent" && cb.Items.Count == 0, "rewind draft is the typed text, ahead of the unsent one");
+        var cx = new LiveSession("c", "c", @"C:\w", "default");
+        cx.CutBack("gone", compactXml);
+        Ok(cx.Draft == "/compact keep tests", "rewind draft normalises prefillText when the message is not in the thread");
+        Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
+        Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
+            "rewind preview drops empty paths");
+        Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"insertions":3,"deletions":0}""").RootElement).Changes
+           && !RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[]}""").RootElement).Changes
+           && !RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":false,"insertions":3}""").RootElement).Changes,
+            "rewind preview: changes without the file list still count");
 
         // Opened from Récentes at 0.0127; --resume restores that cost-state and reports 0.0165 after one turn.
         var o = new LiveSession("o", "o", @"C:\w", "default", resumable: true) { CostUsd = 0.0127m };
