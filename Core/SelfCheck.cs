@@ -26,6 +26,7 @@ public static class SelfCheck
             FileIndex.Check();
             PromptHistory.Check();
             Notifications.Check();
+            MemoryFiles.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

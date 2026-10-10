@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -909,6 +909,57 @@ public static class CliProbe
             });
         }
         finally { try { Directory.Delete(settings, true); } catch { } }
+    }
+
+    // memory-files: get_context_usage lists the memory files the session loaded, @imports included, with their type
+    // (MemoryPanel's list). memory-reload: an edit to a loaded CLAUDE.md is not seen by the next turn but is after
+    // /compact (what MemoryPanel tells the user). Writes memory files into the shared probe repo, removed afterwards.
+    static async Task<IEnumerable<(string, string, string)>> Memory(string dir)
+    {
+        string claudeMd = Path.Combine(dir, "CLAUDE.md"), notes = Path.Combine(dir, "notes.md"),
+            dotClaude = Path.Combine(dir, ".claude", "CLAUDE.md"), local = Path.Combine(dir, "CLAUDE.local.md");
+        File.WriteAllText(claudeMd, "Project codeword: APPLE.\nSee @notes.md\n");
+        File.WriteAllText(notes, "Imported note.\n");
+        Directory.CreateDirectory(Path.GetDirectoryName(dotClaude)!);
+        File.WriteAllText(dotClaude, "Dot-claude memory.\n");
+        File.WriteAllText(local, "Local memory.\n");
+        try
+        {
+            await using var c = await Cli.Start(dir);
+            return await Guard(["memory-files", "memory-reload"], async () =>
+            {
+                // The CLI may report the temp dir through a symlink (/var is /private/var on macOS): match on the tail.
+                var files = Events.Prop(await c.S.Request("get_context_usage"), "memoryFiles") is { ValueKind: JsonValueKind.Array } a
+                    ? a.EnumerateArray().Select(m => (Path: Events.Str(m, "path") ?? "", Type: Events.Str(m, "type") ?? "?",
+                        Tokens: Events.Prop(m, "tokens") is { ValueKind: JsonValueKind.Number })).ToList() : [];
+                string Missing(string path, string type) =>
+                    files.Any(f => f.Type == type && f.Path.EndsWith(Path.DirectorySeparatorChar + Path.GetRelativePath(dir, path))) ? "" : $"missing {type} {Path.GetFileName(path)}; ";
+                var miss = Missing(claudeMd, "Project") + Missing(notes, "Project") + Missing(dotClaude, "Project") + Missing(local, "Local");
+                // MemoryFiles.List drops a relative path and reads tokens as a number: either drift would empty the panel silently.
+                miss += string.Concat(files.Where(f => !Path.IsPathFullyQualified(f.Path) || !f.Tokens).Select(f => $"not absolute or no numeric tokens: {f.Path}; "));
+                // The user file is the machine's own: only checked when there is one.
+                var user = Path.Combine(Path.GetDirectoryName(TranscriptStore.Root)!, "CLAUDE.md");
+                if (File.Exists(user) && !files.Any(f => f.Type == "User")) miss += "missing User CLAUDE.md; ";
+                var listed = "memoryFiles " + string.Join(", ", files.Select(f => $"{f.Type} {Path.GetFileName(Path.GetDirectoryName(f.Path))}/{Path.GetFileName(f.Path)}"));
+                var listing = miss == "" ? ("PASS", listed) : ("FAIL", miss + listed);
+
+                const string Q = "Quote verbatim the line that starts with 'Project codeword' from the CLAUDE.md project instructions in your context. Output only that line. Do not use any tool.";
+                async Task<string> Ask() => Events.Str((await c.Turn(Q))[^1], "result") ?? "";
+                var before = await Ask();
+                File.WriteAllText(claudeMd, "Project codeword: BANANA.\nSee @notes.md\n");
+                var edited = await Ask();
+                await c.Turn("/compact");
+                var compacted = await Ask();
+                var detail = $"before \"{before}\", after the edit \"{edited}\", after /compact \"{compacted}\"";
+                return [listing, !before.Contains("APPLE") ? ("FAIL", "inconclusive: " + detail)
+                    : edited.Contains("APPLE") && compacted.Contains("BANANA") ? ("PASS", detail)
+                    : ("FAIL", detail)];
+            });
+        }
+        finally
+        {
+            foreach (var f in new[] { claudeMd, notes, dotClaude, local }) File.Delete(f);
+        }
     }
 
     // ---------- plumbing ----------

@@ -336,7 +336,7 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .mode:not(.on):hover,.chip:hover{border-color:var(--seam-3);color:var(--fg-2)}
 .tab:hover{color:var(--fg-2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.ledger :focus-visible,.wf :focus-visible,.seg>:focus-visible,.effort>:focus-visible{outline-offset:-2px}
+.ledger :focus-visible,.mem :focus-visible,.wf :focus-visible,.seg>:focus-visible,.effort>:focus-visible{outline-offset:-2px}
 .t,.pi,.mode,.s{cursor:default}
 td.num,.meta,.kv,.tot b,.s .c{font-variant-numeric:tabular-nums}
 *{scrollbar-width:thin;scrollbar-color:var(--seam-2) transparent}
@@ -613,6 +613,14 @@ button.mode{text-align:left}
 .composer{position:relative}
 .status small{color:var(--fg-4);font:12px var(--mono)}
 .search{width:100%}
+/* Memory files (inspector, under the context): one button per file, then the file or its editor. */
+.mem{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.mem button{width:100%;display:flex;align-items:baseline;gap:8px;text-align:left;border:0;border-radius:var(--r);background:none;padding:6px 8px;font:12px var(--mono);color:var(--fg-2)}
+.mem button:hover,.mem button.on{background:var(--raise)}
+.mem button.on{box-shadow:inset 2px 0 0 var(--accent)}
+.mem .n{flex:1;min-width:0;overflow-wrap:anywhere}
+.mem .c{color:var(--fg-4);white-space:nowrap}
+.input textarea{display:block;width:100%;min-height:12em;max-height:60vh;resize:vertical;border:0;outline:0;background:none;color:var(--fg);font:inherit;line-height:1.55;padding:0}
 
 /* ---------- blazor ---------- */
 /* Unhandled-error toast. blazor.web.js toggles display:block on the host, so the layout lives on .beu. Floats, so it

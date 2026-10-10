@@ -1,4 +1,4 @@
-@* get_context_usage, refreshed when the session goes idle after a turn. *@
+@* get_context_usage, refreshed when the session goes idle after a turn, then the session's memory files. *@
 
 @{
     var c = Session.Context;
@@ -47,7 +47,7 @@
         </div>
         @if (mcpTools.Count > 0)
         {
-            <div class="section last">
+            <div class="section">
                 <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
                 <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", Strings.Plural(n, "Tools"), Strings.Plural(k, "Ctx.Servers")] @L["Ctx.DisableHint"]</p>
@@ -57,8 +57,9 @@
     }
     else
     {
-        <div class="section last"><p>@L["Ctx.SelectRow"]</p></div>
+        <div class="section"><p>@L["Ctx.SelectRow"]</p></div>
     }
+    <MemoryPanel Session="Session" />
 </div>
 
 @code {
