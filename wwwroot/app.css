@@ -313,6 +313,7 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .palette .q-in .i{color:var(--fg-4)}
 .palette .q-in kbd{margin-left:auto}
 .pg{padding:10px 16px 4px}
+.palette [role=status]{color:var(--fg-4)}
 .palette [role=listbox]{min-height:0;overflow:auto}
 .pi{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0 6px;border-radius:var(--r)}
 .pi .n{color:var(--fg)}
