@@ -267,6 +267,16 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .input .pickdir[aria-busy=true]{cursor:progress;opacity:1;color:var(--fg-2)}
 .input .b{margin:-5px -6px -5px auto;padding:4px 8px}
 .input .toggle{flex:none;white-space:nowrap}
+/* Isolation row: one geometry for both states, so Edit <-> OK never moves the toggle or the height. The text or the
+   name field takes the rest of the line. The strut is an invisible line of the other fields' input (13.5px mono + 1px
+   padding), so this row is exactly as tall as them whatever it holds; its negative margin cancels the flex gap. */
+.input.iso{font-family:var(--sans)}
+.input.iso::before{content:"\200b";width:0;padding:1px 0;margin-right:-10px;font:13.5px var(--mono)}
+.iso .toggle{margin-right:4px}
+.iso .branch{flex:1;min-width:0;max-width:none}
+.iso .branch.pre{flex:none;color:var(--fg-3)}
+.iso .pre+input{margin-left:-10px}   /* the prefix and the typed part read as one name: worktree-session */
+.iso input{font:12px/16px var(--mono);height:16px;padding:0;text-overflow:ellipsis}
 .input input::placeholder{font-family:var(--sans);color:var(--fg-4)}
 .fmsg{margin-top:8px;font-size:12px;color:var(--err-fg)}
 .fmsg.risk{color:var(--syn-type)}

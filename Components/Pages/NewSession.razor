@@ -78,23 +78,23 @@
             </div>
             <div class="field">
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
-                <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
+                <div class="input iso" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
                             @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null && RendererInfo.IsInteractive)
                     {
-                        <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
+                        <span class="branch">@L["New.NotGit"]</span>
                     }
                     else if (Isolated && editing)
                     {
-                        <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
-                        <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
-                        <button class="b btn ghost" @onclick="() => editing = false">@L["Action.Ok"]</button>
+                        <span class="branch pre"><Icon Name="branch" />worktree-</span>
+                        <input @ref="nameInput" @bind="draft" @bind:event="oninput" @onkeydown="NameKeys" title="@draft" aria-label="@L["New.WorktreeName"]" spellcheck="false" autocomplete="off" />
+                        <button class="b btn ghost" @onclick="CommitName">@L["Action.Ok"]</button>
                     }
                     else if (Isolated)
                     {
-                        <span class="branch" style="margin-left:14px" title="@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]</span>
-                        <button class="b btn ghost" @onclick="() => editing = true">@L["New.Edit"]</button>
+                        <span class="branch" title="@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]</span>
+                        <button class="b btn ghost" @ref="editBtn" @onclick="EditName">@L["New.Edit"]</button>
                     }
                 </div>
             </div>
@@ -143,7 +143,9 @@
 
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
     string? branch, wtName, lastQuery, shownCwd, pickError;
-    ElementReference cwdInput;
+    ElementReference cwdInput, nameInput, editBtn;
+    string draft = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
+    bool? focusName;   // keyboard-first: Edit hands focus to the input (true), OK / Escape back to Edit (false); refs exist only after the render
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
     System.Collections.Immutable.ImmutableList<string> addDirs = [];
@@ -176,6 +178,11 @@
     // A long path shows its distinguishing end, not its start.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (focusName is { } toName)
+        {
+            focusName = null;
+            try { await (toName ? nameInput : editBtn).FocusAsync(); } catch (InvalidOperationException) { }   // the row re-rendered away before the focus landed
+        }
         if (!claudeFound || cwd == shownCwd) return;
         shownCwd = cwd;
         await JS.InvokeVoidAsync("claudeUi.scrollToEnd", cwdInput);
@@ -230,7 +237,16 @@
         return free;
     }
 
-    void SetName(ChangeEventArgs e) => wtName = TranscriptStore.NameFrom(e.Value?.ToString() ?? "", 8) is { Length: > 0 } n ? n : null;
+    void EditName() { draft = WtName; editing = true; focusName = true; }
+
+    // A draft that sanitizes to nothing falls back to the name derived from the prompt.
+    void CommitName() { wtName = TranscriptStore.WorktreeName(draft); editing = false; focusName = false; }
+
+    void NameKeys(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.CtrlKey && !e.MetaKey) CommitName();
+        else if (e.Key == "Escape") { editing = false; focusName = false; }
+    }
 
     async Task Keys(KeyboardEventArgs e)
     {
@@ -243,6 +259,7 @@
         if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
         if (extraDirs is not null && !await extraDirs.Commit()) { busy = false; return; }   // a typed folder is not dropped
+        if (editing) CommitName();   // nor a typed worktree name
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
         // auto / acceptEdits edit the folder unasked: outside an isolated worktree, or with an extra folder (never isolated), the second Start confirms.
         if (LiveSession.Risky(mode) && (addDirs.Count > 0 || !Isolated && TranscriptStore.RootOf(cwd) == cwd) && !confirmRisk) { confirmRisk = true; busy = false; return; }
