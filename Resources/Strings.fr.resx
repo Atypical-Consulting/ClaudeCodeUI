@@ -386,7 +386,11 @@
   <data name="Palette.NextDecision" xml:space="preserve"><value>Décision suivante</value></data>
   <data name="Palette.NoResults" xml:space="preserve"><value>Aucun résultat</value></data>
   <data name="Palette.Open" xml:space="preserve"><value>ouvrir</value></data>
-  <data name="Palette.Placeholder" xml:space="preserve"><value>Rechercher une session ou une action…</value></data>
+  <data name="Palette.Messages" xml:space="preserve"><value>Messages</value></data>
+  <data name="Palette.OlderNotSearched" xml:space="preserve"><value>Les sessions plus anciennes n’ont pas été parcourues.</value></data>
+  <data name="Palette.Placeholder" xml:space="preserve"><value>Rechercher une session, un message ou une action…</value></data>
+  <data name="Palette.SearchFailed" xml:space="preserve"><value>La recherche dans les messages a échoué.</value></data>
+  <data name="Palette.SearchingMessages" xml:space="preserve"><value>Recherche dans les messages…</value></data>
   <data name="Palette.Sessions" xml:space="preserve"><value>Sessions</value></data>
   <data name="Palette.Theme" xml:space="preserve"><value>Thème : {0}</value></data>
   <data name="Perm.Allow" xml:space="preserve"><value>Autoriser</value></data>
