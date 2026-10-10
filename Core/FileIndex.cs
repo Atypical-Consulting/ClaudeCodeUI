@@ -147,6 +147,9 @@ public static class FileIndex
         Ok(Query("mail me@host.com") is null, "e-mail is not a mention");
         Ok(Query("@src/Foo.cs then") is null, "finished mention closes");
         Ok(Query("no mention") is null, "no @");
+        // Send trims "fix @src/Foo.cs " to this, so a recalled prompt is a live query: Composer.MentionQuery
+        // must stay null while the recall is untouched, or the picker steals ArrowUp/ArrowDown from Recall.
+        Ok(Query("fix @src/Foo.cs") == "src/Foo.cs", "a trimmed past prompt ending in a mention is a query");
         Ok(Insert("fix @Fo", "src/Foo.cs") == "fix @src/Foo.cs ", "insert replaces the query");
         Ok(Insert("@my", "my notes/a b.txt") == "@\"my notes/a b.txt\" ", "spaces are quoted");
         Ok(Insert("no mention left", "src/Foo.cs") == "no mention left", "insert without an @ keeps the text");

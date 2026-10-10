@@ -153,6 +153,7 @@
     IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
     bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, busy, reading;
     int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
+    string? recalled;  // the prompt Recall put in the box, kept to tell an untouched recall from an edit
     bool? ultraAvailable;
     string? appliedEffort, error;
     List<JsonElement> models = [];
@@ -168,7 +169,9 @@
     string? SlashQuery => !slashDismissed && text.StartsWith('/') && !text.Any(char.IsWhiteSpace) ? text : null;
 
     // While a path is being typed after an "@" that starts the last word (FileIndex.Query).
-    string? MentionQuery => !mentionDismissed && !menuOpen && !modeOpen && SlashQuery is null ? FileIndex.Query(text) : null;
+    // Not over an untouched recalled prompt: Send trims, so "fix @src/Foo.cs " comes back as a live query,
+    // and an open picker would take ArrowUp/ArrowDown from the recall chain. The first edit opens it.
+    string? MentionQuery => !mentionDismissed && !menuOpen && !modeOpen && SlashQuery is null && text != recalled ? FileIndex.Query(text) : null;
     bool MentionOpen => MentionQuery is not null && mention is { Open: true };
 
     bool FastOk => Session.FastModeState == "on" && model is { } m && Events.Prop(m, "supportsFastMode") is { ValueKind: JsonValueKind.True };
@@ -258,6 +261,7 @@
         text = "";
         images = [];
         recall = -1;
+        recalled = null;
         menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
@@ -322,6 +326,7 @@
         var n = recall + dir;
         if (n < 0) return true;
         (recall, text) = n < past.Count ? (n, past[n]) : (-1, "");
+        recalled = text;
         return true;
     }
 
