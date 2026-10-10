@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch), ("workflow", Workflow)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -79,6 +79,62 @@ public static class CliProbe
                 ? ("PASS", "accepted, applied.ultracode=false")
                 : ("FAIL", $"accepted, but applied.ultracode={after?.GetRawText() ?? "absent"}")];
         });
+    }
+
+    // workflow-live: with ultracode on, a Workflow call is launched async (receipt with runId and transcriptDir, inside the
+    // transcripts root), streams task_progress snapshots (workflow_progress phases + agents), then a task_notification.
+    // workflow-disk: the files WorkflowRuns reads exist with the keys it reads (journal started/result lines, agent meta and
+    // transcript, workflows/<runId>.json with status, phases, workflowProgress), and the reducer + reader show the run done.
+    // SKIP when ultracode is unavailable or haiku does not call the Workflow tool.
+    const string WfScript = "export const meta = { name: 'ccui-probe', description: 'Two agents reply pong', phases: [{ title: 'Ping', detail: 'two pong agents' }] }\n"
+        + "phase('Ping')\nconst r = await Promise.all([agent('Reply with exactly: pong', { label: 'pong:a', phase: 'Ping' }), agent('Reply with exactly: pong', { label: 'pong:b', phase: 'Ping' })])\nreturn r";
+    static async Task<IEnumerable<(string, string, string)>> Workflow(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["workflow-live", "workflow-disk"], async () =>
+        {
+            if (Events.Prop(await c.S.Request("get_settings"), "applied") is not { } a || Events.Prop(a, "ultracodeAvailable") is not { ValueKind: JsonValueKind.True })
+                return [("SKIP", "ultracodeAvailable=false"), ("SKIP", "ultracodeAvailable=false")];
+            await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
+            var seen = await c.Turn("Call the Workflow tool exactly once with this script verbatim, no args, then stop. Do not do anything else.\n\n" + WfScript);
+            if (seen.SelectMany(Events.ParseAll).OfType<ToolUseEvt>().FirstOrDefault(u => u.Name == WorkflowRuns.Tool) is not { } use)
+                return [("SKIP", $"no Workflow tool_use ({string.Join(", ", seen.SelectMany(ToolUses).Distinct())})"), ("SKIP", "no Workflow run")];
+            bool Done(JsonElement e) => Events.Parse(e) is TaskDoneEvt d && d.ToolUseId == use.Id;
+            if (!seen.Any(Done)) await c.Until(e => { seen.Add(e); return Done(e); });
+
+            var s = new LiveSession(Guid.NewGuid().ToString(), "probe", dir, "default");
+            // The probe answered the can_use_tool itself (Cli.Collect): replaying it would leave the row Waiting.
+            foreach (var e in seen) foreach (var ev in Events.ParseAll(e).Where(x => x is not PermissionEvt)) s.Apply(ev);
+            var t = s.Tool(use.Id)!;
+            var receipt = t.Structured ?? default;
+            var runId = Events.Str(receipt, "runId");
+            var run = WorkflowRuns.Inside(Events.Str(receipt, "transcriptDir"));
+            var snaps = seen.Select(Events.Parse).OfType<TaskProgressEvt>().Where(p => p.Workflow is not null).ToList();
+            var agents = snaps.LastOrDefault()?.Workflow is { } last ? WorkflowRuns.Agents(last, DateTimeOffset.Now).ToList() : [];
+            var liveOk = Events.Str(receipt, "status") == "async_launched" && runId?.StartsWith("wf_") == true && run is not null
+                && snaps.Count > 0 && agents.Count == 2 && agents.All(x => x.Phase == "Ping" && x.Label.StartsWith("pong:")) && t.TaskStatus == "completed";
+            var live = (liveOk ? "PASS" : "FAIL", $"receipt {Events.Str(receipt, "status")} runId {runId}, dir {(run is null ? "outside the root or absent" : "inside the root")}, "
+                + $"{snaps.Count} snapshot(s), last {agents.Count} agent(s) [{string.Join(", ", agents.Select(x => $"{x.Phase}/{x.Label}:{x.State}"))}], notification {t.TaskStatus ?? "absent"}, row {t.State}{(t.Background ? " background" : "")}, {seen.Count(Done)} task_notification");
+            if (run is null || runId is null) return [live, ("FAIL", "no run folder to read")];
+
+            string Json(string f) => File.Exists(f) ? File.ReadAllText(f) : "";
+            var journal = Json(Path.Combine(run, "journal.jsonl")).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => JsonDocument.Parse(l).RootElement).ToList();
+            var started = journal.Where(e => Events.Str(e, "type") == "started" && Events.Str(e, "agentId") is not null && Events.Str(e, "label") is not null && Events.Str(e, "phase") == "Ping").ToList();
+            var results = journal.Count(e => Events.Str(e, "type") == "result" && Events.Str(e, "agentId") is not null);
+            var id = started.Select(e => Events.Str(e, "agentId")).FirstOrDefault();
+            var meta = Json(Path.Combine(run, $"agent-{id}.meta.json"));
+            var transcript = WorkflowRuns.AgentFile(run, id) is { } af ? Json(af) : "";
+            var fin = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(run)!)!)!, "workflows", runId + ".json");
+            var finKeys = File.Exists(fin) && JsonDocument.Parse(File.ReadAllText(fin)).RootElement is var f
+                ? string.Join(",", new[] { "status", "durationMs", "totalTokens", "totalToolCalls", "phases", "workflowProgress", "defaultModel" }.Where(k => Events.Prop(f, k) is null)) : "file absent";
+            var read = WorkflowRuns.Of(t);
+            var diskOk = started.Count == 2 && results == 2 && meta.Contains("\"workflow-subagent\"") && transcript.Contains("\"timestamp\"") && finKeys == ""
+                && read is { State: WfState.Done, Done: 2, Phases: [{ Title: "Ping", Detail: "two pong agents", Total: 2, Done: 2 }] };
+            return [live, (diskOk ? "PASS" : "FAIL", $"journal {started.Count} started / {results} result, agent meta {(meta.Length > 0 ? "ok" : "absent")}, "
+                + $"agent transcript {transcript.Length} bytes, {runId}.json missing keys [{finKeys}], reader {read.State} {read.Done}/{read.Agents.Count} "
+                + $"phases [{string.Join(", ", read.Phases.Select(p => $"{p.Title} {p.Done}/{p.Total}"))}]")];
+        }, 300);
     }
 
     // permission-session: answering a can_use_tool with updatedPermissions = its non-setMode suggestions stops the CLI

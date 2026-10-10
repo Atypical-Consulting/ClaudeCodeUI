@@ -645,4 +645,20 @@
   <data name="Tool.Diff" xml:space="preserve"><value>Diff</value></data>
   <data name="Tool.Kv.Diff" xml:space="preserve"><value>diff</value></data>
   <data name="Bg.StopFailed" xml:space="preserve"><value>Couldn’t stop the task: {0}</value></data>
+  <data name="Wf.AgentsDone" xml:space="preserve"><value>{0}/{1} agents</value></data>
+  <data name="Wf.Phases" xml:space="preserve"><value>Phases</value></data>
+  <data name="Wf.PhaseAgents" xml:space="preserve"><value>Agents · {0}</value></data>
+  <data name="Wf.NoAgents" xml:space="preserve"><value>No agent has started in this phase yet.</value></data>
+  <data name="Wf.NoPhases" xml:space="preserve"><value>No phase yet: they appear once the workflow starts.</value></data>
+  <data name="Wf.State.Waiting" xml:space="preserve"><value>waiting</value></data>
+  <data name="Wf.State.Unknown" xml:space="preserve"><value>no end recorded</value></data>
+  <data name="Wf.Queued" xml:space="preserve"><value>queued</value></data>
+  <data name="Wf.Approx" xml:space="preserve"><value>Approximate: rebuilt from the agent's transcript while the run has no summary file.</value></data>
+  <data name="Wf.EarlierTools" xml:space="preserve"><value>{0} earlier tool calls not shown</value></data>
+  <data name="Wf.AgentTools" xml:space="preserve"><value>Tool calls</value></data>
+  <data name="Kv.Status" xml:space="preserve"><value>status</value></data>
+  <data name="Kv.Agents" xml:space="preserve"><value>agents</value></data>
+  <data name="Kv.Elapsed" xml:space="preserve"><value>elapsed</value></data>
+  <data name="Kv.Model" xml:space="preserve"><value>model</value></data>
+  <data name="Wf.Result" xml:space="preserve"><value>Result</value></data>
 </root>

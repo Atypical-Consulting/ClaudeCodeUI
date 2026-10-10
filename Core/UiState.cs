@@ -4,11 +4,12 @@ namespace ClaudeCodeUI;
 public sealed class UiState
 {
     bool inspectorOpen = true, paletteOpen;
-    string? selectedToolId;
+    string? selectedToolId, selectedPhase;
 
     public bool InspectorOpen { get => inspectorOpen; set { inspectorOpen = value; Changed?.Invoke(); } }
     public bool PaletteOpen { get => paletteOpen; set { paletteOpen = value; Changed?.Invoke(); } }
     public string? SelectedToolId { get => selectedToolId; set { selectedToolId = value; Changed?.Invoke(); } }   // a ToolItem or an Agent row
+    public string? SelectedPhase { get => selectedPhase; set { selectedPhase = value; Changed?.Invoke(); } }   // of the selected Workflow call; null = the panel's default
 
     public event Action? Changed;
     public event Action<string>? Key;   // "Escape", "Enter", "Shift+Enter", "Delete"

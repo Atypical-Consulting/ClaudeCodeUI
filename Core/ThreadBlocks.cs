@@ -4,7 +4,7 @@ namespace ClaudeCodeUI;
 
 // The thread's top-level blocks (Components/Session/Thread.razor). Subagent items (ParentToolUseId set) live under their
 // Workflow row. Consecutive tools form a Run shown as a Ledger, consecutive Agent calls a Run shown as a Workflow,
-// consecutive hooks one Hooks row.
+// consecutive hooks one Hooks row. A Workflow call is a block of its own (WorkflowCard).
 public static class ThreadBlocks
 {
     public sealed record Run(List<ToolItem> Tools, bool Agents);
@@ -17,6 +17,9 @@ public static class ThreadBlocks
         {
             switch (item)
             {
+                case ToolItem { ParentToolUseId: null, Name: WorkflowRuns.Tool } w:
+                    blocks.Add(w);
+                    break;
                 case ToolItem { ParentToolUseId: null } t:
                     var agent = ToolKinds.IsAgent(t.Name);
                     if (OpenRun() is { } r && r.Agents == agent) r.Tools.Add(t);
@@ -58,5 +61,6 @@ public static class ThreadBlocks
         Ok(Of([T("a1", "Agent"), H("SubagentStart:general-purpose", "error", "boom"), T("a2", "Agent"), T("b", "Bash")])
                is [Run { Agents: true, Tools.Count: 2 }, Hooks, Run { Agents: false }], "agent fan-out keeps one workflow");
         Ok(Of([T("b1", "Bash"), new TextItem("t", null), T("b2", "Bash")]) is [Run, TextItem, Run], "text ends a run");
+        Ok(Of([T("b1", "Bash"), T("w", WorkflowRuns.Tool), T("b2", "Bash")]) is [Run, ToolItem { Id: "w" }, Run], "a workflow is its own block");
     }
 }

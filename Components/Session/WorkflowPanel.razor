@@ -1,0 +1,149 @@
+@* Selected Workflow call: the run, its phases, the selected phase's agents, and the selected agent's last text and tool
+   calls (agent-<id>.jsonl through WorkflowRuns.AgentLog, new lines only). Refreshed once a second while the run is live. *@
+@inject UiState Ui
+
+<Ticker Active="WorkflowRuns.Of(Tool).Live">
+    @{
+        var r = WorkflowRuns.Of(Tool);
+        var phase = r.Phases.FirstOrDefault(p => p.Title == Ui.SelectedPhase)
+                    ?? r.Phases.FirstOrDefault(p => p.State == WfState.Running) ?? r.Phases.LastOrDefault(p => p.Total > 0) ?? r.Phases.FirstOrDefault();
+        var agents = phase is null ? [] : r.Agents.Where(a => a.Phase == phase.Title).ToList();
+        var agent = agents.FirstOrDefault(a => Key(a) == agentKey);
+    }
+    <div class="ph"><h2 class="ttl">@WorkflowRuns.Tool.ToLowerInvariant() · @r.Name</h2><span class="sub">@WorkflowCard.Label(r.State, r.RawStatus)</span>
+        <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+    </div>
+    <div class="scroll">
+        <section class="section">
+            @if (r.Description is { Length: > 0 } d)
+            {
+                <p>@d</p>
+            }
+            <div class="kv">
+                <span>@L["Kv.Status"]</span><span>@WorkflowCard.Label(r.State, r.RawStatus)</span>
+                <span>@L["Kv.Agents"]</span><span>@r.Done/@r.Agents.Count</span>
+                <span>@L["Kv.Elapsed"]</span><span>@Fmt.Dur(r.Elapsed)</span>
+                <span>@L["Kv.Tokens"]</span><span>@(r.Tokens > 0 ? Fmt.Tokens(r.Tokens) : "—")</span>
+                <span>@L["Kv.Tools"]</span><span>@r.ToolCalls</span>
+                @if (r.Model is { } m)
+                {
+                    <span>@L["Kv.Model"]</span><span>@m</span>
+                }
+            </div>
+        </section>
+        <section class="section" aria-labelledby="wf-phases">
+            <h3 id="wf-phases" class="cap">@L["Wf.Phases"]</h3>
+            @if (r.Phases.Count == 0)
+            {
+                <p>@L["Wf.NoPhases"]</p>
+            }
+            else
+            {
+                <div class="wf">
+                    @foreach (var p in r.Phases)
+                    {
+                        <button type="button" @key="p.Title" class="wfp @(p == phase ? "sel" : null)" aria-pressed="@(p == phase ? "true" : "false")" @onclick="() => Ui.SelectedPhase = p.Title">
+                            <span class="dot @WorkflowCard.Dot(p.State)" aria-hidden="true"></span>
+                            <span class="nm">@p.Title@if (p.Detail is { Length: > 0 } pd)
+                                {
+                                    <small>@(" " + pd)</small>
+                                }<span class="sr-only"> · @WorkflowCard.Label(p.State)</span></span>
+                            <span class="m">@p.Done/@p.Total</span>
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+        @if (phase is not null)
+        {
+            <section class="section @(agent is null ? "last" : null)" aria-labelledby="wf-agents">
+                <h3 id="wf-agents" class="cap">@L["Wf.PhaseAgents", phase.Title]</h3>
+                @if (agents.Count == 0)
+                {
+                    <p>@L["Wf.NoAgents"]</p>
+                }
+                else
+                {
+                    <div class="wf">
+                        @foreach (var a in agents)
+                        {
+                            var isOpen = a == agent;
+                            <button type="button" @key="Key(a)" class="agent @(isOpen ? "sel" : null)" aria-expanded="@(isOpen ? "true" : "false")" aria-controls="@(isOpen ? "wf-agent" : null)" @onclick="() => Pick(a)">
+                                <Icon Name="@(isOpen ? "down" : "right")" Sm Class="chev" />
+                                <span class="dot @WorkflowCard.Dot(a.State)" aria-hidden="true"></span>
+                                <span class="nm">@a.Label <small>@a.Model</small><span class="sr-only"> · @State(a)</span></span>
+                                <span class="m" title="@(a.Approx ? L["Wf.Approx"].Value : null)">@Meta(a)</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+        }
+        @if (agent is not null)
+        {
+            var (text, tools) = Log(r, agent);
+            <section id="wf-agent" class="section last" aria-labelledby="wf-agent-h">
+                <h3 id="wf-agent-h" class="cap">@L["Agent.Writes"]</h3>
+                @if (text is { Length: > 0 } t)
+                {
+                    <Markdown Text="@t" />
+                }
+                else
+                {
+                    <p>@(agent.State == WfState.Running ? L["Agent.NothingYet"] : L["Agent.NoText"])</p>
+                }
+                @if (agent.Result is { Length: > 0 } res)
+                {
+                    <span class="cap">@L["Wf.Result"]</span>
+                    <pre class="cmdlog out wfres" role="region" tabindex="0" aria-label="@L["Wf.Result"]">@res</pre>
+                }
+                @if (tools.Count > 0)
+                {
+                    <span class="cap">@L["Wf.AgentTools"] · @tools.Count</span>
+                    <div class="subrun wfa">
+                        @if (tools.Count > MaxTools)
+                        {
+                            <div class="sl more">@L["Wf.EarlierTools", tools.Count - MaxTools]</div>
+                        }
+                        @foreach (var x in tools.TakeLast(MaxTools))
+                        {
+                            <div @key="x.Id" class="sl"><span class="k" style="color:@ToolKinds.Color(x.Name)" title="@x.Name">@ToolKinds.Label(x.Name)</span><span class="p">@ToolKinds.Target(x.Name, x.Input, Session.Cwd)</span>@ToolRow.Meta(x)</div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+</Ticker>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public ToolItem Tool { get; set; } = null!;
+
+    const int MaxTools = 40;   // the latest ones: a long agent runs hundreds of calls
+    string? agentKey;
+    (string Key, WorkflowRuns.AgentLog Log)? log;
+
+    static string Key(WfAgent a) => a.AgentId ?? a.Phase + "/" + a.Label;
+
+    void Pick(WfAgent a) => agentKey = agentKey == Key(a) ? null : Key(a);
+
+    // One log per selected agent, kept while it stays selected: each render reads only what was appended since.
+    (string? Text, IReadOnlyList<ToolItem> Tools) Log(WorkflowRun r, WfAgent a)
+    {
+        if (WorkflowRuns.AgentFile(r.RunDir, a.AgentId) is not { } file) return (null, []);
+        if (log?.Key != file) log = (file, new WorkflowRuns.AgentLog(file));
+        return log.Value.Log.Read();
+    }
+
+    static string State(WfAgent a) => a.State == WfState.Waiting ? Strings.Get("Wf.Queued") : WorkflowCard.Label(a.State, a.RawState);
+
+    static string Meta(WfAgent a)
+    {
+        var parts = new List<string>();
+        if (a.Tokens > 0) parts.Add((a.Approx ? "≈" : "") + Strings.Get("Workflow.Tokens", Fmt.Tokens(a.Tokens)));
+        if (a.Duration is { } d) parts.Add(Fmt.Dur(d));
+        if (a.State is not (WfState.Done or WfState.Running)) parts.Add(State(a));   // the dot says done or running
+        return string.Join(" · ", parts);
+    }
+}
