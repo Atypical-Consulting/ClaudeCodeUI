@@ -82,6 +82,7 @@
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;
     List<object> blocks = [];
     (LiveSession, int)? scrolled;
+
     void Fork(string at) => Nav.NavigateTo($"session/{Sessions.Fork(Session, at).Id}");
 
     // The start of a reply, so each "Fork from here" button has a distinct accessible name.

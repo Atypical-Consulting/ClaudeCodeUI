@@ -64,9 +64,12 @@ public sealed class SessionManager : IAsyncDisposable
         // found" (--probe-cli fork-of-fork), so forking it forks its source at the same cut. One step is enough: this
         // rule never sets ForkOf to a fork without a transcript.
         var (of, cut) = src.ForkOf is { } o && TranscriptStore.Find(src.Id) is null ? (o, at ?? src.ForkAt) : (src.Id, at);
+        var inherited = TranscriptStore.PersistedCost(of);
+        // src.Mode is the mode src runs in (Open seeds it from the transcript): the fork keeps it, as a resume does.
         var s = new LiveSession(Guid.NewGuid().ToString(), Strings.Get("Session.ForkName", src.Name), src.Cwd, src.Mode, model: src.Model, effort: src.Effort)
         {
-            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut), CostUsd = TranscriptStore.PersistedCost(of),
+            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut),
+            CostUsd = inherited, CostAtOpen = inherited,   // the source's spend, not this run's (Overview counts CostUsd - CostAtOpen)
         };
         s.ToolCount = s.Items.OfType<ToolItem>().Count();
         Add(s);
