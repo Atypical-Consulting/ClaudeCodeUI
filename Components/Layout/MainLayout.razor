@@ -52,7 +52,7 @@
         {
             var (status, result, pending) = (s.Status, s.LastResultAt, s.Pending);
             var had = seen.TryGetValue(s.Id, out var before);
-            seen[s.Id] = (status, result);
+            seen[s.Id] = (status, Notifications.Remember(status, before.Result, result));
             var kind = Notifications.Between(had ? before.Status : null, before.Result, status, result, s.LastResultSubtype);
             if (kind != Notifications.Kind.None)
                 due.Add((s.Id, s.Name, Notifications.Body(kind, pending.FirstOrDefault()?.Tool, s.LastTurn, s.LastResultSubtype)));

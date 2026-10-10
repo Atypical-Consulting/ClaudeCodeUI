@@ -34,6 +34,13 @@ public static class Notifications
         : before is not null && status == SessionStatus.Idle && result != resultBefore && subtype != LiveSession.Interrupted ? Kind.Done
         : Kind.None;
 
+    // The result time to remember after an observation. MainLayout reads Status then LastResultAt without the session's
+    // gate, and Reduce(ResultEvt) writes LastResultAt before it sets Idle: another thread can observe (Running, new result).
+    // Remembering that result would make the (Idle, new result) that follows look unchanged, and the turn would end
+    // unnoticed. So a result is only remembered from a status no ResultEvt can be half-way through leaving.
+    public static DateTimeOffset? Remember(SessionStatus status, DateTimeOffset? resultBefore, DateTimeOffset? result) =>
+        status is SessionStatus.Running or SessionStatus.Waiting ? resultBefore : result;
+
     // subtype: the result's (success, error_max_turns, error_during_execution…).
     public static string Body(Kind kind, string? tool, TimeSpan? turn, string? subtype = null) => kind == Kind.Done
         ? Strings.Get(subtype?.StartsWith("error") == true ? "Notify.Failed" : "Notify.Done", Fmt.Dur(turn ?? TimeSpan.Zero))
@@ -65,6 +72,14 @@ public static class Notifications
         Ok(Between(SessionStatus.Running, t1, SessionStatus.Running, t2, "success") == Kind.None, "queued turn runs next");
         Ok(Between(SessionStatus.Idle, t2, SessionStatus.Idle, t2, "success") == Kind.None, "no new result");
         Ok(Between(null, null, SessionStatus.Idle, t2, "success") == Kind.None, "first seen idle");
+        foreach (var mid in new[] { SessionStatus.Running, SessionStatus.Waiting })
+        {
+            // A torn read mid-Reduce(ResultEvt): (mid, new result), then (Idle, new result). The turn is still done, once.
+            var r = Remember(mid, t1, t2);
+            Ok(Between(mid, t1, mid, t2, "success") == Kind.None && Between(mid, r, SessionStatus.Idle, t2, "success") == Kind.Done
+               && Between(SessionStatus.Idle, Remember(SessionStatus.Idle, r, t2), SessionStatus.Idle, t2, "success") == Kind.None,
+               $"({mid}, new result) then (Idle, new result)");
+        }
         Ok(Body(Kind.Decision, "Bash", null) == "Attend ton autorisation\u00a0: Bash" && Body(Kind.Decision, "ExitPlanMode", null) == "Plan prêt à valider"
            && Body(Kind.Done, null, TimeSpan.FromSeconds(2.4), "success") == "Tour terminé en 2,4 s"
            && Body(Kind.Done, null, TimeSpan.FromSeconds(2.4), "error_max_turns") == "Tour arrêté sur une erreur après 2,4 s", "body text");
