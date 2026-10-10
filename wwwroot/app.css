@@ -588,6 +588,21 @@ textarea,input{caret-color:var(--accent)}
 .subrun .sl{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;font:12px var(--mono);color:var(--fg-3);padding:3px 0}
 .subrun .sl .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .subrun .sl .p{color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Workflow call (WorkflowCard, WorkflowPanel): a header naming the run, then phase rows read like agent rows without a chevron. */
+.wf button.wh{width:100%}
+.wfr .wh b{font:600 13px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.wf .wh.sel{background:var(--raise);box-shadow:inset 2px 0 0 var(--accent)}
+.wfp{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:7px 14px;border-top:1px solid var(--hair);font-size:13px}
+.wf>.wfp:first-child{border-top:0}
+.wfp .nm{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wfp .nm small{font-size:12px;color:var(--fg-4);margin-left:8px}
+.wfp .m{font:12px var(--mono);color:var(--fg-4);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wfp.sel{background:var(--raise);box-shadow:inset 2px 0 0 var(--accent)}
+.wfp:not(.sel):hover{background:var(--raise)}
+.subrun.wfa{padding:0}
+.cmdlog.wfres{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto}
+.section h3.cap{font:600 11px var(--sans);letter-spacing:.08em;color:var(--fg-4)}
+.subrun .sl.more{display:block;color:var(--fg-4)}
 
 /* ---------- 11. extensions ---------- */
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
@@ -613,7 +628,7 @@ textarea,input{caret-color:var(--accent)}
 .diff .del .lc{opacity:.85}
 
 /* polish 2: states for parity components, rail details */
-.pick,.filters .chip,.subtabs>*,.agent,.slash .si,.wtt tbody tr:not(.grp-row),.mcp tbody tr,.tc,.toggle{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
+.pick,.filters .chip,.subtabs>*,.agent,.wfp,.wf .wh,.slash .si,.wtt tbody tr:not(.grp-row),.mcp tbody tr,.tc,.toggle{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
 .pick:not(.dis):not(.on):hover,.filters .chip:not(.on):hover{border-color:var(--seam-3);color:var(--fg)}
 .pick.on:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
 .pick.dis{cursor:not-allowed;position:relative}

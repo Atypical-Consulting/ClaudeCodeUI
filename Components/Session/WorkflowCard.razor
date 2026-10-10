@@ -1,0 +1,64 @@
+@* A Workflow call (ultracode): the run's phases with their state and done/total agents, as the CLI shows them. The header
+   or a phase selects the call (WorkflowPanel). Re-read once a second while the run is live: WorkflowRuns only stats the
+   files and reads what was appended. *@
+@inject UiState Ui
+
+<Ticker Active="WorkflowRuns.Of(Tool).Live">
+    @{ var r = WorkflowRuns.Of(Tool); var sel = Ui.SelectedToolId == Tool.Id; }
+    <div class="wf wfr">
+        <button type="button" class="wh @(sel && Ui.SelectedPhase is null ? "sel" : null)" aria-pressed="@(sel ? "true" : "false")" @onclick="() => Select(null)">
+            <span class="dot @Dot(r.State, Tool)" aria-hidden="true"></span>
+            <b>@WorkflowRuns.Tool.ToLowerInvariant() · @r.Name</b>
+            <span class="r">@Head(r)@if (r.State is not (WfState.Failed or WfState.Unknown))
+                {
+                    <span class="sr-only"> · @Label(r, Tool)</span>
+                }</span>
+        </button>
+        @foreach (var p in r.Phases)
+        {
+            <button type="button" @key="p.Title" class="wfp @(sel && Ui.SelectedPhase == p.Title ? "sel" : null)" aria-pressed="@(sel && Ui.SelectedPhase == p.Title ? "true" : "false")" @onclick="() => Select(p.Title)">
+                <span class="dot @Dot(p.State)" aria-hidden="true"></span>
+                <span class="nm">@p.Title<span class="sr-only"> · @Label(p.State)</span></span>
+                <span class="m">@p.Done/@p.Total</span>
+            </button>
+        }
+    </div>
+</Ticker>
+
+@code {
+    [Parameter] public ToolItem Tool { get; set; } = null!;
+
+    void Select(string? phase)
+    {
+        Ui.SelectedPhase = phase;
+        Ui.SelectedToolId = Tool.Id;
+        Ui.InspectorOpen = true;   // as ToolRow: a closed inspector would swallow the click
+    }
+
+    static string Head(WorkflowRun r) =>
+        Strings.Get("Wf.AgentsDone", r.Done, r.Agents.Count) + " · " + Fmt.Dur(r.Elapsed)
+        + (r.State is WfState.Failed or WfState.Unknown ? " · " + Label(r.State, r.RawStatus) : "");
+
+    // DESIGN.md dots: done ring, running pulse, error red; Ember only when the call waits for a permission (needs you).
+    // Not started yet is an idle ring; no recorded end the dashed ring of an exited session.
+    public static string Dot(WfState s, ToolItem? t = null) => s switch
+    {
+        WfState.Done => "done",
+        WfState.Running => "run",
+        WfState.Failed => "err",
+        WfState.Unknown => "exited",
+        _ => t?.State == ToolState.Waiting ? "wait" : "idle",
+    };
+
+    public static string Label(WfState s, string? raw = null) => raw ?? s switch
+    {
+        WfState.Done => Strings.Get("Tool.Done"),
+        WfState.Running => Strings.Get("Status.Running"),
+        WfState.Failed => Strings.Get("Tool.Error"),
+        WfState.Unknown => Strings.Get("Wf.State.Unknown"),
+        _ => Strings.Get("Wf.State.Waiting"),
+    };
+
+    static string Label(WorkflowRun r, ToolItem t) =>
+        t.State == ToolState.Waiting ? Strings.Get("Tool.Waiting") : t.State == ToolState.Denied ? Strings.Get("Tool.Denied") : Label(r.State, r.RawStatus);
+}

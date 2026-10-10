@@ -71,11 +71,10 @@ public static class WorkflowRuns
                 of.Count(a => a.State == WfState.Done), of.Count(a => a.State == WfState.Running), of.Count(a => a.State == WfState.Failed));
         }).ToList();
 
-        var journal = dir is null ? null : Path.Combine(dir, "journal.jsonl");
-        var live = state == WfState.Running || state == WfState.Unknown && journal is not null && Recent(journal, now);
-        // An unfinished run ends, as far as anyone knows, at its journal's last write.
-        var end = state == WfState.Unknown && !live && journal is not null && File.Exists(journal) ? new DateTimeOffset(File.GetLastWriteTimeUtc(journal))
-            : live ? now : t.EndedAt ?? now;
+        var written = state == WfState.Unknown && dir is not null ? LastWrite(dir) : null;
+        var live = state == WfState.Running || written is { } w && now - w < TimeSpan.FromMinutes(2);
+        // An unfinished run ends, as far as anyone knows, at the last write in its folder.
+        var end = live ? now : written ?? t.EndedAt ?? now;
         var elapsed = final?.Duration ?? end - t.StartedAt;
         return new(Events.Str(receipt, "workflowName") ?? Meta(script, "name") ?? Tool.ToLowerInvariant(),
             Events.Str(receipt, "summary") ?? Meta(script, "description"), dir, phases, agents,
@@ -85,9 +84,14 @@ public static class WorkflowRuns
             final?.Model, live);
     }
 
-    // The journal moved in the last 2 minutes: an unfinished run may still be going (another claude holds the session).
+    // The last write in the run folder (journal or an agent transcript). Within 2 minutes, an unfinished run may still be
+    // going (another claude holds the session): keep polling.
     // ponytail: a time heuristic, only used to keep polling; replace with the CLI's own liveness signal if one appears.
-    static bool Recent(string file, DateTimeOffset now) => File.Exists(file) && now - File.GetLastWriteTimeUtc(file) < TimeSpan.FromMinutes(2);
+    static DateTimeOffset? LastWrite(string dir)
+    {
+        try { return new DirectoryInfo(dir).EnumerateFiles().Select(f => (DateTimeOffset?)new DateTimeOffset(f.LastWriteTimeUtc)).Max(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
 
     // ---------- path safety: the run folder comes from CLI output ----------
 

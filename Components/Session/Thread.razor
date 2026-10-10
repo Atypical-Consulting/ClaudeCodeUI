@@ -1,5 +1,5 @@
 @* Top-level items only, grouped by ThreadBlocks: consecutive tools form a Ledger (the latest one open),
-   consecutive Agent calls a Workflow, consecutive hooks one row. *@
+   consecutive Agent calls a Workflow, consecutive hooks one row, a Workflow call its own card. *@
 @inject IJSRuntime JS
 @inject SessionManager Sessions
 @inject NavigationManager Nav
@@ -53,6 +53,9 @@
                 break;
             case ThreadBlocks.Hooks h:
                 <HookActivity Hooks="h.Items" />
+                break;
+            case ToolItem w:
+                <WorkflowCard @key="w.Id" Tool="w" />
                 break;
             case ThreadBlocks.Run { Agents: true } r:
                 <Workflow @key="r.Tools[0].Id" Session="Session" Agents="r.Tools" />

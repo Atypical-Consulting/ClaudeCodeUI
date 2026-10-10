@@ -645,4 +645,20 @@
   <data name="Tool.Diff" xml:space="preserve"><value>Diff</value></data>
   <data name="Tool.Kv.Diff" xml:space="preserve"><value>diff</value></data>
   <data name="Bg.StopFailed" xml:space="preserve"><value>Impossible d’arrêter la tâche : {0}</value></data>
+  <data name="Wf.AgentsDone" xml:space="preserve"><value>{0}/{1} agents</value></data>
+  <data name="Wf.Phases" xml:space="preserve"><value>Phases</value></data>
+  <data name="Wf.PhaseAgents" xml:space="preserve"><value>Agents · {0}</value></data>
+  <data name="Wf.NoAgents" xml:space="preserve"><value>Aucun agent n’a encore démarré dans cette phase.</value></data>
+  <data name="Wf.NoPhases" xml:space="preserve"><value>Pas encore de phase : elles apparaissent au démarrage du workflow.</value></data>
+  <data name="Wf.State.Waiting" xml:space="preserve"><value>en attente</value></data>
+  <data name="Wf.State.Unknown" xml:space="preserve"><value>fin non enregistrée</value></data>
+  <data name="Wf.Queued" xml:space="preserve"><value>en file</value></data>
+  <data name="Wf.Approx" xml:space="preserve"><value>Approximatif : reconstitué depuis la transcription de l’agent tant que le run n’a pas de fichier de synthèse.</value></data>
+  <data name="Wf.EarlierTools" xml:space="preserve"><value>{0} appels d’outils plus anciens non affichés</value></data>
+  <data name="Wf.AgentTools" xml:space="preserve"><value>Appels d’outils</value></data>
+  <data name="Kv.Status" xml:space="preserve"><value>statut</value></data>
+  <data name="Kv.Agents" xml:space="preserve"><value>agents</value></data>
+  <data name="Kv.Elapsed" xml:space="preserve"><value>durée</value></data>
+  <data name="Kv.Model" xml:space="preserve"><value>modèle</value></data>
+  <data name="Wf.Result" xml:space="preserve"><value>Résultat</value></data>
 </root>

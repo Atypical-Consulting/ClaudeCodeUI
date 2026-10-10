@@ -17,7 +17,11 @@
         }
         @if (p is null && Selected is { } t)
         {
-            if (ToolKinds.IsAgent(t.Name))
+            if (t.Name == WorkflowRuns.Tool)
+            {
+                <WorkflowPanel @key="t.Id" Session="Session" Tool="t" />
+            }
+            else if (ToolKinds.IsAgent(t.Name))
             {
                 <AgentPanel @key="t.Id" Session="Session" Agent="t" />
             }
