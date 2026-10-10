@@ -34,11 +34,17 @@
         focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body) el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
-        // to what had it (unless something, e.g. FocusOnNavigate, already took it).
+        // to what had it (unless something, e.g. FocusOnNavigate, already took it). Its input is its only focusable
+        // element and owns the keys: Tab keeps focus there, and a click on an option does not take it away.
         modal(open, el) {
             if (open) opener = document.activeElement;
             const app = document.querySelector('.app');
             if (app) app.inert = open;
+            const dlg = el?.closest('[role=dialog]');
+            if (open && dlg) {
+                dlg.onkeydown = e => { if (e.key === 'Tab') { e.preventDefault(); el.focus(); } };
+                dlg.onfocusout = e => { if (!dlg.contains(e.relatedTarget)) queueMicrotask(() => el.isConnected && el.focus()); };
+            }
             if (open) el?.focus();
             else if (opener?.isConnected && (!document.activeElement || document.activeElement === document.body)) opener.focus();
         },

@@ -57,6 +57,7 @@
     IReadOnlyList<PastSession> recent = [];
     Task loading = Task.CompletedTask;
     DateTimeOffset loadedAt;
+    int loadedGen = -1;   // TranscriptStore.Generation of the list shown: a newer one (a session was stopped) skips the throttle
 
     protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; LoadRecent(); }
     void Refresh() { LoadRecent(); InvokeAsync(StateHasChanged); }
@@ -64,9 +65,16 @@
     // TranscriptStore.Recent reads up to ~4 MB of transcripts when its 30 s cache expires: off the render thread, at most every 30 s.
     void LoadRecent()
     {
-        if (!RendererInfo.IsInteractive || !loading.IsCompleted || DateTimeOffset.Now - loadedAt < TimeSpan.FromSeconds(30)) return;
+        if (!RendererInfo.IsInteractive || !loading.IsCompleted
+            || (loadedGen == TranscriptStore.Generation && DateTimeOffset.Now - loadedAt < TimeSpan.FromSeconds(30))) return;
         loadedAt = DateTimeOffset.Now;
-        loading = Task.Run(async () => { recent = TranscriptStore.Recent(); await InvokeAsync(StateHasChanged); });
+        loading = Task.Run(async () =>
+        {
+            int g;   // invalidated while reading (a Stop during the scan): read again, its Changed found this load busy
+            do { g = TranscriptStore.Generation; recent = TranscriptStore.Recent(); } while (g != TranscriptStore.Generation);
+            loadedGen = g;
+            await InvokeAsync(StateHasChanged);
+        });
     }
     public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; }
 }
