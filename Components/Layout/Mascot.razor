@@ -4,7 +4,7 @@
 
 @{ var st = State; }
 <div class="mascot">
-    <div class="duck"><Duck Mood="st.Mood" Size="48" /></div>
+    <div class="duck"><BlazorKawaii.Components.RubberDuck Mood="st.Mood" Size="48" Color="#FCCC0A" /></div>
     <div><b>@st.Title</b>@st.Text</div>
 </div>
 
@@ -16,12 +16,12 @@
             var all = Sessions.All;
             var pending = Sessions.DecisionQueue.Count();
             if (pending > 0)
-                return (Mood.Shocked, Strings.Plural(pending, "Mascot.Decision"), Strings.Kbd(L["Mascot.NextDecision"]));
+                return (Mood.Shocked, pending == 1 ? L["Mascot.Decision1"] : L["Mascot.DecisionN", pending], L["Mascot.NextDecision"]);
             var running = all.Count(s => s.Status == SessionStatus.Running);
             if (running > 0)
-                return (Mood.Excited, L["Mascot.Working"], Strings.Plural(running, "Mascot.Running"));
+                return (Mood.Excited, L["Mascot.Working"], running == 1 ? L["Mascot.Running1"] : L["Mascot.RunningN", running]);
             if (all.LastOrDefault(s => s.Status == SessionStatus.Crashed) is { } c)
-                return (Mood.Sad, L["Mascot.Crashed"], $"{c.Name} · {c.ExitLabel}");
+                return (Mood.Sad, L["Mascot.Crashed"], $"{c.Name} · exit {c.ExitCode}");
             // ponytail: re-evaluated on the next session event, not by a timer at the 5-minute mark
             if (all.Where(s => s.LastResultSubtype == "success" && s.LastResultAt > DateTimeOffset.Now.AddMinutes(-5)).MaxBy(s => s.LastResultAt) is { } d)
                 return (Mood.Blissful, L["Mascot.TurnDone"], d.LastTurn is { } t ? $"{d.Name} · {Fmt.Dur(t)}" : d.Name);

@@ -4,7 +4,7 @@
 
 <Ticker Active="Agents.Any(a => a.EndedAt is null)">
 <div class="wf">
-    <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">@L["Workflow.Tag"]</span><span class="r">@Head</span></div>
+    <div class="wh"><Icon Name="agents" /><b>@L["Workflow.Subagents"]</b><span class="tag">workflow</span><span class="r">@Head</span></div>
     @foreach (var a in Agents)
     {
         var isOpen = open.Contains(a.Id);
@@ -12,14 +12,15 @@
             <Icon Name="@(isOpen ? "down" : "right")" Sm Class="chev" />
             @if (a.State == ToolState.Done)
             {
-                <span class="dot done"></span>
+                <span class="dot idle" style="box-shadow:inset 0 0 0 1.5px var(--ok)"></span>
             }
             else
             {
                 <span class="dot @(a.State switch { ToolState.Running => "run", ToolState.Waiting => "wait", _ => "err" })"></span>
             }
-            <span class="nm">@(Events.Str(a.Input, "description") ?? L["Agent.Title"]) <small>@Events.Str(a.Input, "subagent_type")</small></span>
+            <span class="nm">@(Events.Str(a.Input, "description") ?? "agent") <small>@Events.Str(a.Input, "subagent_type")</small></span>
             <span class="m">@State(a)</span>
+            <span class="m">—</span>
         </button>
         @if (isOpen && Children(a) is { Count: > 0 } kids)
         {
@@ -55,7 +56,7 @@
     {
         get
         {
-            var n = Strings.Plural(Agents.Count, "Agents");
+            var n = Agents.Count == 1 ? "1 agent" : $"{Agents.Count} agents";
             var d = Agents.Max(a => a.EndedAt ?? DateTimeOffset.Now) - Agents.Min(a => a.StartedAt);
             return $"{n} · {Fmt.Dur(d)}";
         }
@@ -63,7 +64,7 @@
 
     static string State(ToolItem a)
     {
-        var tokens = a.Tokens > 0 ? Strings.Get("Workflow.Tokens", Fmt.Tokens(a.Tokens)) + " · " : "";
+        var tokens = a.Tokens > 0 ? $"{Fmt.Tokens(a.Tokens)} tokens · " : "";
         return tokens + a.State switch
         {
             ToolState.Running => Strings.Get("Status.Running") + " · " + Fmt.Dur(Elapsed(a)),
