@@ -186,6 +186,18 @@
   <data name="Ext.Filter.Auth" xml:space="preserve"><value>Authentification</value></data>
   <data name="Ext.Filter.Connected" xml:space="preserve"><value>Connectés</value></data>
   <data name="Ext.Filter.Failed" xml:space="preserve"><value>En échec</value></data>
+  <data name="Ext.Col.Command" xml:space="preserve"><value>Commande</value></data>
+  <data name="Ext.Col.Event" xml:space="preserve"><value>Événement</value></data>
+  <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
+  <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>Une politique ou un réglage désactive les hooks : aucun de ceux-ci ne s’exécute.</value></data>
+  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Les hooks que le CLI exécute pour les sessions dans {0}, tels qu’il les rapporte. Lecture seule : ils se trouvent dans les fichiers de réglages indiqués sous Source.</value></data>
+  <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>désactivé</value></data>
+  <data name="Ext.Hooks.None" xml:space="preserve"><value>Aucun hook configuré pour ce dossier.</value></data>
+  <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Impossible de lire les hooks : {0}</value></data>
+  <data name="Hook.Blocking" xml:space="preserve"><value>erreur bloquante · code 2</value></data>
+  <data name="Hook.Failed" xml:space="preserve"><value>échec · code {0}</value></data>
+  <data name="Hook.Output" xml:space="preserve"><value>sortie</value></data>
+  <data name="Hook.Title" xml:space="preserve"><value>Hooks</value></data>
   <data name="Ext.Kv.Scope" xml:space="preserve"><value>portée</value></data>
   <data name="Ext.Kv.Source" xml:space="preserve"><value>source</value></data>
   <data name="Ext.Kv.Target" xml:space="preserve"><value>cible</value></data>
@@ -195,6 +207,7 @@
   <data name="Ext.NoSession" xml:space="preserve"><value>Démarre une session pour voir ce que le CLI charge.</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
+  <data name="Ext.Scope.Plugin" xml:space="preserve"><value>plugin</value></data>
   <data name="Ext.Scope.Project" xml:space="preserve"><value>projet</value></data>
   <data name="Ext.Scope.User" xml:space="preserve"><value>utilisateur</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connecté</value></data>
@@ -203,6 +216,7 @@
   <data name="Ext.State.NeedsAuth" xml:space="preserve"><value>authentification requise</value></data>
   <data name="Ext.State.Pending" xml:space="preserve"><value>connexion…</value></data>
   <data name="Ext.Tab.Agents" xml:space="preserve"><value>Agents</value></data>
+  <data name="Ext.Tab.Hooks" xml:space="preserve"><value>Hooks</value></data>
   <data name="Ext.Tab.Plugins" xml:space="preserve"><value>Plugins</value></data>
   <data name="Ext.Tab.Skills" xml:space="preserve"><value>Skills</value></data>
   <data name="Filter.All" xml:space="preserve"><value>Tous</value></data>

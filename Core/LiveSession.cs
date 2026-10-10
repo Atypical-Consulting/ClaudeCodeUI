@@ -14,6 +14,7 @@ public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnly
 public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null) : Item;   // Uuid: where "Fork from here" cuts
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
+public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -374,7 +375,7 @@ public sealed class LiveSession : IAsyncDisposable
     internal List<string> Args(bool resume)
     {
         var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text",
-            TodoList.AllowedToolsArg };
+            TodoList.AllowedToolsArg, "--include-hook-events" };
         if (resume) args.AddRange(["--resume", Id]);
         else if (ForkOf is { } src)
         {
@@ -758,6 +759,10 @@ public sealed class LiveSession : IAsyncDisposable
                 }
                 break;
 
+            case HookEvt h when Shown(h):
+                Items = Items.Add(new HookItem(h));
+                break;
+
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
                 break;
@@ -775,18 +780,25 @@ public sealed class LiveSession : IAsyncDisposable
         return [.. i < 0 ? items : items.Take(i + 1)];
     }
 
+    // A silent success is the common case (and most of the stream's hook events): nothing to show. Context a hook injects
+    // into the prompt is for the model, not to read: a successful SessionStart (plugins: ~11 KB per start) or SubagentStart
+    // (~5 KB per Agent call, measured on 2.1.296), and any output that is only hookSpecificOutput.additionalContext.
+    internal static bool Shown(HookEvt h) =>
+        h.Outcome != "success"
+        || h.Output.Length > 0 && !h.Name.StartsWith("SessionStart") && !h.Name.StartsWith("SubagentStart") && !Events.ContextOnly(h.Output);
+
     // send → tool_use → permission → deny → result, replayed on the reducer only.
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };
-        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
-        Ok(fork.Args(true) is [_, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
+        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
+        Ok(fork.Args(true) is [_, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
         Item[] h = [new UserItem("a", default, false), new TextItem("b", null, "u1"), new UserItem("c", default, false), new TextItem("d", null, "u2")];
         Ok(Upto(h, "u1") is [UserItem, TextItem { Uuid: "u1" }] && Upto(h, null).Count == 4, "fork history cut");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
@@ -801,6 +813,33 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(ae.Items is [ApiErrorItem { Error.Raw: apiErr }, TextItem, TextItem], "api error item only for synthetic API Error text");
         ae.Apply(new AssistantTextEvt("m", "x", null, false, "u9"));
         Ok(ae.Items[^1] is TextItem { Uuid: "u9" }, "text item keeps the message uuid");
+
+        var hk = new LiveSession("hk", "hk", @"C:\w", "default");
+        hk.Apply(new HookEvt("Stop", "success", 0, ""));
+        hk.Apply(new HookEvt("UserPromptSubmit", "success", 0, "context"));
+        hk.Apply(new HookEvt("SessionStart:startup", "success", 0, "plugin prompt"));
+        hk.Apply(new HookEvt("PreToolUse:Write", "error", 2, "nope"));
+        hk.Apply(new HookEvt("SessionStart:resume", "error", 1, "boom"));
+        Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }, HookItem { Hook.ExitCode: 1 }],
+            "silent hooks and successful SessionStart hidden, output and errors kept");
+
+        // claude 2.1.296, two Agent calls in a row: each streams a successful SubagentStart (plugin context, plain or JSON)
+        // between its tool_use and its result, then a silent PostToolBatch. None of it is shown, the agents share one Workflow.
+        var sa = new LiveSession("sa", "sa", @"C:\w", "default");
+        const string ctx = """{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":"PONYTAIL MODE ACTIVE"}}""";
+        foreach (var id in new[] { "a1", "a2" })
+        {
+            sa.Apply(new ToolUseEvt(id, "Agent", input, null));
+            sa.Apply(new HookEvt("SubagentStart:general-purpose", "success", 0, ctx));
+            sa.Apply(new HookEvt("SubagentStart:general-purpose", "success", 0, "plain context"));
+            sa.Apply(new ToolResultEvt(id, "ok", false, null));
+            sa.Apply(new HookEvt("PostToolBatch", "success", 0, ""));
+        }
+        sa.Apply(new HookEvt("UserPromptSubmit", "success", 0, ctx.Replace("SubagentStart", "UserPromptSubmit")));
+        sa.Apply(new HookEvt("SubagentStart:Explore", "error", 1, "boom"));
+        Ok(sa.Items is [ToolItem, ToolItem, HookItem { Hook.Name: "SubagentStart:Explore" }]
+           && ThreadBlocks.Of(sa.Items) is [ThreadBlocks.Run { Agents: true, Tools.Count: 2 }, ThreadBlocks.Hooks],
+            "successful SubagentStart and context-only output hidden, a failing one kept");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try
