@@ -324,7 +324,6 @@
   <data name="New.CheckAgain" xml:space="preserve"><value>Check again</value></data>
   <data name="New.DefaultModel" xml:space="preserve"><value>Default model</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Edit</value></data>
-  <data name="New.FirstMessage" xml:space="preserve"><value>First message</value></data>
   <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Working folder</value></data>
   <data name="New.Guide" xml:space="preserve"><value>Full guide:</value></data>
@@ -344,7 +343,6 @@
   <data name="New.NpmShimText" xml:space="preserve"><value>Only the npm shim &lt;code&gt;claude.cmd&lt;/code&gt; is on the PATH. This app starts &lt;code&gt;claude.exe&lt;/code&gt; directly: install the native build with the Windows command below.</value></data>
   <data name="New.NotGit" xml:space="preserve"><value>not a git repository</value></data>
   <data name="New.Permissions" xml:space="preserve"><value>Permissions</value></data>
-  <data name="New.Placeholder" xml:space="preserve"><value>Describe the task…</value></data>
   <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} edits this folder without asking, outside an isolated worktree.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Start</value></data>
   <data name="New.StartAnyway" xml:space="preserve"><value>Start anyway</value></data>
@@ -358,8 +356,6 @@
   <data name="New.Worktree" xml:space="preserve"><value>New worktree</value></data>
   <data name="New.WorktreeFrom" xml:space="preserve"><value>{0} from {1}</value></data>
   <data name="New.WorktreeName" xml:space="preserve"><value>Worktree name</value></data>
-  <data name="New.Naming" xml:space="preserve"><value>naming…</value></data>
-  <data name="New.Named" xml:space="preserve"><value>Worktree named {0}</value></data>
   <data name="NotFound.Heading" xml:space="preserve"><value>Nothing lives at this address.</value></data>
   <data name="NotFound.Text" xml:space="preserve"><value>The link may be out of date or mistyped. Start a new session or open the overview.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Not found</value></data>
@@ -485,6 +481,7 @@
   <data name="Session.UnknownError" xml:space="preserve"><value>unknown error</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Settings</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>built-in</value></data>
+  <data name="Slash.Loading" xml:space="preserve"><value>Loading commands…</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commands and skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Agents are working…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>done</value></data>

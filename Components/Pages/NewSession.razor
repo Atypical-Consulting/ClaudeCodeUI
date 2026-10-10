@@ -3,7 +3,6 @@
 @inject SessionManager Sessions
 @inject NavigationManager Nav
 @inject IJSRuntime JS
-@implements IDisposable
 
 <PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
@@ -36,7 +35,7 @@
         }
         else
         {
-        <div class="start-card">
+        <div class="start-card" @onkeydown="Keys">
             <div class="hello">
                 <div class="duck"><Duck Mood="Mood.Happy" Size="88" /></div>
                 <div><h2>@L["New.Hello"]</h2><p>@L["New.HelloText"]</p></div>
@@ -81,7 +80,7 @@
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
                 <div class="input iso" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
-                            @onclick="() => { worktree = !worktree; confirmRisk = false; _ = Name(); }"><span class="sw"></span>@L["New.Worktree"]</button>
+                            @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null && RendererInfo.IsInteractive)
                     {
                         <span class="branch">@L["New.NotGit"]</span>
@@ -95,10 +94,8 @@
                     else if (Isolated)
                     {
                         <span class="branch" title="@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]</span>
-                        @if (Naming) { <span class="naming">@L["New.Naming"]</span> }
                         <button class="b btn ghost" @ref="editBtn" @onclick="EditName">@L["New.Edit"]</button>
                     }
-                    <span class="vh" aria-live="polite">@named</span>
                 </div>
             </div>
             <div class="field">
@@ -123,14 +120,10 @@
                     }
                 </div>
             </div>
-            <div>
-                <div class="box" style="max-width:none">
-                    <textarea @bind="prompt" @bind:event="oninput" @bind:after="Name" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
-                    <div class="row">
-                        @if (confirmRisk) { <span class="risk" role="alert">@L[addDirs.Count > 0 ? "Dirs.ConfirmRisky" : "New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
-                        <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
-                    </div>
-                </div>
+            @* As in the terminal: the session opens first, the prompt is written in its composer (slash commands load meanwhile). *@
+            <div class="row">
+                @if (confirmRisk) { <span class="risk" role="alert">@L[addDirs.Count > 0 ? "Dirs.ConfirmRisky" : "New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
+                <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
             </div>
             <div class="hint"><span><kbd>@Strings.Kbd("Ctrl K")</kbd> @L["New.HintSwitch"]</span><span><kbd>@Strings.Kbd("Alt N")</kbd> @L["New.HintNew"]</span><span><kbd>@Strings.Kbd("Ctrl I")</kbd> @L["New.HintInspector"]</span></div>
         </div>
@@ -144,7 +137,7 @@
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
+    string cwd = Directory.GetCurrentDirectory(), mode = "default", model = "", effort = "";
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
     string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
@@ -158,40 +151,9 @@
     bool Isolated => worktree && branch is not null;
     // The desktop shell starts in ~: Claude could touch every dotfile there, with no worktree to isolate it.
     bool IsHome => string.Equals(Path.TrimEndingDirectorySeparator(cwd), Path.TrimEndingDirectorySeparator(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), StringComparison.OrdinalIgnoreCase);
-    string WtName => wtName ?? (suggested.For == prompt.Trim() ? suggested.Name : null) ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
-
-    // Haiku's name for the prompt it was asked about; a manual name (wtName) always wins and is never overwritten.
-    (string? For, string? Name) suggested;
-    Task<string?>? naming;
-    string? namingFor, named;   // named: announced once when a suggestion lands
-    CancellationTokenSource? debounce;
-    bool Naming => naming is not null && namingFor == prompt.Trim();
-
-    // ~1 s after the prompt stops changing; nothing to name outside an isolated worktree or under a typed name.
-    async Task Name()
-    {
-        debounce?.Cancel();
-        var text = prompt.Trim();
-        if (!Isolated || wtName is not null || text.Length < 12 || suggested.For == text) return;
-        var ct = (debounce = new()).Token;
-        try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { return; }
-        naming = WorktreeNamer.Suggest(text, ct);
-        namingFor = text;
-        StateHasChanged();
-        var name = await naming;
-        if (ct.IsCancellationRequested) return;   // newer keystrokes own the hint now
-        naming = null;
-        Land(text, name);
-        StateHasChanged();   // the toggle fires Name() and forgets it: nothing else renders the landed name
-    }
-
-    void Land(string text, string? name)
-    {
-        suggested = (text, name);
-        if (name is not null && wtName is null) named = L["New.Named", "worktree-" + name];
-    }
-
-    public void Dispose() => debounce?.Cancel();
+    // Generated like the terminal's (`claude -w`), one per visit; Edit replaces it.
+    readonly string generated = TranscriptStore.RandomName();
+    string WtName => wtName ?? generated;
 
     protected override void OnInitialized()
     {
@@ -275,8 +237,7 @@
 
     void EditName() { draft = editFrom = WtName; editing = true; focusName = true; }
 
-    // A draft that sanitizes to nothing falls back to the name derived from the prompt. An untouched draft is no manual
-    // name: Edit then OK must not freeze the heuristic over a pending Haiku name, nor stop it following the prompt.
+    // A draft that sanitizes to nothing keeps the generated name.
     void CommitName() { if (draft != editFrom) wtName = TranscriptStore.WorktreeName(draft); editing = false; focusName = false; }
 
     void NameKeys(KeyboardEventArgs e)
@@ -300,16 +261,10 @@
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
         // auto / acceptEdits edit the folder unasked: outside an isolated worktree, or with an extra folder (never isolated), the second Start confirms.
         if (LiveSession.Risky(mode) && (addDirs.Count > 0 || !Isolated && TranscriptStore.RootOf(cwd) == cwd) && !confirmRisk) { confirmRisk = true; busy = false; return; }
-        // A pending suggestion is worth its wait: the shared call is bounded by WorktreeNamer.Timeout and never throws.
-        if (Isolated && wtName is null && naming is { } pending && namingFor == prompt.Trim()) Land(namingFor, await pending);
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
-        var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
+        // The CLI retitles the session after the first prompt (session_title_changed).
+        var name = wt ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
         var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
-        if (prompt.Trim() is { Length: > 0 } text)
-        {
-            try { await s.Send(text); }
-            catch (Exception ex) { s.Draft = text; Console.Error.WriteLine($"[{s.Id}] premier message : {ex.Message}"); }   // the session page shows the crash, and the prompt back in its composer
-        }
         Nav.NavigateTo($"session/{s.Id}");
     }
 }

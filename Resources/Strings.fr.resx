@@ -324,7 +324,6 @@
   <data name="New.CheckAgain" xml:space="preserve"><value>Vérifier à nouveau</value></data>
   <data name="New.DefaultModel" xml:space="preserve"><value>Modèle par défaut</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Modifier</value></data>
-  <data name="New.FirstMessage" xml:space="preserve"><value>Premier message</value></data>
   <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Dossier de travail</value></data>
   <data name="New.Guide" xml:space="preserve"><value>Guide complet :</value></data>
@@ -344,7 +343,6 @@
   <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
   <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d’un lien et tu ne l’as jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
   <data name="New.Permissions" xml:space="preserve"><value>Permissions</value></data>
-  <data name="New.Placeholder" xml:space="preserve"><value>Décris la tâche…</value></data>
   <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} modifie ce dossier sans demander, hors d’un worktree isolé.</value></data>
   <data name="New.Start" xml:space="preserve"><value>Démarrer</value></data>
   <data name="New.StartAnyway" xml:space="preserve"><value>Démarrer quand même</value></data>
@@ -358,8 +356,6 @@
   <data name="New.Worktree" xml:space="preserve"><value>Nouveau worktree</value></data>
   <data name="New.WorktreeFrom" xml:space="preserve"><value>{0} depuis {1}</value></data>
   <data name="New.WorktreeName" xml:space="preserve"><value>Nom du worktree</value></data>
-  <data name="New.Naming" xml:space="preserve"><value>nommage…</value></data>
-  <data name="New.Named" xml:space="preserve"><value>Worktree nommé {0}</value></data>
   <data name="NotFound.Heading" xml:space="preserve"><value>Il n’y a rien à cette adresse.</value></data>
   <data name="NotFound.Text" xml:space="preserve"><value>Le lien est peut-être périmé ou mal saisi. Démarre une nouvelle session ou ouvre la vue d’ensemble.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Introuvable</value></data>
@@ -485,6 +481,7 @@
   <data name="Session.UnknownError" xml:space="preserve"><value>erreur inconnue</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Réglages</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>intégrée</value></data>
+  <data name="Slash.Loading" xml:space="preserve"><value>Chargement des commandes…</value></data>
   <data name="Slash.Title" xml:space="preserve"><value>Commandes et skills</value></data>
   <data name="Status.AgentsWorking" xml:space="preserve"><value>Les agents travaillent…</value></data>
   <data name="Status.Done" xml:space="preserve"><value>terminée</value></data>

@@ -35,7 +35,7 @@ Lance ensuite `claude` une fois dans un terminal pour te connecter. Si `claude` 
 
 ## Fonctionnalités
 
-- Nouvelle session : dossier, worktree isolé, mode de permission, premier message.
+- Nouvelle session : dossier, worktree isolé (nom généré), mode de permission ; la session s'ouvre, puis on écrit le premier message.
 - Texte en direct, indicateur de réflexion, journal d'outils avec inspecteur (sortie, entrée, JSON).
 - Demandes de permission avec diff : autoriser, refuser, ou autoriser pour toute la session.
 - Vue d'ensemble de toutes les sessions et file des décisions en attente (Ctrl ⇧ A).
