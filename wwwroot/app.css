@@ -6,7 +6,7 @@
   --fg:#EDEEF0; --fg-2:#C7CAD0; --fg-3:#9095A0; --fg-4:#83888F; --fg-5:#5C6068; --prose:#BCC0C7;
   --accent:#E8875B; --accent-ink:#1A0D06;
   --ok:#C3E88D; --err:#F07178;
-  --syn-kw:#C792EA; --syn-str:#C3E88D; --syn-fn:#82AAFF; --syn-type:#FFCB6B; --syn-num:#F78C6C; --syn-com:#7F848E; --syn-attr:#89DDFF; --syn-var:#F07178; --code-inline:#E6C07B;
+  --syn-kw:#C792EA; --syn-str:#C3E88D; --syn-fn:#82AAFF; --syn-type:#FFCB6B; --syn-num:#F78C6C; --syn-com:#8A8F99; --syn-attr:#89DDFF; --syn-var:#F07178; --code-inline:#E6C07B;
 }
 [data-theme="encre"]{
   --page:#060912; --ground:#0B1020; --sunk:#080C18; --raise:#121A2E; --raise-2:#162036; --field:#0E1528; --hair:#141C30;
@@ -14,7 +14,7 @@
   --fg:#E6ECFA; --fg-2:#C0CAE0; --fg-3:#8D9AB8; --fg-4:#7F8BA8; --fg-5:#56617C; --prose:#B7C2DA;
   --accent:#7DCFFF; --accent-ink:#051421;
   --ok:#9ECE6A; --err:#F7768E;
-  --syn-kw:#BB9AF7; --syn-str:#9ECE6A; --syn-fn:#7AA2F7; --syn-type:#E0AF68; --syn-num:#FF9E64; --syn-com:#7A84AE; --syn-attr:#73DACA; --syn-var:#F7768E; --code-inline:#E0AF68;
+  --syn-kw:#BB9AF7; --syn-str:#9ECE6A; --syn-fn:#7AA2F7; --syn-type:#E0AF68; --syn-num:#FF9E64; --syn-com:#8792BA; --syn-attr:#73DACA; --syn-var:#F7768E; --code-inline:#E0AF68;
 }
 [data-theme="ristretto"]{
   --page:#0C0907; --ground:#15110E; --sunk:#110E0B; --raise:#1E1915; --raise-2:#241E19; --field:#1A1511; --hair:#211B16;
@@ -22,7 +22,7 @@
   --fg:#F2E8DC; --fg-2:#D8CBBB; --fg-3:#A89887; --fg-4:#9A8B7B; --fg-5:#6E6153; --prose:#CDBFAF;
   --accent:#E6B450; --accent-ink:#1E1404;
   --ok:#B8BB26; --err:#FB4934;
-  --syn-kw:#FB4934; --syn-str:#B8BB26; --syn-fn:#83A598; --syn-type:#FABD2F; --syn-num:#D3869B; --syn-com:#998B7D; --syn-attr:#8EC07C; --syn-var:#FE8019; --code-inline:#FABD2F;
+  --syn-kw:#FB6A4A; --syn-str:#B8BB26; --syn-fn:#83A598; --syn-type:#FABD2F; --syn-num:#D3869B; --syn-com:#998B7D; --syn-attr:#8EC07C; --syn-var:#FE8019; --code-inline:#FABD2F;
 }
 [data-theme="mousse"]{
   --page:#070B09; --ground:#0D1210; --sunk:#0A0F0D; --raise:#141B18; --raise-2:#18211D; --field:#111815; --hair:#16201C;
@@ -635,7 +635,6 @@ textarea,input{caret-color:var(--accent)}
 .errbox{font:12px/1.5 var(--mono);color:var(--err-fg);background:var(--field);border:1px solid color-mix(in srgb,var(--err) 35%,transparent);border-radius:var(--r);padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
 
 .lc{font:inherit;color:inherit;background:none;padding:0;white-space:pre}
-.diff .del .lc{opacity:.85}
 
 /* polish 2: states for parity components, rail details */
 .pick,.filters .chip,.subtabs>*,.agent,.wfp,.wf .wh,.slash .si,.wtt tbody tr:not(.grp-row),.mcp tbody tr,.tc,.toggle{transition:background-color .15s cubic-bezier(.2,.8,.2,1),border-color .15s,color .15s}
