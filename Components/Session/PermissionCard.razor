@@ -51,7 +51,7 @@
             }
             @if (diff is not null)
             {
-                <DiffView Path="@ToolKinds.Target(Permission.Input, Session.Cwd)" Lines="diff" />
+                <DiffView Path="@ToolKinds.Target(Permission.Tool, Permission.Input, Session.Cwd)" Lines="diff" />
             }
             else if (ToolKinds.IsShell(Permission.Tool))
             {
@@ -90,7 +90,7 @@
                 <a class="q" href="session/@s.Id" style="grid-template-columns:auto 84px minmax(0,1fr);padding:0;border:0">
                     <span class="dot wait"></span>
                     <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
-                    <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Input, s.Cwd)</span></span>
+                    <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Tool, p.Input, s.Cwd)</span></span>
                 </a>
             }
         </div>

@@ -1,0 +1,36 @@
+@* The agent's task list (LiveSession.Todos), pinned between the thread and the composer like the terminal's todo panel.
+   Open while work is left, unless the header was clicked; collapsed, it keeps one line: progress and the task in progress. *@
+
+@{ var todos = Session.Todos; }
+@if (todos.Count > 0)
+{
+    var now = todos.FirstOrDefault(t => t.Status == TodoStatus.InProgress);
+    var isOpen = open ?? todos.Any(t => t.Status != TodoStatus.Completed);
+    <section class="todos" aria-label="@L["Todo.Title"]">
+        <button type="button" class="th" aria-expanded="@(isOpen ? "true" : "false")" aria-controls="@(isOpen ? "todo-list" : null)" @onclick="() => open = !isOpen">
+            <Icon Name="@(isOpen ? "down" : "right")" Sm /><span class="cap">@L["Todo.Title"]</span><span class="n">@TodoList.Progress(todos)</span>
+            @if (!isOpen && now is not null)
+            {
+                <span class="now">@now.Label</span>
+            }
+        </button>
+        @if (isOpen)
+        {
+            <ul id="todo-list">
+                @foreach (var t in todos)
+                {
+                    <li @key="t.Key" class="@Css(t.Status)">
+                        <span class="mk" role="img" aria-label="@TodoList.StatusLabel(t.Status)">@if (t.Status == TodoStatus.Completed) {<Icon Name="check" Sm />}</span>@t.Label
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    bool? open;   // per session: SessionPage keys its pane by S.Id, so switching sessions mounts a fresh panel
+
+    static string? Css(TodoStatus s) => s switch { TodoStatus.InProgress => "now", TodoStatus.Completed => "done", _ => null };
+}

@@ -2,7 +2,7 @@
 @using System.Text.Encodings.Web
 @inject UiState Ui
 
-<div class="ph"><h2 class="ttl">@L["Inspector"]</h2><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Input, Session.Cwd))</span>
+<div class="ph"><h2 class="ttl">@L["Inspector"]</h2><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Name, Tool.Input, Session.Cwd))</span>
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="tabs" role="tablist" aria-label="@L["Inspector"]">
@@ -19,7 +19,7 @@
             <div style="padding:16px">
                 @if (diff.Count > 0)
                 {
-                    <DiffView @key="diffState" Path="@ToolKinds.Target(Tool.Input, Session.Cwd)" Lines="diff" />
+                    <DiffView @key="diffState" Path="@ToolKinds.Target(Tool.Name, Tool.Input, Session.Cwd)" Lines="diff" />
                 }
                 else
                 {
@@ -60,7 +60,7 @@
         <span>@L["Tool.Kv.Tool"]</span><span>@Tool.Name</span>
         @if (FilePath is not null)
         {
-            <span>@L["Tool.Kv.File"]</span><span>@ToolKinds.Target(Tool.Input, Session.Cwd)</span>
+            <span>@L["Tool.Kv.File"]</span><span>@ToolKinds.Target(Tool.Name, Tool.Input, Session.Cwd)</span>
         }
         @if (readRange is { } range)
         {

@@ -13,6 +13,7 @@ public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
+public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -104,6 +105,7 @@ public sealed class LiveSession : IAsyncDisposable
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
+    public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
 
     public event Action? Changed;
 
@@ -238,7 +240,8 @@ public sealed class LiveSession : IAsyncDisposable
     // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
     internal List<string> Args(bool resume)
     {
-        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text" };
+        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text",
+            TodoList.AllowedToolsArg };
         if (resume) args.AddRange(["--resume", Id]);
         else
         {
@@ -579,6 +582,10 @@ public sealed class LiveSession : IAsyncDisposable
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
                 break;
+
+            case ResetEvt:
+                Items = Items.Add(new ResetItem());
+                break;
         }
     }
 
@@ -588,9 +595,9 @@ public sealed class LiveSession : IAsyncDisposable
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");

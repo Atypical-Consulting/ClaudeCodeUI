@@ -389,6 +389,12 @@
   <data name="Theme.ristretto" xml:space="preserve"><value>Ristretto</value></data>
   <data name="Thread.JumpLatest" xml:space="preserve"><value>New activity, jump to latest</value></data>
   <data name="Thread.You" xml:space="preserve"><value>you · {0}</value></data>
+  <data name="Todo.Completed" xml:space="preserve"><value>completed</value></data>
+  <data name="Todo.Deleted" xml:space="preserve"><value>deleted</value></data>
+  <data name="Todo.InProgress" xml:space="preserve"><value>in progress</value></data>
+  <data name="Todo.Pending" xml:space="preserve"><value>pending</value></data>
+  <data name="Todo.Progress" xml:space="preserve"><value>{0}/{1} done</value></data>
+  <data name="Todo.Title" xml:space="preserve"><value>Tasks</value></data>
   <data name="Tool.Applied" xml:space="preserve"><value>applied</value></data>
   <data name="Tool.Created" xml:space="preserve"><value>created</value></data>
   <data name="Tool.Denied" xml:space="preserve"><value>denied</value></data>
