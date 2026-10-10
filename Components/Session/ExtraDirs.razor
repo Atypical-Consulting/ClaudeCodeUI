@@ -1,0 +1,82 @@
+@using ClaudeCodeUI.Components.Pages
+
+@* Additional folders (--add-dir) and the field that adds one: an absolute path that exists on this machine. The parent
+   renders the <label for="@Id">. Without OnRemove the list is read-only: nothing verified takes a folder back from a running claude. *@
+
+@if (Dirs.Count > 0)
+{
+    <ul class="dirs" aria-label="@L["Dirs.Label"]">
+        @foreach (var d in Dirs)
+        {
+            <li class="chip" title="@d"><Icon Name="folder" Sm />@NewSession.Chip(d)
+                @if (OnRemove.HasDelegate)
+                {
+                    <button type="button" class="x" aria-label="@L["Dirs.Remove", d]" title="@L["Dirs.Remove", d]" @onclick="() => OnRemove.InvokeAsync(d)"><Icon Name="x" Sm /></button>
+                }
+            </li>
+        }
+    </ul>
+}
+<div class="input">
+    <Icon Name="folder" />
+    <input id="@Id" @bind="draft" @bind:event="oninput" @bind:after="Edited" @onkeydown="Keys" placeholder="@L["Dirs.Placeholder"]" disabled="@Disabled"
+           aria-invalid="@(error is null ? null : "true")" aria-describedby="@(error is null && confirmed is null ? null : Id + "-err")" spellcheck="false" autocomplete="off" />
+    <button type="button" class="b btn ghost" disabled="@(Disabled || busy || draft.Trim().Length == 0)" @onclick="Add"><Icon Name="plus" Sm />@(confirmed is null ? L["Dirs.Add"] : L["Dirs.AddAnyway"])</button>
+</div>
+@if (error is not null)
+{
+    <div id="@(Id)-err" class="errbox" role="alert">@error</div>
+}
+else if (confirmed is not null)
+{
+    <div id="@(Id)-err" class="risk" role="alert">@Confirm</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<string> Dirs { get; set; } = [];
+    [Parameter, EditorRequired] public string Cwd { get; set; } = "";
+    [Parameter] public EventCallback<string> OnAdd { get; set; }
+    [Parameter] public EventCallback<string> OnRemove { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    // Set when the session's mode edits unasked: an extra folder is never isolated, so the first Add shows this and the second adds.
+    [Parameter] public string? Confirm { get; set; }
+
+    string draft = "";
+    string? error, confirmed;
+    bool busy;
+
+    void Edited() { error = null; confirmed = null; }
+
+    // Adds a folder typed but not yet added (Start calls it, so it is not dropped); false, the reason shown, when it can't be.
+    public async Task<bool> Commit()
+    {
+        if (draft.Trim().Length == 0) return true;
+        await Add();
+        return draft.Length == 0;
+    }
+
+    async Task Keys(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.CtrlKey && !e.MetaKey) await Add();
+    }
+
+    async Task Add()
+    {
+        if (busy || Disabled || draft.Trim().Length == 0) return;
+        error = null;
+        if (LiveSession.ExtraDir(draft, Cwd, Dirs) is not { } d) { error = L["Dirs.Known"]; return; }
+        if (!NewSession.Local(d)) { error = L["Dirs.NoFolder"]; return; }
+        if (Path.GetPathRoot(d) == d) { error = L["Dirs.Root"]; return; }   // the whole drive is never a working folder
+        if (Confirm is not null && confirmed != d) { confirmed = d; return; }
+        busy = true;
+        try
+        {
+            await OnAdd.InvokeAsync(d);
+            draft = "";
+            confirmed = null;
+        }
+        catch (Exception ex) { error = L["Dirs.AddFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+}

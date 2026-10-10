@@ -69,6 +69,10 @@
                 }
             </div>
             <div class="field">
+                <label for="add-dir">@L["Dirs.Label"]</label>
+                <ExtraDirs @ref="extraDirs" Id="add-dir" Dirs="addDirs" Cwd="@cwd" OnAdd="d => { addDirs = addDirs.Add(d); confirmRisk = false; }" OnRemove="d => { addDirs = addDirs.Remove(d); confirmRisk = false; }" />
+            </div>
+            <div class="field">
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
                 <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
@@ -116,7 +120,7 @@
                 <div class="box" style="max-width:none">
                     <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
                     <div class="row">
-                        @if (confirmRisk) { <span class="risk" role="alert">@L["New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
+                        @if (confirmRisk) { <span class="risk" role="alert">@L[addDirs.Count > 0 ? "Dirs.ConfirmRisky" : "New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
                         <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                     </div>
                 </div>
@@ -138,6 +142,8 @@
     ElementReference cwdInput;
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
+    System.Collections.Immutable.ImmutableList<string> addDirs = [];
+    ExtraDirs? extraDirs;
     bool claudeFound = true;   // probed once interactive, not during the prerender
 
     bool Isolated => worktree && branch is not null;
@@ -182,7 +188,7 @@
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
-    static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
+    internal static bool Local(string d) => Path.IsPathFullyQualified(d) && !d.StartsWith(@"\\") && !d.StartsWith("//") && Directory.Exists(d);
 
     // Current branch ("HEAD" when detached), null outside a git repo.
     static async Task<string?> Branch(string dir) => await Git(dir, "branch", "--show-current") is { } b ? b.Length > 0 ? b : "HEAD" : null;
@@ -231,12 +237,13 @@
         if (busy) return;
         if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
+        if (extraDirs is not null && !await extraDirs.Commit()) { busy = false; return; }   // a typed folder is not dropped
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
-        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, the second Start confirms.
-        if (LiveSession.Risky(mode) && !Isolated && TranscriptStore.RootOf(cwd) == cwd && !confirmRisk) { confirmRisk = true; busy = false; return; }
+        // auto / acceptEdits edit the folder unasked: outside an isolated worktree, or with an extra folder (never isolated), the second Start confirms.
+        if (LiveSession.Risky(mode) && (addDirs.Count > 0 || !Isolated && TranscriptStore.RootOf(cwd) == cwd) && !confirmRisk) { confirmRisk = true; busy = false; return; }
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
-        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null);
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
         if (prompt.Trim() is { Length: > 0 } text)
         {
             try { await s.Send(text); }

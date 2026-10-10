@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -961,6 +961,88 @@ public static class CliProbe
             foreach (var f in new[] { claudeMd, notes, dotClaude, local }) File.Delete(f);
         }
     }
+
+    // add-dir: `--add-dir <folder>` lets Read open a file there with 0 can_use_tool, and list_permission_rules lists it.
+    // add-dir-live: mid-session, apply_flag_settings {permissions:{additionalDirectories}} does the same, and a later
+    // apply_flag_settings for another key (SetEffort) keeps it; the payload is the whole list, as the UI sends it. ("/add-dir" as user text answers "isn't available in this
+    // environment" on 2.1.296; the add_directory control request is for cloud containers: mount_path under /uploads/.)
+    // add-dir-edits: after set_permission_mode acceptEdits, Write creates a file in an --add-dir folder with 0 can_use_tool:
+    // an extra folder is never isolated, so a risky mode with one is confirmed (LiveSession.Isolated).
+    // add-dir-resume: --resume alone forgets the folders (the CLI asks again), --resume with one --add-dir each keeps them.
+    static async Task<IEnumerable<(string, string, string)>> AddDir(string dir)
+    {
+        string a = dir + "-extra-a", b = dir + "-extra-b", id = Guid.NewGuid().ToString();
+        foreach (var (d, word) in new[] { (a, "PELICAN"), (b, "HERON") })
+        {
+            Directory.CreateDirectory(d);
+            File.WriteAllText(Path.Combine(d, "note.txt"), $"The secret word is {word}.\n");
+        }
+        try
+        {
+            IEnumerable<(string, string, string)> first;
+            await using (var c = await Cli.Start(dir, "--session-id", id, "--add-dir", a))
+                first = await Guard(["add-dir", "add-dir-live", "add-dir-edits"], async () =>
+                {
+                    var (ran, asked, word) = await ReadNote(c, a, "PELICAN");
+                    var start = Verdict(ran, asked, word, await Listed(c, a));
+
+                    await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["permissions"] = new JsonObject { ["additionalDirectories"] = new JsonArray(a, b) } } });
+                    await c.S.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["effortLevel"] = "low" } });
+                    (ran, asked, word) = await ReadNote(c, b, "HERON");
+                    var live = Verdict(ran, asked, word, await Listed(c, b) && await Listed(c, a));
+
+                    await c.S.Request("set_permission_mode", new() { ["mode"] = "acceptEdits" });
+                    var target = Path.Combine(a, "edited.txt");
+                    var prompts = 0;
+                    var turn = await c.Turn($"Use the Write tool to create {target} containing the word OSPREY. Reply done.", e =>
+                    {
+                        if (Events.Str(e.GetProperty("request"), "tool_name") is "Write" or "Edit") prompts++;
+                        return Task.FromResult(false);
+                    });
+                    var writes = turn.Sum(e => ToolUses(e).Count(n => n == "Write"));
+                    var written = File.Exists(target) && File.ReadAllText(target).Contains("OSPREY");
+                    var edits = $"acceptEdits: {writes} Write, {prompts} prompt(s), file {(written ? "written" : "absent")}";
+                    return [start, live, writes == 0 ? ("FAIL", "inconclusive: no Write tool_use") : prompts == 0 && written ? ("PASS", edits) : ("FAIL", edits)];
+                });
+
+            var resume = await Guard(["add-dir-resume"], async () =>
+            {
+                int bare;
+                await using (var c = await Cli.Start(dir, "--resume", id))
+                    (_, bare, _) = await ReadNote(c, a, "PELICAN");
+                await using var r = await Cli.Start(dir, "--resume", id, "--add-dir", a, "--add-dir", b);
+                var (ranA, askedA, wordA) = await ReadNote(r, a, "PELICAN");
+                var (ranB, askedB, wordB) = await ReadNote(r, b, "HERON");
+                var detail = $"--resume alone: {bare} prompt(s); with --add-dir a --add-dir b: {ranA + ranB} Read, {askedA + askedB} prompt(s), words {(wordA && wordB ? "found" : "missing")}";
+                return [bare > 0 && ranA > 0 && ranB > 0 && askedA + askedB == 0 && wordA && wordB ? ("PASS", detail) : ("FAIL", detail)];
+            }, Seconds * 3);   // two more cold starts
+            return [.. first, .. resume];
+        }
+        finally { foreach (var d in new[] { a, b }) try { Directory.Delete(d, true); } catch { } }
+
+        static (string, string) Verdict(int ran, int asked, bool word, bool listed) =>
+            ran == 0 ? ("FAIL", "inconclusive: no Read tool_use")
+            : asked == 0 && word && listed ? ("PASS", "Read ran with 0 prompts, word found, listed in workspaceDirectories")
+            : ("FAIL", $"{asked} prompt(s), word {(word ? "found" : "missing")}, listed={listed}");
+    }
+
+    // One turn reading <folder>/note.txt. A can_use_tool is counted, then allowed (Turn's default) so the turn ends.
+    static async Task<(int Ran, int Asked, bool Word)> ReadNote(Cli c, string folder, string word)
+    {
+        var asked = 0;
+        var turn = await c.Turn($"Use the Read tool on {Path.Combine(folder, "note.txt")} and reply with the secret word only.", e =>
+        {
+            if (Events.Str(e.GetProperty("request"), "tool_name") == "Read") asked++;
+            return Task.FromResult(false);
+        });
+        return (turn.Sum(e => ToolUses(e).Count(n => n == "Read")), asked, Events.Str(turn[^1], "result")?.Contains(word) == true);
+    }
+
+    // list_permission_rules.state.workspaceDirectories[].path names the folder (realpath: /tmp may read /private/tmp).
+    static async Task<bool> Listed(Cli c, string folder) =>
+        Events.Prop(await c.S.Request("list_permission_rules"), "state") is { } st
+        && Events.Prop(st, "workspaceDirectories") is { ValueKind: JsonValueKind.Array } a
+        && a.EnumerateArray().Any(d => Events.Str(d, "path")?.EndsWith(Path.GetFileName(folder)) == true);
 
     // ---------- plumbing ----------
 

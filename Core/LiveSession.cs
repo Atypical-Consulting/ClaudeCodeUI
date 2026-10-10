@@ -81,13 +81,16 @@ public sealed class LiveSession : IAsyncDisposable
 
     // Modes the UI offers. bypassPermissions / dontAsk are deliberately not offered.
     public static readonly string[] Modes = ["default", "acceptEdits", "plan", "auto"];
-    // Modes that change files without asking: confirmed when the folder is not an isolated worktree.
+    // Modes that change files without asking: confirmed when the folder is not an isolated worktree. An --add-dir folder
+    // is never isolated (acceptEdits writes there with no can_use_tool), so any extra folder makes the session unisolated.
     public static bool Risky(string mode) => mode is "auto" or "acceptEdits";
-    public bool Isolated => Worktree is not null || TranscriptStore.RootOf(Cwd) != Cwd;
+    public bool Isolated => (Worktree is not null || TranscriptStore.RootOf(Cwd) != Cwd) && AddDirs.Count == 0;
 
-    public LiveSession(string id, string name, string cwd, string mode, string? worktree = null, string? model = null, string? effort = null, bool resumable = false)
+    public LiveSession(string id, string name, string cwd, string mode, string? worktree = null, string? model = null, string? effort = null,
+                       bool resumable = false, IEnumerable<string>? addDirs = null)
     {
         Id = id; Name = name; Cwd = cwd; Mode = mode; Worktree = worktree; Model = model; Effort = effort;
+        AddDirs = [.. addDirs ?? []];
         this.resumable = resumable;
         StartedAt = LastEventAt = DateTimeOffset.Now;
     }
@@ -99,6 +102,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? Branch { get; private set; }
     public string? Repo { get; private set; }
     public string? Worktree { get; }
+    public ImmutableList<string> AddDirs { get; private set; }   // --add-dir folders: Claude works there as in Cwd
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
     public ImmutableList<PendingPermission> Pending { get; private set; } = [];
@@ -320,6 +324,50 @@ public sealed class LiveSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    // A live process gets apply_flag_settings permissions.additionalDirectories with the whole list (a flag write for
+    // another key keeps it); every (re)launch passes --add-dir, which --resume alone does not restore. Both verified by
+    // --probe-cli add-dir-live / add-dir-resume. "/add-dir" as user text is refused in stream-json.
+    public async Task AddDir(string dir)
+    {
+        ClaudeSession? p;
+        ImmutableList<string> all;
+        // Listed under the gate before anything is sent: a process EnsureProcess starts after this gets it as --add-dir,
+        // the one running now gets it below. Taken back if that request fails.
+        lock (gate)
+        {
+            if (ExtraDir(dir, Cwd, AddDirs) is not { } d) return;
+            AddDirs = all = AddDirs.Add(d);
+            p = proc;
+        }
+        try
+        {
+            if (p is not null)
+                await p.Request("apply_flag_settings", new() { ["settings"] = new JsonObject
+                {
+                    ["permissions"] = new JsonObject { ["additionalDirectories"] = new JsonArray([.. all.Select(x => (JsonNode?)x)]) },
+                } });
+        }
+        catch
+        {
+            lock (gate) AddDirs = AddDirs.Remove(all[^1]);
+            throw;
+        }
+        TranscriptStore.RecordDirs(Id, all);
+        Notify();
+    }
+
+    // Case-sensitive where the file system usually is.
+    static readonly StringComparer PathCmp = OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
+    // The folder as --add-dir gets it (trimmed, unquoted, no trailing separator); null when empty, the working folder or already listed.
+    internal static string? ExtraDir(string raw, string cwd, IEnumerable<string> dirs)
+    {
+        var d = raw.Trim().Trim('"').Trim();
+        if (d.Length == 0) return null;
+        d = Path.TrimEndingDirectorySeparator(d);
+        return PathCmp.Equals(d, Path.TrimEndingDirectorySeparator(cwd)) || dirs.Contains(d, PathCmp) ? null : d;
+    }
+
     public async Task RefreshContext() { Context = await Request("get_context_usage"); Notify(); }
     public async Task RefreshMcp() { McpStatus = await Request("mcp_status"); Notify(); }
 
@@ -391,6 +439,7 @@ public sealed class LiveSession : IAsyncDisposable
         }
         if (Model is { } m) args.AddRange(["--model", m]);
         if (Effort is { } e) args.AddRange(["--effort", e]);
+        foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
         return args;
     }
 
@@ -802,6 +851,14 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(fork.Args(true) is [_, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
         Item[] h = [new UserItem("a", default, false), new TextItem("b", null, "u1"), new UserItem("c", default, false), new TextItem("d", null, "u2")];
         Ok(Upto(h, "u1") is [UserItem, TextItem { Uuid: "u1" }] && Upto(h, null).Count == 4, "fork history cut");
+        var dirs = new LiveSession("d", "d", "/w", "default", resumable: true, addDirs: ["/a", "/b c"]).Args(true);
+        Ok(dirs is [.., "--resume", "d", "--add-dir", "/a", "--add-dir", "/b c"], "resume keeps --add-dir");
+        Ok(ExtraDir(" \"/x/y/\" ", "/w", []) == "/x/y" && ExtraDir("/w/", "/w", []) is null && (ExtraDir("/A", "/w", ["/a"]) is null) == !OperatingSystem.IsLinux()
+           && ExtraDir("  ", "/w", []) is null && ExtraDir("/", "/w", []) == "/", "extra dir");
+        Ok(new LiveSession("i", "i", "/r/.claude/worktrees/x", "auto").Isolated && new LiveSession("i", "i", "/r", "auto", worktree: "x").Isolated
+           && !new LiveSession("i", "i", "/r", "auto").Isolated
+           && !new LiveSession("i", "i", "/r/.claude/worktrees/x", "auto", addDirs: ["/o"]).Isolated
+           && !new LiveSession("i", "i", "/r", "auto", worktree: "x", addDirs: ["/o"]).Isolated, "extra folders are never isolated");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
