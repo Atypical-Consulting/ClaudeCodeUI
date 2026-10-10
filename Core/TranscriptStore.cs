@@ -68,10 +68,11 @@ public static class TranscriptStore
             if (Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }) continue;
             // A message sent mid-turn and folded into it (LiveSession.Send) is written as this attachment, after the tool
             // result it joined, never as a user line (CLI 2.1.296). Queued messages run as their own turn are user lines.
+            // A background agent's task-notification can arrive the same way (commandMode "task-notification").
             if (Events.Str(e, "type") == "attachment" && Events.Prop(e, "attachment") is { } qa && Events.Str(qa, "type") == "queued_command"
-                && Events.Str(qa, "commandMode") == "prompt" && Events.Str(qa, "prompt") is { } qp)
+                && Events.Str(qa, "commandMode") is "prompt" or "task-notification" && Events.Str(qa, "prompt") is { } qp)
             {
-                s.Apply(new UserTextEvt(qp, at));
+                Step(s, Events.Notification(qp) ?? (ClaudeEvent)new UserTextEvt(qp, at), at);
                 continue;
             }
             if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
@@ -86,15 +87,17 @@ public static class TranscriptStore
     // One transcript line through the reducer, tool times taken from the line's timestamp (also a workflow agent's log).
     internal static void Apply(LiveSession s, JsonElement e, DateTimeOffset? at)
     {
-        foreach (var ev in Events.ParseAll(e))
-        {
-            s.Apply(ev);
-            if (at is null) continue;
-            if (ev is ToolUseEvt u && s.Tool(u.Id) is { } tu) s.Set(tu, tu with { StartedAt = at.Value });
-            if (ev is ToolResultEvt r && s.Tool(r.ToolUseId) is { } tr) s.Set(tr, tr with { EndedAt = tr.Background ? null : at.Value });
-            if (ev is TaskDoneEvt { DurationMs: 0 } td && (s.Tool(td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
-                s.Set(tt, tt with { EndedAt = at.Value });
-        }
+        foreach (var ev in Events.ParseAll(e)) Step(s, ev, at);
+    }
+
+    static void Step(LiveSession s, ClaudeEvent ev, DateTimeOffset? at)
+    {
+        s.Apply(ev);
+        if (at is null) return;
+        if (ev is ToolUseEvt u && s.Tool(u.Id) is { } tu) s.Set(tu, tu with { StartedAt = at.Value });
+        if (ev is ToolResultEvt r && s.Tool(r.ToolUseId) is { } tr) s.Set(tr, tr with { EndedAt = tr.Background ? null : at.Value });
+        if (ev is TaskDoneEvt { DurationMs: 0 } td && (s.Tool(td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
+            s.Set(tt, tt with { EndedAt = at.Value });
     }
 
     // Lines the terminal does not show as a conversation turn: sub-agent, injected context, compaction summary.
@@ -242,8 +245,13 @@ public static class TranscriptStore
         {
             // Tagged texts are the CLI's own (slash commands, task notifications, IDE context), not what was said.
             if (t is null || t.StartsWith('<')) continue;
-            var i = t.IndexOf(query, StringComparison.OrdinalIgnoreCase);
-            if (i >= 0) return (Snippet(t, i, query.Length), DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var at) ? at : null);
+            if (t.IndexOf(query, StringComparison.OrdinalIgnoreCase) is var i and >= 0)
+            {
+                // Shown as plain text, unless the query itself spells markdown (a backtick, "**").
+                var p = Plain(t);
+                var snippet = p.IndexOf(query, StringComparison.OrdinalIgnoreCase) is var j and >= 0 ? Snippet(p, j, query.Length) : Snippet(t, i, query.Length);
+                return (snippet, DateTimeOffset.TryParse(Events.Str(e, "timestamp"), out var at) ? at : null);
+            }
         }
         return null;
     }
@@ -255,6 +263,10 @@ public static class TranscriptStore
         var s = string.Join(' ', text[from..to].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return (from > 0 ? "…" : "") + s + (to < text.Length ? "…" : "");
     }
+
+    // Markdown as read: no bold or code marks, no heading marks or table rules, table cells joined by " · ".
+    internal static string Plain(string t) => Regex.Replace(Regex.Replace(t, @"(?m)^[ \t]*#{1,6}[ \t]+|\*\*|`|^[ \t|:-]*-{3}[ \t|:-]*$", ""),
+        @"(?m)^[ \t]*\|.*$", m => string.Join(" · ", m.Value.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)));
 
     // Last cost-state of the transcript: where --resume makes total_cost_usd start again.
     // Raw cost-state: what the CLI restores on --resume (EnsureProcess subtracts it).
@@ -505,9 +517,12 @@ public static class TranscriptStore
         finally { File.Delete(cpath); DeleteCost(cid); }
 
         // Background agent: launch receipt, then the task-notification 5 s later (no duration tag → timestamp decides).
-        var bg = Replay([
+        string[] bgLines = [
             """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_A","name":"Agent","input":{}}]},"timestamp":"2026-10-09T12:00:00Z"}""",
             """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_A","type":"tool_result","content":"Async agent launched"}]},"toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aa5"},"timestamp":"2026-10-09T12:00:01Z"}""",
+        ];
+        var bg = Replay([
+            bgLines[0], bgLines[1],
             """{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens></usage>\n</task-notification>"},"timestamp":"2026-10-09T12:00:05Z"}""",
         ]);
         // Folded mid-turn message (--probe-cli queue, 2.1.296): the attachment after the tool result, trimmed of `rendered`.
@@ -552,6 +567,12 @@ public static class TranscriptStore
         Ok(Replay([.. branched, """{"type":"last-prompt","lastPrompt":"un","explicit":true,"rewound":true,"sessionId":"s"}"""]) is [],
             "replay after a rewind to the first message");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
+        var bgq = Replay([
+            bgLines[0], bgLines[1],
+            """{"isSidechain":false,"attachment":{"type":"queued_command","prompt":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><duration_ms>5000</duration_ms></usage>\n</task-notification>","commandMode":"task-notification"},"type":"attachment","timestamp":"2026-10-09T12:00:09Z"}""",
+            """{"isSidechain":false,"attachment":{"type":"queued_command","prompt":"<agent-message from=\"aa5\">\n[Subagent hand-back] report\n</agent-message>","commandMode":"prompt"},"type":"attachment","timestamp":"2026-10-09T12:00:09Z"}""",
+        ]);
+        Ok(bgq is [ToolItem { State: ToolState.Done, ResultText: "pong" }], "replay background agent notified by attachment, hand-back hidden");
         // Workflow (2.1.295 transcript, trimmed): receipt as toolUseResult, then the notification user line; without it the
         // run has no recorded end.
         string[] wfLines = [
@@ -589,5 +610,8 @@ public static class TranscriptStore
         Ok(Field("""{"cwd":"\q"}""", "cwd") is null, "bad escape in a chunk: no field, no throw");
         var longText = new string('x', 100) + "auth" + new string('y', 100);
         Ok(Snippet(longText, 100, 4, 3) == "…xxxauthyyy…", "snippet cut both sides");
+        Ok(Match("""{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"## Plan\n- **Dir:** `/a/b` use it\n\n| # | x |\n|---|---|\n| | 3 | Contrôle |"}]}}""", "use")
+           is { Snippet: "Plan - Dir: /a/b use it # · x 3 · Contrôle" }, "match shown without markdown marks");
+        Ok(Match("""{"type":"user","message":{"role":"user","content":"run `make` now"}}""", "`make`") is { Snippet: "run `make` now" }, "match a query that spells markdown");
     }
 }

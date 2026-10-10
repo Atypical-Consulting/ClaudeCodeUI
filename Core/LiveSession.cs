@@ -1121,7 +1121,7 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
-            && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
+            && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("<agent-message from=\"a\">\nreport\n</agent-message>") is null && UserText("salut") == "salut", "user text");
     }
 
     static string? ThrowsMsg(Func<Task> f)
@@ -1132,7 +1132,8 @@ public sealed class LiveSession : IAsyncDisposable
     // Echoed slash commands come back as tags: "<command-name>/x</command-name>…<command-args>a</command-args>" → "/x a"; their output is hidden.
     internal static string? UserText(string t)
     {
-        if (t.StartsWith("[Request interrupted by user") || t.StartsWith("<local-command-") || t.StartsWith("<task-notification>")) return null;
+        if (t.StartsWith("[Request interrupted by user") || t.StartsWith("<local-command-") || t.StartsWith("<task-notification>")
+            || t.StartsWith("<agent-message")) return null;   // a subagent's hand-back: model output, not the user
         if (System.Text.RegularExpressions.Regex.Match(t, "<command-name>(.*?)</command-name>") is not { Success: true } m) return t;
         var args = System.Text.RegularExpressions.Regex.Match(t, "<command-args>(.*?)</command-args>", System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value.Trim();
         return args.Length > 0 ? $"{m.Groups[1].Value} {args}" : m.Groups[1].Value;

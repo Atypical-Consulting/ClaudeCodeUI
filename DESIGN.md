@@ -27,7 +27,7 @@ colors:
   syn-fn: "#82AAFF"
   syn-type: "#FFCB6B"
   syn-num: "#F78C6C"
-  syn-com: "#7F848E"
+  syn-com: "#8A8F99"
   syn-attr: "#89DDFF"
   syn-var: "#F07178"
   code-inline: "#E6C07B"

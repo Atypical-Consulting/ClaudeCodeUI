@@ -60,7 +60,7 @@ public static partial class Md
         {
             var lang = m.Groups[1].Success ? m.Groups[1].Value : null;   // already HTML-encoded by Markdig
             var label = lang is null ? Strings.Get("Md.PlainText") : Lang.GetValueOrDefault(lang.ToLowerInvariant(), lang);
-            return $"""<div class="cb"><div class="h"><span>{label}</span><button class="copy" type="button"><svg class="i sm"><use href="#i-copy"/></svg><span>{Strings.Get("Md.Copy")}</span></button></div>{m.Value}""";
+            return $"""<div class="cb"><div class="h"><span>{label}</span><button class="copy" type="button"><svg class="i sm"><use href="#i-copy"/></svg><span>{Strings.Get("Md.Copy")}</span></button></div>{m.Value.Replace("<pre>", "<pre tabindex=\"0\">")}""";
         });
         html = html.Replace("</code></pre>", "</code></pre></div>");
         return AlertTitle().Replace(html, m => m.Groups[1].Value + Strings.Get("Md.Alert." + m.Groups[2].Value) + "</p>");
