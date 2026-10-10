@@ -191,19 +191,23 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (cut is not null)
             {
-                lock (gate)
-                {
-                    // The rewound message goes back to the Composer, ahead of anything not sent yet.
-                    if ((prefill ?? Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == cut)?.Text) is { } back)
-                        Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
-                    Truncate(cut);
-                }
+                lock (gate) CutBack(cut, prefill);
                 Notify();
             }
         }
         if (!files) return;
         try { await Request("rewind_files", new() { ["user_message_id"] = u.Uuid }); }
         catch (ClaudeRequestException ex) { throw new ClaudeRequestException(Strings.Get("Rewind.FilesFailed", ex.Message)); }
+    }
+
+    // Cuts the thread at `uuid` and puts that message back in the Composer, ahead of anything not sent yet. The text is
+    // the UI's own (what was typed): prefillText is the CLI's stored form, internal XML for a slash command
+    // (<command-name>/compact</command-name>…), so it only serves, normalised, when the message is not in the thread.
+    internal void CutBack(string uuid, string? prefill)
+    {
+        if ((Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid)?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
+            Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
+        Truncate(uuid);
     }
 
     // The rewind_conversation targets for a rewind to `uuid`: it and every message sent after it, newest first.
@@ -850,6 +854,15 @@ public sealed class LiveSession : IAsyncDisposable
             "rewind_conversation steps: newest back to the target");
         rw.Truncate("u2");
         Ok(rw.Items is [UserItem { Uuid: "u1" }, TextItem], "rewind cuts from the target message");
+        // A slash command comes back as typed, not as the CLI's prefillText XML, and ahead of what the box already holds.
+        const string compactXml = "<command-message>compact</command-message>\n<command-name>/compact</command-name>\n<command-args>keep tests</command-args>";
+        var cb = new LiveSession("c", "c", @"C:\w", "default") { Draft = "unsent" };
+        cb.BeginTurn("/compact keep tests", uuid: "c1");
+        cb.CutBack("c1", compactXml);
+        Ok(cb.Draft == "/compact keep tests\n\nunsent" && cb.Items.Count == 0, "rewind draft is the typed text, ahead of the unsent one");
+        var cx = new LiveSession("c", "c", @"C:\w", "default");
+        cx.CutBack("gone", compactXml);
+        Ok(cx.Draft == "/compact keep tests", "rewind draft normalises prefillText when the message is not in the thread");
         Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
         Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
             "rewind preview drops empty paths");
