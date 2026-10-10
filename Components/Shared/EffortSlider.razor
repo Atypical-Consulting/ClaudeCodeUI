@@ -1,22 +1,15 @@
 @* Ordered levels on a native range (arrows, Home/End, touch and AT come for free), their names as clickable ticks under it.
-   An optional last stop (ultracode in the Composer) can be shown but unreachable: the range then ends one column short,
-   so neither drag nor keyboard can land on it. Equal columns keep each tick centred under its thumb position (app.css). *@
-<span class="effort-slider" style="--n:@Stops.Count;--k:@Reach">
+   Equal columns keep each tick centred under its thumb position (app.css). *@
+<span class="effort-slider" style="--n:@Reach;--k:@Reach">
     <input type="range" id="@Id" min="0" max="@(Reach - 1)" step="1" value="@Shown" style="--p:@P" aria-label="@Label"
-           aria-valuetext="@(Shown >= 0 ? Text(Shown) : null)" aria-describedby="@(Blocked ? Id + "-why" : null)"
+           aria-valuetext="@(Shown >= 0 ? Name(Levels[Shown]) : null)"
            @oninput="e => Drag(int.Parse((string)e.Value!))" @onchange="e => Pick(int.Parse((string)e.Value!))" />
-    @* The range already carries name and value for AT and the keyboard: the ticks are a mouse shortcut. The unreachable
-       stop is not `disabled`, which would swallow its title tooltip; Pick ignores it. *@
-    @for (var i = 0; i < Stops.Count; i++)
+    @* The range already carries name and value for AT and the keyboard: the ticks are a mouse shortcut. *@
+    @for (var i = 0; i < Reach; i++)
     {
         var n = i;
-        var off = n >= Reach;
-        <button type="button" tabindex="-1" aria-hidden="true" class="@(n == Shown ? "on" : off ? "off" : null)"
-                title="@(n == Levels.Count ? SpecialTitle : null)" @onclick="() => Pick(n)">
-            @if (n == Levels.Count && SpecialIcon is { } ic) { <Icon Name="@ic" Sm /> }@Text(n)
-        </button>
+        <button type="button" tabindex="-1" aria-hidden="true" class="@(n == Shown ? "on" : null)" @onclick="() => Pick(n)">@Name(Levels[n])</button>
     }
-    @if (Blocked) { <span class="vh" id="@(Id + "-why")">@SpecialTitle</span> }
 </span>
 
 @code {
@@ -27,32 +20,23 @@
     [Parameter] public Func<string, string> Name { get; set; } = s => s;
     [Parameter] public string Id { get; set; } = "effort-" + Interlocked.Increment(ref seq);
     [Parameter] public string? Label { get; set; }
-    // The trailing stop: its value is also its label (a product name, not translated).
-    [Parameter] public string? Special { get; set; }
-    [Parameter] public string? SpecialIcon { get; set; }
-    [Parameter] public bool SpecialEnabled { get; set; } = true;
-    [Parameter] public string? SpecialTitle { get; set; }   // the hint, or why it is unavailable
 
     int? drag;   // the thumb while dragging: the fill and the tick follow it before the change commits
 
-    IReadOnlyList<string> Stops => Special is null ? Levels : [.. Levels, Special];
-    bool Blocked => Special is not null && !SpecialEnabled;
-    int Reach => Blocked ? Levels.Count : Stops.Count;
-    int Shown => drag ?? Index(Stops, Value, Reach);
+    int Reach => Levels.Count;
+    int Shown => drag ?? Index(Levels, Value, Reach);
     string P => Reach > 1 ? (Math.Max(Shown, 0) / (double)(Reach - 1)).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "0";
-    string Text(int i) => i == Levels.Count ? Special! : Name(Levels[i]);
-
-    // -1 for a value the range does not hold (unknown effort, or the unreachable stop): no tick lights up.
+    // -1 for a value the range does not hold (unknown effort): no tick lights up.
     internal static int Index(IReadOnlyList<string> stops, string value, int reach) => stops.Take(reach).ToList().IndexOf(value);
 
     // Dragged back to where it started, release fires no change: drop drag now, or it would mask every later Value.
-    void Drag(int i) => drag = i == Index(Stops, Value, Reach) ? null : i;
+    void Drag(int i) => drag = i == Index(Levels, Value, Reach) ? null : i;
 
     async Task Pick(int i)
     {
         if (i < 0 || i >= Reach) return;
         drag = i;
-        if (Stops[i] != Value) await ValueChanged.InvokeAsync(Stops[i]);
+        if (Levels[i] != Value) await ValueChanged.InvokeAsync(Levels[i]);
         drag = null;   // the parent has applied it (or reported the failure): show its Value again
     }
 }

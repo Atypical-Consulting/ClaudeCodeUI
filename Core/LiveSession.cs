@@ -144,6 +144,7 @@ public sealed class LiveSession : IAsyncDisposable
     public JsonElement? McpStatus { get; private set; }       // raw mcp_status
     public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
+    public RetryEvt? Retry { get; private set; }               // the API call being retried; cleared by the next sign of progress
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
@@ -267,7 +268,7 @@ public sealed class LiveSession : IAsyncDisposable
                 {
                     var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
                     if (Events.Str(setMode, "mode") is { } m) mode = m;
-                    else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+                    else updated = SessionOnly(sg);   // verified by --probe-cli permission-session
                 }
                 // Answers {"mode":…}; the CLI then emits system/status with it once the allow lands (--probe-cli plan-*).
                 if (mode is not null)
@@ -282,6 +283,18 @@ public sealed class LiveSession : IAsyncDisposable
         }
         finally { lock (gate) answering.Remove(p.RequestId); }
     }
+
+    // The CLI suggests rules for a settings file (localSettings: .claude/settings.local.json, kept for good). The card offers
+    // "for the whole session": every suggestion is sent back with destination session, which no file keeps.
+    internal static JsonNode SessionOnly(JsonElement suggestions)
+    {
+        var a = JsonNode.Parse(suggestions.GetRawText())!.AsArray();
+        foreach (var s in a.OfType<JsonObject>()) s["destination"] = "session";
+        return a;
+    }
+
+    // Ctrl B: the running Bash command or subagent moves to the background (the turn goes on without waiting for it).
+    public Task Background(ToolItem t) => proc?.Request("background_tasks", new() { ["tool_use_id"] = t.Id }) ?? Task.CompletedTask;
 
     public async Task Interrupt()
     {
@@ -318,9 +331,6 @@ public sealed class LiveSession : IAsyncDisposable
     }
 
     public Task SetFast(bool on) => Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["fastMode"] = on } });
-
-    // Ultracode, the effort slider's last stop, runs on max effort, or the highest level the model offers (levels are ordered).
-    internal static string UltraEffort(IReadOnlyList<string> levels) => levels.Contains("max") ? "max" : levels[^1];
 
     public Task SetUltracode(bool on)
     {
@@ -428,8 +438,9 @@ public sealed class LiveSession : IAsyncDisposable
     // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
     internal List<string> Args(bool resume)
     {
-        var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text",
-            TodoList.AllowedToolsArg, "--include-hook-events" };
+        var args = new List<string> { "--include-partial-messages", "--forward-subagent-text", TodoList.AllowedToolsArg, "--include-hook-events" };
+        // No mode chosen (""): the CLI applies permissions.defaultMode, as in the terminal; initialize says which.
+        if (Mode.Length > 0) args.InsertRange(0, ["--permission-mode", Mode == "default" ? "manual" : Mode]);
         if (resume) args.AddRange(["--resume", Id]);
         else if (ForkOf is { } src)
         {
@@ -469,6 +480,7 @@ public sealed class LiveSession : IAsyncDisposable
                 return;
             }
             InitializeInfo = info;
+            if (Mode.Length == 0) Mode = Events.Str(info, "current_permission_mode") ?? "default";
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
             var applied = Events.Prop(await p.Request("get_settings"), "applied");
             if (applied is { } a)
@@ -666,8 +678,18 @@ public sealed class LiveSession : IAsyncDisposable
     {
         var now = DateTimeOffset.Now;
         LastEventAt = now;
+        if (e is not (RetryEvt or RateLimitEvt or HookEvt)) Retry = null;
         switch (e)
         {
+            case RetryEvt rt:
+                Retry = rt;
+                break;
+
+            // The CLI withdrew the request (e.g. a dangerous rm left unanswered): the card goes, the tool's result follows.
+            case CancelRequestEvt c when Pending.FirstOrDefault(x => x.RequestId == c.RequestId) is { } cp:
+                Resolve(cp, Decision.Allow);
+                break;
+
             case InitEvt i:
                 Init = i;
                 if (i.Cwd.Length > 0) Cwd = i.Cwd;
@@ -773,6 +795,14 @@ public sealed class LiveSession : IAsyncDisposable
                     Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now));
                 break;
 
+            // Moved to the background mid-run (background_tasks, verified by a probe on claude 2.1.296): a shell joins the
+            // background tasks, an agent ends on its task-notification instead of its tool result.
+            case TaskUpdatedEvt { Backgrounded: true } tb when Items.LastOrDefault(i => i is ToolItem x && x.TaskId == tb.TaskId) is ToolItem bl:
+                Set(bl, bl with { Background = true });
+                if (ToolKinds.IsShell(bl.Name) && !Tasks.Any(x => x.Id == tb.TaskId))
+                    Tasks = Tasks.Add(new(tb.TaskId, bl.Id, Events.Str(bl.Input, "description") ?? ToolKinds.Target(bl.Name, bl.Input, Cwd), bl.StartedAt));
+                break;
+
             case TaskUpdatedEvt { Status: { } status } tu when Tasks.FirstOrDefault(x => x.Id == tu.TaskId) is { } bt:
                 var ended = bt with { Status = status };
                 Tasks = Tasks.Replace(bt, ended with { EndedAt = ended.Running ? null : tu.EndedAt ?? now });
@@ -847,7 +877,6 @@ public sealed class LiveSession : IAsyncDisposable
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
-        Ok(UltraEffort(["low", "medium", "high", "xhigh", "max"]) == "max" && UltraEffort(["low", "max", "xhigh"]) == "max" && UltraEffort(["low", "high"]) == "high", "UltraEffort");
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
         Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");
@@ -856,6 +885,9 @@ public sealed class LiveSession : IAsyncDisposable
         var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };
         Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
         Ok(fork.Args(true) is [_, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
+        Ok(new LiveSession("c", "c", @"C:\w", "").Args(false) is [_, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "c", ..], "no mode chosen: no --permission-mode");
+        var sg = JsonDocument.Parse("""[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"npm test:*"}],"behavior":"allow","destination":"localSettings"},{"type":"addDirectories","directories":["/x"],"destination":"localSettings"}]""").RootElement;
+        Ok(SessionOnly(sg).ToJsonString() is var so && so.Contains("\"destination\":\"session\"") && !so.Contains("localSettings") && so.Contains("npm test:*"), "whole-session allow stays in the session");
         Item[] h = [new UserItem("a", default, false), new TextItem("b", null, "u1"), new UserItem("c", default, false), new TextItem("d", null, "u2")];
         Ok(Upto(h, "u1") is [UserItem, TextItem { Uuid: "u1" }] && Upto(h, null).Count == 4, "fork history cut");
         var dirs = new LiveSession("d", "d", "/w", "default", resumable: true, addDirs: ["/a", "/b c"]).Args(true);
@@ -931,6 +963,14 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.ToolCount == 1 && s.Items[^1] is ToolItem { State: ToolState.Running }, "tool_use");
         s.Apply(new PermissionEvt("r1", "Write", input, "b.txt", "t1", null));
         Ok(s.Status == SessionStatus.Waiting && s.Pending.Count == 1 && s.Items[^1] is ToolItem { State: ToolState.Waiting }, "permission");
+        s.Apply(new CancelRequestEvt("other"));
+        Ok(s.Pending.Count == 1, "a cancel for another request changes nothing");
+        s.Apply(new CancelRequestEvt("r1"));
+        Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty && s.Items[^1] is ToolItem { State: ToolState.Running }, "request withdrawn by the CLI");
+        s.Apply(new RetryEvt(1, 10, 500, 529, "overloaded"));
+        Ok(s.Retry is { Attempt: 1 }, "api_retry shown");
+        s.Apply(new PermissionEvt("r1", "Write", input, "b.txt", "t1", null));
+        Ok(s.Retry is null, "progress clears the retry");
         s.Resolve(s.Pending[0], Decision.Deny);
         Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty && s.Items[^1] is ToolItem { State: ToolState.Denied }, "deny");
         s.Apply(new ToolResultEvt("t1", "The user denied this tool use.", true, null));
@@ -1118,6 +1158,13 @@ public sealed class LiveSession : IAsyncDisposable
         var cv = bg.Version;
         bg.ClearEndedTasks();
         Ok(bg.Tasks is [{ Id: "b4", Running: true }] && bg.Version != cv, "clear drops ended tasks only and bumps Version");
+        // Foreground, then background_tasks (probed on claude 2.1.296): task_updated {is_backgrounded}, then the tool's result.
+        bg.BeginTurn("fg");
+        bg.Apply(new ToolUseEvt("toolu_F", "Bash", JsonDocument.Parse("""{"command":"make","description":"Build"}""").RootElement.Clone(), null));
+        bg.Apply(new TaskStartedEvt("b5", "toolu_F", "Build", "", "local_bash", false));
+        bg.Apply(new TaskUpdatedEvt("b5", null, null, Backgrounded: true));
+        bg.Apply(new ToolResultEvt("toolu_F", "Command was manually backgrounded by user with ID: b5.", false, null));
+        Ok(bg.Tasks is [_, { Id: "b5", Description: "Build", Running: true }] && bg.Items[^1] is ToolItem { Background: true }, "shell moved to the background joins the tasks");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"

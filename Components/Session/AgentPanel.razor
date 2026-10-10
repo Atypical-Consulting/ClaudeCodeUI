@@ -2,7 +2,7 @@
 @inject UiState Ui
 
 <div class="ph"><h2 class="ttl">@L["Agent.Title"]</h2><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
-    <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+    <span class="end"><TaskActions Session="Session" Tool="Agent" /><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="scroll">
     <div class="section last">

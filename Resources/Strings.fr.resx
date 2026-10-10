@@ -313,6 +313,7 @@
   <data name="Mode.auto" xml:space="preserve"><value>N’interrompt jamais, à utiliser avec prudence</value></data>
   <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} agit sans te demander. Choisis-le à nouveau pour confirmer.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Demande avant chaque outil sensible</value></data>
+  <data name="Mode.Name." xml:space="preserve"><value>Réglages</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Lecture seule, propose un plan</value></data>
   <data name="Model" xml:space="preserve"><value>Modèle</value></data>
   <data name="Model.Current" xml:space="preserve"><value>actuel</value></data>
@@ -506,6 +507,8 @@
   <data name="Status.WhatEdit" xml:space="preserve"><value>une édition</value></data>
   <data name="Status.WhatTool" xml:space="preserve"><value>un outil</value></data>
   <data name="Status.PausedQuestion" xml:space="preserve"><value>Claude est en pause : une question attend ta réponse</value></data>
+  <data name="Status.Retry" xml:space="preserve"><value>L’appel API a échoué, nouvelle tentative ({0}/{1})</value></data>
+  <data name="Status.RetryIn" xml:space="preserve"><value>prochain essai dans {0}</value></data>
   <data name="Status.Writing" xml:space="preserve"><value>Claude écrit…</value></data>
   <data name="Theme.contraste" xml:space="preserve"><value>Contraste élevé</value></data>
   <data name="Theme.encre" xml:space="preserve"><value>Encre</value></data>
@@ -657,5 +660,9 @@
   <data name="Kv.Agents" xml:space="preserve"><value>agents</value></data>
   <data name="Kv.Elapsed" xml:space="preserve"><value>durée</value></data>
   <data name="Kv.Model" xml:space="preserve"><value>modèle</value></data>
+  <data name="Mode." xml:space="preserve"><value>Votre mode par défaut, comme dans le terminal</value></data>
+  <data name="Task.Background" xml:space="preserve"><value>Arrière-plan</value></data>
+  <data name="Task.BackgroundHint" xml:space="preserve"><value>Le laisse tourner en arrière-plan : le tour continue sans l’attendre (Ctrl B dans le terminal)</value></data>
+  <data name="Thread.CopyOf" xml:space="preserve"><value>Copier la réponse : {0}</value></data>
   <data name="Wf.Result" xml:space="preserve"><value>Résultat</value></data>
 </root>

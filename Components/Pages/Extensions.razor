@@ -234,8 +234,11 @@
     // The most recent session that has a claude process: mcp_status needs one, and starting one here would be a side effect.
     LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
 
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }   // /mcp, /hooks typed in a Composer
+
     protected override void OnInitialized()
     {
+        if (TabQuery is "mcp" or "hooks") tab = TabQuery;
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
         if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender

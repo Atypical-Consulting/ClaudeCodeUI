@@ -3,7 +3,7 @@
 @inject UiState Ui
 
 <div class="ph"><h2 class="ttl">@L["Inspector"]</h2><span class="sub">@Tool.Name · @(FilePath is { } fp ? Path.GetFileName(fp) : ToolKinds.Target(Tool.Name, Tool.Input, Session.Cwd))</span>
-    <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
+    <span class="end"><TaskActions Session="Session" Tool="Tool" /><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="tabs" role="tablist" aria-label="@L["Inspector"]">
     @foreach (var (t, label) in new[] { (0, edit ? L["Tool.Diff"].Value : L["Tool.Output"].Value), (1, L["Tool.Input"].Value), (2, L["Tool.RawJson"].Value) })
