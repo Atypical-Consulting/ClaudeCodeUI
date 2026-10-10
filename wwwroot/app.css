@@ -555,6 +555,16 @@ button.mode{text-align:left}
 .box:focus-within,.input:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
 .box textarea{display:block;width:100%;min-height:40px;max-height:40vh;resize:none;border:0;outline:0;background:none;color:var(--fg);font:inherit;line-height:1.55;padding:0}
 .box textarea::placeholder{color:var(--fg-4)}
+.box[data-drop]{border-style:dashed;border-color:var(--accent)}   /* app.js claudeUi.images, while files are dragged over */
+/* image thumbnails: composer (removable) and user messages */
+.thumbs{display:flex;flex-wrap:wrap;gap:10px;list-style:none;margin:0 0 10px;padding:0}
+.thumbs li{position:relative}
+.thumbs img,.thumbs .miss{display:block;height:64px;max-width:160px;object-fit:cover;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--sunk)}
+.thumbs .miss{display:flex;align-items:center;gap:6px;padding:0 10px;font:12px var(--mono);color:var(--fg-4)}
+.thumbs .x{position:absolute;top:-8px;right:-8px;display:grid;place-items:center;width:24px;height:24px;border-radius:var(--r-full);border:1px solid var(--seam-3);background:var(--raise-2);color:var(--fg-2);cursor:pointer}
+.thumbs .x:hover{color:var(--fg);border-color:var(--fg-4)}
+.you .thumbs{margin:8px 0 0}
+.you .thumbs img{height:120px;max-width:240px}
 .input input,.palette .q-in input{flex:1;min-width:0;border:0;outline:0;background:none;color:inherit;font:inherit}
 .composer{position:relative}
 .status small{color:var(--fg-4);font:12px var(--mono)}

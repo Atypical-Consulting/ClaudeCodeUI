@@ -15,7 +15,22 @@
                 <div class="you"><div class="w">@L["Thread.You", Fmt.Time(u.At)]</div>@if (u.Ultracode)
                     {
                         <span class="ultra-chip"><Icon Name="agents" Sm />ultracode</span>
-                    }<span class="tx">@u.Text</span></div>
+                    }<span class="tx">@u.Text</span>@if (u.Images is { Count: > 0 } imgs)
+                    {
+                        <ul class="thumbs" aria-label="@L["Composer.Images"]">
+                            @for (var i = 0; i < imgs.Count; i++)
+                            {
+                                <li>@if (imgs[i].Url is { } url)
+                                    {
+                                        <img src="@url" alt="@L["Composer.ImageAlt", i + 1]" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <span class="miss"><Icon Name="paperclip" Sm />@L["Thread.ImageMissing", i + 1]</span>
+                                    }</li>
+                            }
+                        </ul>
+                    }</div>
                 break;
             case TextItem t:
                 <Markdown Text="@t.Markdown" />

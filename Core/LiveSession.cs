@@ -10,7 +10,7 @@ public enum ToolState { Running, Done, Error, Waiting, Denied }
 public enum Decision { Allow, AllowSession, Deny }
 
 public abstract record Item;
-public record UserItem(string Text, DateTimeOffset At, bool Ultracode) : Item;
+public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null) : Item;
 public record TextItem(string Markdown, string? ParentToolUseId) : Item;
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
@@ -105,19 +105,20 @@ public sealed class LiveSession : IAsyncDisposable
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
+    public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
 
     public event Action? Changed;
 
     // ---------- commands ----------
 
-    public async Task Send(string text)
+    public async Task Send(string text, IReadOnlyList<UserImage>? images = null)
     {
         var p = EnsureProcess();
         if (Ultracode) await p.Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["ultracode"] = true } });
-        lock (gate) { turnUltra = Ultracode; BeginTurn(text); }
+        lock (gate) { turnUltra = Ultracode; BeginTurn(text, images); }
         Notify();
-        await p.SendUser(text);
+        await p.SendUser(text, images);
     }
 
     // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
@@ -405,9 +406,9 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- reducer ----------
 
-    internal void BeginTurn(string text)
+    internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null)
     {
-        Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode));
+        Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images));
         Status = SessionStatus.Running;
         turns++;
         TurnStartedAt = DateTimeOffset.Now;
@@ -520,7 +521,7 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case UserTextEvt u when UserText(u.Text) is { } text:
-                Items = Items.Add(new UserItem(text, u.At ?? now, false));
+                Items = Items.Add(new UserItem(text, u.At ?? now, false, u.Images));
                 break;
 
             case PermissionEvt p:

@@ -16,7 +16,20 @@
     {
         <SlashPopover @ref="slash" Session="Session" Query="@sq" OnPick="Pick" />
     }
-    <div class="box">
+    <div class="box" @ref="box">
+        @if (images.Count > 0)
+        {
+            <ul class="thumbs" aria-label="@L["Composer.Images"]">
+                @for (var i = 0; i < images.Count; i++)
+                {
+                    var n = i;
+                    <li>
+                        <img src="@images[n].Url" alt="@L["Composer.ImageAlt", n + 1]" />
+                        <button type="button" class="x" title="@L["Composer.RemoveImage", n + 1]" aria-label="@L["Composer.RemoveImage", n + 1]" @onclick="() => Remove(n)"><Icon Name="x" Sm /></button>
+                    </li>
+                }
+            </ul>
+        }
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"
                   aria-controls="@(SlashOpen ? "slash-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : null)"></textarea>
         <div class="tools-row">
@@ -30,6 +43,10 @@
                 <button class="chip @(LiveSession.Risky(Session.Mode) ? "risk" : null)" @ref="modeBtn" title="@L["Composer.PermissionMode"]" aria-label="@L["Composer.PermissionMode"]: @Strings.Name("Mode.Name.", Session.Mode)"
                         aria-haspopup="listbox" aria-expanded="@(modeOpen ? "true" : "false")" @onclick="() => { modeOpen = !modeOpen; menuOpen = false; }">@Strings.Name("Mode.Name.", Session.Mode)<Icon Name="down" /></button>
             }
+            @* Paste and drop (app.js claudeUi.images) hand files to this InputFile, which streams them in chunks: images never
+               ride in one hub message, so they do not depend on MaximumReceiveMessageSize (Program.cs). *@
+            <button type="button" class="pick" @ref="attachBtn" disabled="@crashed" title="@L["Composer.Attach"]" aria-label="@L["Composer.Attach"]"><Icon Name="paperclip" /></button>
+            <InputFile @ref="picker" OnChange="AddImages" multiple accept="image/png,image/jpeg,image/gif,image/webp" hidden tabindex="-1" />
             @if (models.Count > 0 && !crashed)
             {
                 <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
@@ -83,7 +100,7 @@
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) && images.Count == 0 ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
             </span>
         </div>
@@ -119,12 +136,14 @@
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
 
-    ElementReference area;
+    ElementReference area, box, attachBtn;
+    InputFile? picker;
     SlashPopover? slash;
     bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
-    bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy;
+    IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
+    bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy, reading;
     int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
     bool? ultraAvailable;
     string? appliedEffort, error;
@@ -220,26 +239,68 @@
     {
         var t = text.Trim();
         busy = false;
-        if (t.Length == 0 || crashed) return;
+        if (t.Length == 0 && images.Count == 0 || reading || crashed) return;
         // The Send button is replaced by Interrupt while running: acknowledge Ctrl+Enter instead of ignoring it.
         if (Session.Status == SessionStatus.Running) { busy = true; return; }
+        var imgs = images;
         text = "";
+        images = [];
         recall = -1;
         menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
         {
             foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
-            await Session.Send(t);
+            await Session.Send(t, imgs);
         });
-        if (error is not null && text.Length == 0) text = t;   // never lose the prompt to a failed send
+        if (error is not null)   // never lose the prompt to a failed send
+        {
+            if (text.Length == 0) text = t;
+            if (images.Count == 0) images = imgs;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("claudeUi.images", box, picker?.Element, attachBtn);
+    }
+
+    // Picked, pasted or dropped files. The type comes from the bytes (Images.Sniff); each one is read whole, up to MaxBytes.
+    async Task AddImages(InputFileChangeEventArgs e)
+    {
+        error = null;
+        reading = true;
+        try
+        {
+            foreach (var f in e.GetMultipleFiles(int.MaxValue))
+            {
+                if (images.Count >= Images.MaxCount) { error = L["Composer.ImageTooMany", Images.MaxCount]; break; }
+                if (f.Size > Images.MaxBytes) { error = L["Composer.ImageTooBig", f.Name, Fmt.Size(f.Size), Fmt.Size(Images.MaxBytes)]; continue; }
+                var bytes = new MemoryStream((int)f.Size);
+                try
+                {
+                    await using var s = f.OpenReadStream(Images.MaxBytes);
+                    await s.CopyToAsync(bytes);
+                }
+                catch (Exception ex) when (ex is IOException or JSException or TaskCanceledException) { error = L["Composer.ActionFailed", ex.Message]; continue; }
+                if (Images.From(bytes.ToArray()) is { } img) images = [.. images, img];
+                else error = L["Composer.ImageType", f.Name];
+            }
+        }
+        finally { reading = false; }
+    }
+
+    async Task Remove(int i)
+    {
+        images = [.. images.Where((_, j) => j != i)];
+        await JS.InvokeVoidAsync("claudeUi.focus", area);   // the removed button took the focus with it
     }
 
     // CLI-style recall: ArrowUp in an empty box shows the last prompt, then older ones; ArrowDown goes back.
     // Only while the box still holds the recalled prompt untouched.
     bool Recall(int dir)
     {
-        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).ToList();
+        var past = Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).ToList();   // image-only messages have no text to recall
         if (recall < 0 || recall >= past.Count || text != past[recall])
         {
             recall = -1;

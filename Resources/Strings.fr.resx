@@ -65,6 +65,7 @@
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Action impossible : {0}</value></data>
+  <data name="Composer.Attach" xml:space="preserve"><value>Joindre des images (ou les coller ou les déposer ici)</value></data>
   <data name="Composer.Busy" xml:space="preserve"><value>Claude travaille encore. Échap pour interrompre, ou envoie à la fin du tour.</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort de réflexion</value></data>
@@ -74,6 +75,11 @@
   <data name="Composer.FastSdkOptIn" xml:space="preserve"><value>opt-in SDK requis</value></data>
   <data name="Composer.FastUnavailable" xml:space="preserve"><value>Mode rapide indisponible</value></data>
   <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Mode rapide indisponible : {0}</value></data>
+  <data name="Composer.ImageAlt" xml:space="preserve"><value>Image {0}</value></data>
+  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} fait {1} : les images sont limitées à {2} chacune</value></data>
+  <data name="Composer.ImageTooMany" xml:space="preserve"><value>{0} images au maximum par message</value></data>
+  <data name="Composer.ImageType" xml:space="preserve"><value>{0} n’est pas une image PNG, JPEG, GIF ou WebP</value></data>
+  <data name="Composer.Images" xml:space="preserve"><value>Images jointes</value></data>
   <data name="Composer.Interrupt" xml:space="preserve"><value>Interrompre</value></data>
   <data name="Composer.Interrupted" xml:space="preserve"><value>interrompu</value></data>
   <data name="Composer.Label" xml:space="preserve"><value>Message pour Claude</value></data>
@@ -86,6 +92,7 @@
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Tu peux préparer la suite…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Refuser {0} et envoyer</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Les demandes d’autorisation en attente sont d’abord refusées, puis ton message est envoyé.</value></data>
+  <data name="Composer.RemoveImage" xml:space="preserve"><value>Retirer l’image {0}</value></data>
   <data name="Composer.Send" xml:space="preserve"><value>Envoyer</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Arrêter le workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>tour</value></data>
@@ -387,6 +394,7 @@
   <data name="Theme.graphite" xml:space="preserve"><value>Graphite</value></data>
   <data name="Theme.mousse" xml:space="preserve"><value>Mousse</value></data>
   <data name="Theme.ristretto" xml:space="preserve"><value>Ristretto</value></data>
+  <data name="Thread.ImageMissing" xml:space="preserve"><value>Image {0} indisponible</value></data>
   <data name="Thread.JumpLatest" xml:space="preserve"><value>Nouvelle activité, aller en bas</value></data>
   <data name="Thread.You" xml:space="preserve"><value>toi · {0}</value></data>
   <data name="Todo.Completed" xml:space="preserve"><value>faite</value></data>
