@@ -5,18 +5,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <DefaultItemExcludes>$(DefaultItemExcludes);desktop/**;publish/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlazorKawaii" Version="2.2.0" />
-    <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="BlazorKawaii" Version="2.2.0"/>
+    <PackageReference Include="Markdig" Version="1.4.0"/>
   </ItemGroup>
 
   <ItemGroup>
     <!-- Repo tooling and dev-only settings: not part of the shipped server. -->
-    <Content Update="renovate.json;release-please-config.json;.release-please-manifest.json;appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="renovate.json;release-please-config.json;.release-please-manifest.json;appsettings.Development.json" CopyToPublishDirectory="Never"/>
   </ItemGroup>
 
 </Project>
