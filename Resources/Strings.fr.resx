@@ -123,6 +123,7 @@
   <data name="Composer.Send" xml:space="preserve"><value>Envoyer</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Arrêter le workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>tour</value></data>
+  <data name="Composer.Session" xml:space="preserve"><value>session</value></data>
   <data name="Composer.TurnError" xml:space="preserve"><value>erreur</value></data>
   <data name="Composer.UltraHint" xml:space="preserve"><value>Active le réglage ultracode du CLI pour le prochain tour</value></data>
   <data name="Composer.UltraThisTurn" xml:space="preserve"><value>multi-agents pour ce tour</value></data>
@@ -302,6 +303,7 @@
   <data name="Mem.Type.User" xml:space="preserve"><value>utilisateur</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Analyse…</value></data>
   <data name="Mention.Title" xml:space="preserve"><value>Fichiers et dossiers</value></data>
+  <data name="Mention.NoMatch" xml:space="preserve"><value>Aucun fichier ne correspond</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>{0:N0} premières entrées</value></data>
   <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accepter les éditions</value></data>
   <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>
@@ -309,7 +311,7 @@
   <data name="Mode.Name.plan" xml:space="preserve"><value>Plan</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepte les éditions, demande pour le shell</value></data>
   <data name="Mode.auto" xml:space="preserve"><value>N’interrompt jamais, à utiliser avec prudence</value></data>
-  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} modifie les fichiers sans demander. Choisis-le à nouveau pour confirmer.</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} agit sans te demander. Choisis-le à nouveau pour confirmer.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Demande avant chaque outil sensible</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Lecture seule, propose un plan</value></data>
   <data name="Model" xml:space="preserve"><value>Modèle</value></data>

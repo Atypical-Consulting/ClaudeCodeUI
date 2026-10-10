@@ -123,6 +123,7 @@
   <data name="Composer.Send" xml:space="preserve"><value>Send</value></data>
   <data name="Composer.StopWorkflow" xml:space="preserve"><value>Stop the workflow</value></data>
   <data name="Composer.Turn" xml:space="preserve"><value>turn</value></data>
+  <data name="Composer.Session" xml:space="preserve"><value>session</value></data>
   <data name="Composer.TurnError" xml:space="preserve"><value>error</value></data>
   <data name="Composer.UltraHint" xml:space="preserve"><value>Turns on the CLI's ultracode setting for the next turn</value></data>
   <data name="Composer.UltraThisTurn" xml:space="preserve"><value>multi-agent for this turn</value></data>
@@ -302,6 +303,7 @@
   <data name="Mem.Type.User" xml:space="preserve"><value>user</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Scanning…</value></data>
   <data name="Mention.Title" xml:space="preserve"><value>Files and folders</value></data>
+  <data name="Mention.NoMatch" xml:space="preserve"><value>No file matches</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>first {0:N0} entries</value></data>
   <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accept edits</value></data>
   <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>
@@ -309,7 +311,7 @@
   <data name="Mode.Name.plan" xml:space="preserve"><value>Plan</value></data>
   <data name="Mode.acceptEdits" xml:space="preserve"><value>Accepts edits, asks for the shell</value></data>
   <data name="Mode.auto" xml:space="preserve"><value>Never interrupts, use with care</value></data>
-  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} edits files without asking. Pick it again to confirm.</value></data>
+  <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} acts without asking you. Pick it again to confirm.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Asks before every sensitive tool</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
