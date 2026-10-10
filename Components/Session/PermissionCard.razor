@@ -32,7 +32,7 @@
             {
                 <div class="errbox" role="alert">@error</div>
             }
-            <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Plan.HintAuto"] · <kbd>@L["Key.ShiftEnter"]</kbd> @L["Plan.HintReview"] · <kbd>@L["Key.Del"]</kbd> @L["Plan.HintFeedback"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
+            <p class="keys"><kbd>⏎</kbd> @L["Plan.HintAuto"] · <kbd>@L["Key.ShiftEnter"]</kbd> @L["Plan.HintReview"] · <kbd>@L["Key.Del"]</kbd> @L["Plan.HintFeedback"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
         </section>
     }
     else
@@ -71,13 +71,13 @@
             </div>
             @if (CanAllowSession)
             {
-                <p style="font-size:12px">@L["Perm.WholeSession"] · @SessionGrant</p>
+                <p style="font-size:12px">@SessionGrant</p>
             }
             @if (error is not null)
             {
                 <div class="errbox" role="alert">@error</div>
             }
-            <p style="font-size:12px;color:var(--fg-4)"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
+            <p class="keys"><kbd>⏎</kbd> @L["Perm.HintAllow"] · @if (CanAllowSession) {<kbd>@L["Key.ShiftEnter"]</kbd><text> @L["Perm.HintSession"] · </text>}<kbd>@L["Key.Del"]</kbd> @L["Perm.HintDeny"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
         }
     </div>
     }
@@ -160,7 +160,7 @@
         get
         {
             var sg = Permission.Suggestions!.Value.EnumerateArray().ToList();
-            if (Events.Str(sg.FirstOrDefault(x => Events.Str(x, "type") == "setMode"), "mode") is { } mode) return L["Perm.GrantMode", mode];
+            if (Events.Str(sg.FirstOrDefault(x => Events.Str(x, "type") == "setMode"), "mode") is { } mode) return L["Perm.GrantMode", Strings.Name("Mode.Name.", mode)];
             var parts = sg.SelectMany(x => Events.Prop(x, Events.Str(x, "type") == "addDirectories" ? "directories" : "rules") is { ValueKind: JsonValueKind.Array } a
                 ? a.EnumerateArray().Select(v => v.ValueKind == JsonValueKind.String ? v.GetString()!
                     : Events.Str(v, "toolName") + (Events.Str(v, "ruleContent") is { Length: > 0 } c ? $"({c})" : ""))

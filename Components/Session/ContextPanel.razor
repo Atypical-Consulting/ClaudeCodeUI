@@ -19,7 +19,7 @@
         var mcpTokens = rows.Where(r => r.Mcp).Sum(r => r.Tokens);
         <div class="section">
             <div class="ctx">
-                <div class="ctxbar">
+                <div class="ctxbar" aria-hidden="true">
                     @foreach (var r in rows)
                     {
                         <i style="width:@((r.Tokens * 100.0 / max).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;background:@r.Color"></i>
@@ -57,7 +57,7 @@
     }
     else
     {
-        <div class="section"><p>@L["Ctx.SelectRow"]</p></div>
+        <div class="section"><p>@L[Session.HasProcess ? "Ctx.Unknown" : "Ctx.NoProcess"]</p></div>
     }
     <div class="section">
         <label class="cap" for="ctx-add-dir">@L["Dirs.Label"]</label>

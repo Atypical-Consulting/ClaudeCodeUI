@@ -15,7 +15,7 @@
         {
             <TasksPanel Session="Session" />
         }
-        @if (Selected is { } t && t.Id != p?.ToolUseId)
+        @if (p is null && Selected is { } t)
         {
             if (ToolKinds.IsAgent(t.Name))
             {

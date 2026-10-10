@@ -151,7 +151,6 @@
   <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} from {1} are loaded.</value></data>
   <data name="Ctx.ManageMcp" xml:space="preserve"><value>Manage MCP servers</value></data>
   <data name="Ctx.McpWeight" xml:space="preserve"><value>MCP tools weigh {0}</value></data>
-  <data name="Ctx.SelectRow" xml:space="preserve"><value>Select a row in the log to inspect it.</value></data>
   <data name="Ctx.Servers1" xml:space="preserve"><value>1 server</value></data>
   <data name="Ctx.ServersN" xml:space="preserve"><value>{0} servers</value></data>
   <data name="Ctx.Title" xml:space="preserve"><value>Context</value></data>
@@ -403,8 +402,8 @@
   <data name="Perm.Create" xml:space="preserve"><value>Create {0}?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Deny</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Edit {0}?</value></data>
-  <data name="Perm.GrantMode" xml:space="preserve"><value>switches the session to {0} mode</value></data>
-  <data name="Perm.GrantRules" xml:space="preserve"><value>allows {0}</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>Switches the session to {0} mode</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>Allows {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
   <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
@@ -636,4 +635,10 @@
   <data name="Wt.Worktrees0" xml:space="preserve"><value>{0} worktrees</value></data>
   <data name="Wt.Worktrees1" xml:space="preserve"><value>{0} worktree</value></data>
   <data name="Wt.WorktreesN" xml:space="preserve"><value>{0} worktrees</value></data>
+  <data name="Tool.NoOutput" xml:space="preserve"><value>No output.</value></data>
+  <data name="Ctx.Unknown" xml:space="preserve"><value>Context usage appears after the next turn.</value></data>
+  <data name="Ctx.NoProcess" xml:space="preserve"><value>No process running: send a message to resume and measure the context.</value></data>
+  <data name="Tool.Diff" xml:space="preserve"><value>Diff</value></data>
+  <data name="Tool.Kv.Diff" xml:space="preserve"><value>diff</value></data>
+  <data name="Bg.StopFailed" xml:space="preserve"><value>Couldn’t stop the task: {0}</value></data>
 </root>

@@ -151,7 +151,6 @@
   <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} de {1} sont chargés.</value></data>
   <data name="Ctx.ManageMcp" xml:space="preserve"><value>Gérer les serveurs MCP</value></data>
   <data name="Ctx.McpWeight" xml:space="preserve"><value>Les outils MCP pèsent {0}</value></data>
-  <data name="Ctx.SelectRow" xml:space="preserve"><value>Sélectionne une ligne du journal pour l’inspecter.</value></data>
   <data name="Ctx.Servers1" xml:space="preserve"><value>1 serveur</value></data>
   <data name="Ctx.ServersN" xml:space="preserve"><value>{0} serveurs</value></data>
   <data name="Ctx.Title" xml:space="preserve"><value>Contexte</value></data>
@@ -403,8 +402,8 @@
   <data name="Perm.Create" xml:space="preserve"><value>Créer {0} ?</value></data>
   <data name="Perm.Deny" xml:space="preserve"><value>Refuser</value></data>
   <data name="Perm.Edit" xml:space="preserve"><value>Modifier {0} ?</value></data>
-  <data name="Perm.GrantMode" xml:space="preserve"><value>passe la session en mode {0}</value></data>
-  <data name="Perm.GrantRules" xml:space="preserve"><value>autorise {0}</value></data>
+  <data name="Perm.GrantMode" xml:space="preserve"><value>Passe la session en mode {0}</value></data>
+  <data name="Perm.GrantRules" xml:space="preserve"><value>Autorise {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>autoriser</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>refuser</value></data>
   <data name="Perm.HintFocus" xml:space="preserve"><value>clique sur la carte pour utiliser ces touches</value></data>
@@ -636,4 +635,10 @@
   <data name="Wt.Worktrees0" xml:space="preserve"><value>{0} worktree</value></data>
   <data name="Wt.Worktrees1" xml:space="preserve"><value>{0} worktree</value></data>
   <data name="Wt.WorktreesN" xml:space="preserve"><value>{0} worktrees</value></data>
+  <data name="Tool.NoOutput" xml:space="preserve"><value>Aucune sortie.</value></data>
+  <data name="Ctx.Unknown" xml:space="preserve"><value>L’usage du contexte s’affiche après le prochain tour.</value></data>
+  <data name="Ctx.NoProcess" xml:space="preserve"><value>Aucun processus : envoie un message pour reprendre et mesurer le contexte.</value></data>
+  <data name="Tool.Diff" xml:space="preserve"><value>Diff</value></data>
+  <data name="Tool.Kv.Diff" xml:space="preserve"><value>diff</value></data>
+  <data name="Bg.StopFailed" xml:space="preserve"><value>Impossible d’arrêter la tâche : {0}</value></data>
 </root>

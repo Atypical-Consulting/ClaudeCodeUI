@@ -6,7 +6,7 @@
     <span class="end"><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="tabs" role="tablist" aria-label="@L["Inspector"]">
-    @foreach (var (t, label) in new[] { (0, edit ? "Diff" : L["Tool.Output"].Value), (1, L["Tool.Input"].Value), (2, L["Tool.RawJson"].Value) })
+    @foreach (var (t, label) in new[] { (0, edit ? L["Tool.Diff"].Value : L["Tool.Output"].Value), (1, L["Tool.Input"].Value), (2, L["Tool.RawJson"].Value) })
     {
         <button id="td-tab-@t" class="tab @(tab == t ? "on" : null)" role="tab" aria-selected="@((tab == t) ? "true" : "false")" aria-controls="td-panel"
                 tabindex="@(tab == t ? 0 : -1)" @onclick="() => tab = t">@label</button>
@@ -45,7 +45,7 @@
             <FileView Path="@(FilePath ?? "")" ReadResultText="@read" />
             break;
         case 0:
-            <div style="padding:16px"><pre class="cmdlog" style="margin:0;overflow:auto">@(Tool.ResultText ?? "…")</pre></div>
+            <div style="padding:16px"><pre class="cmdlog" style="margin:0;overflow:auto">@(Tool.ResultText is { Length: > 0 } r ? r : Tool.State == ToolState.Done ? L["Tool.NoOutput"] : L["Bg.NoOutput"])</pre></div>
             break;
         case 1:
             <div style="padding:16px 16px 0"><Markdown Text="@(input ??= $"```json\n{Pretty(Tool.Input)}\n```")" /></div>
@@ -68,7 +68,7 @@
         }
         @if (edit && diff.Count > 0)
         {
-            <span>diff</span><span>+@diff.Count(l => l.Kind == DiffKind.Add) −@diff.Count(l => l.Kind == DiffKind.Del)</span>
+            <span>@L["Tool.Kv.Diff"]</span><span>+@diff.Count(l => l.Kind == DiffKind.Add) −@diff.Count(l => l.Kind == DiffKind.Del)</span>
         }
         <span>@L["Tool.Kv.Status"]</span>
         @switch (Tool.State)

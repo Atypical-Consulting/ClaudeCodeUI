@@ -230,6 +230,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .ask-done dd{margin:0 0 8px;font:500 13px var(--sans);color:var(--fg)}
 .diff{font:12px/1.65 var(--mono);border:1px solid var(--seam);border-radius:var(--r);overflow:hidden;background:var(--field)}
 .diff .fh{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--seam);color:var(--fg-3);font-size:12px}
+.diff .fh{gap:12px}.diff .fh>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.diff .fh>span:last-child{flex:none}
 .diff .fh .a{color:var(--ok)}.diff .fh .d{color:var(--err)}
 .diff div.l{padding:0 10px 0 0;white-space:pre;color:var(--fg-3);display:grid;grid-template-columns:34px 14px 1fr}
 .diff .db{overflow-x:auto}.diff .db>div{width:max-content;min-width:100%}.diff .db:focus-visible{outline-offset:-2px}
@@ -352,6 +353,7 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .mode:not(.on):hover,.chip:hover{border-color:var(--seam-3);color:var(--fg-2)}
 .tab:hover{color:var(--fg-2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.insp [data-permission]:focus-visible{outline-offset:-2px}
 .ledger :focus-visible,.mem :focus-visible,.wf :focus-visible,.seg>:focus-visible,.effort>:focus-visible{outline-offset:-2px}
 .t,.pi,.mode,.s{cursor:default}
 td.num,.meta,.kv,.tot b,.s .c{font-variant-numeric:tabular-nums}
@@ -674,6 +676,8 @@ button.mode{text-align:left}
 .section.last{border-bottom:0}
 .dot.done{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ok)}
 .insp .md{font-size:13px}
+.insp .md h1{font-size:16px}.insp .md h2{font-size:14px;padding-bottom:6px}.insp .md h3,.insp .md h4{font-size:13px}.insp .md :is(h1,h2,h3,h4){margin:18px 0 8px}
+.keys{font-size:12px;color:var(--fg-4)}
 /* State colours: they override contextual meta colours (.s .c, td .last, .kv span), as the inline styles did. */
 .c-ok{color:var(--ok)!important}.c-err{color:var(--err)!important}.c-err-fg{color:var(--err-fg)!important}.c-wait{color:var(--accent)!important}.c-mute{color:var(--fg-3)!important}
 .ph .ttl:focus{outline:none}
@@ -707,6 +711,7 @@ button.mode{text-align:left}
 @media (max-width:1099px){
   .app{grid-template-columns:256px minmax(0,1fr)}
   main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,40%)}
+  main:has(>.insp [data-permission]){grid-template-rows:minmax(0,1fr) minmax(0,60%)}
   main:not(:has(>.insp)){grid-template-rows:minmax(0,1fr)}
   main>.insp{border-top:1px solid var(--seam)}
   .app:has(>main>.insp)~#blazor-error-ui{left:calc(50% + 128px);width:min(620px,calc(100vw - 256px - 32px))}
