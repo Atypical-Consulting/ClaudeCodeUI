@@ -171,8 +171,12 @@
   <data name="Ext.ActionFailed" xml:space="preserve"><value>L’action MCP a échoué : {0}</value></data>
   <data name="Ext.AfterFirstMessage" xml:space="preserve"><value>Le CLI annonce cette liste au premier message de la session.</value></data>
   <data name="Ext.AuthHow" xml:space="preserve"><value>Pour te connecter, lance cette commande dans Claude Code depuis un terminal :</value></data>
+  <data name="Ext.AuthHowAlt" xml:space="preserve"><value>Ou connecte-toi depuis Claude Code dans un terminal, avec cette commande :</value></data>
+  <data name="Ext.AuthTerminal" xml:space="preserve"><value>{0} ne peut pas terminer sa connexion d’ici : lance /mcp dans Claude Code depuis un terminal.</value></data>
   <data name="Ext.AuthText" xml:space="preserve"><value>Le serveur attend une connexion. Ses outils restent indisponibles d’ici là.</value></data>
+  <data name="Ext.AuthTimeout" xml:space="preserve"><value>{0} n’est toujours pas connecté après 5 minutes. Reconnecte-toi pour recommencer.</value></data>
   <data name="Ext.AuthTitle" xml:space="preserve"><value>Authentification requise</value></data>
+  <data name="Ext.AuthWaiting" xml:space="preserve"><value>Termine la connexion dans ton navigateur. Cette page se met à jour dès que le serveur est connecté.</value></data>
   <data name="Ext.Col.Description" xml:space="preserve"><value>Description</value></data>
   <data name="Ext.Col.McpServers" xml:space="preserve"><value>Serveurs MCP</value></data>
   <data name="Ext.Col.Plugin" xml:space="preserve"><value>Plugin</value></data>
@@ -205,11 +209,13 @@
   <data name="Ext.Kv.Version" xml:space="preserve"><value>version</value></data>
   <data name="Ext.Lead" xml:space="preserve"><value>Serveurs MCP, skills, agents et plugins que le CLI charge au démarrage de chaque session.</value></data>
   <data name="Ext.NoSession" xml:space="preserve"><value>Démarre une session pour voir ce que le CLI charge.</value></data>
+  <data name="Ext.OpenSignIn" xml:space="preserve"><value>Ouvrir la page de connexion</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
   <data name="Ext.Scope.Plugin" xml:space="preserve"><value>plugin</value></data>
   <data name="Ext.Scope.Project" xml:space="preserve"><value>projet</value></data>
   <data name="Ext.Scope.User" xml:space="preserve"><value>utilisateur</value></data>
+  <data name="Ext.SignIn" xml:space="preserve"><value>Se connecter</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connecté</value></data>
   <data name="Ext.State.Disabled" xml:space="preserve"><value>désactivé</value></data>
   <data name="Ext.State.Failed" xml:space="preserve"><value>en échec</value></data>

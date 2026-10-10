@@ -56,6 +56,9 @@
                                         case "failed":
                                             <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
                                             break;
+                                        case "needs-auth" when SignsInHere(m):
+                                            <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.SignIn"]}: {m.Short}")" @onclick="() => SignIn(s, m.Name)">@L["Ext.SignIn"]</button>
+                                            break;
                                         case "connected" or "disabled":
                                             var on = m.Status == "connected";
                                             <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="@($"{L["Ext.EnableHere"]}: {m.Short}")"
@@ -178,7 +181,23 @@
             <div class="section">
                 <h3>@L["Ext.AuthTitle"]</h3>
                 <p>@L["Ext.AuthText"]</p>
-                <p>@L["Ext.AuthHow"]</p>
+                @if (!SignsInHere(sel))
+                {
+                    <p>@L["Ext.AuthHow"]</p>
+                }
+                else
+                {
+                    @if (auth is { } a && a.Server == sel.Name)
+                    {
+                        <p role="status">@L["Ext.AuthWaiting"]</p>
+                        <div class="acts"><a class="btn primary" href="@a.Url" target="_blank" rel="noopener noreferrer" @ref="authLink">@L["Ext.OpenSignIn"]</a></div>
+                    }
+                    else
+                    {
+                        <div class="acts"><button class="btn primary" disabled="@busy" @onclick="() => SignIn(ls, sel.Name)"><Icon Name="plug" Sm="true" />@L["Ext.SignIn"]</button></div>
+                    }
+                    <p>@L["Ext.AuthHowAlt"]</p>
+                }
                 <div class="acts"><code>/mcp</code><button type="button" class="btn" data-copy="/mcp"><Icon Name="copy" Sm />@L["Md.Copy"]</button></div>
             </div>
         }
@@ -206,8 +225,11 @@
 
     string tab = "mcp", filter = "";
     string? selected, note, refreshedFor, hooksNote;
-    bool busy;
+    bool busy, focusAuth;
     (List<HookRow> Rows, bool Disabled)? hooks;
+    (string Server, string Url)? auth;   // sign-in in progress: its page stays one click away until the server connects
+    CancellationTokenSource? authPoll;
+    ElementReference authLink;
 
     // The most recent session that has a claude process: mcp_status needs one, and starting one here would be a side effect.
     LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
@@ -273,6 +295,59 @@
     // A server that still fails answers with its error: shown as the note.
     Task Reconnect(LiveSession s, string name) =>
         Run(async () => { try { await s.Request("mcp_reconnect", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
+
+    // mcp_authenticate answers at once with the sign-in page; the CLI then waits for the browser's redirect on its own
+    // localhost port and reconnects the server itself (`--probe-cli mcp-auth`). The page is opened by a link, not
+    // window.open: after the round-trip there is no user gesture left, so browsers and the desktop webview would block it.
+    // A link with target=_blank opens a tab here and the system browser in the desktop shell (its on_new_window).
+    Task SignIn(LiveSession s, string name) => Run(async () =>
+    {
+        authPoll?.Cancel();
+        auth = null;
+        Select(name);
+        var start = McpAuthStart.Parse(await s.Request("mcp_authenticate", new() { ["serverName"] = name }));
+        if (start.Url is null) { await s.RefreshMcp(); return; }   // the stored token was still valid
+        if (!start.CallbackExpected) { note = L["Ext.AuthTerminal", name]; return; }   // nothing would reconnect it: see SignsInHere
+        auth = (name, start.Url);
+        focusAuth = true;
+        _ = AwaitConnected(s, name, (authPoll = new()).Token);
+    });
+
+    // claude.ai connectors (config.type claudeai-proxy) answer mcp_authenticate with callbackExpected:false: the CLI takes
+    // no redirect and reconnects nothing, so the server would stay needs-auth whatever the browser does. They keep the
+    // /mcp terminal route only. The init brief has no config: its "claude.ai " name prefix (Tag) says the same.
+    static bool SignsInHere(Srv m) => m.Transport != "claudeai-proxy" && m.Tag != "claude.ai";
+
+    // mcp_status every 2 s until the server leaves needs-auth/pending, 5 minutes at most. Runs on the renderer's dispatcher.
+    // Stops once the session has no process (stopped or crashed): RefreshMcp would spawn a new claude for it, without
+    // the callback listener this sign-in waits on.
+    async Task AwaitConnected(LiveSession s, string name, CancellationToken ct)
+    {
+        try
+        {
+            for (var i = 0; i < 150; i++)
+            {
+                await Task.Delay(2000, ct);
+                if (!s.HasProcess) { auth = null; return; }
+                await s.RefreshMcp();
+                ct.ThrowIfCancellationRequested();   // a newer sign-in took over while mcp_status was in flight
+                if (Servers(s).FirstOrDefault(x => x.Name == name)?.Status is not ("needs-auth" or "pending")) { auth = null; return; }
+            }
+            auth = null;
+            note = L["Ext.AuthTimeout", name];
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { auth = null; note = L["Ext.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { if (!ct.IsCancellationRequested) StateHasChanged(); }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusAuth || auth is null) return;
+        focusAuth = false;
+        try { await authLink.FocusAsync(); }
+        catch (Exception ex) when (ex is InvalidOperationException or Microsoft.JSInterop.JSException) { }   // inspector closed meanwhile
+    }
 
     async Task Run(Func<Task> action)
     {
@@ -353,6 +428,7 @@
 
     public void Dispose()
     {
+        authPoll?.Cancel();
         Sessions.Changed -= OnChanged;
         Ui.Changed -= OnChanged;
     }
