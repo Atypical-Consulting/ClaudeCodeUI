@@ -22,6 +22,7 @@ public static class SelfCheck
             TranscriptStore.Check();
             ListNav.Check();
             AskUser.Check();
+            FileIndex.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

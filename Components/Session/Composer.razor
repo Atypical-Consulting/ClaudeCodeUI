@@ -1,4 +1,5 @@
-@* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands. *@
+@* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands,
+   "@" file mentions (the CLI reads the mentioned file itself). *@
 @inject IJSRuntime JS
 
 <section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
@@ -16,6 +17,12 @@
     {
         <SlashPopover @ref="slash" Session="Session" Query="@sq" OnPick="Pick" />
     }
+    else if (MentionQuery is { } mq)
+    {
+        @* No @key needed: SessionPage keys its pane by session, so another session gets a new Composer and a new scan.
+           OnReady is a no-op on purpose: invoking an EventCallback built here re-renders the Composer (aria-activedescendant). *@
+        <MentionPopover @ref="mention" Session="Session" Query="@mq" OnPick="PickMention" OnReady="() => { }" />
+    }
     <div class="box" @ref="box">
         @if (images.Count > 0)
         {
@@ -31,7 +38,7 @@
             </ul>
         }
         <textarea @ref="area" @bind="text" @bind:event="oninput" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed" aria-label="@L["Composer.Label"]"
-                  aria-controls="@(SlashOpen ? "slash-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : null)"></textarea>
+                  aria-autocomplete="@(SlashOpen || MentionOpen ? "list" : null)" aria-controls="@(SlashOpen ? "slash-list" : MentionOpen ? "mention-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : MentionOpen ? mention!.ActiveId : null)"></textarea>
         <div class="tools-row">
             <span class="tools">
             @if (crashed)
@@ -139,12 +146,14 @@
     ElementReference area, box, attachBtn;
     InputFile? picker;
     SlashPopover? slash;
+    MentionPopover? mention;
     bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
     IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
-    bool menuOpen, modeOpen, slashDismissed, settingsAsked, busy, reading;
+    bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, busy, reading;
     int recall = -1;   // index of the past prompt shown by ArrowUp/ArrowDown, -1 when not recalling
+    string? recalled;  // the prompt Recall put in the box, kept to tell an untouched recall from an edit
     bool? ultraAvailable;
     string? appliedEffort, error;
     List<JsonElement> models = [];
@@ -158,6 +167,12 @@
 
     // While a name is being typed after "/" (no space yet).
     string? SlashQuery => !slashDismissed && text.StartsWith('/') && !text.Any(char.IsWhiteSpace) ? text : null;
+
+    // While a path is being typed after an "@" that starts the last word (FileIndex.Query).
+    // Not over an untouched recalled prompt: Send trims, so "fix @src/Foo.cs " comes back as a live query,
+    // and an open picker would take ArrowUp/ArrowDown from the recall chain. The first edit opens it.
+    string? MentionQuery => !mentionDismissed && !menuOpen && !modeOpen && SlashQuery is null && text != recalled ? FileIndex.Query(text) : null;
+    bool MentionOpen => MentionQuery is not null && mention is { Open: true };
 
     bool FastOk => Session.FastModeState == "on" && model is { } m && Events.Prop(m, "supportsFastMode") is { ValueKind: JsonValueKind.True };
     string? FastReason => Session.FastModeReason switch
@@ -246,6 +261,7 @@
         text = "";
         images = [];
         recall = -1;
+        recalled = null;
         menuOpen = modeOpen = false;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
@@ -310,6 +326,7 @@
         var n = recall + dir;
         if (n < 0) return true;
         (recall, text) = n < past.Count ? (n, past[n]) : (-1, "");
+        recalled = text;
         return true;
     }
 
@@ -319,12 +336,28 @@
         await JS.InvokeVoidAsync("claudeUi.focus", area);
     }
 
+    async Task PickMention(string path)
+    {
+        text = FileIndex.Insert(text, path);
+        await JS.InvokeVoidAsync("claudeUi.focus", area);
+    }
+
     async Task Key(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
-        if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; return; }   // the menu closes on .composer
-        if (e.Key is "ArrowUp" or "ArrowDown" && !(e.ShiftKey || e.AltKey || e.CtrlKey || e.MetaKey) && Recall(e.Key == "ArrowUp" ? -1 : 1)) return;
+        if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; mentionDismissed = MentionQuery is not null; return; }   // the menu closes on .composer
+        if (e.Key is "ArrowUp" or "ArrowDown" && !(e.ShiftKey || e.AltKey || e.CtrlKey || e.MetaKey) && !MentionOpen && Recall(e.Key == "ArrowUp" ? -1 : 1)) return;
         if (!text.StartsWith('/')) slashDismissed = false;
+        if (FileIndex.Query(text) is null) mentionDismissed = false;
+        if (MentionOpen)
+        {
+            switch (e.Key)
+            {
+                case "ArrowDown" or "ArrowUp": mention!.Key(e.Key); break;
+                case "Tab" when !e.ShiftKey: await mention!.Pick(); break;   // the browser moved the focus; PickMention puts it back
+            }
+            return;
+        }
         if (slash is not { Open: true } || SlashQuery is null) return;
         switch (e.Key)
         {

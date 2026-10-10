@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -391,6 +391,38 @@ public static class CliProbe
             }
             return ~c;
         }
+    }
+
+    // file-mention: in stream-json mode the CLI expands "@path" in the user text itself. With every file-reading tool
+    // disallowed, the model can only quote a random code word from a file it was never shown if the CLI attached it.
+    // file-mention-quoted: the same through the `@"path with spaces"` form the Composer inserts.
+    // file-mention-folder: `@folder/` attaches a listing: the model names a randomly named file inside it.
+    static async Task<IEnumerable<(string, string, string)>> FileMention(string dir)
+    {
+        static string Word() => "CODE-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (word, spaced, listed) = (Word(), Word(), Word());
+        Directory.CreateDirectory(Path.Combine(dir, "notes"));
+        File.WriteAllText(Path.Combine(dir, "notes", "secret.txt"), $"The code word is {word}.\n");
+        Directory.CreateDirectory(Path.Combine(dir, "my docs"));
+        File.WriteAllText(Path.Combine(dir, "my docs", "the word.txt"), $"The code word is {spaced}.\n");
+        Directory.CreateDirectory(Path.Combine(dir, "box"));
+        File.WriteAllText(Path.Combine(dir, "box", listed + ".txt"), "");
+        await using var c = await Cli.Start(dir, "--disallowedTools", "Read,Bash,Glob,Grep,Task,Agent,LS");
+        return await Guard(["file-mention", "file-mention-quoted", "file-mention-folder"], async () =>
+        {
+            async Task<(string, string)> Ask(string prompt, string expected)
+            {
+                var turn = await c.Turn(prompt + " Reply with only that, and do not use any tool.");
+                var tools = turn.Sum(e => ToolUses(e).Count());
+                var said = string.Concat(turn.Where(e => Events.Str(e, "type") == "assistant" && Events.Prop(e, "message") is { } m && Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array })
+                    .SelectMany(e => e.GetProperty("message").GetProperty("content").EnumerateArray()).Where(b => Events.Str(b, "type") == "text").Select(b => Events.Str(b, "text")));
+                var detail = $"{tools} tool_use, answer \"{said.Trim()}\"";
+                return tools == 0 && said.Contains(expected) ? ("PASS", $"{expected} quoted from the @-mentioned path: {detail}") : ("FAIL", $"expected {expected}: {detail}");
+            }
+            return [await Ask("What is the code word in @notes/secret.txt ?", word),
+                    await Ask("What is the code word in @\"my docs/the word.txt\" ?", spaced),
+                    await Ask("What is the name of the only file in @box/ ?", listed)];
+        });
     }
 
     // ---------- plumbing ----------
