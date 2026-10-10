@@ -426,7 +426,7 @@ textarea,input{caret-color:var(--accent)}
 .cb .copy{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--fg-4);border:0;background:none;padding:5px 8px;border-radius:var(--r-xs);cursor:pointer}
 .cb .copy:hover{color:var(--fg);background:var(--raise)}
 .cb .copy.done{color:var(--ok)}
-.cb pre{margin:0;padding:14px 16px;overflow:auto;background:none;border:0}
+.cb pre{margin:0;padding:14px 16px;overflow:auto;background:none;border:0}.cb pre:focus-visible{outline-offset:-2px}
 .cb pre code{font:var(--code-size)/1.65 var(--mono);color:var(--fg-2);background:none;border:0;padding:0;white-space:pre;tab-size:4}
 .hljs{color:var(--fg-2);background:none}
 .hljs-keyword,.hljs-built_in,.hljs-selector-tag,.hljs-literal,.hljs-meta .hljs-keyword{color:var(--syn-kw)}
