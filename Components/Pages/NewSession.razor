@@ -14,13 +14,13 @@
             <div class="start-card">
                 <div class="hello">
                     <div class="duck"><Duck Mood="Mood.Ko" Size="88" /></div>
-                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
+                    <div><h2>@L["New.NotFound"]</h2><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
                     <h4 class="lbl">@L["New.Step1"]</h4>
                     <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
                     <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
-                    <p>@L["New.Guide"] <a href="@L["New.GuideUrl"]" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
+                    <p>@L["New.Guide"] <a href="@L["New.GuideUrl"]" target="_blank" rel="noopener" style="color:var(--syn-fn);text-decoration-color:color-mix(in srgb,var(--syn-fn) 40%,transparent);text-underline-offset:3px">docs.claude.com</a></p>
                 </div>
                 <div class="field">
                     <h4 class="lbl">@L["New.Step2"]</h4>
@@ -38,25 +38,25 @@
         <div class="start-card">
             <div class="hello">
                 <div class="duck"><Duck Mood="Mood.Happy" Size="88" /></div>
-                <div><h3>@L["New.Hello"]</h3><p>@L["New.HelloText"]</p></div>
+                <div><h2>@L["New.Hello"]</h2><p>@L["New.HelloText"]</p></div>
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
                 <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
                 @if (!exists)
                 {
-                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                    <div id="cwd-err" role="alert" class="fmsg">@L["New.NoFolder"]</div>
                 }
                 else if (untrusted)
                 {
-                    <div role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div role="alert" class="fmsg" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                         <span>@L["New.Untrusted"]</span>
                         <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
                     </div>
                 }
                 else if (IsHome)
                 {
-                    <div role="status" style="margin-top:8px;font-size:12px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
+                    <div role="status" class="fmsg risk">@L["New.HomeFolder"]</div>
                 }
                 @if (recents.Count > 0)
                 {
@@ -89,7 +89,7 @@
                     }
                     else if (Isolated)
                     {
-                        <span class="branch" style="margin-left:14px"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch]</span>
+                        <span class="branch" style="margin-left:14px" title="@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch]</span>
                         <button class="b btn ghost" @onclick="() => editing = true">@L["New.Edit"]</button>
                     }
                 </div>

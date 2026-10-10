@@ -18,17 +18,17 @@
         @if (all.Count == 0)
         {
             <div class="empty">
-                <h3>@L["Ov.Empty"]</h3>
+                <h2>@L["Ov.Empty"]</h2>
                 <p class="lead">@L["Ov.EmptyText"]</p>
             </div>
             @if (recent.Count > 0)
             {
                 <div>
                     <span class="cap">@L["Rail.Recent"]</span>
-                    <div class="acts" style="margin-top:8px;flex-wrap:wrap">
+                    <div class="acts wrap" style="margin-top:8px">
                         @foreach (var p in recent)
                         {
-                            <a class="btn" href="session/@p.Id" title="@p.Cwd">@p.Title</a>
+                            <a class="btn rec" href="session/@p.Id" title="@p.Title · @p.Cwd">@p.Title</a>
                         }
                     </div>
                 </div>
@@ -37,7 +37,7 @@
         else
         {
         <div class="ovhead">
-            <h3>@Strings.Plural(all.Count, "Ov.Sessions")@(queue.Count > 0 ? ", " + Strings.Plural(queue.Count, "Ov.Decision") : "")</h3>
+            <h2>@Strings.Plural(all.Count, "Ov.Sessions")@(queue.Count > 0 ? ", " + Strings.Plural(queue.Count, "Ov.Decision") : "")</h2>
             <div class="tot">
                 <div class="@(queue.Count > 0 ? "w" : null)"><b>@queue.Count</b>@L["Ov.Pending"]</div>
                 <div><b>@all.Count(s => s.Status == SessionStatus.Running)</b>@L["Status.Running"]</div>
@@ -51,8 +51,8 @@
                 @foreach (var s in all)
                 {
                     var (label, cls) = State(s);
-                    <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))" style="cursor:pointer">
-                        <td><div class="n" title="@s.Name"><a href="@Url(s)" style="color:inherit;text-decoration:none" @onclick:stopPropagation>@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }@if (s.Todos is { Count: > 0 } td) { <div class="branch" title="@L["Todo.Title"]"><Icon Name="check" />@TodoList.Progress(td)</div> }</td>
+                    <tr @key="s.Id" class="@(s.Status == SessionStatus.Waiting ? "hot" : null)" @onclick="() => Nav.NavigateTo(Url(s))">
+                        <td><div class="n" title="@s.Name"><a href="@Url(s)" @onclick:stopPropagation>@s.Name</a></div>@if (Where(s) is { Length: > 0 } w) { <div class="branch"><Icon Name="branch" />@w</div> }@if (s.Todos is { Count: > 0 } td) { <div class="branch" title="@L["Todo.Title"]"><Icon Name="check" />@TodoList.Progress(td)</div> }</td>
                         <td><span class="stt @cls"><span class="dot @RailSessionRow.Dot(s)"></span>@label</span></td>
                         <td><span class="mtag">@Strings.Name("Mode.Name.", s.Mode)</span></td>
                         <td>@Last(s)</td>
@@ -67,7 +67,7 @@
         {
             var (cs, cp) = queue[qi];
             <div class="queue" role="group" tabindex="0" @ref="queueEl" aria-label="@L["Ov.Queue"]" aria-describedby="q-keys" @onkeydown="e => QueueKey(e, queue)">
-                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" style="font-size:12px;color:var(--fg-4)"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · <kbd>A</kbd> @L["Perm.HintAllow"] · <kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
+                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" class="keys"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · @if (cp.Tool != AskUser.Tool) { <text><kbd>A</kbd> @L["Perm.HintAllow"] · </text> }<kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
                 @* The J/K cursor is visual; this announces it to screen readers. *@
                 <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Tool, cp.Input, cs.Cwd)</div>
                 @if (error is not null)
@@ -108,7 +108,7 @@
 
     (string Label, string Class) State(LiveSession s) => s.Status switch
     {
-        SessionStatus.Waiting => (L["Status.WaitingOn", s.Pending.FirstOrDefault()?.Tool ?? ""], "c-wait"),
+        SessionStatus.Waiting => (L["Status.WaitingOn", ToolKinds.Label(s.Pending.FirstOrDefault()?.Tool ?? "")], "c-wait"),
         SessionStatus.Running => (L["Status.Running"], "c-ok"),
         SessionStatus.Starting => (L["Status.Starting"], "c-mute"),
         SessionStatus.Crashed => (L["Session.ProcessStopped"], "c-err"),
@@ -123,7 +123,7 @@
         var (tool, input) = s.Pending.FirstOrDefault() is { } p ? (p.Tool, p.Input)
             : s.Items.LastOrDefault(i => i is ToolItem { ParentToolUseId: null }) is ToolItem t ? (t.Name, t.Input) : (null, default);
         return tool is null ? @<span class="last"></span>
-            : @<span class="last"><span style="color:@ToolKinds.Color(tool)">@tool</span> @ToolKinds.Target(tool, input, s.Cwd)</span>;
+            : @<span class="last"><span style="color:@ToolKinds.Color(tool)" title="@tool">@ToolKinds.Label(tool)</span> @ToolKinds.Target(tool, input, s.Cwd)</span>;
     }
 
     // "+3 −1" for an edit waiting for approval.

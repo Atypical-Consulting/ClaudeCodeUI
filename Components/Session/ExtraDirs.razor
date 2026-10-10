@@ -25,11 +25,11 @@
 </div>
 @if (error is not null)
 {
-    <div id="@(Id)-err" class="errbox" role="alert">@error</div>
+    <div id="@(Id)-err" class="fmsg" role="alert">@error</div>
 }
 else if (confirmed is not null)
 {
-    <div id="@(Id)-err" class="risk" role="alert">@Confirm</div>
+    <div id="@(Id)-err" class="fmsg risk" role="alert">@Confirm</div>
 }
 
 @code {

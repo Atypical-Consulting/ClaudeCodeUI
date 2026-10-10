@@ -168,7 +168,7 @@
   <data name="Dirs.NoFolder" xml:space="preserve"><value>Aucun dossier à ce chemin absolu.</value></data>
   <data name="Dirs.Placeholder" xml:space="preserve"><value>Chemin absolu, puis Entrée</value></data>
   <data name="Dirs.Remove" xml:space="preserve"><value>Retirer {0}</value></data>
-  <data name="Dirs.Root" xml:space="preserve"><value>Choisissez un dossier, pas le disque entier.</value></data>
+  <data name="Dirs.Root" xml:space="preserve"><value>Choisis un dossier, pas le disque entier.</value></data>
   <data name="Diff.MoreLines" xml:space="preserve"><value>Lignes non affichées : {0}</value></data>
   <data name="Diff.MoreOccurrences" xml:space="preserve"><value>Occurrences non affichées : {0}</value></data>
   <data name="Effort.high" xml:space="preserve"><value>élevé</value></data>
@@ -341,7 +341,7 @@
   <data name="New.NotGit" xml:space="preserve"><value>pas un dépôt git</value></data>
   <data name="New.NpmShimText" xml:space="preserve"><value>Seul le raccourci npm &lt;code&gt;claude.cmd&lt;/code&gt; est dans le PATH. Cette application lance &lt;code&gt;claude.exe&lt;/code&gt; directement : installe la version native avec la commande Windows ci-dessous.</value></data>
   <data name="New.Trust" xml:space="preserve"><value>Faire confiance à ce dossier</value></data>
-  <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d’un lien et vous ne l’avez jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
+  <data name="New.Untrusted" xml:space="preserve"><value>Ce dossier vient d’un lien et tu ne l’as jamais utilisé. Claude chargera ses réglages et hooks .claude.</value></data>
   <data name="New.Permissions" xml:space="preserve"><value>Permissions</value></data>
   <data name="New.Placeholder" xml:space="preserve"><value>Décris la tâche…</value></data>
   <data name="New.ConfirmRisky" xml:space="preserve"><value>{0} modifie ce dossier sans demander, hors d’un worktree isolé.</value></data>
@@ -405,7 +405,7 @@
   <data name="Perm.GrantRules" xml:space="preserve"><value>autorise {0}</value></data>
   <data name="Perm.HintAllow" xml:space="preserve"><value>autoriser</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>refuser</value></data>
-  <data name="Perm.HintFocus" xml:space="preserve"><value>cliquez sur la carte pour utiliser ces touches</value></data>
+  <data name="Perm.HintFocus" xml:space="preserve"><value>clique sur la carte pour utiliser ces touches</value></data>
   <data name="Perm.HintSession" xml:space="preserve"><value>toute la session</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Écraser {0} ?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
