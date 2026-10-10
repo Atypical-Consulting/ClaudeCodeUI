@@ -67,7 +67,8 @@ else
     void OnSession()
     {
         // Ended in another tab or circuit: re-open its transcript here instead of driving the dead session.
-        if (S is { } d && Sessions.Get(d.Id) != d) { _ = InvokeAsync(() => { if (S == d) { OnParametersSet(); StateHasChanged(); } }); return; }
+        // Only once its process is gone (DisposeAsync sets Exited/Crashed last): earlier, a Send here would resume a second claude on the id.
+        if (S is { } d && Sessions.Get(d.Id) != d && d.Status is SessionStatus.Exited or SessionStatus.Crashed) { _ = InvokeAsync(() => { if (S == d) { OnParametersSet(); StateHasChanged(); } }); return; }
         if (S is { } s && Interlocked.Exchange(ref seen, s.Version) != s.Version) Refresh();
     }
 

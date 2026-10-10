@@ -28,6 +28,8 @@ static SPLASH: OnceLock<Url> = OnceLock::new();
 // installed (the server stopping is then expected).
 static STARTED: AtomicBool = AtomicBool::new(false);
 static CHECKING: AtomicBool = AtomicBool::new(false);
+// A manual request made while a check runs: that check then answers it (up to date, errors) instead of staying silent.
+static WANT_MANUAL: AtomicBool = AtomicBool::new(false);
 static UPDATING: AtomicBool = AtomicBool::new(false);
 // Printed on stdout by the server when the user picks "Check for updates" in the UI (Core/Shell.cs). The same pipe
 // carries the console log, whose lines never equal it: they start with a level or an indent.
@@ -173,8 +175,9 @@ fn t(en: &'static str, fr: &'static str) -> &'static str {
 // Manual: also reports "up to date" and errors. Runs on its own thread: the native dialogs block it, not the app.
 fn check_for_updates(app: AppHandle, manual: bool) {
     if CHECKING.swap(true, Ordering::SeqCst) {
-        // One check at a time: a second one would stack dialogs. An explicit request is still answered.
+        // One check at a time: a second one would stack dialogs. An explicit request is still answered, by the running check.
         if manual {
+            WANT_MANUAL.store(true, Ordering::SeqCst);
             app.dialog()
                 .message(t("An update check is already in progress.", "Une recherche de mises à jour est déjà en cours."))
                 .title(t("Check for Updates", "Rechercher des mises à jour"))
@@ -187,6 +190,7 @@ fn check_for_updates(app: AppHandle, manual: bool) {
         if update_flow(&app, manual) {
             app.restart();
         }
+        WANT_MANUAL.store(false, Ordering::SeqCst);
         CHECKING.store(false, Ordering::SeqCst);
     });
 }
@@ -197,6 +201,7 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
     let failed = |text: String| dialog(t("The update could not be installed", "La mise à jour n’a pas pu être installée"), text, MessageDialogKind::Error);
     // A time limit on the check only: the download below may legitimately take longer.
     let found = app.updater_builder().timeout(Duration::from_secs(30)).build().map(|u| tauri::async_runtime::block_on(u.check()));
+    let manual = manual || WANT_MANUAL.swap(false, Ordering::SeqCst);
     let mut update = match found {
         Ok(Ok(Some(u))) => u,
         Ok(Ok(None)) => {

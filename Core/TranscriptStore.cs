@@ -17,6 +17,11 @@ public static class TranscriptStore
     const int Chunk = 64 * 1024;
     static (DateTimeOffset At, int Take, IReadOnlyList<PastSession> List) cache;
 
+    static int generation;
+    // Bumped by Invalidate: readers holding an older list (the rail) reload it now instead of waiting out their throttle.
+    public static int Generation => Volatile.Read(ref generation);
+    internal static void Invalidate() { cache = default; Interlocked.Increment(ref generation); }
+
     // Newest first, last 30 days, cached 30 s.
     public static IReadOnlyList<PastSession> Recent(int take = 30)
     {
