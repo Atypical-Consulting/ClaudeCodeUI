@@ -443,6 +443,7 @@ All the other WPs code against these contracts. Any change goes through the inte
 **Acceptance criteria:**
 - Composer:
   - Ctrl ⏎ sends;
+  - ↑ / ↓ recall previous prompts (`PromptHistory`, `claudeUi.history`): caret on the first / last line, no popover open; this session's prompts, then `TranscriptStore.Prompts` of the same cwd (verified by `--probe-cli prompt-history`); the draft comes back after the newest entry, and is put back in `LiveSession.Draft` when the Composer goes away mid-walk;
   - placeholders and main button follow the state (table in mockups report §2.5);
   - the meta shows turn / session / tools / context, with the **cumulative** cost.
 - Model: the menu lists `initialize.models` (`displayName`); a choice calls `set_model`, and the next turn reports the new model in `system/init`.
