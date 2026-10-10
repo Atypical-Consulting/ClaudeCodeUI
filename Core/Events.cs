@@ -84,7 +84,8 @@ public static class Events
 
             case "user":
                 {
-                    var parent = Str(e, "parent_tool_use_id");
+                    // Text the CLI injects itself (a skill's body: isSynthetic on the stream, isMeta in the transcript) is not a turn.
+                    var parent = Bool(e, "isSynthetic") || Bool(e, "isMeta") ? "injected" : Str(e, "parent_tool_use_id");
                     DateTimeOffset? at = Str(e, "timestamp") is { } ts && DateTimeOffset.TryParse(ts, out var t) ? t : null;
                     if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { } content) break;
                     if (content.ValueKind == JsonValueKind.String)
@@ -314,6 +315,9 @@ public static class Events
         Ok(rd?.Structured is { } rs && Prop(rs.GetProperty("file"), "content") is null && rs.GetProperty("file").GetProperty("numLines").GetInt32() == 1, "tool_use_result drops file.content");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null }, "tool_result error");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null,"timestamp":"2026-10-09T12:41:34.602Z"}""") is UserTextEvt { Text: "[Request interrupted by user]", At: not null }, "user text");
+        // claude 2.1.296, the Skill tool's injected body (stream-json), trimmed.
+        Ok(All("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Base directory for this skill: /s\n\n# Pingo"}]},"parent_tool_use_id":null,"isSynthetic":true}""") is []
+           && All("""{"type":"user","message":{"role":"user","content":"Base directory for this skill: /s"},"isMeta":true}""") is [], "injected skill body skipped");
 
         var perm = P("""{"type":"control_request","request_id":"edd9","request":{"subtype":"can_use_tool","tool_name":"Write","display_name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"},"description":"b.txt","permission_suggestions":[{"type":"setMode","mode":"acceptEdits","destination":"session"}],"tool_use_id":"toolu_01Y"}}""") as PermissionEvt;
         Ok(perm is { RequestId: "edd9", Tool: "Write", Description: "b.txt", ToolUseId: "toolu_01Y", Suggestions: { } sg } && Str(sg[0], "type") == "setMode", "can_use_tool");
