@@ -56,6 +56,28 @@ public sealed class SessionManager : IAsyncDisposable
         }
     }
 
+    // A new live session continuing src's conversation under a new id; src is left as it is (--probe-cli fork).
+    // History = src's transcript, what the CLI copies, cut after the message `at` for "Fork from here".
+    public LiveSession Fork(LiveSession src, string? at = null)
+    {
+        // A fork writes its own transcript on its first message; before that `--resume <fork>` answers "No conversation
+        // found" (--probe-cli fork-of-fork), so forking it forks its source at the same cut. One step is enough: this
+        // rule never sets ForkOf to a fork without a transcript.
+        var (of, cut) = src.ForkOf is { } o && TranscriptStore.Find(src.Id) is null ? (o, at ?? src.ForkAt) : (src.Id, at);
+        var inherited = TranscriptStore.PersistedCost(of);
+        // src.Mode is the mode src runs in (Open seeds it from the transcript): the fork keeps it, as a resume does.
+        var s = new LiveSession(Guid.NewGuid().ToString(), Strings.Get("Session.ForkName", src.Name), src.Cwd, src.Mode, model: src.Model, effort: src.Effort)
+        {
+            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut),
+            CostUsd = inherited, CostAtOpen = inherited,   // the source's spend, not this run's (Overview counts CostUsd - CostAtOpen)
+        };
+        s.ToolCount = s.Items.OfType<ToolItem>().Count();
+        Add(s);
+        try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
+        _ = s.RefreshGit();
+        return s;
+    }
+
     // Kills the process and forgets the session: it goes back to Recent, its transcript intact.
     public async Task Stop(string id)
     {

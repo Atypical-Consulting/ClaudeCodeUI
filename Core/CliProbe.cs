@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -626,6 +626,88 @@ public static class CliProbe
         return texts;
     }
 
+    // fork: --resume <A> --fork-session --session-id <B> continues A's conversation under the id the UI chose
+    // (system/init session_id == B, the model knows A's last codeword, B.jsonl exists) and leaves A.jsonl byte-identical.
+    // fork-at: + --resume-session-at <uuid of A's first assistant message> forks the conversation as it stood there.
+    // fork-name: --name given with the fork becomes the title the "Recent" list reads from the fork's transcript.
+    // fork-app: the app's own path, SessionManager.Fork(original, uuid) then Send, shows the cut history and gets PAPAYA.
+    // fork-of-fork: forking that fork before its first message (no transcript of its own yet) forks the original at the
+    // same uuid and gets PAPAYA; the raw `--resume <unsent fork>` this avoids is reported alongside.
+    static Task<IEnumerable<(string, string, string)>> Fork(string dir) => Guard(["fork", "fork-at", "fork-name", "fork-app", "fork-of-fork"], async () =>
+    {
+        var a = Guid.NewGuid().ToString();
+        string? at;
+        await using (var c = await Cli.Start(dir, "--session-id", a))
+        {
+            at = Events.Str((await c.Turn("Remember the codeword PAPAYA. Reply with just OK.")).Last(e => Events.Str(e, "type") == "assistant"), "uuid");
+            await c.Turn("The codeword is now MANGO. Reply with just OK.");
+        }
+        var original = TranscriptStore.Find(a) is { } f ? File.ReadAllText(f) : null;
+        if (original is null) return [("FAIL", "no transcript for the original session"), ("SKIP", "no original"), ("SKIP", "no original"), ("SKIP", "no original"), ("SKIP", "no original")];
+        string? title = null;
+
+        async Task<string> Ask(params string[] extra)
+        {
+            var b = Guid.NewGuid().ToString();
+            extra = [.. extra, "--name", "probe (fork)"];
+            string? init, answer;
+            await using (var c = await Cli.Start(dir, ["--resume", a, "--fork-session", "--session-id", b, .. extra]))
+            {
+                var turn = await c.Turn("What is the current codeword? Answer with one word.");
+                init = turn.Where(e => Events.Str(e, "subtype") == "init").Select(e => Events.Str(e, "session_id")).FirstOrDefault();
+                answer = Events.Str(turn[^1], "result");
+            }
+            title ??= TranscriptStore.Find(b) is { } t ? TranscriptStore.Read(new FileInfo(t))?.Title : null;
+            return $"init.session_id {(init == b ? "= new id" : init ?? "absent")}, answer \"{answer?.Trim()}\", "
+                 + $"{(TranscriptStore.Find(b) is null ? "no" : "new")} transcript, original {(TranscriptStore.Find(a) is { } p && File.ReadAllText(p) == original ? "unchanged" : "CHANGED")}";
+        }
+        static bool Ok(string d, string word) => d.StartsWith("init.session_id = new id") && d.Contains(word, StringComparison.OrdinalIgnoreCase)
+                                                 && d.Contains("new transcript") && d.EndsWith("original unchanged");
+
+        var whole = await Ask();
+        var fork = Ok(whole, "MANGO") ? ("PASS", whole) : ("FAIL", whole);
+        var name = title == "probe (fork)" ? ("PASS", $"title \"{title}\"") : ("FAIL", $"title \"{title}\"");
+        if (at is null) return [fork, ("FAIL", "no uuid on the assistant event"), name, ("SKIP", "no uuid"), ("SKIP", "no uuid")];
+        var part = await Ask("--resume-session-at", at);
+        var forkAt = Ok(part, "PAPAYA") && !part.Contains("MANGO", StringComparison.OrdinalIgnoreCase) ? ("PASS", part) : ("FAIL", part);
+
+        await using var sm = new SessionManager();
+        var app = sm.Fork(sm.Open(TranscriptStore.Read(new FileInfo(TranscriptStore.Find(a)!))!), at);
+        var history = app.Items.Count;
+        var cut = app.Items is [UserItem { Text: var u }, TextItem { Uuid: var x }] && u.Contains("PAPAYA") && x == at;
+
+        // fork-of-fork: the fork, booted but not sent to yet, has no transcript, so the CLI has nothing under its id;
+        // SessionManager.Fork must fork the fork's source at the same cut instead.
+        while (app.Status == SessionStatus.Starting) await Task.Delay(200);
+        var unsent = TranscriptStore.Find(app.Id) is null ? "no transcript after boot" : "a transcript after boot";
+        var exit = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        string raw;
+        await using (new ClaudeSession(dir, ["--model", "haiku", "--permission-mode", "manual", "--resume", app.Id, "--fork-session", "--session-id", Guid.NewGuid().ToString()],
+                         _ => Task.CompletedTask, (_, text) => exit.TrySetResult(text)))
+            try { raw = await exit.Task.WaitAsync(TimeSpan.FromSeconds(90)); }
+            catch (TimeoutException) { raw = "still running after 90 s"; }
+        var again = sm.Fork(app);
+        var inherits = again.ForkOf == a && again.ForkAt == at && again.Items.Count == history;
+        var history2 = again.Items.Count;
+
+        static async Task<string?> Answer(LiveSession s)
+        {
+            await s.Send("What is the current codeword? Answer with one word.");
+            while (s.LastResultAt is null && s.Status != SessionStatus.Crashed) await Task.Delay(200);
+            return s.Items.OfType<TextItem>().LastOrDefault()?.Markdown.Trim();
+        }
+        static bool Got(LiveSession s, string? reply) => s.Status == SessionStatus.Idle && TranscriptStore.Find(s.Id) is not null
+                                                        && reply?.Contains("PAPAYA", StringComparison.OrdinalIgnoreCase) == true;
+
+        var reply2 = await Answer(again);   // first, while app still has no transcript of its own
+        var detail2 = $"source fork had {unsent}; raw --resume <it> --fork-session: {raw}; app fork of it "
+                    + $"{(inherits ? "forks the original at the same uuid" : $"ForkOf {again.ForkOf} ForkAt {again.ForkAt}")}, {history2} history items, "
+                    + $"status {again.Status} {again.LastResultSubtype}, answer \"{reply2}\", {(TranscriptStore.Find(again.Id) is null ? "no" : "new")} transcript";
+        var reply = await Answer(app);
+        var detail = $"{history} history items{(cut ? " ending at the uuid" : "")}, status {app.Status}, answer \"{reply}\", {(TranscriptStore.Find(app.Id) is null ? "no" : "new")} transcript";
+        return [fork, forkAt, name, cut && Got(app, reply) ? ("PASS", detail) : ("FAIL", detail), inherits && Got(again, reply2) ? ("PASS", detail2) : ("FAIL", detail2)];
+    }, 600);
+
     // ---------- plumbing ----------
 
     // Text blocks of an assistant message.
@@ -635,10 +717,10 @@ public static class CliProbe
             : [];
 
     // Runs a probe body that yields one (verdict, detail) per id; a throw or timeout fails every id it had not answered.
-    static async Task<IEnumerable<(string, string, string)>> Guard(string[] ids, Func<Task<(string Verdict, string Detail)[]>> body)
+    static async Task<IEnumerable<(string, string, string)>> Guard(string[] ids, Func<Task<(string Verdict, string Detail)[]>> body, int seconds = Seconds)
     {
         (string, string)[] r;
-        try { r = await body().WaitAsync(TimeSpan.FromSeconds(Seconds)); }
+        try { r = await body().WaitAsync(TimeSpan.FromSeconds(seconds)); }
         catch (TimeoutException) { r = [.. ids.Select(_ => ("FAIL", "timeout"))]; }
         catch (Exception ex) when (ex is not StartException) { r = [.. ids.Select(_ => ("FAIL", (ex.InnerException ?? ex).Message))]; }   // claude exiting closes the channel
         return ids.Zip(r, (id, v) => (v.Item1, id, v.Item2));

@@ -1,6 +1,8 @@
 @* Top-level items only; subagent items (ParentToolUseId set) live under their Workflow row.
    Consecutive tools form a Ledger (the latest one open), consecutive Agent calls a Workflow. *@
 @inject IJSRuntime JS
+@inject SessionManager Sessions
+@inject NavigationManager Nav
 
 @* role=log wraps the blocks only: finished blocks are announced as they are added; the token-by-token stream is hidden
    until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
@@ -34,6 +36,14 @@
                             }
                         </ul>
                     }</div>
+                break;
+            case TextItem { Uuid: { } at } t:
+                @* Always rendered (disabled while a turn runs) so the thread does not shift at each turn's start and end. *@
+                <div class="said">
+                    <Markdown Text="@t.Markdown" />
+                    <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" aria-label="@L["Session.ForkHereOf", Gist(t.Markdown)]"
+                            disabled="@(!Session.CanFork)" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
+                </div>
                 break;
             case TextItem t:
                 <Markdown Text="@t.Markdown" />
@@ -72,6 +82,15 @@
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;
     List<object> blocks = [];
     (LiveSession, int)? scrolled;
+
+    void Fork(string at) => Nav.NavigateTo($"session/{Sessions.Fork(Session, at).Id}");
+
+    // The start of a reply, so each "Fork from here" button has a distinct accessible name.
+    static string Gist(string md)
+    {
+        var s = string.Join(' ', md.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return s.Length > 60 ? s[..60] + "…" : s;
+    }
 
     List<object> Blocks()
     {

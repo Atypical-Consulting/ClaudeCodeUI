@@ -384,6 +384,12 @@
   <data name="Rewind.Unavailable" xml:space="preserve"><value>Rewind is no longer possible: a turn or a background agent is running, or the session restarted.</value></data>
   <data name="Session.ExitShort" xml:space="preserve"><value>exit {0}</value></data>
   <data name="Session.Exited" xml:space="preserve"><value>claude exited ({0})</value></data>
+  <data name="Session.Fork" xml:space="preserve"><value>Fork session</value></data>
+  <data name="Session.ForkHere" xml:space="preserve"><value>Fork from here</value></data>
+  <data name="Session.ForkHereOf" xml:space="preserve"><value>Fork from here: {0}</value></data>
+  <data name="Session.ForkHint" xml:space="preserve"><value>Continue this conversation in a new session; this one stays as it is</value></data>
+  <data name="Session.ForkName" xml:space="preserve"><value>{0} (fork)</value></data>
+  <data name="Session.ForkShort" xml:space="preserve"><value>Fork</value></data>
   <data name="Session.NoProcess" xml:space="preserve"><value>No claude process for this session.</value></data>
   <data name="Session.NotFound" xml:space="preserve"><value>Session not found</value></data>
   <data name="Session.NotFoundText" xml:space="preserve"><value>No active session or transcript has this ID.</value></data>

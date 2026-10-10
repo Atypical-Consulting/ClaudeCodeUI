@@ -11,7 +11,7 @@ public enum Decision { Allow, AllowSession, Deny }
 
 public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null, string? Uuid = null) : Item;   // Uuid: sent with the message (Send)
-public record TextItem(string Markdown, string? ParentToolUseId) : Item;
+public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null) : Item;   // Uuid: where "Fork from here" cuts
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
@@ -125,6 +125,11 @@ public sealed class LiveSession : IAsyncDisposable
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
     public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
+    public string? ForkOf { get; init; }   // forked from this session id: --resume ForkOf --fork-session until it has its own transcript
+    public string? ForkAt { get; init; }   // --resume-session-at: the message uuid the fork stops after (null = the whole conversation)
+    // The CLI forks the persisted transcript: none before the first message, and only part of a turn still running.
+    // A fork not sent to yet has items but no transcript: SessionManager.Fork then forks its source instead.
+    public bool CanFork => Items.Count > 0 && Status is not (SessionStatus.Running or SessionStatus.Waiting);
 
     public event Action? Changed;
 
@@ -316,8 +321,8 @@ public sealed class LiveSession : IAsyncDisposable
             var args = Args(resume);
             try
             {
-                // --resume restores the last persisted cost-state: total_cost_usd counts on from it.
-                costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : 0);
+                // --resume restores the last persisted cost-state: total_cost_usd counts on from it (a fork's from its source's).
+                costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : ForkOf is { } src ? TranscriptStore.PersistedCost(src) : 0);
                 s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
                     l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
             }
@@ -342,6 +347,12 @@ public sealed class LiveSession : IAsyncDisposable
         var args = new List<string> { "--permission-mode", Mode == "default" ? "manual" : Mode, "--include-partial-messages", "--forward-subagent-text",
             TodoList.AllowedToolsArg };
         if (resume) args.AddRange(["--resume", Id]);
+        else if (ForkOf is { } src)
+        {
+            // Verified by --probe-cli fork: init.session_id is Id, the source transcript stays byte-identical, --name is the title.
+            args.AddRange(["--resume", src, "--fork-session", "--session-id", Id, "--name", Name]);
+            if (ForkAt is { } at) args.AddRange(["--resume-session-at", at]);
+        }
         else
         {
             args.AddRange(["--session-id", Id, "--name", Name]);
@@ -599,7 +610,7 @@ public sealed class LiveSession : IAsyncDisposable
 
             case AssistantTextEvt a:
                 if (a.ParentToolUseId is null) ClearStream();
-                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId));
+                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid));
                 break;
 
             case ToolUseEvt u:
@@ -719,6 +730,13 @@ public sealed class LiveSession : IAsyncDisposable
         }
     }
 
+    // The history a fork shows: up to and including the text block `at` (what --resume-session-at keeps), else all of it.
+    internal static ImmutableList<Item> Upto(IReadOnlyList<Item> items, string? at)
+    {
+        var i = at is null ? -1 : items.ToList().FindIndex(x => x is TextItem t && t.Uuid == at);
+        return [.. i < 0 ? items : items.Take(i + 1)];
+    }
+
     // send → tool_use → permission → deny → result, replayed on the reducer only.
     internal static void Check()
     {
@@ -728,6 +746,11 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
         Ok(resumed is ["--permission-mode", "plan", _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };
+        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
+        Ok(fork.Args(true) is [_, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
+        Item[] h = [new UserItem("a", default, false), new TextItem("b", null, "u1"), new UserItem("c", default, false), new TextItem("d", null, "u2")];
+        Ok(Upto(h, "u1") is [UserItem, TextItem { Uuid: "u1" }] && Upto(h, null).Count == 4, "fork history cut");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
@@ -738,6 +761,8 @@ public sealed class LiveSession : IAsyncDisposable
         ae.Apply(new AssistantTextEvt("m", apiErr, null, false));
         ae.Apply(new AssistantTextEvt("m", "Total cost: $0.01", null, true));
         Ok(ae.Items is [ApiErrorItem { Error.Raw: apiErr }, TextItem, TextItem], "api error item only for synthetic API Error text");
+        ae.Apply(new AssistantTextEvt("m", "x", null, false, "u9"));
+        Ok(ae.Items[^1] is TextItem { Uuid: "u9" }, "text item keeps the message uuid");
 
         var cid = Guid.NewGuid().ToString(); var zid = Guid.NewGuid().ToString();
         try
