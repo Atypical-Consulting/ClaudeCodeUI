@@ -540,7 +540,7 @@ textarea,input{caret-color:var(--accent)}
 .pick.dis{opacity:.45}
 /* EffortSlider: n equal columns put the evenly spaced thumb stops under the tick centres; the range spans the k reachable ones,
    inset by half a column less half a thumb. The fill (accent: it is the current selection) ends under the thumb centre. */
-.effort-slider{--col:58px;--thumb:12px;display:inline-grid;grid-template-columns:repeat(var(--n),var(--col));row-gap:1px;align-items:center;padding-inline:8px}
+.effort-slider{--col:64px;--thumb:12px;display:inline-grid;grid-template-columns:repeat(var(--n),var(--col));row-gap:1px;align-items:center;padding-inline:8px}
 .effort-slider input{grid-column:1/span var(--k);margin:0 calc(var(--col)/2 - var(--thumb)/2);height:16px;-webkit-appearance:none;appearance:none;background:none;border-radius:var(--r-full);cursor:pointer}
 .effort-slider input::-webkit-slider-runnable-track{height:4px;border-radius:var(--r-full);background:linear-gradient(to right,var(--accent) calc(var(--thumb)/2 + (100% - var(--thumb))*var(--p)),var(--seam-2) 0)}
 .effort-slider input::-moz-range-track{height:4px;border-radius:var(--r-full);background:linear-gradient(to right,var(--accent) calc(var(--thumb)/2 + (100% - var(--thumb))*var(--p)),var(--seam-2) 0)}
