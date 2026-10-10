@@ -4,8 +4,8 @@
 
 <div class="ph">
     <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
-    @* The working directory first: a -w worktree replaces it, and that is the checkout Claude edits. *@
-    <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { TranscriptStore.Short(Session.Cwd), Session.Branch, Session.Repo, Strings.Name("Mode.Name.", Session.Mode) }.Where(x => !string.IsNullOrEmpty(x)))</span>
+    @* The short facts first so the ellipsis eats the path, whose full form is in the title and the Copy button. *@
+    <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Strings.Name("Mode.Name.", Session.Mode), TranscriptStore.Short(Session.Cwd) }.Where(x => !string.IsNullOrEmpty(x)))</span>
     @if (Session.AddDirs.Count > 0)
     {
         <span class="sub dirs-n" title="@string.Join("\n", Session.AddDirs)">@Strings.Plural(Session.AddDirs.Count, "Dirs.Count")</span>

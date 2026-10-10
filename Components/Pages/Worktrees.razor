@@ -62,7 +62,7 @@
                         @foreach (var w in g)
                         {
                             <tr class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null)" @key="w.Path">
-                                <td><div class="n">@(w.Name)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div><div class="branch"><Icon Name="branch" />@(w.BranchOnly ? "" : (w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"])) + " · ")@Path.GetFileName(w.Repo)</div></td>
+                                <td><div class="n">@(w.Name)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div>@{ var bl = Path.GetFileName(w.Repo) + (w.BranchOnly ? "" : " · " + (w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"]))); }<div class="branch" title="@bl"><Icon Name="branch" />@bl</div></td>
                                 <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
                                 <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
                                 <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
@@ -226,7 +226,7 @@
         plan.Add(w.Path);
     }
 
-    // .cmdlog is white-space:pre: built as one encoded string, "# repo" comments and results dimmed.
+    // .cmdlog is white-space:pre-wrap: built as one encoded string, "# repo" comments and results dimmed.
     static MarkupString CmdLog(IEnumerable<LogLine> lines)
     {
         var enc = System.Text.Encodings.Web.HtmlEncoder.Default;
@@ -234,7 +234,7 @@
         foreach (var g in lines.GroupBy(l => l.Repo))
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append($"<span class=\"c\"># {enc.Encode(Short(Fmt.Home(g.Key)))}</span>");
+            sb.Append($"<span class=\"c\"># {enc.Encode(Fmt.Home(g.Key))}</span>");
             foreach (var l in g)
             {
                 sb.Append('\n').Append(enc.Encode(l.Cmd));
@@ -314,7 +314,6 @@
     static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
 
 
-    static string Short(string path) => path.Length > 48 ? "…" + path[^47..] : path;   // .cmdlog does not wrap
 
     public void Dispose()
     {
