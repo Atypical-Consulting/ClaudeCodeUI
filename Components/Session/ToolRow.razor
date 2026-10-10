@@ -65,6 +65,8 @@
         var s = t.Structured ?? default;
         switch (t.Name)
         {
+            case AskUser.Tool when AskUser.Answered(t.Structured) is { Length: > 0 } qa:
+                return string.Join(" · ", qa.Select(a => a.Answer));
             case "Read":
                 var n = Num(Events.Prop(s, "file") ?? default, "numLines") ?? t.ResultText?.TrimEnd('\n').Split('\n').Length ?? 0;
                 return Strings.Plural(n, "Tool.Lines");

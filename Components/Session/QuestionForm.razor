@@ -1,0 +1,135 @@
+@* AskUserQuestion, in place of the Allow/Deny body of the PermissionCard: one fieldset per question (radios, or
+   checkboxes when multiSelect) plus a free-text "Other". Answer allows the tool with AskUser.WithAnswers; Skip denies it.
+   Keys: ↑↓ move between options (native in a radio group, ListNav for checkboxes), Space ticks, ⏎ answers, Suppr skips;
+   ⏎ outside any field focuses the first option (PermissionCard). *@
+
+<form class="ask" @onsubmit="Submit">
+    @for (var i = 0; i < questions.Length; i++)
+    {
+        var qi = i;
+        var q = questions[qi];
+        var st = picks[qi];
+        <fieldset disabled="@answered">
+            <legend>@if (q.Header.Length > 0)
+                {
+                    <span class="cap">@q.Header</span>
+                }<span class="qt">@q.Text</span></legend>
+            @for (var j = 0; j <= q.Options.Length; j++)
+            {
+                var oj = j;
+                var other = oj == q.Options.Length;
+                <div class="opt @(other ? "other" : null) @((other ? st.OtherOn : st.Picked.Contains(oj)) ? "on" : null)">
+                    <input id="@Id(qi, oj)" type="@(q.Multi ? "checkbox" : "radio")" name="@Id(qi, -1)" @ref="refs[qi, oj]"
+                           checked="@(other ? st.OtherOn : st.Picked.Contains(oj))" aria-label="@(other ? L["Ask.Other"].Value : null)"
+                           @onchange="e => Pick(qi, oj, !q.Multi || e.Value is true)" @onkeydown="e => OnKey(qi, oj, e)" />
+                    @if (other)
+                    {
+                        <input class="otxt" type="text" placeholder="@L["Ask.OtherPlaceholder"]" aria-label="@L["Ask.OtherAnswer", q.Text]"
+                               @bind="st.Other" @bind:event="oninput" @bind:after="() => Typed(qi)" />
+                    }
+                    else
+                    {
+                        <label for="@Id(qi, oj)"><b>@q.Options[oj].Label</b>@if (q.Options[oj].Description.Length > 0)
+                            {
+                                <span>@q.Options[oj].Description</span>
+                            }</label>
+                    }
+                </div>
+            }
+        </fieldset>
+    }
+    <div class="acts">
+        <button type="submit" class="btn primary" disabled="@(answered || !Complete)">@L["Ask.Submit"] <kbd>⏎</kbd></button>
+        <button type="button" class="btn danger" disabled="@answered" @onclick="Skip">@L["Ask.Skip"]</button>
+    </div>
+    @if (error is not null)
+    {
+        <div class="errbox" role="alert">@error</div>
+    }
+    <p style="font-size:12px;color:var(--fg-4)"><kbd>↑↓</kbd> @L["Ask.Hint.Move"] · <kbd>@L["Key.Space"]</kbd> @L["Ask.Hint.Pick"] · <kbd>⏎</kbd> @L["Ask.Hint.Submit"] · <kbd>@L["Key.Del"]</kbd> @L["Ask.Hint.Skip"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
+</form>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public PendingPermission Permission { get; set; } = null!;
+
+    sealed class Picks { public SortedSet<int> Picked = []; public bool OtherOn; public string Other = ""; }
+
+    AskUser.Question[] questions = [];
+    Picks[] picks = [];
+    ElementReference[,] refs = new ElementReference[0, 0];
+    bool answered;
+    string? error;
+
+    bool Complete => questions.Length > 0 && questions.Select((_, i) => Value(i)).All(v => v.Length > 0);
+
+    string Id(int q, int o) => $"ask-{Permission.RequestId}-{q}" + (o >= 0 ? $"-{o}" : "");
+    string Value(int i) => AskUser.Answer(questions[i], picks[i].Picked, picks[i].OtherOn ? picks[i].Other : null);
+
+    protected override void OnInitialized()
+    {
+        questions = AskUser.Parse(Permission.Input);
+        picks = [.. questions.Select(_ => new Picks())];
+        refs = new ElementReference[questions.Length, questions.Select(q => q.Options.Length + 1).DefaultIfEmpty(1).Max()];
+    }
+
+    // Not on render: a question arriving mid-draft must not steal the composer's focus. ⏎ outside a field lands here.
+    public Task FocusFirst() => questions.Length > 0 ? Focus(0, 0) : Task.CompletedTask;
+
+    async Task Focus(int q, int o)
+    {
+        try { await refs[q, o].FocusAsync(); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+    }
+
+    // o == Options.Length is "Other". A radio only reports being picked; a checkbox reports its new state.
+    void Pick(int q, int o, bool on)
+    {
+        var p = picks[q];
+        if (!questions[q].Multi) { p.Picked.Clear(); p.OtherOn = false; }
+        if (o == questions[q].Options.Length) p.OtherOn = on;
+        else if (on) p.Picked.Add(o);
+        else p.Picked.Remove(o);
+    }
+
+    // Typing an "Other" answer picks it (and, single-select, unpicks the options).
+    void Typed(int q)
+    {
+        if (picks[q].Other.Trim().Length == 0 || picks[q].OtherOn) return;
+        Pick(q, questions[q].Options.Length, true);
+    }
+
+    async Task OnKey(int q, int o, KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Enter": await Submit(); break;
+            case "Delete": await Skip(); break;
+            case "ArrowDown" or "ArrowUp" when questions[q].Multi:   // radios move natively
+                await Focus(q, ListNav.Next(e.Key, o, questions[q].Options.Length + 1));
+                break;
+        }
+    }
+
+    async Task Submit()
+    {
+        if (answered || !Complete) return;
+        answered = true;
+        var answers = new Dictionary<string, string>();
+        for (var i = 0; i < questions.Length; i++) answers[questions[i].Text] = Value(i);
+        try { await Session.Answer(Permission, Decision.Allow, input: AskUser.WithAnswers(Permission.Input, answers)); }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
+    }
+
+    // Public: Suppr also arrives through the card (UiState.Key), outside any form event, hence the explicit renders.
+    public async Task Skip()
+    {
+        if (answered) return;
+        answered = true;
+        StateHasChanged();
+        try { await Session.Answer(Permission, Decision.Deny); }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
+        StateHasChanged();
+    }
+}

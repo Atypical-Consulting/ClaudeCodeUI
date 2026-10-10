@@ -319,5 +319,12 @@ public static class TranscriptStore
         var api = Replay(["""{"type":"assistant","isApiErrorMessage":true,"message":{"model":"<synthetic>","id":"m3","role":"assistant","content":[{"type":"text","text":"API Error: Output blocked by content filtering policy"}]},"timestamp":"2026-10-09T12:00:00Z"}"""]);
         Ok(api is [ApiErrorItem], "replay api error");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
+
+        // AskUserQuestion answered (CLI 2.1.296): the answers come back in toolUseResult.
+        var ask = Replay([
+            """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_Q","name":"AskUserQuestion","input":{"questions":[{"question":"Which color do you prefer?","header":"Color","options":[{"label":"Red","description":"Choose red"},{"label":"Blue","description":"Choose blue"}],"multiSelect":false}]}}]},"timestamp":"2026-10-09T12:00:00Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"The user answered: \"Which color do you prefer?\"=\"Chartreuse\".","tool_use_id":"toolu_Q"}]},"toolUseResult":{"questions":[{"question":"Which color do you prefer?","header":"Color","options":[{"label":"Red","description":"Choose red"},{"label":"Blue","description":"Choose blue"}],"multiSelect":false}],"answers":{"Which color do you prefer?":"Chartreuse"}},"timestamp":"2026-10-09T12:00:09Z"}""",
+        ]);
+        Ok(ask is [ToolItem { State: ToolState.Done } q] && AskUser.Answered(q.Structured) is [("Which color do you prefer?", "Chartreuse")], "replay AskUserQuestion answers");
     }
 }

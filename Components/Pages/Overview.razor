@@ -82,7 +82,10 @@
                         <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
                         <span class="p">@ToolKinds.Target(p.Input, s.Cwd)@Delta(p)</span>
                         <span class="qa" @onkeydown:stopPropagation>   @* Enter on a button must not also open the session *@
-                            <button type="button" class="btn primary" @onclick="() => Answer(s, p, Decision.Allow)">@L["Perm.Allow"]</button>
+                            @if (p.Tool != AskUser.Tool)   @* answered through its form in the session, never a bare allow *@
+                            {
+                                <button type="button" class="btn primary" @onclick="() => Answer(s, p, Decision.Allow)">@L["Perm.Allow"]</button>
+                            }
                             <button type="button" class="btn danger" @onclick="() => Answer(s, p, Decision.Deny)">@L["Perm.Deny"]</button>
                             <a class="btn" href="@Url(s)">@L["Action.Open"]</a>
                         </span>
@@ -140,7 +143,7 @@
             case "j" or "J" or "ArrowDown": qi = (qi + 1) % queue.Count; break;
             case "k" or "K" or "ArrowUp": qi = (qi + queue.Count - 1) % queue.Count; break;
             case "Enter": Nav.NavigateTo(Url(queue[qi].S)); break;
-            case "a" or "A": await Answer(queue[qi].S, queue[qi].P, Decision.Allow); break;
+            case "a" or "A" when queue[qi].P.Tool != AskUser.Tool: await Answer(queue[qi].S, queue[qi].P, Decision.Allow); break;
             case "d" or "D": await Answer(queue[qi].S, queue[qi].P, Decision.Deny); break;
         }
     }

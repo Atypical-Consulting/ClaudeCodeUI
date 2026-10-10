@@ -16,7 +16,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -241,6 +241,36 @@ public static class CliProbe
         Events.Str(e, "type") == "system" && Events.Str(e, "subtype") == "status" ? Events.Str(e, "permissionMode") : null;
 
     static bool Targets(JsonElement input, string file) => Events.Str(input, "file_path") is { } f && Path.GetFileName(f) == file;
+
+
+    // ask-user-question: an AskUserQuestion can_use_tool carries questions[{question,header,options[{label,description}],
+    // multiSelect}]; allowing it with AskUser.WithAnswers (input + answers {question: text}) reaches the model, whose
+    // next turn quotes a free-text answer it could not have guessed.
+    const string Secret = "Chartreuse-417";
+    static async Task<IEnumerable<(string, string, string)>> AskUserQuestion(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["ask-user-question"], async () =>
+        {
+            string? shape = null;
+            var turn = await c.Turn("Use the AskUserQuestion tool to ask me one single-select question, \"Which color do you prefer?\", "
+                + "header \"Color\", options \"Red\" and \"Blue\". After I answer, reply with exactly: CHOSEN=<my answer>.", async e =>
+            {
+                var r = e.GetProperty("request");
+                if (Events.Str(r, "tool_name") != AskUser.Tool) return false;
+                var input = r.GetProperty("input");
+                var qs = AskUser.Parse(input);
+                shape = string.Join("; ", qs.Select(q => $"\"{q.Header}\" {q.Options.Length} options multiSelect={q.Multi}"));
+                await c.S.Respond(Events.Str(e, "request_id")!, true, AskUser.WithAnswers(input, qs.ToDictionary(q => q.Text, _ => Secret)));
+                return true;
+            });
+            if (shape is null) return [("SKIP", "the model did not call AskUserQuestion")];
+            var answered = turn.SelectMany(Events.ParseAll).OfType<ToolResultEvt>().LastOrDefault(r => AskUser.Answered(r.Structured).Length > 0)?.Text ?? "";
+            var reply = Events.Str(turn[^1], "result") ?? "";
+            var detail = $"{shape}; tool_result \"{answered[..Math.Min(answered.Length, 70)]}…\"; reply \"{reply}\"";
+            return [answered.Contains(Secret) && reply.Contains(Secret) ? ("PASS", detail) : ("FAIL", detail)];
+        });
+    }
 
     // ---------- plumbing ----------
 

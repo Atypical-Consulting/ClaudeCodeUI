@@ -19,6 +19,7 @@ public static class SelfCheck
             WorktreeService.Check();
             TranscriptStore.Check();
             ListNav.Check();
+            AskUser.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

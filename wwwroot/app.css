@@ -174,6 +174,22 @@ code{font-family:var(--mono)}
 .acts.wrap{flex-wrap:wrap}
 .plan-fb{display:block;box-sizing:border-box;width:100%;min-height:64px;resize:vertical;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:10px 12px;font:13px/1.5 var(--sans)}
 .plan-fb::placeholder{color:var(--fg-4)}
+/* AskUserQuestion: QuestionForm (pending) and ToolDetail (answered) */
+.ask{display:flex;flex-direction:column;gap:16px}
+.ask fieldset{margin:0;padding:0;border:0;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ask legend{padding:0;margin-bottom:6px;display:flex;flex-direction:column;gap:4px}
+.ask .qt{font:600 15px/1.35 var(--sans);color:var(--fg)}
+.ask .opt{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;border:1px solid var(--seam-2);border-radius:var(--r);padding:9px 12px;background:var(--field)}
+.ask .opt.on{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-soft)}
+.ask .opt input[type=radio],.ask .opt input[type=checkbox]{margin:3px 0 0;accent-color:var(--accent)}
+.ask .opt label{display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.ask .opt label b{font:500 13px var(--sans);color:var(--fg)}
+.ask .opt label span{font-size:12px;color:var(--fg-3);line-height:1.45}
+.ask .opt .otxt{min-width:0;border:0;background:none;color:var(--fg);font:13px var(--sans);padding:0}
+.ask .opt .otxt::placeholder{color:var(--fg-4)}
+.ask-done{margin:0;display:flex;flex-direction:column;gap:4px}
+.ask-done dt{font-size:12px;color:var(--fg-4)}
+.ask-done dd{margin:0 0 8px;font:500 13px var(--sans);color:var(--fg)}
 .diff{font:12px/1.65 var(--mono);border:1px solid var(--seam);border-radius:var(--r);overflow:hidden;background:var(--field)}
 .diff .fh{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--seam);color:var(--fg-3);font-size:12px}
 .diff .fh .a{color:var(--ok)}.diff .fh .d{color:var(--err)}

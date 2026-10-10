@@ -46,6 +46,17 @@
   <data name="Appearance.Version" xml:space="preserve"><value>Version</value></data>
   <data name="Appearance.VersionHintDesktop" xml:space="preserve"><value>Les nouvelles versions viennent des releases GitHub, signées et vérifiées avant l’installation.</value></data>
   <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Lancé avec dotnet run : mets la source à jour avec git pull.</value></data>
+  <data name="Ask.Hint.Move" xml:space="preserve"><value>choisir</value></data>
+  <data name="Ask.Hint.Pick" xml:space="preserve"><value>cocher</value></data>
+  <data name="Ask.Hint.Skip" xml:space="preserve"><value>passer</value></data>
+  <data name="Ask.Hint.Submit" xml:space="preserve"><value>répondre</value></data>
+  <data name="Ask.NeedsAnswers" xml:space="preserve"><value>Réponds à cette question depuis sa session.</value></data>
+  <data name="Ask.Other" xml:space="preserve"><value>Autre</value></data>
+  <data name="Ask.OtherAnswer" xml:space="preserve"><value>Autre réponse à « {0} »</value></data>
+  <data name="Ask.OtherPlaceholder" xml:space="preserve"><value>Autre réponse…</value></data>
+  <data name="Ask.Skip" xml:space="preserve"><value>Passer</value></data>
+  <data name="Ask.Submit" xml:space="preserve"><value>Répondre</value></data>
+  <data name="Ask.Title" xml:space="preserve"><value>Question</value></data>
   <data name="BadRequest.Heading" xml:space="preserve"><value>L’application n’a pas pu traiter cette requête.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>Elle a été refusée avant d’atteindre une page. Reviens en arrière et réessaie, ou repars d’une nouvelle session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Requête refusée</value></data>
@@ -175,6 +186,7 @@
   <data name="Key.Del" xml:space="preserve"><value>Suppr</value></data>
   <data name="Key.Esc" xml:space="preserve"><value>Échap</value></data>
   <data name="Key.ShiftEnter" xml:space="preserve"><value>Maj ⏎</value></data>
+  <data name="Key.Space" xml:space="preserve"><value>Espace</value></data>
   <data name="Kv.Cost" xml:space="preserve"><value>coût</value></data>
   <data name="Kv.Tokens" xml:space="preserve"><value>tokens</value></data>
   <data name="Kv.Tools" xml:space="preserve"><value>outils</value></data>
