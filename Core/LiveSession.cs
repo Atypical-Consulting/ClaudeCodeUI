@@ -55,7 +55,7 @@ public sealed record BgTask(string Id, string ToolUseId, string Description, Dat
     // The last lines of a get_task_output tail as plain text: no ANSI escapes, a \r-overwritten line keeps its last state.
     public static string Tail(string output, int lines)
     {
-        var plain = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B(\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(\x07|\x1B\\)|[@-_])", "");
+        var plain = System.Text.RegularExpressions.Regex.Replace(output, PermissionRules.Ansi, "");
         var all = plain.Split('\n').Select(l => l.TrimEnd('\r')).Select(l => l[(l.LastIndexOf('\r') + 1)..]).ToList();
         while (all.Count > 0 && all[^1].Length == 0) all.RemoveAt(all.Count - 1);
         return string.Join('\n', all.TakeLast(lines));

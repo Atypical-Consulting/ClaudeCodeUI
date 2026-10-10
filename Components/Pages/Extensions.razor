@@ -165,7 +165,7 @@
                     }
                     <div class="field">
                         <label for="perm-rule">@L["Ext.Perm.Add"]</label>
-                        <div class="input"><input id="perm-rule" @bind="ruleDraft" @bind:event="oninput" @onkeydown='e => { if (e.Key == "Enter") _ = EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true); }'
+                        <div class="input"><input id="perm-rule" @bind="ruleDraft" @bind:event="oninput" @onkeydown='async e => { if (e.Key == "Enter") await EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true); }'
                                                   placeholder="Bash(npm run test:*)" spellcheck="false" autocomplete="off" disabled="@busy" /></div>
                     </div>
                     <div class="picks">

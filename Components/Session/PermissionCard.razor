@@ -153,8 +153,8 @@
     // Why the CLI asks: its own reason, else the ask rule that matched, else what the reason type says.
     string? Why => Permission.Info switch
     {
-        { Reason: { Length: > 0 } r } => r,
-        { AskRule: { } rule } i => L["Perm.WhyAskRule", rule, Strings.Name("Perm.Dest.", i.AskRuleSource)],
+        { Reason: { Length: > 0 } r } => PermissionRules.Plain(r),
+        { AskRule: { } rule } i => L["Perm.WhyAskRule", PermissionRules.Plain(rule), Strings.Name("Perm.Dest.", i.AskRuleSource)],
         { ReasonType: "rule" } => L["Perm.WhyRule"],
         { ReasonType: "workingDir" } => L["Perm.WhyWorkingDir"],
         _ => null,

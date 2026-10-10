@@ -87,6 +87,10 @@ public static class PermissionRules
         return b.ToString();
     }
 
+    // decision_reason and matched_ask_rule "may carry ANSI escapes; sanitize before rendering" (2.1.296 schema): escapes dropped, the rest made visible, lines kept.
+    public static string Plain(string s) => string.Join('\n', System.Text.RegularExpressions.Regex.Replace(s, Ansi, "").Split('\n').Select(Visible));
+    public const string Ansi = @"\x1B(\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(\x07|\x1B\\)|[@-_])";
+
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "PermissionRules: " + what);
@@ -109,6 +113,7 @@ public static class PermissionRules
         Ok(threw, "a file the CLI would skip is never rewritten");
         Ok(Valid("Bash(npm run:*)") && Valid("mcp__roseline__*") && Valid("WebFetch(domain:github.com)") && !Valid("") && !Valid("Bash(") && !Valid("two words"), "rule syntax");
         Ok(Visible("Bash(a​b)") == "Bash(a\\u{200B}b)", "invisible characters shown");
+        Ok(Plain("\u001b[31mBlocked\u001b[0m by hook\nline\u0007") == "Blocked by hook\nline\\u{0007}", "decision_reason sanitized");
         Ok(FileOf("localSettings", "/r/.claude/worktrees/x", "/r", "/c") == Path.Combine("/r", ".claude", "settings.local.json")
            && FileOf("projectSettings", "/r/.claude/worktrees/x", "/r", "/c") == Path.Combine("/r/.claude/worktrees/x", ".claude", "settings.json")
            && FileOf("localSettings", "/t", null, "/c") == Path.Combine("/t", ".claude", "settings.local.json")
