@@ -2,7 +2,6 @@
    checkboxes when multiSelect) plus a free-text "Other". Answer allows the tool with AskUser.WithAnswers; Skip denies it.
    Keys: ↑↓ move between options (native in a radio group, ListNav for checkboxes), Space ticks, ⏎ answers, Suppr skips;
    ⏎ outside any field focuses the first option (PermissionCard). *@
-@inject IJSRuntime JS
 
 <form class="ask" @onsubmit="Submit">
     @for (var i = 0; i < questions.Length; i++)
@@ -45,9 +44,9 @@
     </div>
     @if (error is not null)
     {
-        <div class="errbox">@error</div>
+        <div class="errbox" role="alert">@error</div>
     }
-    <p style="font-size:12px;color:var(--fg-4)"><kbd>↑↓</kbd> @L["Ask.Hint.Move"] · <kbd>@L["Key.Space"]</kbd> @L["Ask.Hint.Pick"] · <kbd>⏎</kbd> @L["Ask.Hint.Submit"] · <kbd>@L["Key.Del"]</kbd> @L["Ask.Hint.Skip"]</p>
+    <p style="font-size:12px;color:var(--fg-4)"><kbd>↑↓</kbd> @L["Ask.Hint.Move"] · <kbd>@L["Key.Space"]</kbd> @L["Ask.Hint.Pick"] · <kbd>⏎</kbd> @L["Ask.Hint.Submit"] · <kbd>@L["Key.Del"]</kbd> @L["Ask.Hint.Skip"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
 </form>
 
 @code {
@@ -120,7 +119,7 @@
         var answers = new Dictionary<string, string>();
         for (var i = 0; i < questions.Length; i++) answers[questions[i].Text] = Value(i);
         try { await Session.Answer(Permission, Decision.Allow, input: AskUser.WithAnswers(Permission.Input, answers)); }
-        catch (Exception ex) { error = ex.Message; answered = false; }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 
     async Task Skip()
@@ -128,6 +127,6 @@
         if (answered) return;
         answered = true;
         try { await Session.Answer(Permission, Decision.Deny); }
-        catch (Exception ex) { error = ex.Message; answered = false; }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 }
