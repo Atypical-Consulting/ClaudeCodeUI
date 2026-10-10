@@ -41,13 +41,13 @@
             }
         </div>
         <div role="status">
-            @if (searching) { <div class="pg" style="color:var(--fg-4)">@L["Palette.SearchingMessages"]</div> }
+            @if (searching) { <div class="pg">@L["Palette.SearchingMessages"]</div> }
             else
             {
-                if (rows.Count == 0) { <div class="pg" style="color:var(--fg-4)">@L["Palette.NoResults"]</div> }
+                if (rows.Count == 0) { <div class="pg">@L["Palette.NoResults"]</div> }
                 @* A stopped scan is never a definitive "no results". *@
-                if (failed) { <div class="pg" style="color:var(--fg-4)">@L["Palette.SearchFailed"]</div> }
-                else if (partial) { <div class="pg" style="color:var(--fg-4)">@L["Palette.OlderNotSearched"]</div> }
+                if (failed) { <div class="pg">@L["Palette.SearchFailed"]</div> }
+                else if (partial) { <div class="pg">@L["Palette.OlderNotSearched"]</div> }
             }
         </div>
         <div class="pfoot"><span><kbd>↑</kbd> <kbd>↓</kbd> @L["Palette.Navigate"]</span><span><kbd>⏎</kbd> @L["Palette.Open"]</span></div>
