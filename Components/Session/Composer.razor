@@ -150,7 +150,7 @@
     InputFile? picker;
     readonly PromptHistory history = new();
     DotNetObjectReference<Composer>? self;
-    (string Id, IReadOnlyList<string> Prompts)? past;
+    IReadOnlyList<string>? past;   // prompts of past sessions in this cwd (the Composer is keyed by session)
     SlashPopover? slash;
     MentionPopover? mention;
     bool SlashOpen => !menuOpen && !modeOpen && SlashQuery is not null && slash?.Open == true;
@@ -340,16 +340,21 @@
         if (history.Index == -1 && step > 0)
         {
             // ponytail: past prompts read once per session (≤ 10 transcripts, synchronous); re-read if they go stale.
-            if (past?.Id != Session.Id) past = (Session.Id, TranscriptStore.Prompts(Session.Cwd, Session.Id));
+            past ??= TranscriptStore.Prompts(Session.Cwd, Session.Id);
             // image-only messages have no text to recall
-            history.Load(Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).Reverse().Concat(past.Value.Prompts));
+            history.Load(Session.Items.OfType<UserItem>().Select(u => u.Text).Where(t => t.Length > 0).Reverse().Concat(past));
         }
         if (history.Move(step, current) is not { } t) return;
         text = recalled = t;
         StateHasChanged();
     }
 
-    public void Dispose() => self?.Dispose();
+    public void Dispose()
+    {
+        // Leaving mid-walk (navigation, reload, reconnect): Session.Draft holds the recalled prompt; give the typed draft back.
+        if (history.Draft is { } d) text = d;
+        self?.Dispose();
+    }
 
     async Task Key(KeyboardEventArgs e)
     {

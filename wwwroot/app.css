@@ -162,7 +162,7 @@ code{font-family:var(--mono)}
 .meta{max-width:760px;display:flex;gap:18px;margin-top:8px;font:12px var(--mono);color:var(--fg-4)}
 .meta b{color:var(--fg-3);font-weight:500}
 .meta .r{margin-left:auto}
-.meta [role=status]:empty{position:absolute}  /* live region kept in the tree, out of the flex gap */
+#composer-history:empty{position:absolute}  /* live region kept in the tree, out of the flex gap */
 
 /* inspector */
 .insp{background:var(--sunk);overflow-y:auto}

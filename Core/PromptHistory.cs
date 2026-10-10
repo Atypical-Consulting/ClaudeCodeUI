@@ -8,6 +8,8 @@ public sealed class PromptHistory
 
     public int Index { get; private set; } = -1;
     public int Count => entries.Count;
+    // The text typed before the walk, while a past prompt is shown; null when not walking.
+    public string? Draft => Index >= 0 ? draft : null;
 
     // newestFirst: this session's prompts, then the past sessions'. Exact duplicates keep their newest place.
     public void Load(IEnumerable<string> newestFirst)
@@ -39,7 +41,9 @@ public sealed class PromptHistory
         Ok(h.Move(-1, "draft") is null, "↓ at the draft");
         Ok(h.Move(1, "draft") == "b" && h.Move(1, "b") == "a" && h.Move(1, "a") == "c", "↑ walks newest to oldest");
         Ok(h.Move(1, "c") is null && h.Index == 2, "↑ stops at the oldest");
+        Ok(h.Draft == "draft", "the draft is kept while walking");
         Ok(h.Move(-1, "c") == "a" && h.Move(-1, "a") == "b" && h.Move(-1, "b") == "draft", "↓ comes back to the draft");
+        Ok(h.Draft is null, "no draft outside a walk");
         h.Move(1, "draft 2");
         h.Reset();
         Ok(h.Move(1, "edited") == "b" && h.Move(-1, "b") == "edited", "an edit becomes the draft");
