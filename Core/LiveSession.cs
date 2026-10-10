@@ -122,6 +122,8 @@ public sealed class LiveSession : IAsyncDisposable
     // input: what to allow the tool with instead of its own input (AskUserQuestion's answers, see AskUser).
     public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null, JsonElement? input = null)
     {
+        // A bare allow makes AskUserQuestion return "The user did not answer the questions." (see AskUser).
+        if (p.Tool == AskUser.Tool && d != Decision.Deny && input is null) throw new InvalidOperationException(Strings.Get("Ask.NeedsAnswers"));
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
         lock (gate) if (!answering.Add(p.RequestId)) return;
@@ -685,8 +687,16 @@ public sealed class LiveSession : IAsyncDisposable
         pm.Resolve(pm.Pending[0], Decision.Allow);
         pm.Apply(new StatusEvt(null, "acceptEdits"));
         Ok(pm.Mode == "acceptEdits" && pm.Status == SessionStatus.Running && pm.Items[^1] is ToolItem { State: ToolState.Running }, "plan approved, mode follows status");
+        var bare = new PendingPermission("r", AskUser.Tool, input, null, null, null);
+        Ok(ThrowsMsg(() => s.Answer(bare, Decision.Allow)) == Strings.Get("Ask.NeedsAnswers")
+           && ThrowsMsg(() => s.Answer(bare, Decision.Deny)) == Strings.Get("Session.NoProcess"), "AskUserQuestion is never allowed bare");
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
+    }
+
+    static string? ThrowsMsg(Func<Task> f)
+    {
+        try { f().GetAwaiter().GetResult(); return null; } catch (InvalidOperationException e) { return e.Message; }
     }
 
     // Echoed slash commands come back as tags: "<command-name>/x</command-name>…<command-args>a</command-args>" → "/x a"; their output is hidden.

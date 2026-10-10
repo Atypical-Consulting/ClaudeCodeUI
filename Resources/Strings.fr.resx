@@ -50,6 +50,7 @@
   <data name="Ask.Hint.Pick" xml:space="preserve"><value>cocher</value></data>
   <data name="Ask.Hint.Skip" xml:space="preserve"><value>passer</value></data>
   <data name="Ask.Hint.Submit" xml:space="preserve"><value>répondre</value></data>
+  <data name="Ask.NeedsAnswers" xml:space="preserve"><value>Réponds à cette question depuis sa session.</value></data>
   <data name="Ask.Other" xml:space="preserve"><value>Autre</value></data>
   <data name="Ask.OtherAnswer" xml:space="preserve"><value>Autre réponse à « {0} »</value></data>
   <data name="Ask.OtherPlaceholder" xml:space="preserve"><value>Autre réponse…</value></data>
