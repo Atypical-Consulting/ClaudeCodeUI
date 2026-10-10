@@ -35,7 +35,7 @@ Then run `claude` once in a terminal to sign in. If `claude` is not found in the
 
 ## Features
 
-- New session: folder, isolated worktree, permission mode, first message.
+- New session: folder, isolated worktree (generated name), permission mode; the session opens, then you write the first message.
 - Live text, thinking indicator, tool log with an inspector (output, input, JSON).
 - Permission requests with diffs: allow, deny, or allow for the whole session.
 - Overview of all sessions and a queue of pending decisions (Ctrl ⇧ A).

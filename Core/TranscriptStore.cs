@@ -425,6 +425,16 @@ public static class TranscriptStore
     // A typed worktree name, made branch-safe; null when nothing usable is left (the caller falls back to the prompt's name).
     internal static string? WorktreeName(string typed) => NameFrom(typed, 8) is { Length: > 0 } n ? n : null;
 
+    // "brave-hidden-otter": adjective-gerund-animal, the shape of the terminal's own worktree names.
+    internal static string RandomName()
+    {
+        string[] adj = ["brave", "calm", "eager", "fuzzy", "gentle", "happy", "jolly", "keen", "lazy", "lucky", "mellow", "nimble", "quiet", "rapid", "shiny", "snug", "sunny", "swift", "tidy", "witty"],
+            ing = ["baking", "dancing", "dozing", "drifting", "floating", "gliding", "hiding", "humming", "juggling", "napping", "painting", "roaming", "sailing", "singing", "skating", "snacking", "spinning", "wandering", "whistling", "zooming"],
+            animal = ["badger", "beaver", "bison", "crane", "falcon", "ferret", "gecko", "heron", "hopper", "koala", "lemur", "lynx", "marmot", "otter", "panda", "puffin", "quokka", "raven", "tapir", "walrus"];
+        string Pick(string[] w) => w[Random.Shared.Next(w.Length)];
+        return $"{Pick(adj)}-{Pick(ing)}-{Pick(animal)}";
+    }
+
     static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
     static int refreshing, heldGen;   // heldGen: bumped by ForgetHeld so a scan started before a Stop never writes its stale ps back
 
@@ -470,6 +480,7 @@ public static class TranscriptStore
            .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");
+        Ok(Enumerable.Range(0, 50).Select(_ => RandomName()).All(n => n.Split('-').Length == 3 && WorktreeName(n) == n), "RandomName is a branch-safe three-word slug");
         Ok(WorktreeName(" Fix Auth! ") == "fix-auth" && WorktreeName(" -!- ") is null, "WorktreeName");
         Ok(RepoName(@"C:\repo\api\.claude\worktrees\x") == "api" && RepoName(@"C:\repo\api") == "api", "RepoName");
 

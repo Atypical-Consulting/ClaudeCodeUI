@@ -132,9 +132,9 @@ irm https://claude.ai/install.ps1 | iex</pre></div>
         <p>The start screen asks "What are we working on?". It gathers everything a session fixes before it begins:</p>
         <ul>
           <li><strong>Working folder</strong>: the folder where <code>claude</code> will run. Recent folders are offered in one click.</li>
-          <li><strong>Isolation</strong>: "New worktree" creates a git worktree <code>worktree-&lt;name&gt;</code> from the current branch. The option only appears if the folder is a git repository.</li>
+          <li><strong>Isolation</strong>: "New worktree" creates a git worktree <code>worktree-&lt;name&gt;</code> from the current branch, with a generated name ("brave-gliding-otter") that "Edit" replaces. The option only appears if the folder is a git repository.</li>
           <li><strong>Permissions</strong>: the session mode, chosen from four.</li>
-          <li><strong>First message</strong>, then <kbd>Ctrl ⏎</kbd> or "Start".</li>
+          <li><kbd>Ctrl ⏎</kbd> or "Start" opens the session, as <code>claude</code> does in a terminal: the first message is written in its composer, where the slash commands are already loading.</li>
         </ul>
         <div class="tw"><table>
           <thead><tr><th>Mode</th><th>Behavior</th></tr></thead>

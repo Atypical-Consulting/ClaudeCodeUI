@@ -277,7 +277,6 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .iso .branch{flex:1;min-width:0;max-width:none}
 .iso .branch.pre{flex:none;color:var(--fg-3)}
 @media (max-width:480px){.iso .branch:not(.pre){white-space:normal;overflow-wrap:anywhere}}   /* "from <branch>" wraps rather than hiding in the title */
-.iso .naming{flex:none;font-size:12px;color:var(--fg-4)}   /* Haiku is still naming: the heuristic name stands in meanwhile */
 .iso .pre+input{margin-left:-10px}   /* the prefix and the typed part read as one name: worktree-session */
 .iso input{font:12px/16px var(--mono);height:16px;padding:0;text-overflow:ellipsis}
 .input input::placeholder{font-family:var(--sans);color:var(--fg-4)}

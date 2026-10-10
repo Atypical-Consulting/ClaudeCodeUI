@@ -17,6 +17,11 @@
         </div>
     </div>
 }
+else if (Session.Status == SessionStatus.Starting)
+{
+    @* The list comes with the CLI's initialize answer: a cold start (worktree, hooks, MCP) takes a few seconds. *@
+    <div class="pop slash" role="status"><div class="sh"><span>@L["Slash.Loading"]</span></div></div>
+}
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;

@@ -22,7 +22,6 @@ public static class SelfCheck
             EditDiff.Check();
             WorktreeService.Check();
             TranscriptStore.Check();
-            WorktreeNamer.Check();
             ListNav.Check();
             AskUser.Check();
             FileIndex.Check();
