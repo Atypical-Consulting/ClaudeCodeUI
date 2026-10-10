@@ -30,15 +30,7 @@
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
-    bool? open;
-    LiveSession? shown;
-
-    // SessionPage reuses this component across sessions: a header click only holds for the session it was made in.
-    protected override void OnParametersSet()
-    {
-        if (!ReferenceEquals(shown, Session)) open = null;
-        shown = Session;
-    }
+    bool? open;   // per session: SessionPage keys its pane by S.Id, so switching sessions mounts a fresh panel
 
     static string? Css(TodoStatus s) => s switch { TodoStatus.InProgress => "now", TodoStatus.Completed => "done", _ => null };
 }
