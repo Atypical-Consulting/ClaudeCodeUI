@@ -358,6 +358,8 @@
   <data name="New.Worktree" xml:space="preserve"><value>Nouveau worktree</value></data>
   <data name="New.WorktreeFrom" xml:space="preserve"><value>{0} depuis {1}</value></data>
   <data name="New.WorktreeName" xml:space="preserve"><value>Nom du worktree</value></data>
+  <data name="New.Naming" xml:space="preserve"><value>nommage…</value></data>
+  <data name="New.Named" xml:space="preserve"><value>Worktree nommé {0}</value></data>
   <data name="NotFound.Heading" xml:space="preserve"><value>Il n’y a rien à cette adresse.</value></data>
   <data name="NotFound.Text" xml:space="preserve"><value>Le lien est peut-être périmé ou mal saisi. Démarre une nouvelle session ou ouvre la vue d’ensemble.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Introuvable</value></data>
