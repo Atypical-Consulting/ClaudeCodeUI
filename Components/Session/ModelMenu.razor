@@ -2,9 +2,10 @@
 
 @inject IJSRuntime JS
 
-<div class="pop slash menu" role="listbox" aria-label="@L["Model"]" @ref="list" tabindex="0" aria-activedescendant="mm-opt-@sel"
-     @onkeydown="Key" @onkeydown:preventDefault>
-    <div class="sh"><span>@L["Model"]</span><span>@error</span></div>
+<div class="pop slash menu">
+    <div class="sh"><span>@L["Model"]</span><span role="status" class="@(error is null ? null : "c-err-fg")">@error</span></div>
+    <div role="listbox" aria-label="@L["Model"]" @ref="list" tabindex="0" aria-activedescendant="mm-opt-@sel"
+         @onkeydown="Key" @onkeydown:preventDefault>
     @{ var cur = Current(Session) is { } c ? Events.Str(c, "value") : null; }
     @for (var i = 0; i < models.Count; i++)
     {
@@ -12,11 +13,12 @@
         var value = Events.Str(m, "value") ?? "";
         var current = value == cur;
         <div id="mm-opt-@i" class="si @(current ? "on" : null) @(i == sel ? "kb" : null)" role="option" aria-selected="@(current ? "true" : "false")" @onclick="() => Pick(value)">
-            <b>@(Events.Str(m, "displayName") ?? value)</b>
+            <b title="@(Events.Str(m, "displayName") ?? value)">@(Events.Str(m, "displayName") ?? value)</b>
             <span title="@Events.Str(m, "description")">@Events.Str(m, "description")</span>
             @if (current) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
         </div>
     }
+    </div>
 </div>
 
 @code {

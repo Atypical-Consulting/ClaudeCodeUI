@@ -3,6 +3,7 @@
 @inject SessionManager Sessions
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@implements IDisposable
 
 <PageTitle>@L["Rail.NewSession"] · Claude Code</PageTitle>
 
@@ -14,13 +15,13 @@
             <div class="start-card">
                 <div class="hello">
                     <div class="duck"><Duck Mood="Mood.Ko" Size="88" /></div>
-                    <div><h3>@L["New.NotFound"]</h3><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
+                    <div><h2>@L["New.NotFound"]</h2><p>@((MarkupString)L[ClaudeSession.NpmShimOnly() ? "New.NpmShimText" : "New.NotFoundText"].Value)</p></div>
                 </div>
                 <div class="field">
                     <h4 class="lbl">@L["New.Step1"]</h4>
                     <p>@L["New.Unix"] <code>curl -fsSL https://claude.ai/install.sh | bash</code></p>
                     <p>@L["New.Windows"] <code>irm https://claude.ai/install.ps1 | iex</code></p>
-                    <p>@L["New.Guide"] <a href="@L["New.GuideUrl"]" target="_blank" rel="noopener" style="color:var(--accent)">docs.claude.com</a></p>
+                    <p>@L["New.Guide"] <a href="@L["New.GuideUrl"]" target="_blank" rel="noopener" style="color:var(--syn-fn);text-decoration-color:color-mix(in srgb,var(--syn-fn) 40%,transparent);text-underline-offset:3px">docs.claude.com</a></p>
                 </div>
                 <div class="field">
                     <h4 class="lbl">@L["New.Step2"]</h4>
@@ -38,25 +39,29 @@
         <div class="start-card">
             <div class="hello">
                 <div class="duck"><Duck Mood="Mood.Happy" Size="88" /></div>
-                <div><h3>@L["New.Hello"]</h3><p>@L["New.HelloText"]</p></div>
+                <div><h2>@L["New.Hello"]</h2><p>@L["New.HelloText"]</p></div>
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
-                @if (!exists)
+                <div class="input"><PickFolder Start="@cwd" OnPick="SetCwd" OnError="m => pickError = m" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists && pickError is null ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                @if (pickError is not null)
                 {
-                    <div id="cwd-err" role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg)">@L["New.NoFolder"]</div>
+                    <div id="cwd-err" role="alert" class="fmsg">@pickError</div>
+                }
+                else if (!exists)
+                {
+                    <div id="cwd-err" role="alert" class="fmsg">@L["New.NoFolder"]</div>
                 }
                 else if (untrusted)
                 {
-                    <div role="alert" style="margin-top:8px;font-size:12px;color:var(--err-fg);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div role="alert" class="fmsg" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                         <span>@L["New.Untrusted"]</span>
                         <button class="btn" @onclick="() => untrusted = false">@L["New.Trust"]</button>
                     </div>
                 }
                 else if (IsHome)
                 {
-                    <div role="status" style="margin-top:8px;font-size:12px;color:var(--syn-type)">@L["New.HomeFolder"]</div>
+                    <div role="status" class="fmsg risk">@L["New.HomeFolder"]</div>
                 }
                 @if (recents.Count > 0)
                 {
@@ -74,24 +79,26 @@
             </div>
             <div class="field">
                 <span class="lbl" id="iso-lbl">@L["New.Isolation"]</span>
-                <div class="input" style="font-family:var(--sans)" role="group" aria-labelledby="iso-lbl">
+                <div class="input iso" role="group" aria-labelledby="iso-lbl">
                     <button class="toggle @(Isolated ? "on" : null)" role="switch" aria-checked="@(Isolated ? "true" : "false")" disabled="@(branch is null)"
-                            @onclick="() => { worktree = !worktree; confirmRisk = false; }"><span class="sw"></span>@L["New.Worktree"]</button>
+                            @onclick="() => { worktree = !worktree; confirmRisk = false; _ = Name(); }"><span class="sw"></span>@L["New.Worktree"]</button>
                     @if (branch is null && RendererInfo.IsInteractive)
                     {
-                        <span class="branch" style="margin-left:14px">@L["New.NotGit"]</span>
+                        <span class="branch">@L["New.NotGit"]</span>
                     }
                     else if (Isolated && editing)
                     {
-                        <span class="branch" style="margin-left:14px;flex:none"><Icon Name="branch" />worktree-</span>
-                        <input value="@WtName" @onchange="SetName" aria-label="@L["New.WorktreeName"]" spellcheck="false" />
-                        <button class="b btn ghost" @onclick="() => editing = false">@L["Action.Ok"]</button>
+                        <span class="branch pre"><Icon Name="branch" />worktree-</span>
+                        <input @ref="nameInput" @bind="draft" @bind:event="oninput" @onkeydown="NameKeys" title="@draft" aria-label="@L["New.WorktreeName"]" spellcheck="false" autocomplete="off" />
+                        <button class="b btn ghost" @onclick="CommitName">@L["Action.Ok"]</button>
                     }
                     else if (Isolated)
                     {
-                        <span class="branch" style="margin-left:14px"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch]</span>
-                        <button class="b btn ghost" @onclick="() => editing = true">@L["New.Edit"]</button>
+                        <span class="branch" title="@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]"><Icon Name="branch" />@L["New.WorktreeFrom", "worktree-" + WtName, branch ?? ""]</span>
+                        @if (Naming) { <span class="naming">@L["New.Naming"]</span> }
+                        <button class="b btn ghost" @ref="editBtn" @onclick="EditName">@L["New.Edit"]</button>
                     }
+                    <span class="vh" aria-live="polite">@named</span>
                 </div>
             </div>
             <div class="field">
@@ -101,11 +108,11 @@
                         <option value="">@L["New.DefaultModel"]</option>
                         @foreach (var m in Models) { <option value="@m">@m</option> }
                     </select>
-                    <select @bind="effort" aria-label="@L["New.Effort"]">
-                        <option value="">@L["New.DefaultEffort"]</option>
-                        @foreach (var e in Efforts) { <option value="@e">@Strings.Name("Effort.", e)</option> }
-                    </select>
                 </div>
+            </div>
+            <div class="field">
+                <label for="effort">@L["New.Effort"]</label>
+                <EffortSlider Id="effort" Levels="Efforts" @bind-Value="effort" Name='e => Strings.Name("Effort.", e is "" ? "default" : e)' />
             </div>
             <div class="field">
                 <span class="lbl" id="perm-lbl">@L["New.Permissions"]</span>
@@ -118,7 +125,7 @@
             </div>
             <div>
                 <div class="box" style="max-width:none">
-                    <textarea @bind="prompt" @bind:event="oninput" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
+                    <textarea @bind="prompt" @bind:event="oninput" @bind:after="Name" @onkeydown="Keys" placeholder="@L["New.Placeholder"]" aria-label="@L["New.FirstMessage"]"></textarea>
                     <div class="row">
                         @if (confirmRisk) { <span class="risk" role="alert">@L[addDirs.Count > 0 ? "Dirs.ConfirmRisky" : "New.ConfirmRisky", Strings.Name("Mode.Name.", mode)]</span> }
                         <button class="btn primary go" disabled="@(busy || !exists || untrusted)" @onclick="Start">@(confirmRisk ? L["New.StartAnyway"] : L["New.Start"]) <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
@@ -133,13 +140,15 @@
 
 @code {
     // CLI aliases and `claude --effort` levels; "" keeps the CLI / settings default.
-    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["low", "medium", "high", "xhigh", "max"];
+    static readonly string[] Models = ["opus", "sonnet", "haiku"], Efforts = ["", "low", "medium", "high", "xhigh", "max"];
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
-    string? branch, wtName, lastQuery, shownCwd;
-    ElementReference cwdInput;
+    string? branch, wtName, lastQuery, shownCwd, pickError;
+    ElementReference cwdInput, nameInput, editBtn;
+    string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
+    bool? focusName;   // keyboard-first: Edit hands focus to the input (true), OK / Escape back to Edit (false); refs exist only after the render
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
     System.Collections.Immutable.ImmutableList<string> addDirs = [];
@@ -149,7 +158,40 @@
     bool Isolated => worktree && branch is not null;
     // The desktop shell starts in ~: Claude could touch every dotfile there, with no worktree to isolate it.
     bool IsHome => string.Equals(Path.TrimEndingDirectorySeparator(cwd), Path.TrimEndingDirectorySeparator(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), StringComparison.OrdinalIgnoreCase);
-    string WtName => wtName ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
+    string WtName => wtName ?? (suggested.For == prompt.Trim() ? suggested.Name : null) ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : "session");
+
+    // Haiku's name for the prompt it was asked about; a manual name (wtName) always wins and is never overwritten.
+    (string? For, string? Name) suggested;
+    Task<string?>? naming;
+    string? namingFor, named;   // named: announced once when a suggestion lands
+    CancellationTokenSource? debounce;
+    bool Naming => naming is not null && namingFor == prompt.Trim();
+
+    // ~1 s after the prompt stops changing; nothing to name outside an isolated worktree or under a typed name.
+    async Task Name()
+    {
+        debounce?.Cancel();
+        var text = prompt.Trim();
+        if (!Isolated || wtName is not null || text.Length < 12 || suggested.For == text) return;
+        var ct = (debounce = new()).Token;
+        try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { return; }
+        naming = WorktreeNamer.Suggest(text, ct);
+        namingFor = text;
+        StateHasChanged();
+        var name = await naming;
+        if (ct.IsCancellationRequested) return;   // newer keystrokes own the hint now
+        naming = null;
+        Land(text, name);
+        StateHasChanged();   // the toggle fires Name() and forgets it: nothing else renders the landed name
+    }
+
+    void Land(string text, string? name)
+    {
+        suggested = (text, name);
+        if (name is not null && wtName is null) named = L["New.Named", "worktree-" + name];
+    }
+
+    public void Dispose() => debounce?.Cancel();
 
     protected override void OnInitialized()
     {
@@ -172,6 +214,11 @@
     // A long path shows its distinguishing end, not its start.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (focusName is { } toName)
+        {
+            focusName = null;
+            try { await (toName ? nameInput : editBtn).FocusAsync(); } catch (InvalidOperationException) { }   // the row re-rendered away before the focus landed
+        }
         if (!claudeFound || cwd == shownCwd) return;
         shownCwd = cwd;
         await JS.InvokeVoidAsync("claudeUi.scrollToEnd", cwdInput);
@@ -181,6 +228,7 @@
     {
         value = value.Trim().Trim('"');
         if (value != cwd) untrusted = false;   // the user picked another folder themselves
+        pickError = null;
         cwd = value;
         confirmRisk = false;
         exists = Local(cwd);
@@ -225,7 +273,17 @@
         return free;
     }
 
-    void SetName(ChangeEventArgs e) => wtName = TranscriptStore.NameFrom(e.Value?.ToString() ?? "", 8) is { Length: > 0 } n ? n : null;
+    void EditName() { draft = editFrom = WtName; editing = true; focusName = true; }
+
+    // A draft that sanitizes to nothing falls back to the name derived from the prompt. An untouched draft is no manual
+    // name: Edit then OK must not freeze the heuristic over a pending Haiku name, nor stop it following the prompt.
+    void CommitName() { if (draft != editFrom) wtName = TranscriptStore.WorktreeName(draft); editing = false; focusName = false; }
+
+    void NameKeys(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.CtrlKey && !e.MetaKey) CommitName();
+        else if (e.Key == "Escape") { editing = false; focusName = false; }
+    }
 
     async Task Keys(KeyboardEventArgs e)
     {
@@ -238,9 +296,12 @@
         if (untrusted || !(exists = Local(cwd))) return;
         busy = true;
         if (extraDirs is not null && !await extraDirs.Commit()) { busy = false; return; }   // a typed folder is not dropped
+        if (editing) CommitName();   // nor a typed worktree name
         branch = await Branch(cwd);   // a folder edit blurred into this click: SetCwd's probe may still be pending
         // auto / acceptEdits edit the folder unasked: outside an isolated worktree, or with an extra folder (never isolated), the second Start confirms.
         if (LiveSession.Risky(mode) && (addDirs.Count > 0 || !Isolated && TranscriptStore.RootOf(cwd) == cwd) && !confirmRisk) { confirmRisk = true; busy = false; return; }
+        // A pending suggestion is worth its wait: the shared call is bounded by WorktreeNamer.Timeout and never throws.
+        if (Isolated && wtName is null && naming is { } pending && namingFor == prompt.Trim()) Land(namingFor, await pending);
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         var name = wt ?? (TranscriptStore.NameFrom(prompt) is { Length: > 0 } n ? n : Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd)));
         var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);

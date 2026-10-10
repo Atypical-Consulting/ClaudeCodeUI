@@ -88,7 +88,7 @@
         if (!stopping.Add(t.Id)) return;
         error = null;
         try { await Session.StopTask(t.Id); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { error = L["Bg.StopFailed", ex.Message]; }
         finally { stopping.Remove(t.Id); }
     }
 

@@ -15,7 +15,7 @@
             }
             else if (preview is { Changes: true } p)
             {
-                <div class="cap">@L["Rewind.Files"] · @L["Rewind.Lines", p.Insertions, p.Deletions]</div>
+                <div class="cap">@L["Rewind.Files"] · <span class="n">@L["Rewind.Lines", p.Insertions, p.Deletions]</span></div>
                 @if (p.Files.Count > 0)
                 {
                     <ul class="files">

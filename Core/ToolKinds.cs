@@ -32,6 +32,7 @@ public static class ToolKinds
 
     // "mcp__server__tool" -> "tool"; the full name stays in the title. Other names are returned as is.
     public static string Label(string name) =>
+        name == AskUser.Tool ? Strings.Get("Tool.Label.Question") :
         name.StartsWith("mcp__", StringComparison.Ordinal) && name.LastIndexOf("__", StringComparison.Ordinal) is var i && i > 3 ? name[(i + 2)..] : name;
 
     // MCP and other unknown tools: the first string argument is the best one-line target there is.

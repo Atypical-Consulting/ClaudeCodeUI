@@ -7,12 +7,12 @@
 <section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
     @if (modeOpen)
     {
-        <div class="shield" @onclick="() => modeOpen = false"></div>
-        <ModeMenu Session="Session" OnClose="() => modeOpen = false" OnEscape="CloseModeToTrigger" />
+        <div class="shield" @onclick="CloseModeToTrigger"></div>
+        <ModeMenu Session="Session" OnClose="CloseModeToTrigger" OnEscape="CloseModeToTrigger" />
     }
     else if (menuOpen)
     {
-        <div class="shield" @onclick="() => menuOpen = false"></div>
+        <div class="shield" @onclick="CloseMenuToTrigger"></div>
         <ModelMenu Session="Session" OnClose="CloseMenuToTrigger" OnEscape="CloseMenuToTrigger" />
     }
     else if (SlashQuery is { } sq)
@@ -74,7 +74,7 @@
             <InputFile @ref="picker" OnChange="AddImages" multiple accept="image/png,image/jpeg,image/gif,image/webp" hidden tabindex="-1" />
             @if (models.Count > 0 && !crashed)
             {
-                <button class="pick" @ref="pickBtn" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
+                <button class="pick model" @ref="pickBtn" title="@L["Model"]" aria-label="@($"{L["Model"]}: {ModelLabel}")" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
                     <Icon Name="cpu" />@ModelLabel @if (Session.ContextWindow is { } w) {<small>@Fmt.Tokens(w)</small>}<Icon Name="down" />
                 </button>
             }
@@ -82,14 +82,12 @@
             {
                 <span class="pick dis" aria-disabled="true"><Icon Name="cpu" />@(Session.Model ?? L["Model"])</span>
             }
-            @if (model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True } && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } levels && !crashed)
+            @if (!crashed && EffortLevels is { } levels)
             {
-                <span class="effort" title="@L["Composer.Effort"]" role="group" aria-label="@L["Composer.Effort"]">
-                    @foreach (var l in levels.EnumerateArray().Select(x => x.GetString() ?? ""))
-                    {
-                        <button class="@(l == Effort ? "on" : null)" aria-pressed="@((l == Effort) ? "true" : "false")" @onclick="() => SetEffort(l)">@Strings.Name("Effort.", l)</button>
-                    }
-                </span>
+                @* Ultracode rides on the top effort for one turn, so it is the slider's last stop; after the turn it shows max again. *@
+                <EffortSlider Levels="levels" Value="@(Session.Ultracode ? Ultra : Effort ?? "")" ValueChanged="PickEffort" Name='l => Strings.Name("Effort.", l)'
+                              Label="@L["Composer.Effort"]" Special="@Ultra" SpecialIcon="agents" SpecialEnabled="ultraAvailable != false"
+                              SpecialTitle="@(ultraAvailable == false ? L["Composer.UltraUnavailable"] : L["Composer.UltraHint"])" />
             }
             @if (FastOk)
             {
@@ -99,16 +97,17 @@
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</button>
             }
-            @if (ultraAvailable == false || crashed)
+            @* Without effort levels to slide along, ultracode keeps its own toggle. *@
+            @if (crashed || EffortLevels is null && ultraAvailable == false)
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</button>
             }
-            else
+            else if (EffortLevels is null)
             {
                 <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="@L["Composer.UltraHint"]" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
             }
             </span>
-            <span style="margin-left:auto;flex:none;display:inline-flex;gap:8px;align-items:center">
+            <span class="sends">
                 @if (Session.Status == SessionStatus.Running)
                 {
                     @if (ultraTurn) { <span class="tag acc">ultracode</span> }
@@ -125,18 +124,18 @@
                 else if (Session.Pending.Count is var n and > 0)
                 {
                     @* Sending answers the pending requests with a denial first: say so on the button itself. *@
-                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) && images.Count == 0 ? null : "primary")" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) && images.Count == 0 ? null : "primary")" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
             </span>
         </div>
     </div>
     <div class="meta">
         <Ticker Active="Session.TurnStartedAt is not null">@if (Turn is { } d) { <span>@L["Composer.Turn"] <b>@Fmt.Dur(d)</b></span> }</Ticker>
-        <span>session <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
+        <span>@L["Composer.Session"] <b>@Fmt.Cost(Session.CostUsd, 4)</b></span>
         <span>@L["Kv.Tools"] <b>@Session.ToolCount</b></span>
         <span id="composer-history" role="status">@(history.Index >= 0 ? L["Composer.History", history.Index + 1, history.Count] : "")</span>
         @if (Session.ContextTokens > 0) { <span>@L["Composer.Context"] <b>@Fmt.Tokens(Session.ContextTokens)</b>@(Session.ContextWindow is { } cw ? " / " + Fmt.Tokens(cw) : "")</span> }
@@ -239,6 +238,24 @@
         }
         catch (Exception ex) { Console.Error.WriteLine($"[{Session.Id}] get_settings : {ex.Message}"); }
         await InvokeAsync(StateHasChanged);
+    }
+
+    const string Ultra = "Ultracode";
+
+    IReadOnlyList<string>? EffortLevels => model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True }
+        && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } a ? [.. a.EnumerateArray().Select(x => x.GetString() ?? "")] : null;
+
+    async Task PickEffort(string level)
+    {
+        if (level == Ultra)
+        {
+            var top = LiveSession.UltraEffort(EffortLevels!);
+            if (Effort != top) { await SetEffort(top); if (error is not null) return; }   // not a stale error from another action
+            await Run(() => Session.SetUltracode(true));
+            return;
+        }
+        if (Session.Ultracode) await Run(() => Session.SetUltracode(false));
+        await SetEffort(level);
     }
 
     async Task SetEffort(string level)

@@ -2,17 +2,19 @@
 
 @if (matches.Count > 0)
 {
-    <div class="pop slash" id="slash-list" role="listbox" aria-label="@L["Slash.Title"]">
+    <div class="pop slash">
         <div class="sh"><span>@L["Slash.Title"]</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd></span></div>
+        <div id="slash-list" role="listbox" aria-label="@L["Slash.Title"]">
         @for (var i = 0; i < matches.Count; i++)
         {
             var (c, n) = (matches[i], i);
             <div id="slash-opt-@n" class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(c.Name)">
-                <b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="/@c.Name">/<mark>@(c.Show[..q.Length])</mark>@(c.Show[q.Length..])</b>
+                <b title="/@c.Name">/<mark>@(c.Show[..q.Length])</mark>@(c.Show[q.Length..])</b>
                 <span title="@c.Description">@c.Description</span>
                 @if (c.Tag is { } tag) { <span class="tag">@tag</span> } else { <span></span> }
             </div>
         }
+        </div>
     </div>
 }
 

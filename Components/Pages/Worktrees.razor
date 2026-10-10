@@ -19,7 +19,7 @@
     <div class="wt">
         @if (rows is null)
         {
-            <div class="wt-head"><div><h3>@L["Wt.Scanning"]</h3><p>@L["Wt.ScanningText"]</p></div></div>
+            <div class="wt-head"><div><h2>@L["Wt.Scanning"]</h2><p>@L["Wt.ScanningText"]</p></div></div>
         }
         else
         {
@@ -28,17 +28,17 @@
             <div class="wt-head"><div>
                 @if (safe.Count == 0)
                 {
-                    <h3>@L["Wt.NothingToClean"]</h3>
+                    <h2>@L["Wt.NothingToClean"]</h2>
                 }
                 else
                 {
-                    <h3>@(safe.Any(w => w.BranchOnly) ? L["Wt.SafeMixed", Items(safe)] : Strings.Plural(safe.Count, "Wt.Safe"))</h3>
+                    <h2>@(safe.Any(w => w.BranchOnly) ? L["Wt.SafeMixed", Items(safe)] : Strings.Plural(safe.Count, "Wt.Safe"))</h2>
                 }
                 <p>@(safe.Count == 0 ? Strings.Plural(check, "Wt.CheckOnly") : L["Wt.Recoverable", SizeOf(safe)] + " " + Strings.Plural(check, "Wt.Check") + L["Wt.NothingActive"])</p>
             </div></div>
             @foreach (var r in unignored)
             {
-                <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.Unignored", $"<b title=\"{Enc(r)}\">{Enc(Path.GetFileName(r))}</b>"].Value)</span></div>
+                <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.Unignored", $"<b title=\"{Fmt.Enc(r)}\">{Fmt.Enc(Path.GetFileName(r))}</b>"].Value)</span></div>
             }
             @foreach (var e in errors)
             {
@@ -62,7 +62,7 @@
                         @foreach (var w in g)
                         {
                             <tr class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null)" @key="w.Path">
-                                <td><div class="n">@(w.Name)@if (w.BranchOnly) { <span class="tag" style="margin-left:6px">@L["Wt.BranchTag"]</span> }</div><div class="branch"><Icon Name="branch" />@(w.BranchOnly ? "" : (w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"])) + " · ")@Path.GetFileName(w.Repo)</div></td>
+                                <td><div class="n">@(w.Name)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div><div class="branch"><Icon Name="branch" />@(w.BranchOnly ? "" : (w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"])) + " · ")@Path.GetFileName(w.Repo)</div></td>
                                 <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
                                 <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
                                 <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
@@ -107,12 +107,12 @@
 {
     var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
     <aside class="pane insp" aria-label="@L["Inspector"]">
-        <div class="ph"><h2 class="ttl">@L["Wt.Cleanup"]</h2><span class="sub">@Items(chosen)@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span></div>
+        <div class="ph"><h2 class="ttl">@L["Wt.Cleanup"]</h2>@if (rows is not null) { <span class="sub">@Items(chosen)@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span> }</div>
         @if (push is { } pw)
         {
             <div class="section">
                 <h3>@L["Wt.PushTitle", pw.Name]</h3>
-                <p>@((MarkupString)(pw.Unpushed == 1 ? L["Wt.Unpushed1", Enc(pw.Branch)] : L["Wt.UnpushedN", pw.Unpushed, Enc(pw.Branch)]).Value)</p>
+                <p>@((MarkupString)(pw.Unpushed == 1 ? L["Wt.Unpushed1", Fmt.Enc(pw.Branch)] : L["Wt.UnpushedN", pw.Unpushed, Fmt.Enc(pw.Branch)]).Value)</p>
                 <div class="cmdlog" role="status">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
                 <div class="acts">
                     @if (pushResult != "ok")
@@ -202,7 +202,7 @@
                     found.AddRange(list);
                     if (list.Count > 0 && !await Wt.IgnoresWorktreesAsync(r, ct)) bad.Add(r);
                 }
-                catch (InvalidOperationException e) { errs.Add(L["Wt.RepoError", Home(r), e.Message]); }
+                catch (InvalidOperationException e) { errs.Add(L["Wt.RepoError", Fmt.Home(r), e.Message]); }
             }
             (rows, unignored, errors) = (found, bad, errs);
             if (refresh) sizes.Clear();
@@ -234,7 +234,7 @@
         foreach (var g in lines.GroupBy(l => l.Repo))
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append($"<span class=\"c\"># {enc.Encode(Short(Home(g.Key)))}</span>");
+            sb.Append($"<span class=\"c\"># {enc.Encode(Short(Fmt.Home(g.Key)))}</span>");
             foreach (var l in g)
             {
                 sb.Append('\n').Append(enc.Encode(l.Cmd));
@@ -314,15 +314,7 @@
     static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
 
 
-    static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
-
     static string Short(string path) => path.Length > 48 ? "…" + path[^47..] : path;   // .cmdlog does not wrap
-
-    static string Home(string path)
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
-        return path.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
-    }
 
     public void Dispose()
     {

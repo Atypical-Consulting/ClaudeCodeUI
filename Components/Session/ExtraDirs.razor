@@ -18,18 +18,18 @@
     </ul>
 }
 <div class="input">
-    <Icon Name="folder" />
+    <PickFolder Start="@draft.Trim()" Disabled="@Disabled" OnPick="Picked" OnError="m => error = m" />
     <input id="@Id" @bind="draft" @bind:event="oninput" @bind:after="Edited" @onkeydown="Keys" placeholder="@L["Dirs.Placeholder"]" disabled="@Disabled"
            aria-invalid="@(error is null ? null : "true")" aria-describedby="@(error is null && confirmed is null ? null : Id + "-err")" spellcheck="false" autocomplete="off" />
     <button type="button" class="b btn ghost" disabled="@(Disabled || busy || draft.Trim().Length == 0)" @onclick="Add"><Icon Name="plus" Sm />@(confirmed is null ? L["Dirs.Add"] : L["Dirs.AddAnyway"])</button>
 </div>
 @if (error is not null)
 {
-    <div id="@(Id)-err" class="errbox" role="alert">@error</div>
+    <div id="@(Id)-err" class="fmsg" role="alert">@error</div>
 }
 else if (confirmed is not null)
 {
-    <div id="@(Id)-err" class="risk" role="alert">@Confirm</div>
+    <div id="@(Id)-err" class="fmsg risk" role="alert">@Confirm</div>
 }
 
 @code {
@@ -54,6 +54,14 @@ else if (confirmed is not null)
         if (draft.Trim().Length == 0) return true;
         await Add();
         return draft.Length == 0;
+    }
+
+    // A picked folder goes through the same checks as a typed one.
+    async Task Picked(string d)
+    {
+        draft = d;
+        Edited();
+        await Add();
     }
 
     async Task Keys(KeyboardEventArgs e)

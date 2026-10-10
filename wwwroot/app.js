@@ -132,10 +132,15 @@
             if (!el) return;
             const jump = el.nextElementSibling?.querySelector('.jump');
             if (!el.onscroll) {
+                // Only a scroll UP frees the view: content growing under a pinned view (lazy layout, late highlighting) must not.
                 el.onscroll = () => {
-                    el._free = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
-                    if (!el._free && jump) jump.hidden = true;
+                    const d = el.scrollHeight - el.scrollTop - el.clientHeight;
+                    if (d <= 40) { el._free = false; if (jump) jump.hidden = true; }
+                    else if (el.scrollTop < (el._st ?? 0)) el._free = true;
+                    el._st = el.scrollTop;
                 };
+                const content = el.querySelector('[role=log]') || el.firstElementChild;
+                if (content) new ResizeObserver(() => { if (!el._free) el.scrollTop = el.scrollHeight; }).observe(content);
                 if (jump) jump.onclick = () => { el._free = false; el.scrollTop = el.scrollHeight; jump.hidden = true; };
             }
             if (force) { el._free = false; if (jump) jump.hidden = true; }
@@ -236,7 +241,7 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        const msg = label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        const msg = label.nodeValue = document.body.dataset.copied || 'Copied';   // localized from Strings.resx by App.razor
         copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
         requestAnimationFrame(() => copied.textContent = msg);
         b.classList.add('done');
@@ -278,7 +283,13 @@
 
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
     document.addEventListener('keydown', e => {
-        if (!net || e.isComposing) return;
+        if (e.isComposing) return;
+        if (!net) {   // static status pages (404/500): no circuit, so the two navigation shortcuts fall back to plain links
+            const l = e.code.startsWith('Key') ? e.code.slice(3) : null, c = e.ctrlKey || e.metaKey;
+            if (l === 'N' && (e.altKey || c) && !e.shiftKey) { e.preventDefault(); location.assign(document.baseURI); }
+            else if (l === 'O' && c && e.shiftKey) { e.preventDefault(); location.assign(document.baseURI + 'overview'); }
+            return;
+        }
         const letter = e.code.startsWith('Key') ? e.code.slice(3) : null;
         const ctrl = e.ctrlKey || e.metaKey;
         let key = null;

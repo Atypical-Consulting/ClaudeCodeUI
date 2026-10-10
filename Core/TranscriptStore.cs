@@ -409,6 +409,9 @@ public static class TranscriptStore
         return string.Join('-', Regex.Matches(plain.ToLowerInvariant(), "[a-z0-9]+").Select(m => m.Value).Take(words));
     }
 
+    // A typed worktree name, made branch-safe; null when nothing usable is left (the caller falls back to the prompt's name).
+    internal static string? WorktreeName(string typed) => NameFrom(typed, 8) is { Length: > 0 } n ? n : null;
+
     static (DateTimeOffset At, IReadOnlySet<string> Ids) held;
     static int refreshing, heldGen;   // heldGen: bumped by ForgetHeld so a scan started before a Stop never writes its stale ps back
 
@@ -454,6 +457,7 @@ public static class TranscriptStore
            .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");
+        Ok(WorktreeName(" Fix Auth! ") == "fix-auth" && WorktreeName(" -!- ") is null, "WorktreeName");
         Ok(RepoName(@"C:\repo\api\.claude\worktrees\x") == "api" && RepoName(@"C:\repo\api") == "api", "RepoName");
 
         var path = Path.Combine(Path.GetTempPath(), $"cc-ui-check-{Guid.NewGuid()}.jsonl");

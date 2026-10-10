@@ -3,9 +3,10 @@
 
 @inject IJSRuntime JS
 
-<div class="pop slash menu" role="listbox" aria-label="@L["Composer.PermissionMode"]" @ref="list" tabindex="0" aria-activedescendant="pm-opt-@sel"
-     @onkeydown="Key" @onkeydown:preventDefault>
+<div class="pop slash menu">
     <div class="sh"><span>@L["Composer.PermissionMode"]</span><span role="status" class="@(confirm is null ? null : "risk")">@(error ?? (confirm is { } c ? L["Mode.ConfirmAgain", Strings.Name("Mode.Name.", c)] : ""))</span></div>
+    <div role="listbox" aria-label="@L["Composer.PermissionMode"]" @ref="list" tabindex="0" aria-activedescendant="pm-opt-@sel"
+         @onkeydown="Key" @onkeydown:preventDefault>
     @for (var i = 0; i < LiveSession.Modes.Length; i++)
     {
         var m = LiveSession.Modes[i];
@@ -16,6 +17,7 @@
             @if (current) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
         </div>
     }
+    </div>
 </div>
 
 @code {

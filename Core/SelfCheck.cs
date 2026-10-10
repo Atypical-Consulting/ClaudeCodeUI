@@ -21,12 +21,14 @@ public static class SelfCheck
             EditDiff.Check();
             WorktreeService.Check();
             TranscriptStore.Check();
+            WorktreeNamer.Check();
             ListNav.Check();
             AskUser.Check();
             FileIndex.Check();
             PromptHistory.Check();
             Notifications.Check();
             MemoryFiles.Check();
+            FolderPicker.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }
