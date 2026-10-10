@@ -16,7 +16,7 @@
             <div class="duck" aria-hidden="true"><Duck Mood="mood" Size="72" /></div>
             <div>
                 <p class="code">@Code@(string.IsNullOrEmpty(Path) ? "" : $" · {Path}")</p>
-                <h4>@L[$"{key}.Heading"]</h4>
+                <h2>@L[$"{key}.Heading"]</h2>
                 <p>@L[$"{key}.Text"]</p>
                 @if (!string.IsNullOrEmpty(RequestId))
                 {
@@ -25,8 +25,11 @@
                 <div class="acts">
                     @if (Code >= 500)
                     {
-                        <a class="btn primary" href="@Path"><Icon Name="refresh" Sm />@L["Layout.Reload"]</a>
-                        <a class="btn" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                        @if (!string.IsNullOrEmpty(Path))
+                        {
+                            <a class="btn primary" href="@Path"><Icon Name="refresh" Sm />@L["Layout.Reload"]</a>
+                        }
+                        <a class="btn @(string.IsNullOrEmpty(Path) ? "primary" : null)" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
                     }
                     else
                     {

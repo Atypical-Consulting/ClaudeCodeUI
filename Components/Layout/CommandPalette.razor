@@ -31,9 +31,9 @@
                             <div><div class="n">@Mark(r.Name)</div>@if (r.Detail is { Length: > 0 } d) { <div class="d">@d</div> }</div>
                             <span class="r">
                                 @if (r.Pill > 0) { <span class="pill wait">@r.Pill</span> }
+                                @if (r.Kbd is null && r.Right is { Length: > 0 }) { @r.Right }
                                 @if (on && r.Session) { <kbd>⏎</kbd> }
                                 else if (r.Kbd is { } k) { <kbd>@k</kbd> }
-                                else { @r.Right }
                             </span>
                         </div>
                     }

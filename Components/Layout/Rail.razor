@@ -2,26 +2,30 @@
 @inject SessionManager Sessions
 @inject WorktreeService Worktrees
 @inject UiState Ui
+@inject NavigationManager Nav
 
 <nav class="pane" aria-label="@L["Rail.Label"]">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
-        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
-        <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
-        <NavLink class="btn block ghost" href="overview" ActiveClass="cur"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
-        <NavLink class="btn block ghost" href="worktrees" ActiveClass="cur"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
+        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur" aria-current="@Cur("")"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
+        @if (AssignedRenderMode is not null)   @* null only on the static-SSR status pages, where no circuit would answer the click *@
+        {
+            <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
+        }
+        <NavLink class="btn block ghost" href="overview" ActiveClass="cur" aria-current="@Cur("overview")"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
+        <NavLink class="btn block ghost" href="worktrees" ActiveClass="cur" aria-current="@Cur("worktrees")"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
             @if (Worktrees.CleanableCount is > 0)
             {
-                <span class="tag" style="margin-left:auto">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
+                <span class="tag">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="extensions" ActiveClass="cur"><Icon Name="plug" Sm />@L["Nav.Extensions"]
+        <NavLink class="btn block ghost" href="extensions" ActiveClass="cur" aria-current="@Cur("extensions")"><Icon Name="plug" Sm />@L["Nav.Extensions"]
             @if (FailedMcp > 0)
             {
-                <span class="pill err" style="margin-left:auto">@FailedMcp</span>
+                <span class="pill err"><span aria-hidden="true">@FailedMcp</span><span class="vh">@Strings.Plural(FailedMcp, "Rail.FailedMcp")</span></span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="settings/appearance" ActiveClass="cur"><Icon Name="palette" Sm />@L["Nav.Appearance"]</NavLink>
+        <NavLink class="btn block ghost" href="settings/appearance" ActiveClass="cur" aria-current="@Cur("settings/appearance")"><Icon Name="palette" Sm />@L["Nav.Appearance"]</NavLink>
     </div>
     <div class="scroll">
     @{ var active = Sessions.Active; }
@@ -59,12 +63,16 @@
     DateTimeOffset loadedAt;
     int loadedGen = -1;   // TranscriptStore.Generation of the list shown: a newer one (a session was stopped) skips the throttle
 
-    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; LoadRecent(); }
+    string? Cur(string p) => Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0] == p ? "page" : null;
+
+    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; Nav.LocationChanged += OnLoc; LoadRecent(); }
     void Refresh() { LoadRecent(); InvokeAsync(StateHasChanged); }
+    void OnLoc(object? _, LocationChangedEventArgs __) => InvokeAsync(StateHasChanged);
 
     // TranscriptStore.Recent reads up to ~4 MB of transcripts when its 30 s cache expires: off the render thread, at most every 30 s.
     void LoadRecent()
     {
+        if (AssignedRenderMode is null) { recent = TranscriptStore.Recent(); return; }   // static status pages never go interactive
         if (!RendererInfo.IsInteractive || !loading.IsCompleted
             || (loadedGen == TranscriptStore.Generation && DateTimeOffset.Now - loadedAt < TimeSpan.FromSeconds(30))) return;
         loadedAt = DateTimeOffset.Now;
@@ -76,5 +84,5 @@
             await InvokeAsync(StateHasChanged);
         });
     }
-    public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; }
+    public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; Nav.LocationChanged -= OnLoc; }
 }

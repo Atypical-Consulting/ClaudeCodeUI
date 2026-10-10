@@ -85,6 +85,7 @@
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Copy.Done" xml:space="preserve"><value>Copied</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Couldn't apply that: {0}</value></data>
   <data name="Composer.Attach" xml:space="preserve"><value>Attach images (or paste or drop them here)</value></data>
   <data name="Composer.CancelQueued" xml:space="preserve"><value>Cancel the queued message: {0}</value></data>
@@ -425,6 +426,8 @@
   <data name="Quota.SevenDays" xml:space="preserve"><value>7d</value></data>
   <data name="Quota.Usage" xml:space="preserve"><value>Usage</value></data>
   <data name="Rail.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Rail.FailedMcp1" xml:space="preserve"><value>1 MCP server failed</value></data>
+  <data name="Rail.FailedMcpN" xml:space="preserve"><value>{0} MCP servers failed</value></data>
   <data name="Rail.Label" xml:space="preserve"><value>Sessions and navigation</value></data>
   <data name="Rail.NewSession" xml:space="preserve"><value>New session</value></data>
   <data name="Rail.Recent" xml:space="preserve"><value>Recent</value></data>

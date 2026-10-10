@@ -4,12 +4,12 @@
 
 @if (Session is { } s)
 {
-    <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on">
+    <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on" aria-current="@(Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0] == $"session/{s.Id}" ? "page" : null)">
         <span class="dot @Dot(s)"></span>
         <div><div class="n">@s.Name</div>@Where(s.Branch, s.Repo)</div>
         @switch (s.Status)
         {
-            case SessionStatus.Waiting: <span class="pill wait">@s.Pending.Count</span> break;
+            case SessionStatus.Waiting: <span class="pill wait"><span aria-hidden="true">@s.Pending.Count</span><span class="vh">@Strings.Plural(s.Pending.Count, "Mascot.Decision")</span></span> break;
             case SessionStatus.Running: <span class="c c-ok">@L["Status.Running"]</span> break;
             case SessionStatus.Crashed: <span class="pill err">@s.ExitLabel</span> break;
             default: <span class="c">@(s.CostUsd >= 0.005m ? Fmt.Cost(s.CostUsd, 2) : "")</span> break;

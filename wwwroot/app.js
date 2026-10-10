@@ -236,7 +236,7 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         const old = label.nodeValue;
-        const msg = label.nodeValue = root.lang === 'fr' ? 'Copié' : 'Copied';   // <html lang> follows the UI culture
+        const msg = label.nodeValue = document.body.dataset.copied || 'Copied';   // localized from Strings.resx by App.razor
         copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
         requestAnimationFrame(() => copied.textContent = msg);
         b.classList.add('done');
@@ -278,7 +278,13 @@
 
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
     document.addEventListener('keydown', e => {
-        if (!net || e.isComposing) return;
+        if (e.isComposing) return;
+        if (!net) {   // static status pages (404/500): no circuit, so the two navigation shortcuts fall back to plain links
+            const l = e.code.startsWith('Key') ? e.code.slice(3) : null, c = e.ctrlKey || e.metaKey;
+            if (l === 'N' && (e.altKey || c) && !e.shiftKey) { e.preventDefault(); location.assign(document.baseURI); }
+            else if (l === 'O' && c && e.shiftKey) { e.preventDefault(); location.assign(document.baseURI + 'overview'); }
+            return;
+        }
         const letter = e.code.startsWith('Key') ? e.code.slice(3) : null;
         const ctrl = e.ctrlKey || e.metaKey;
         let key = null;
