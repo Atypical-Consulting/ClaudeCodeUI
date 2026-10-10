@@ -68,7 +68,7 @@
                         @foreach (var a in agents)
                         {
                             var isOpen = a == agent;
-                            <button type="button" @key="Key(a)" class="agent @(isOpen ? "sel" : null)" aria-expanded="@(isOpen ? "true" : "false")" aria-controls="wf-agent" @onclick="() => Pick(a)">
+                            <button type="button" @key="Key(a)" class="agent @(isOpen ? "sel" : null)" aria-expanded="@(isOpen ? "true" : "false")" aria-controls="@(isOpen ? "wf-agent" : null)" @onclick="() => Pick(a)">
                                 <Icon Name="@(isOpen ? "down" : "right")" Sm Class="chev" />
                                 <span class="dot @WorkflowCard.Dot(a.State)" aria-hidden="true"></span>
                                 <span class="nm">@a.Label <small>@a.Model</small><span class="sr-only"> · @State(a)</span></span>

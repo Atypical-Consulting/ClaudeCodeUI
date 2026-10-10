@@ -31,9 +31,21 @@ public static class WorkflowRuns
 {
     public const string Tool = "Workflow";
 
+    // Per ToolItem instance (a record: a new one on every change), kept 500 ms: the thread re-renders on every streamed
+    // delta and each card or panel asks twice per render, which would otherwise stat and tail the run folder each time.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ToolItem, Tuple<DateTimeOffset, WorkflowRun>> recent = new();
+
     public static WorkflowRun Of(ToolItem t)
     {
         var now = DateTimeOffset.Now;
+        if (recent.TryGetValue(t, out var c) && now - c.Item1 < TimeSpan.FromMilliseconds(500)) return c.Item2;
+        var run = Read(t, now);
+        recent.AddOrUpdate(t, Tuple.Create(now, run));
+        return run;
+    }
+
+    static WorkflowRun Read(ToolItem t, DateTimeOffset now)
+    {
         var receipt = t.Structured ?? default;
         var script = Events.Str(t.Input, "script");
         var dir = Inside(Events.Str(receipt, "transcriptDir") ?? Line(t.ResultText, "Transcript dir:"));
@@ -68,7 +80,7 @@ public static class WorkflowRuns
         {
             var of = agents.Where(a => a.Phase == title).ToList();
             return new WfPhase(title, declared.FirstOrDefault(p => p.Title == title).Detail, of.Count,
-                of.Count(a => a.State == WfState.Done), of.Count(a => a.State == WfState.Running), of.Count(a => a.State == WfState.Failed));
+                of.Count(a => a.State == WfState.Done), of.Count(a => a.State == WfState.Running), of.Count(a => a.State is WfState.Failed or WfState.Unknown));
         }).ToList();
 
         var written = state == WfState.Unknown && dir is not null ? LastWrite(dir) : null;
@@ -206,6 +218,7 @@ public static class WorkflowRuns
                 fs.Seek(offset, SeekOrigin.Begin);
                 var buf = new byte[fs.Length - offset];
                 var n = fs.ReadAtLeast(buf, buf.Length, false);
+                if (n == 0) return [];   // truncated between Length and the read: the next call starts over
                 var end = Array.LastIndexOf(buf, (byte)'\n', n - 1);
                 if (end < 0) return [];
                 offset += end + 1;
@@ -288,10 +301,10 @@ public static class WorkflowRuns
                 var st = AgentFile(dir, s.Id) is { } f ? j.Stats.TryGetValue(s.Id, out var x) ? x : j.Stats[s.Id] = new AgentStats(f) : null;
                 st?.Read();
                 var done = j.Results.ContainsKey(s.Id);
-                var state = done ? WfState.Done : ended ? WfState.Failed : WfState.Running;
+                var state = done ? WfState.Done : ended ? WfState.Unknown : WfState.Running;   // started, then no result: no end recorded
                 TimeSpan? d = st?.First is { } a ? (done || ended ? st.Last ?? a : now) - a : null;
                 return new WfAgent(s.Label, s.Phase, state, st?.Model, st?.Tokens ?? 0, true, st?.ToolCalls ?? 0, d, s.Id,
-                    j.Results.GetValueOrDefault(s.Id), ended && !done ? "unfinished" : null);
+                    j.Results.GetValueOrDefault(s.Id));
             })];
         }
     }
@@ -373,7 +386,7 @@ public static class WorkflowRuns
             File.AppendAllText(journal, "ult\":\"pong\"}\n");
             Ok(Journal(dir, false, now) is [_, { State: WfState.Done, Result: "pong" }], "journal: the partial line completes");
             File.WriteAllText(journal, """{"type":"started","agentId":"a3","label":"x","phase":"P"}""" + "\n");
-            Ok(Journal(dir, true, now) is [{ AgentId: "a3", State: WfState.Failed, RawState: "unfinished" }], "journal: truncated file starts over; an ended run fails unfinished agents");
+            Ok(Journal(dir, true, now) is [{ AgentId: "a3", State: WfState.Unknown, RawState: null }], "journal: truncated file starts over; an ended run has no end for unfinished agents");
             Ok(Journal(Path.Combine(dir, "none"), false, now) is null, "journal: missing file");
 
             var log = new AgentLog(Path.Combine(dir, "agent-a1.jsonl"));
