@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -441,6 +441,81 @@ public static class CliProbe
         });
     }
 
+    // A user message written to stdin mid-turn, with its own uuid: the CLI reports its fate as command_lifecycle frames
+    // keyed on that uuid (LiveSession.Send / Cancel and the composer's queued chips rest on these four).
+    // queue-next-turn: during a text-only turn it is `queued`, `started` after that turn's result, and answered by its own result.
+    // queue-fold: written while a tool runs, it is `started` at the tool result and the turn's single result lists both uuids.
+    // queue-cancel: cancel_async_message {message_uuid} answers {cancelled:true}, the frame is `cancelled`, no turn runs it.
+    // queue-interrupt: an interrupt leaves it queued; it is `started` after the aborted result and answered by its own result.
+    static async Task<IEnumerable<(string, string, string)>> Queue(string dir)
+    {
+        await using var c = await Cli.Start(dir, "--include-partial-messages");
+        return await Guard(["queue-next-turn", "queue-fold", "queue-cancel", "queue-interrupt"], async () =>
+        {
+            const string Numbers = "Write the numbers from 1 to 120 as words, one per line. Nothing else.";
+            const string Second = "Reply with exactly the word PINEAPPLE.";
+            static bool Streaming(JsonElement e) => Events.Str(e, "type") == "stream_event" && Events.Prop(e, "event") is { } se && Events.Str(se, "type") == "content_block_delta";
+            static bool ToolUse(JsonElement e) => ToolUses(e).Any();
+            static bool IsResult(JsonElement e) => Events.Str(e, "type") == "result";
+            static bool Lists(JsonElement r, string u) => Events.Prop(r, "user_message_uuids") is { ValueKind: JsonValueKind.Array } a && a.EnumerateArray().Any(x => x.GetString() == u);
+            static string? Uuids(JsonElement r) => Events.Prop(r, "user_message_uuids")?.GetRawText();
+            // The states of u, each with the number of results seen before it: "queued@0 started@1".
+            static string Fate(List<JsonElement> seen, string u)
+            {
+                var (results, states) = (0, new List<string>());
+                foreach (var e in seen)
+                    if (IsResult(e)) results++;
+                    else if (Events.Str(e, "type") == "command_lifecycle" && Events.Str(e, "command_uuid") == u) states.Add($"{Events.Str(e, "state")}@{results}");
+                return string.Join(" ", states);
+            }
+            // Sends `first`, writes Second under its own uuid on the first event matching `when`, then sends the `then` request.
+            async Task<(List<JsonElement> Seen, string U, JsonElement? Answer)> Mid(string first, Func<JsonElement, bool> when, int results, string? then = null)
+            {
+                var u = Guid.NewGuid().ToString();
+                JsonElement? answer = null;
+                var sent = false;
+                await c.S.SendUser(first, uuid: Guid.NewGuid().ToString());
+                var seen = await c.Collect(results, onEvent: async e =>
+                {
+                    if (sent || !when(e)) return;
+                    sent = true;
+                    await c.S.SendUser(Second, uuid: u);
+                    if (then is not null) answer = await c.S.Request(then, then == "cancel_async_message" ? new() { ["message_uuid"] = u } : null);
+                });
+                return (seen, u, answer);
+            }
+
+            var (s1, u1, _) = await Mid(Numbers, Streaming, 2);
+            var f1 = Fate(s1, u1);
+            var next = f1 == "queued@0 started@1" && Lists(s1[^1], u1)
+                ? ("PASS", $"{f1}, second result lists it")
+                : ("FAIL", $"{f1}, second result user_message_uuids={Uuids(s1[^1])}");
+
+            var (s2, u2, _) = await Mid("Run the shell command `sleep 3; echo one`, then reply DONE.", ToolUse, 1);
+            var f2 = Fate(s2, u2);
+            // The thread puts the message after the tool result it joined: `started` must come after that tool_result.
+            var toolResult = s2.FindIndex(e => Events.ParseAll(e).Any(x => x is ToolResultEvt));
+            var startedAt = s2.FindIndex(e => Events.Str(e, "type") == "command_lifecycle" && Events.Str(e, "command_uuid") == u2 && Events.Str(e, "state") == "started");
+            var fold = f2.StartsWith("queued@0 started@0") && Lists(s2[^1], u2) && toolResult >= 0 && startedAt > toolResult
+                ? ("PASS", $"{f2}, started after the tool_result (#{toolResult} < #{startedAt}), the one result lists {Uuids(s2[^1])?.Split(',').Length} uuids")
+                : ("FAIL", $"{f2}, tool_result #{toolResult}, started #{startedAt}, result user_message_uuids={Uuids(s2[^1])}");
+
+            var (s3, u3, a3) = await Mid(Numbers, Streaming, 1, "cancel_async_message");
+            var f3 = Fate(s3, u3);
+            var cancel = a3 is { } r3 && Events.Prop(r3, "cancelled") is { ValueKind: JsonValueKind.True } && f3 == "queued@0 cancelled@0" && !Lists(s3[^1], u3)
+                ? ("PASS", $"answered {a3?.GetRawText()}, {f3}")
+                : ("FAIL", $"answered {a3?.GetRawText() ?? "nothing"}, {f3}");
+
+            var (s4, u4, a4) = await Mid(Numbers, Streaming, 2, "interrupt");
+            var f4 = Fate(s4, u4);
+            var aborted = Events.Str(s4.First(IsResult), "terminal_reason") ?? "";
+            var interrupt = aborted.StartsWith("aborted") && f4 == "queued@0 started@1" && Lists(s4[^1], u4)
+                ? ("PASS", $"interrupt answered {a4?.GetRawText()}, first result {aborted}, {f4}")
+                : ("FAIL", $"interrupt answered {a4?.GetRawText()}, first result {aborted}, {f4}");
+            return [next, fold, cancel, interrupt];
+        });
+    }
+
     // ---------- plumbing ----------
 
     // Runs a probe body that yields one (verdict, detail) per id; a throw or timeout fails every id it had not answered.
@@ -510,12 +585,19 @@ public static class CliProbe
         public async Task<List<JsonElement>> Turn(string text, Func<JsonElement, Task<bool>>? onPermission = null, IReadOnlyList<UserImage>? images = null)
         {
             await S.SendUser(text, images);
+            return await Collect(1, onPermission);
+        }
+
+        // Collects events until the `results`-th result (included); onEvent sees each one first.
+        public async Task<List<JsonElement>> Collect(int results, Func<JsonElement, Task<bool>>? onPermission = null, Func<JsonElement, Task>? onEvent = null)
+        {
             var seen = new List<JsonElement>();
             while (true)
             {
                 var e = await events.Reader.ReadAsync();
                 seen.Add(e);
-                if (Events.Str(e, "type") == "result") return seen;
+                if (onEvent is not null) await onEvent(e);
+                if (Events.Str(e, "type") == "result" && --results == 0) return seen;
                 if (Events.Str(e, "type") == "control_request" && Events.Prop(e, "request") is { } r && Events.Str(r, "subtype") == "can_use_tool"
                     && (onPermission is null || !await onPermission(e)))
                     await S.Respond(Events.Str(e, "request_id")!, true, r.GetProperty("input"));

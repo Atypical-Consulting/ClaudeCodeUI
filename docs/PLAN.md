@@ -42,6 +42,7 @@ When the reports contradict each other, this plan sides with the verified protoc
 | s9 | `@` file mentions (popover over the cwd: `git ls-files -co --exclude-standard`, else a bounded walk skipping `bin`/`obj`/`node_modules`/`.git`) | `@path` / `@"path with spaces"` sent as user text: the CLI attaches the file (or a folder listing) itself; verified by `--probe-cli file-mention` / `file-mention-quoted` / `file-mention-folder` on 2.1.296 (all file tools disallowed, 0 `tool_use`, the model quotes a random code word from the mentioned file, or a random file name from the mentioned folder). The mention is the one at the end of the text, not at the caret |
 | s9 | Context panel | `get_context_usage` |
 | s9 | "Compact now" | `/compact` as user text; verified by `--probe-cli compact` (`system/compact_boundary`, context going down) |
+| s2 | Send while a turn runs: queued chips, cancel | `user` message with our own `uuid`; its fate comes back as `command_lifecycle {command_uuid, state}`: `queued`, then `started` at the next tool result (folded into the running turn, one `result` lists both uuids) or after the `result` (its own turn, also after an interrupt, which answers `still_queued`); `cancel_async_message {message_uuid}` → `{cancelled:true}` + `cancelled`. Verified by `--probe-cli queue` (PASS on 2.1.296) |
 | s10 | Sub-agents: one row per agent, sub-tools, agent text | `tool_use name:"Agent"`, `system/task_*`, `parent_tool_use_id`, `--forward-subagent-text` |
 | s11 | MCP list (state, tools, error, transport) | `mcp_status` |
 | s11 | MCP toggle and "Retry" | `mcp_toggle {serverName,enabled}`, `mcp_reconnect {serverName}`; verified by `--probe-cli mcp-toggle` / `mcp-reconnect` (the state read in `mcp_status` follows the toggle) |
@@ -194,7 +195,7 @@ enum Decision { Allow, AllowSession, Deny }
 ```
 
 Transitions:
-- `Send` → `Running`, `TurnStartedAt = now`.
+- `Send` → `Running`, `TurnStartedAt = now`. During a turn (`Running`/`Waiting`) `Send` only adds a `QueuedMessage` (chip): `QueueEvt started` moves it into `Items` as a `UserItem`; `cancelled`/`discarded`/`refused` drop it. A `ResultEvt` with messages still queued keeps (or, from `Waiting`, returns to) `Running` (the CLI starts the next one itself). A queued message started inside or right after an ultracode turn is labelled ultracode (the reset lands after the CLI started it; not probed). Process exit clears the queue. On replay, a folded message is the `attachment {type:"queued_command", prompt, commandMode:"prompt"}` line after the tool result, not a `user` line.
 - `PermissionEvt` → `Waiting`; the matching `ToolItem` goes to `ToolState.Waiting`.
 - A denial marks the `ToolItem` `Denied`.
 - `ResultEvt` → `Idle`, or `Idle` + "interrupted" if `terminal_reason == aborted_streaming`.
@@ -568,7 +569,7 @@ WP0 ──► { WP1, WP2, WP3, WP4, WP5 } in parallel ──► integration (lea
 | Partial-stream throughput (one notification per delta) | 50 ms throttling in `LiveSession`; Markdown rendered once per complete block, plain text during the stream |
 | Concurrent reading of the lists during rendering | copy-on-write `ImmutableList`, a single writer per session |
 | Diff replay from the `.jsonl` not tested for real | `EditDiff` recomputes from the tool input (§1.2) |
-| A CLI version that would change the behaviour of ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect`, `/compact` or `@path` expansion | rerun `dotnet run -- --probe-cli`; on a FAIL, control disabled (§1.2) |
+| A CLI version that would change the behaviour of ultracode, `updatedPermissions`, `mcp_toggle`/`mcp_reconnect`, `/compact`, `@path` expansion or the message queue | rerun `dotnet run -- --probe-cli`; on a FAIL, control disabled (§1.2) |
 | Fast mode almost always unavailable on this account (`extra_usage_disabled`) | shown disabled with the reason, which matches the mockup |
 | Live sessions die on server restart | they reappear in "Recent" and resume via `--resume`; no dedicated persistence |
 | `-w` worktrees locked by pid, then stale lock | classified "To check", explicit `unlock` in the plan, never `--force` |
