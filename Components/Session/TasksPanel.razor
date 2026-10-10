@@ -1,0 +1,109 @@
+@* Background shell and Monitor tasks (task_type local_bash): command, status, elapsed and the end of their output,
+   read with get_task_output every 2 s while one runs (once more after it ends), and Stop (stop_task). Both requests are
+   verified by --probe-cli background-tasks. Running tasks first, then the last few that ended, which "Clear" drops. *@
+@implements IDisposable
+
+@{
+    var tasks = Session.Tasks.Where(t => t.Running).Concat(Session.Tasks.Where(t => !t.Running).TakeLast(5)).ToList();
+    var lastEnded = Session.Tasks.Where(t => !t.Running).MaxBy(t => t.EndedAt);
+}
+<section class="section bg-tasks" aria-labelledby="bg-tasks-h">
+    <div class="hd">
+        <h2 id="bg-tasks-h" class="cap">@L["Bg.Title"] · @L["Bg.RunningN", tasks.Count(t => t.Running)]</h2>
+        @if (tasks.Any(t => !t.Running))
+        {
+            <button class="btn ghost" @onclick="Session.ClearEndedTasks">@L["Bg.Clear"]</button>
+        }
+    </div>
+    @* Announces a task that stops, completes or fails; the rows themselves only change visually. *@
+    <span class="sr-only" role="status">@(lastEnded is null ? "" : $"{lastEnded.Description} · {Label(lastEnded)}")</span>
+    <Ticker Active="tasks.Any(t => t.Running)">
+        @foreach (var t in tasks)
+        {
+            var tool = Session.Tool(t.ToolUseId);
+            var cmd = tool is { } x ? Events.Str(x.Input, "command") : null;
+            <details @key="t.Id" class="bg-row" open="@t.Running">
+                <summary>
+                    <span class="dot @Dot(t)" aria-hidden="true"></span>
+                    <span class="nm">@(tool is null ? "" : $"{tool.Name} · ")@t.Description</span>
+                    <span class="m">@Label(t) · @Fmt.Dur((t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt)</span>
+                </summary>
+                @if (cmd is not null)
+                {
+                    <pre class="cmdlog" aria-label="@L["Bg.Command"]"><span class="c">$ </span>@cmd</pre>
+                }
+                <pre class="cmdlog out" role="region" tabindex="0" aria-label="@L["Bg.Output"]">@(output.TryGetValue(t.Id, out var o) && o.Length > 0 ? BgTask.Tail(o, 12) : L["Bg.NoOutput"])</pre>
+                @if (t.Running && Session.HasProcess)
+                {
+                    <div><button class="btn" disabled="@stopping.Contains(t.Id)" aria-label="@L["Bg.StopLabel", t.Description]" @onclick="() => Stop(t)"><Icon Name="stop" Sm />@L["Bg.Stop"]</button></div>
+                }
+            </details>
+        }
+    </Ticker>
+    @if (error is not null)
+    {
+        <div class="errbox" role="alert">@error</div>
+    }
+</section>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+
+    readonly Dictionary<string, string> output = [];
+    readonly HashSet<string> final = [];      // ended tasks whose last output was read (or is gone)
+    readonly HashSet<string> stopping = [];
+    string? error;
+    bool polling, disposed;
+    Timer? poll;
+
+    // The timer callback hops onto the renderer's dispatcher: the dictionaries are only touched there.
+    protected override void OnInitialized() => poll = new(_ => InvokeAsync(Poll), null, 0, 2000);
+
+    async Task Poll()
+    {
+        if (polling || disposed || !Session.HasProcess) return;   // disposed: a tick queued before Dispose
+        polling = true;
+        try
+        {
+            var changed = false;
+            foreach (var t in Session.Tasks.Where(t => t.Running || !final.Contains(t.Id)).ToList())
+            {
+                try
+                {
+                    if (await Session.TaskOutput(t.Id) is { } o && (!output.TryGetValue(t.Id, out var old) || old != o)) { output[t.Id] = o; changed = true; }
+                    if (!t.Running) final.Add(t.Id);
+                }
+                catch (ClaudeRequestException) { if (!t.Running) final.Add(t.Id); }   // gone with its output file: nothing left to read
+                catch (TimeoutException) { }                                          // the CLI is busy: next tick
+            }
+            if (changed) StateHasChanged();
+        }
+        finally { polling = false; }
+    }
+
+    // The new status arrives as task_updated ("killed"); the answer only says the request was taken. Any throw (the
+    // process exiting under the click: a dead stdin) is shown, never let out of the handler, which would end the circuit.
+    async Task Stop(BgTask t)
+    {
+        if (!stopping.Add(t.Id)) return;
+        error = null;
+        try { await Session.StopTask(t.Id); }
+        catch (Exception ex) { error = ex.Message; }
+        finally { stopping.Remove(t.Id); }
+    }
+
+    // A stop the user asked for is not a failure: neutral dashed dot, red only for "failed" and unknown statuses.
+    static string Dot(BgTask t) => t.Running ? "run" : t.Status switch { "completed" => "idle", "killed" or "stopped" => "exited", _ => "err" };
+
+    string Label(BgTask t) => t.Status switch
+    {
+        "running" or "pending" => L["Bg.Running"],
+        "paused" => L["Bg.Paused"],
+        "completed" => L["Bg.Completed"],
+        "failed" => L["Bg.Failed"],
+        "killed" or "stopped" => L["Bg.Stopped"],
+        _ => L["Bg.Ended"],             // a status this build does not know: it is not Running either
+    };
+
+    public void Dispose() { disposed = true; poll?.Dispose(); }
+}

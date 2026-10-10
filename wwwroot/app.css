@@ -186,6 +186,16 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .section p{margin:0;color:var(--fg-3);font-size:13px;line-height:1.55}
 .cmd{margin:0;background:var(--field);border:1px solid var(--seam);border-radius:var(--r);padding:12px;font:13px var(--mono);color:var(--fg);white-space:pre-wrap;overflow-wrap:anywhere}
 .acts{display:flex;gap:8px;align-items:center}
+/* background tasks (TasksPanel): a <details> per task; its children are spaced by margin, WebKit lays <details> out as a block */
+.bg-tasks{flex:none;max-height:45%;overflow:auto}
+.bg-tasks .hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bg-tasks h2{margin:0}
+.bg-row summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;list-style:none}
+.bg-row summary::-webkit-details-marker{display:none}
+.bg-row>:not(summary){margin:8px 0 0}
+.bg-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg-row .m{color:var(--fg-4);font:12px var(--mono);white-space:nowrap}
+.bg-row .out{max-height:12em;overflow:auto}
 .acts .btn.danger{margin-left:auto}
 .acts.wrap{flex-wrap:wrap}
 .plan-fb{display:block;box-sizing:border-box;width:100%;min-height:64px;resize:vertical;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:10px 12px;font:13px/1.5 var(--sans)}

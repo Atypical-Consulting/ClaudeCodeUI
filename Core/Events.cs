@@ -21,7 +21,9 @@ public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int 
                         long ContextTokens, long? ContextWindow, string? FastModeState, string? FastModeReason,
                         string? TerminalReason = null) : ClaudeEvent;
 public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
-public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType) : ClaudeEvent;
+// TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
+public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
+public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt) : ClaudeEvent;   // patch.status: running|completed|failed|killed…
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs) : ClaudeEvent;
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
@@ -146,7 +148,11 @@ public static class Events
             Str(e, "fast_mode_state") ?? "off", Str(e, "fast_mode_disabled_reason")),
         "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
         "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
-        "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? ""),
+        "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? "",
+            Str(e, "task_type"), Bool(e, "is_backgrounded")),
+        "task_updated" => Prop(e, "patch") is { } patch
+            ? new TaskUpdatedEvt(Str(e, "task_id") ?? "", Str(patch, "status"),
+                Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null) : null,   // out of range = unknown: the reducer uses now
         "task_progress" => Prop(e, "usage") is { } u
             ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms")) : null,
         "task_notification" => Prop(e, "usage") is { } nu
@@ -259,6 +265,14 @@ public static class Events
         Ok(P("""{"type":"system","subtype":"task_notification","task_id":"ab1","tool_use_id":"toolu_B","status":"completed","usage":{"total_tokens":26702,"tool_uses":1,"duration_ms":3000}}""") is TaskDoneEvt { TaskId: "ab1", ToolUseId: "toolu_B", Status: "completed", Tokens: 26702, DurationMs: 3000 }, "task_notification");
         var notif = P("""{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5aab0eece92a372</task-id>\n<tool-use-id>toolu_01TEgqvrrwU4RMLtNJYrEavF</tool-use-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens><tool_uses>1</tool_uses><duration_ms>5088</duration_ms></usage>\n</task-notification>"},"parent_tool_use_id":null}""");
         Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");
+        // Background shell (Bash run_in_background) and its stop, from the 2.1.296 capture (--probe-cli background-tasks).
+        Ok(P("""{"type":"system","subtype":"task_started","task_id":"b69el8u68","run_id":"0mv1jw258-f850d2f1","tool_use_id":"toolu_01JF","description":"Run 40-tick background loop","is_backgrounded":true,"task_type":"local_bash"}""") is TaskStartedEvt { TaskId: "b69el8u68", ToolUseId: "toolu_01JF", TaskType: "local_bash", Backgrounded: true }, "task_started local_bash");
+        var upd = P("""{"type":"system","subtype":"task_updated","task_id":"b69el8u68","run_id":"0mv1jw258-f850d2f1","patch":{"status":"killed","end_time":1791585746931}}""") as TaskUpdatedEvt;
+        Ok(upd is { TaskId: "b69el8u68", Status: "killed", EndedAt: { } end } && end.ToUnixTimeMilliseconds() == 1791585746931, "task_updated");
+        Ok(P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"is_backgrounded":true}}""") is TaskUpdatedEvt { Status: null, EndedAt: null }, "task_updated without status");
+        Ok(P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"status":"failed","end_time":1e300}}""") is TaskUpdatedEvt { Status: "failed", EndedAt: null }
+            && P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"status":"failed","end_time":1791585746931.5}}""") is TaskUpdatedEvt { EndedAt: { } fe } && fe.ToUnixTimeMilliseconds() == 1791585746931,
+            "task_updated with a fractional or out-of-range end_time");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
         Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");

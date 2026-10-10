@@ -67,6 +67,20 @@
   <data name="BadRequest.Heading" xml:space="preserve"><value>The app couldn't process this request.</value></data>
   <data name="BadRequest.Text" xml:space="preserve"><value>It was rejected before it reached a page. Go back and try again, or start over from a new session.</value></data>
   <data name="BadRequest.Title" xml:space="preserve"><value>Request refused</value></data>
+  <data name="Bg.Clear" xml:space="preserve"><value>Clear ended</value></data>
+  <data name="Bg.Command" xml:space="preserve"><value>Command</value></data>
+  <data name="Bg.Completed" xml:space="preserve"><value>completed</value></data>
+  <data name="Bg.Ended" xml:space="preserve"><value>ended</value></data>
+  <data name="Bg.Failed" xml:space="preserve"><value>failed</value></data>
+  <data name="Bg.NoOutput" xml:space="preserve"><value>No output yet.</value></data>
+  <data name="Bg.Output" xml:space="preserve"><value>Last output lines</value></data>
+  <data name="Bg.Paused" xml:space="preserve"><value>paused</value></data>
+  <data name="Bg.Running" xml:space="preserve"><value>running</value></data>
+  <data name="Bg.RunningN" xml:space="preserve"><value>{0} running</value></data>
+  <data name="Bg.Stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="Bg.StopLabel" xml:space="preserve"><value>Stop the background task: {0}</value></data>
+  <data name="Bg.Stopped" xml:space="preserve"><value>stopped</value></data>
+  <data name="Bg.Title" xml:space="preserve"><value>Background tasks</value></data>
   <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>

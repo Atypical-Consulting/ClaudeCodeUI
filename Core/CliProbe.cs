@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -708,6 +708,107 @@ public static class CliProbe
         return [fork, forkAt, name, cut && Got(app, reply) ? ("PASS", detail) : ("FAIL", detail), inherits && Got(again, reply2) ? ("PASS", detail2) : ("FAIL", detail2)];
     }, 600);
 
+    // background-tasks: a run_in_background shell command reports task_started (task_type local_bash, is_backgrounded)
+    // and get_task_output returns the end of what it printed so far.
+    // stop-task: stop_task on it is answered and followed by task_updated patch.status "killed".
+    // task-completed: a background command that exits on its own is reported by task_updated "completed" with an end_time.
+    static async Task<IEnumerable<(string, string, string)>> BackgroundTasks(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["background-tasks", "stop-task", "task-completed"], async () =>
+        {
+            var turn = await c.Turn("With your shell tool and run_in_background set to true, run a command that prints \"tick N\" once per second for 60 seconds. "
+                + "Do not wait for it and do not read its output. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } ts)
+                return [("FAIL", "no task_started with task_type local_bash"), ("SKIP", "no background task to stop"), ("SKIP", "no background task")];
+            await Task.Delay(3000);
+            var o = await c.S.Request("get_task_output", new() { ["task_id"] = ts.TaskId });
+            var output = Events.Str(o, "output") ?? "";
+            // The panel shows the launching tool's input.command.
+            var cmd = turn.SelectMany(Events.ParseAll).OfType<ToolUseEvt>().FirstOrDefault(u => u.Id == ts.ToolUseId) is { } launcher ? Events.Str(launcher.Input, "command") : null;
+            var detail = $"task {ts.TaskId} is_backgrounded={ts.Backgrounded}, input.command {(cmd is null ? "absent" : "present")}, "
+                + $"output {Events.Prop(o, "total_bytes")?.GetRawText() ?? "?"} bytes \"{output.Trim().Split('\n')[^1]}\"";
+            var read = ts.Backgrounded && cmd is not null && output.Contains("tick") ? ("PASS", detail) : ("FAIL", detail);
+
+            var stop = await Stopped(c, ts.TaskId);
+
+            turn = await c.Turn("With your shell tool and run_in_background set to true, run: echo done; sleep 2. Do not wait for it. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } t2)
+                return [read, stop, ("FAIL", "second command: no task_started with task_type local_bash")];
+            // It may end inside the turn, before the result: look there first.
+            bool Done(JsonElement e) => Events.Parse(e) is TaskUpdatedEvt { Status: not (null or "running" or "pending") } u && u.TaskId == t2.TaskId;
+            var done = Events.Parse(turn.FirstOrDefault(Done) is { ValueKind: JsonValueKind.Object } inTurn ? inTurn : await c.Until(Done)) as TaskUpdatedEvt;
+            return [read, stop, done is { Status: "completed", EndedAt: not null }
+                ? ("PASS", $"task {t2.TaskId} task_updated status completed, end_time {done.EndedAt:O}")
+                : ("FAIL", $"task {t2.TaskId} task_updated status {done?.Status}, end_time {done?.EndedAt}")];
+        });
+    }
+
+    // monitor-stop: a Monitor command is a local_bash task too, and stop_task ends it (task_updated "killed"). stop_task
+    // answers {} even for an id it ignores, so only the task_updated proves the stop.
+    static async Task<IEnumerable<(string, string, string)>> MonitorStop(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["monitor-stop"], async () =>
+        {
+            var turn = await c.Turn("Use the Monitor tool (not the shell tool) to watch a command that prints \"tick N\" once per second for 60 seconds. "
+                + "Do not wait for it. Reply only 'started'.");
+            if (turn.SelectMany(Events.ParseAll).OfType<ToolUseEvt>().FirstOrDefault(u => u.Name == "Monitor") is not { } monitor)
+                return [("SKIP", $"haiku called no Monitor tool ({string.Join(", ", turn.SelectMany(ToolUses).Distinct())})")];
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.ToolUseId == monitor.Id) is not { } ts)
+                return [("FAIL", "Monitor called, no task_started for it")];
+            // The panel lists local_bash + is_backgrounded tasks and shows input.command.
+            var listed = ts is { TaskType: "local_bash", Backgrounded: true };
+            var stop = await Stopped(c, ts.TaskId);
+            return [(listed ? stop.Verdict : "FAIL", $"task_type {ts.TaskType} is_backgrounded={ts.Backgrounded} "
+                + $"input.command {(Events.Str(monitor.Input, "command") is null ? "absent" : "present")}; {stop.Detail}")];
+        });
+    }
+
+    // exit-ends-tasks: ending the claude process (ClaudeSession.DisposeAsync → ProcessJob) takes its background shells
+    // with it, which LiveSession.EndTools records as "killed". Unix only (pgrep); a sleep of a random length marks the shell.
+    static async Task<IEnumerable<(string, string, string)>> ExitEndsTasks(string dir)
+    {
+        if (OperatingSystem.IsWindows()) return [("SKIP", "exit-ends-tasks", "pgrep: Unix only")];
+        var marker = $"sleep {Random.Shared.Next(600, 999)}";
+        var c = await Cli.Start(dir);
+        var r = await Guard(["exit-ends-tasks"], async () =>
+        {
+            var turn = await c.Turn($"With your shell tool and run_in_background set to true, run exactly: {marker}. Do not wait for it. Reply only 'started'.");
+            if (turn.Select(Events.Parse).OfType<TaskStartedEvt>().FirstOrDefault(t => t.TaskType == "local_bash") is not { } ts)
+                return [("FAIL", "no task_started with task_type local_bash")];
+            await Task.Delay(2000);
+            var before = Pgrep(marker);   // the witness: without it "gone after exit" would prove nothing
+            await c.DisposeAsync();
+            await Task.Delay(1000);
+            var after = Pgrep(marker);
+            return [(before.Length > 0 && after.Length == 0 ? "PASS" : "FAIL",
+                $"task {ts.TaskId} \"{marker}\": pids [{before}] while claude runs, [{after}] 1 s after it is disposed")];
+        });
+        await c.DisposeAsync();
+        return r;
+    }
+
+    static string Pgrep(string pattern)
+    {
+        var psi = new ProcessStartInfo("pgrep") { RedirectStandardOutput = true };
+        psi.ArgumentList.Add("-f");
+        psi.ArgumentList.Add(pattern);
+        using var p = Process.Start(psi)!;
+        var pids = p.StandardOutput.ReadToEnd().Trim().ReplaceLineEndings(" ");
+        p.WaitForExit();
+        return pids;
+    }
+
+    // stop_task, then the task_updated that reports the task's new status.
+    static async Task<(string Verdict, string Detail)> Stopped(Cli c, string taskId)
+    {
+        await c.S.Request("stop_task", new() { ["task_id"] = taskId });
+        var upd = await c.Until(e => Events.Parse(e) is TaskUpdatedEvt { Status: not null } u && u.TaskId == taskId);
+        var status = (Events.Parse(upd) as TaskUpdatedEvt)?.Status;
+        return status == "killed" ? ("PASS", "answered, task_updated status killed") : ("FAIL", $"answered, task_updated status {status}");
+    }
+
     // ---------- plumbing ----------
 
     // Text blocks of an assistant message.
@@ -802,9 +903,18 @@ public static class CliProbe
             }
         }
 
+        // Next event (outside a turn) matching the predicate; the probe's Guard bounds the wait.
+        public async Task<JsonElement> Until(Func<JsonElement, bool> match)
+        {
+            while (true)
+                if (await events.Reader.ReadAsync() is var e && match(e)) return e;
+        }
+
+        bool disposed;   // exit-ends-tasks disposes inside the probe, then again on the way out
+
         public async ValueTask DisposeAsync()
         {
-            if (S is not null) await S.DisposeAsync();
+            if (S is not null && !disposed) { disposed = true; await S.DisposeAsync(); }
         }
     }
 }
