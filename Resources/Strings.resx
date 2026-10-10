@@ -39,7 +39,8 @@
   <data name="Appearance.Notify" xml:space="preserve"><value>Notifications</value></data>
   <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Notifications are blocked for this site: allow them in the browser's site settings, then reload this page.</value></data>
   <data name="Appearance.NotifyHint" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background or another session is on screen.</value></data>
-  <data name="Appearance.NotifyHintDesktop" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background. Clicking the notification opens the session.</value></data>
+  <data name="Appearance.NotifyHintDesktop" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background.</value></data>
+  <data name="Appearance.NotifyHintMac" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background. Clicking the notification opens the session.</value></data>
   <data name="Appearance.NotifyLabel" xml:space="preserve"><value>Notify me</value></data>
   <data name="Appearance.NotifyUnsupported" xml:space="preserve"><value>This browser cannot show notifications.</value></data>
   <data name="Appearance.Preview" xml:space="preserve"><value>Preview</value></data>
