@@ -114,7 +114,8 @@
             <div class="field">
                 <span class="lbl" id="perm-lbl">@L["New.Permissions"]</span>
                 <div class="modes" role="radiogroup" aria-labelledby="perm-lbl">
-                    @foreach (var m in LiveSession.Modes)
+                    @* "" first: no --permission-mode, the CLI applies permissions.defaultMode as the terminal does. *@
+                    @foreach (var m in (string[])["", .. LiveSession.Modes])
                     {
                         <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@Strings.Name("Mode.Name.", m)</b><span>@L["Mode." + m]</span></button>
                     }
@@ -137,7 +138,7 @@
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), mode = "default", model = "", effort = "";
+    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "";
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
     string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape

@@ -557,8 +557,7 @@ textarea,input{caret-color:var(--accent)}
 .effort-slider button{grid-row:2;justify-self:center;display:inline-flex;align-items:center;gap:4px;padding:0;white-space:nowrap;font:11px var(--mono);color:var(--fg-4);transition:color .15s cubic-bezier(.2,.8,.2,1)}
 .effort-slider .i{width:12px;height:12px}
 .effort-slider button.on{color:var(--fg)}
-.effort-slider button:not(.on):not(.off):hover{color:var(--fg-2)}
-.effort-slider button.off{opacity:.45;cursor:not-allowed}
+.effort-slider button:not(.on):hover{color:var(--fg-2)}
 .pop{position:absolute;background:var(--raise);border:1px solid var(--seam-2);border-radius:var(--r-pop);box-shadow:var(--shadow-pop);z-index:6;overflow:hidden}
 .slash{left:32px;bottom:calc(100% - 6px);width:min(560px,calc(100% - 64px))}
 .slash .sh{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
@@ -744,11 +743,12 @@ button.mode{text-align:left}
 .lang,.picks{display:flex;gap:8px;align-items:center}
 .lang select,.picks select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}
 .said{position:relative}.said>.md{display:flow-root}
-/* Out of the flow, bottom right: a spacer as wide as the button (FR label) ends a closing paragraph, so its last line
+/* Out of the flow, bottom right: a spacer as wide as the buttons (FR labels) ends a closing paragraph, so its last line
    wraps short of it and the reply only grows when that line is full. Any other closing block (list, code, table) gets
    the button's row under it. */
-.said .fork-here{position:absolute;right:4px;bottom:4px;padding:4px 10px;font-size:12px;opacity:0}
-.said>.md>:is(p,h1,h2,h3,h4,h5,h6):last-child::after{content:"";float:right;width:156px;height:26px}
+.said .said-acts{position:absolute;right:4px;bottom:4px;display:flex;gap:4px}
+.said .fork-here{padding:4px 10px;font-size:12px;opacity:0}
+.said>.md>:is(p,h1,h2,h3,h4,h5,h6):last-child::after{content:"";float:right;width:250px;height:26px}
 .said>.md:not(:has(>:is(p,h1,h2,h3,h4,h5,h6):last-child))::after{content:"";display:block;height:26px}
 .said:hover .fork-here:enabled,.said .fork-here:focus-visible{opacity:1}
 @media (hover:none){.said .fork-here:enabled{opacity:1}}

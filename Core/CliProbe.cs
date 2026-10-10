@@ -137,9 +137,10 @@ public static class CliProbe
         }, 300);
     }
 
-    // permission-session: answering a can_use_tool with updatedPermissions = its non-setMode suggestions stops the CLI
-    // from asking again for the same request. The command must write: 2.1.295 auto-allows read-only ones like
-    // `git status` (the issue's original prompt), which never reach can_use_tool.
+    // permission-session: answering a can_use_tool with updatedPermissions = its non-setMode suggestions, moved to the
+    // session destination (LiveSession.SessionOnly), stops the CLI from asking again for the same request, and writes no
+    // settings file. The command must write: 2.1.295 auto-allows read-only ones like `git status` (the issue's original
+    // prompt), which never reach can_use_tool.
     const string Cmd = "touch probe.txt";
     static async Task<IEnumerable<(string, string, string)>> PermissionSession(string dir)
     {
@@ -154,7 +155,7 @@ public static class CliProbe
                 tool = Events.Str(r, "tool_name");
                 // 2.1.295 offers setMode next to addRules/addDirectories for a write: send only the latter, which is
                 // exactly what LiveSession.Answer() sends when no setMode is offered.
-                var rules = new JsonArray([.. sg.EnumerateArray().Where(x => Events.Str(x, "type") != "setMode").Select(x => JsonNode.Parse(x.GetRawText()))]);
+                var rules = LiveSession.SessionOnly(JsonDocument.Parse(new JsonArray([.. sg.EnumerateArray().Where(x => Events.Str(x, "type") != "setMode").Select(x => JsonNode.Parse(x.GetRawText()))]).ToJsonString()).RootElement).AsArray();
                 types = string.Join("+", rules.Select(x => (string?)x!["type"]));
                 if (rules.Count == 0) return false;
                 await c.S.Respond(Events.Str(e, "request_id")!, true, r.GetProperty("input"), rules);
@@ -169,6 +170,8 @@ public static class CliProbe
                 return Task.FromResult(false);
             });
             var ran = second.Sum(e => ToolUses(e).Count(n => n == tool));
+            // Sent with destination session (LiveSession.SessionOnly): no settings file may keep the rule.
+            if (File.Exists(Path.Combine(dir, ".claude", "settings.local.json"))) return [("FAIL", "the whole-session allow was written to .claude/settings.local.json")];
             return [ran == 0 ? ("FAIL", $"inconclusive: no {tool} tool_use in the second turn")
                 : asked == 0 ? ("PASS", $"{types} honoured, {tool} ran again with 0 re-prompts")
                 : ("FAIL", $"{types} not honoured, {asked} re-prompt(s) for {tool}")];

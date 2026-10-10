@@ -17,13 +17,17 @@ public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonEle
 public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
 public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
                             string? ToolUseId, JsonElement? Suggestions) : ClaudeEvent;
+// control_cancel_request: the CLI withdrew one of its own requests (a can_use_tool that timed out or was aborted).
+public record CancelRequestEvt(string RequestId) : ClaudeEvent;
+// system/api_retry: an API call failed and is retried after DelayMs (ErrorStatus null = no HTTP response, e.g. a timeout).
+public record RetryEvt(int Attempt, int MaxRetries, int DelayMs, int? ErrorStatus, string? Error) : ClaudeEvent;
 public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
                         long ContextTokens, long? ContextWindow, string? FastModeState, string? FastModeReason,
                         string? TerminalReason = null) : ClaudeEvent;
 public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
 // TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
 public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
-public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt) : ClaudeEvent;   // patch.status: running|completed|failed|killed…
+public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt, bool Backgrounded = false) : ClaudeEvent;   // patch.status: running|completed|failed|killed…; patch.is_backgrounded after background_tasks
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs, JsonElement? Workflow = null) : ClaudeEvent;   // Workflow: workflow_progress, a full snapshot
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
@@ -120,6 +124,10 @@ public static class Events
                         Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"));
                 break;
 
+            case "control_cancel_request":
+                if (Str(e, "request_id") is { } cancelled) yield return new CancelRequestEvt(cancelled);
+                break;
+
             case "result":
                 {
                     // Context = the last API call's prompt size; top-level usage sums every iteration of the turn.
@@ -169,13 +177,15 @@ public static class Events
             Str(e, "task_type"), Bool(e, "is_backgrounded")),
         "task_updated" => Prop(e, "patch") is { } patch
             ? new TaskUpdatedEvt(Str(e, "task_id") ?? "", Str(patch, "status"),
-                Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null) : null,   // out of range = unknown: the reducer uses now
+                Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null, Bool(patch, "is_backgrounded")) : null,   // out of range = unknown: the reducer uses now
         "task_progress" => Prop(e, "usage") is { } u
             ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms"),
                 Prop(e, "workflow_progress") is { ValueKind: JsonValueKind.Array } wp ? wp.Clone() : null) : null,
         "task_notification" => Prop(e, "usage") is { } nu
             ? new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? "", null, Long(nu, "total_tokens"), (int)Long(nu, "tool_uses"), (int)Long(nu, "duration_ms"))
             : new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? ""),
+        "api_retry" => new RetryEvt((int)Long(e, "attempt"), (int)Long(e, "max_retries"), (int)Long(e, "retry_delay_ms"),
+            Prop(e, "error_status") is { ValueKind: JsonValueKind.Number } es ? (int)es.GetDouble() : null, Str(e, "error")),
         "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
         "hook_response" => new HookEvt(Str(e, "hook_name") ?? Str(e, "hook_event") ?? "", Str(e, "outcome") ?? "",
             Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd()),
@@ -280,6 +290,12 @@ public static class Events
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}},"parent_tool_use_id":null}""") is TextDeltaEvt { Text: "done", ParentToolUseId: null }, "text_delta");
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}}}""") is null, "thinking_delta ignored");
         Ok(P("""{"type":"system","subtype":"hook_started","hook_id":"h"}""") is null, "hook_started ignored");
+        // claude 2.1.296 shapes: the SDK schema of api_retry, the cancel its control client writes, a probed background_tasks patch.
+        Ok(P("""{"type":"system","subtype":"api_retry","attempt":2,"max_retries":10,"retry_delay_ms":4000,"error_status":529,"error":"overloaded"}""")
+           is RetryEvt { Attempt: 2, MaxRetries: 10, DelayMs: 4000, ErrorStatus: 529, Error: "overloaded" }, "api_retry");
+        Ok(P("""{"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":500,"error_status":null,"error":"unknown"}""") is RetryEvt { ErrorStatus: null }, "api_retry without HTTP status");
+        Ok(P("""{"type":"control_cancel_request","request_id":"r9"}""") is CancelRequestEvt { RequestId: "r9" }, "control_cancel_request");
+        Ok(P("""{"type":"system","subtype":"task_updated","task_id":"b6","patch":{"is_backgrounded":true}}""") is TaskUpdatedEvt { TaskId: "b6", Status: null, Backgrounded: true }, "task moved to the background");
         // claude 2.1.296 with --include-hook-events: a PreToolUse hook that exits 2.
         Ok(P("""{"type":"system","subtype":"hook_response","hook_id":"98f5","hook_name":"PreToolUse:Write","hook_event":"PreToolUse","output":"nope: blocked\n","stdout":"","stderr":"nope: blocked\n","exit_code":2,"outcome":"error","uuid":"7e61","session_id":"d427"}""")
            is HookEvt { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2, Output: "nope: blocked" }, "hook_response");

@@ -8,6 +8,9 @@
     case SessionStatus.Starting:
         <div class="status"><span class="spin"></span>@L["Status.StartingClaude"]</div>
         break;
+    case SessionStatus.Running when Session.Retry is { } r:
+        <div class="status wait"><span class="spin"></span>@L["Status.Retry", r.Attempt, r.MaxRetries] <small>@Retry(r)</small></div>
+        break;
     case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
         <div class="status"><span class="spin"></span>@L["Status.AgentsWorking"] <small>@L["OfN", agents.Count(a => a.State == ToolState.Done), agents.Count]</small></div>
         break;
@@ -49,6 +52,9 @@
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    // "529 · overloaded · in 4s": what failed and when the next attempt goes.
+    string Retry(RetryEvt r) => string.Join(" · ", new[] { r.ErrorStatus?.ToString(), r.Error, L["Status.RetryIn", Fmt.Dur(TimeSpan.FromMilliseconds(r.DelayMs))] }.Where(x => !string.IsNullOrEmpty(x)));
 
     string Elapsed => Session.TurnStartedAt is { } t ? Fmt.Dur(DateTimeOffset.Now - t) : "";
 

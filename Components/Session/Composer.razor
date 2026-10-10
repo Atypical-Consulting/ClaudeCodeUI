@@ -2,6 +2,8 @@
    "@" file mentions (the CLI reads the mentioned file itself), ↑ ↓ prompt history (this session, then past sessions of the same folder).
    Sent during a turn, a message waits as a chip until the CLI starts it (command_lifecycle), or is cancelled (cancel_async_message). *@
 @inject IJSRuntime JS
+@inject UiState Ui
+@inject NavigationManager Nav
 @implements IDisposable
 
 <section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
@@ -84,10 +86,7 @@
             }
             @if (!crashed && EffortLevels is { } levels)
             {
-                @* Ultracode rides on the top effort for one turn, so it is the slider's last stop; after the turn it shows max again. *@
-                <EffortSlider Levels="levels" Value="@(Session.Ultracode ? Ultra : Effort ?? "")" ValueChanged="PickEffort" Name='l => Strings.Name("Effort.", l)'
-                              Label="@L["Composer.Effort"]" Special="@Ultra" SpecialIcon="agents" SpecialEnabled="ultraAvailable != false"
-                              SpecialTitle="@(ultraAvailable == false ? L["Composer.UltraUnavailable"] : L["Composer.UltraHint"])" />
+                <EffortSlider Levels="levels" Value="@(Effort ?? "")" ValueChanged="SetEffort" Name='l => Strings.Name("Effort.", l)' Label="@L["Composer.Effort"]" />
             }
             @if (FastOk)
             {
@@ -97,12 +96,12 @@
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@(FastReason is { } r ? L["Composer.FastUnavailableWhy", r] : L["Composer.FastUnavailable"])"><Icon Name="zap" />@L["Composer.Fast"]</button>
             }
-            @* Without effort levels to slide along, ultracode keeps its own toggle. *@
-            @if (crashed || EffortLevels is null && ultraAvailable == false)
+            @* Its own toggle, at any effort (claude 2.1.284 split it from the effort slider). *@
+            @if (crashed || ultraAvailable == false)
             {
                 <button type="button" class="pick dis" aria-disabled="true" title="@L["Composer.UltraUnavailable"]"><Icon Name="agents" />Ultracode</button>
             }
-            else if (EffortLevels is null)
+            else
             {
                 <button class="pick @(Session.Ultracode ? "on" : null)" aria-pressed="@(Session.Ultracode ? "true" : "false")" title="@L["Composer.UltraHint"]" @onclick="() => Run(() => Session.SetUltracode(!Session.Ultracode))"><Icon Name="agents" />Ultracode</button>
             }
@@ -240,23 +239,8 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    const string Ultra = "Ultracode";
-
     IReadOnlyList<string>? EffortLevels => model is { } m && Events.Prop(m, "supportsEffort") is { ValueKind: JsonValueKind.True }
         && Events.Prop(m, "supportedEffortLevels") is { ValueKind: JsonValueKind.Array } a ? [.. a.EnumerateArray().Select(x => x.GetString() ?? "")] : null;
-
-    async Task PickEffort(string level)
-    {
-        if (level == Ultra)
-        {
-            var top = LiveSession.UltraEffort(EffortLevels!);
-            if (Effort != top) { await SetEffort(top); if (error is not null) return; }   // not a stale error from another action
-            await Run(() => Session.SetUltracode(true));
-            return;
-        }
-        if (Session.Ultracode) await Run(() => Session.SetUltracode(false));
-        await SetEffort(level);
-    }
 
     async Task SetEffort(string level)
     {
@@ -299,6 +283,7 @@
         recalled = null;
         history.Reset();
         menuOpen = modeOpen = false;
+        if (imgs.Count == 0 && Native(t)) return;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
         {
@@ -310,6 +295,19 @@
             if (text.Length == 0) text = t;
             if (images.Count == 0) images = imgs;
         }
+    }
+
+    // These open a terminal dialog: headless, the CLI only answers that they need the terminal. The UI has its own.
+    bool Native(string t)
+    {
+        switch (t)
+        {
+            case "/model" when models.Count > 0: menuOpen = true; break;
+            case "/mcp" or "/hooks": Nav.NavigateTo($"extensions?tab={t[1..]}"); break;
+            case "/memory" or "/add-dir": Ui.SelectedToolId = null; Ui.InspectorOpen = true; break;   // the context panel holds both
+            default: return false;
+        }
+        return true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

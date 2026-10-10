@@ -313,6 +313,7 @@
   <data name="Mode.auto" xml:space="preserve"><value>Never interrupts, use with care</value></data>
   <data name="Mode.ConfirmAgain" xml:space="preserve"><value>{0} acts without asking you. Pick it again to confirm.</value></data>
   <data name="Mode.default" xml:space="preserve"><value>Asks before every sensitive tool</value></data>
+  <data name="Mode.Name." xml:space="preserve"><value>Settings</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
   <data name="Model.Current" xml:space="preserve"><value>current</value></data>
@@ -506,6 +507,8 @@
   <data name="Status.WhatEdit" xml:space="preserve"><value>an edit</value></data>
   <data name="Status.WhatTool" xml:space="preserve"><value>a tool</value></data>
   <data name="Status.PausedQuestion" xml:space="preserve"><value>Claude is paused: a question is waiting for your answer</value></data>
+  <data name="Status.Retry" xml:space="preserve"><value>API call failed, retrying ({0}/{1})</value></data>
+  <data name="Status.RetryIn" xml:space="preserve"><value>next try in {0}</value></data>
   <data name="Status.Writing" xml:space="preserve"><value>Claude is writing…</value></data>
   <data name="Theme.contraste" xml:space="preserve"><value>High contrast</value></data>
   <data name="Theme.encre" xml:space="preserve"><value>Encre</value></data>
@@ -657,5 +660,9 @@
   <data name="Kv.Agents" xml:space="preserve"><value>agents</value></data>
   <data name="Kv.Elapsed" xml:space="preserve"><value>elapsed</value></data>
   <data name="Kv.Model" xml:space="preserve"><value>model</value></data>
+  <data name="Mode." xml:space="preserve"><value>Your configured default, as in the terminal</value></data>
+  <data name="Task.Background" xml:space="preserve"><value>Background</value></data>
+  <data name="Task.BackgroundHint" xml:space="preserve"><value>Lets it run in the background: the turn goes on without waiting (Ctrl B in the terminal)</value></data>
+  <data name="Thread.CopyOf" xml:space="preserve"><value>Copy the reply: {0}</value></data>
   <data name="Wf.Result" xml:space="preserve"><value>Result</value></data>
 </root>

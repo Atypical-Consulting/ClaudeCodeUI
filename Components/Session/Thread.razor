@@ -41,8 +41,11 @@
                 @* Always rendered (disabled while a turn runs) so the thread does not shift at each turn's start and end. *@
                 <div class="said">
                     <Markdown Text="@t.Markdown" />
-                    <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" aria-label="@L["Session.ForkHereOf", Gist(t.Markdown)]"
-                            disabled="@(!Session.CanFork)" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
+                    <span class="said-acts">
+                        <button type="button" class="btn ghost fork-here" data-copy="@t.Markdown" aria-label="@L["Thread.CopyOf", Gist(t.Markdown)]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
+                        <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" aria-label="@L["Session.ForkHereOf", Gist(t.Markdown)]"
+                                disabled="@(!Session.CanFork)" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
+                    </span>
                 </div>
                 break;
             case TextItem t:
