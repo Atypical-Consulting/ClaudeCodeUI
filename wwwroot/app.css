@@ -98,7 +98,7 @@ code{font-family:var(--mono)}
 .dot.run{background:var(--ok);animation:pulse 1.6s ease-out infinite}
 .dot.err{background:var(--err)}
 .dot.idle{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-5)}
-.dot.exited{background:transparent;border:1.5px dashed var(--fg-5)}
+.dot.exited{background:repeating-conic-gradient(var(--fg-5) 0 30deg,transparent 0 60deg);mask:radial-gradient(circle,transparent 2.4px,#000 2.6px)}  /* a dashed border breaks into arcs in WebKit at 8px */
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 33%,transparent)}100%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
 .pill{font:600 11px var(--sans);border-radius:var(--r-full);padding:1px 7px}
 .pill.wait{background:var(--accent);color:var(--accent-ink)}
@@ -778,7 +778,7 @@ button.mode{text-align:left}
 @media (max-width:759px){
   body{overflow:auto}
   .app,.app:not(:has(>main>.insp)),main{display:flex;flex-direction:column;height:auto}
-  .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto}
+  .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto;mask-image:linear-gradient(#000 calc(100% - 25px),transparent calc(100% - 1px),#000 0)}  /* the cut edge fades instead of slicing a row; the last 1px keeps the seam */
   .app>.pane .scroll{flex:none;overflow:visible}
   main>.pane:not(.insp){min-height:100vh}
   .set-row{grid-template-columns:minmax(0,1fr);gap:10px}
