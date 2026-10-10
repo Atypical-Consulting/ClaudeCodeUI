@@ -26,6 +26,7 @@
                 @Tab("agents", L["Ext.Tab.Agents"], agents.Count)
                 @Tab("plugins", L["Ext.Tab.Plugins"], plugins.Length)
                 @Tab("hooks", L["Ext.Tab.Hooks"], hooks?.Rows.Count ?? 0)
+                @Tab("permissions", L["Ext.Tab.Permissions"], perms?.Rules.Count ?? 0)
             </div>
             <div id="ext-panel" role="tabpanel" aria-labelledby="ext-tab-@tab">
             @if (tab == "mcp")
@@ -106,6 +107,93 @@
                             }
                         </tbody>
                     </table>
+                }
+            }
+            else if (tab == "permissions")
+            {
+                <p class="lead">@((MarkupString)L["Ext.Perm.Lead", $"<code title=\"{Fmt.Enc(s.Cwd)}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
+                @if (permsNote is not null)
+                {
+                    <div class="errbox" role="alert">@permsNote</div>
+                }
+                @if (perms is { ManagedOnly: true })
+                {
+                    <div class="errbox" role="status">@L["Ext.Perm.ManagedOnly"]</div>
+                }
+                @foreach (var err in perms?.Errors ?? [])
+                {
+                    <div class="errbox" role="status">@L["Ext.Perm.FileError", err]</div>
+                }
+                @if (perms is { } ps)
+                {
+                    <div class="filters">
+                        @Filter("", L["Filter.All"], ps.Rules.Count)
+                        @foreach (var b in PermissionRules.Behaviors)
+                        {
+                            @Filter(b, L["Ext.Perm." + b], ps.Rules.Count(r => r.Behavior == b))
+                        }
+                    </div>
+                    @if (ps.Rules.Count == 0)
+                    {
+                        <p class="lead">@L["Ext.Perm.None"]</p>
+                    }
+                    else
+                    {
+                        <table class="mcp">
+                            <thead><tr><th>@L["Ext.Col.Rule"]</th><th>@L["Ext.Col.Behavior"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+                            <tbody>
+                                @foreach (var r in ps.Rules.Where(x => filter == "" || x.Behavior == filter))
+                                {
+                                    <tr>
+                                        <td><div class="n"><code>@PermissionRules.Visible(r.Rule)</code></div>@if (r.Text is var (pre, emph, suf))
+                                            {
+                                                <div class="d">@pre<b>@PermissionRules.Visible(emph)</b>@suf</div>
+                                            }</td>
+                                        <td><span class="tag">@L["Ext.Perm." + r.Behavior]</span></td>
+                                        <td><span class="tag">@SourceTag(r.Source)</span>@if (r.NotInEffect)
+                                            {
+                                                <div class="d">@L["Ext.Perm.NotInEffect"]</div>
+                                            }</td>
+                                        <td class="num">@if (r.Editable)
+                                            {
+                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Perm.RemoveRule", r.Rule]" @onclick="() => EditRule(s, r.Source, r.Behavior, r.Rule, false)">@L["Ext.Perm.Remove"]</button>
+                                            }</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <div class="field">
+                        <label for="perm-rule">@L["Ext.Perm.Add"]</label>
+                        <div class="input"><input id="perm-rule" @bind="ruleDraft" @bind:event="oninput" @onkeydown='e => { if (e.Key == "Enter") _ = EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true); }'
+                                                  placeholder="Bash(npm run test:*)" spellcheck="false" autocomplete="off" disabled="@busy" /></div>
+                    </div>
+                    <div class="picks">
+                        <select aria-label="@L["Ext.Col.Behavior"]" @bind="ruleBehavior" disabled="@busy">
+                            @foreach (var b in PermissionRules.Behaviors)
+                            {
+                                <option value="@b">@L["Ext.Perm." + b]</option>
+                            }
+                        </select>
+                        <select aria-label="@L["Perm.SaveIn"]" @bind="ruleFile" disabled="@busy">
+                            @foreach (var src in PermissionRules.Files)
+                            {
+                                <option value="@src">@L["Perm.Dest." + src]</option>
+                            }
+                        </select>
+                        <button class="btn primary" disabled="@(busy || ruleDraft.Trim().Length == 0)" @onclick="() => EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true)"><Icon Name="plus" Sm />@L["Ext.Perm.AddButton"]</button>
+                    </div>
+                    @if (ps.Dirs.Count > 0)
+                    {
+                        <div><span class="cap">@L["Dirs.Label"]</span>
+                            <ul class="dirs">
+                                @foreach (var (path, src) in ps.Dirs)
+                                {
+                                    <li class="chip" title="@path"><Icon Name="folder" Sm />@Fmt.Home(path) <span class="tag">@SourceTag(src)</span></li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 }
             }
             else if (s.Init is null && tab != "agents")
@@ -227,6 +315,9 @@
     string? selected, note, refreshedFor, hooksNote;
     bool busy, focusAuth;
     (List<HookRow> Rows, bool Disabled)? hooks;
+    PermissionState? perms;
+    string? permsNote;
+    string ruleDraft = "", ruleBehavior = "allow", ruleFile = "localSettings";
     (string Server, string Url)? auth;   // sign-in in progress: its page stays one click away until the server connects
     CancellationTokenSource? authPoll;
     ElementReference authLink;
@@ -238,7 +329,7 @@
 
     protected override void OnInitialized()
     {
-        if (TabQuery is "mcp" or "hooks") tab = TabQuery;
+        if (TabQuery is "mcp" or "hooks" or "permissions") tab = TabQuery;
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
         if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
@@ -254,12 +345,13 @@
     async Task Refresh()
     {
         if (Live is not { } s) return;
-        if (refreshedFor != s.Id) (hooks, hooksNote) = (null, null);   // the previous session's hooks (another folder) must not show meanwhile
+        if (refreshedFor != s.Id) (hooks, hooksNote, perms, permsNote) = (null, null, null, null);   // the previous session's (another folder) must not show meanwhile
         refreshedFor = s.Id;
         await Run(s.RefreshMcp);
         if (selected is null && Servers(s) is { Count: > 0 } all)
             selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
         await LoadHooks(s);
+        await LoadPerms(s);
     }
 
     // get_hooks_listing reads the settings files on every call: asked again whenever the tab is opened.
@@ -276,10 +368,50 @@
         try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
     }
 
+    // list_permission_rules: rules from every settings file plus session grants and --allowedTools, each with its source.
+    async Task LoadPerms(LiveSession s)
+    {
+        if (!s.HasProcess) return;
+        PermissionState? got = null;
+        string? failed = null;
+        try { got = PermissionRules.Parse(await s.Request("list_permission_rules")); }
+        catch (Exception ex) { failed = L["Ext.Perm.Failed", ex.Message.TrimEnd()]; }
+        if (s.Id != refreshedFor) return;
+        (perms, permsNote) = (got, failed);
+        try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
+    }
+
+    // Writes the settings file the CLI reads for that source, then lists again until its file watcher shows the change.
+    async Task EditRule(LiveSession s, string source, string behavior, string rule, bool add)
+    {
+        if (busy || rule.Length == 0) return;
+        if (!PermissionRules.Valid(rule)) { permsNote = L["Ext.Perm.Invalid", rule]; return; }
+        busy = true;
+        permsNote = null;
+        try
+        {
+            var cwd = perms?.Cwd ?? s.Cwd;
+            var path = PermissionRules.FileOf(source, cwd, source == "localSettings" ? await LiveSession.GitRoot(cwd) : null, TranscriptStore.ConfigDir)
+                       ?? throw new InvalidOperationException(source);
+            PermissionRules.Save(path, behavior, rule, add);
+            if (add) ruleDraft = "";
+            for (var i = 0; i < 20; i++)   // 3 s on 2.1.296; 10 s at most
+            {
+                await Task.Delay(500);
+                await LoadPerms(s);
+                if (perms is null || perms.Rules.Any(r => r.Source == source && r.Behavior == behavior && r.Rule == rule) == add) break;
+            }
+        }
+        catch (Exception ex) { permsNote = L["Ext.Perm.WriteFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+    }
+
     void Show(string key)
     {
         tab = key;
+        filter = "";   // the filters are per tab: an MCP state means nothing to the rules
         if (key == "hooks" && Live is { } s) _ = LoadHooks(s);
+        if (key == "permissions" && Live is { } p) _ = LoadPerms(p);
     }
 
     // userSettings / projectSettings / localSettings / pluginHook; anything else (policy…) as the CLI names it.
@@ -289,6 +421,8 @@
         "projectSettings" => Strings.Get("Ext.Scope.Project"),
         "localSettings" => Strings.Get("Ext.Scope.Local"),
         "pluginHook" => Strings.Get("Ext.Scope.Plugin"),
+        "session" => Strings.Get("Ext.Scope.Session"),
+        "policySettings" => Strings.Get("Ext.Scope.Policy"),
         _ => source,
     };
 

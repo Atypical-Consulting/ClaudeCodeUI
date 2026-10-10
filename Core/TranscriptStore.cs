@@ -13,9 +13,9 @@ public record PastSession(string Id, string Cwd, string? Branch, string Title, d
 public static class TranscriptStore
 {
     // The CLI honours CLAUDE_CONFIG_DIR (default ~/.claude); claude inherits this process's environment, so read the same one.
-    internal static readonly string Root = Path.Combine(
-        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"), "projects");
+    internal static readonly string ConfigDir = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+    internal static readonly string Root = Path.Combine(ConfigDir, "projects");
     const int Chunk = 64 * 1024;
     static (DateTimeOffset At, int Take, IReadOnlyList<PastSession> List) cache;
 

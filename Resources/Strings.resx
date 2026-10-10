@@ -408,11 +408,11 @@
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
   <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
-  <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
+  <data name="Perm.HintSession" xml:space="preserve"><value>always allow</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
   <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
-  <data name="Perm.WholeSession" xml:space="preserve"><value>Whole session</value></data>
+  <data name="Perm.WholeSession" xml:space="preserve"><value>Always allow</value></data>
   <data name="Plan.ApproveAuto" xml:space="preserve"><value>Approve and auto-accept edits</value></data>
   <data name="Plan.ApproveReview" xml:space="preserve"><value>Approve and review each edit</value></data>
   <data name="Plan.Feedback" xml:space="preserve"><value>What should change in the plan?</value></data>
@@ -665,4 +665,35 @@
   <data name="Task.BackgroundHint" xml:space="preserve"><value>Lets it run in the background: the turn goes on without waiting (Ctrl B in the terminal)</value></data>
   <data name="Thread.CopyOf" xml:space="preserve"><value>Copy the reply: {0}</value></data>
   <data name="Wf.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="Ext.Tab.Permissions" xml:space="preserve"><value>Permissions</value></data>
+  <data name="Ext.Perm.Lead" xml:space="preserve"><value>Permission rules the CLI applies to sessions in {0}: settings files, session grants and --allowedTools. Rules in user, project and local settings can be added and removed here; the others are read-only.</value></data>
+  <data name="Ext.Perm.ManagedOnly" xml:space="preserve"><value>Managed settings allow policy rules only: rules from other files are listed but not applied.</value></data>
+  <data name="Ext.Perm.FileError" xml:space="preserve"><value>Settings file skipped, its rules don't apply: {0}</value></data>
+  <data name="Ext.Perm.allow" xml:space="preserve"><value>Allow</value></data>
+  <data name="Ext.Perm.ask" xml:space="preserve"><value>Ask</value></data>
+  <data name="Ext.Perm.deny" xml:space="preserve"><value>Deny</value></data>
+  <data name="Ext.Perm.None" xml:space="preserve"><value>No permission rules for this folder.</value></data>
+  <data name="Ext.Col.Rule" xml:space="preserve"><value>Rule</value></data>
+  <data name="Ext.Col.Behavior" xml:space="preserve"><value>Behavior</value></data>
+  <data name="Ext.Col.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Ext.Perm.NotInEffect" xml:space="preserve"><value>not in effect</value></data>
+  <data name="Ext.Perm.RemoveRule" xml:space="preserve"><value>Remove {0}</value></data>
+  <data name="Ext.Perm.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Ext.Perm.Add" xml:space="preserve"><value>Add a rule</value></data>
+  <data name="Ext.Perm.AddButton" xml:space="preserve"><value>Add</value></data>
+  <data name="Ext.Perm.Failed" xml:space="preserve"><value>Couldn't read the permission rules: {0}</value></data>
+  <data name="Ext.Perm.Invalid" xml:space="preserve"><value>{0} isn't a rule: write a tool name, optionally followed by its content in parentheses, like Bash(npm run test:*).</value></data>
+  <data name="Ext.Perm.WriteFailed" xml:space="preserve"><value>Couldn't save the rule: {0}</value></data>
+  <data name="Ext.Scope.Session" xml:space="preserve"><value>session</value></data>
+  <data name="Ext.Scope.Policy" xml:space="preserve"><value>policy</value></data>
+  <data name="Perm.AskedBy" xml:space="preserve"><value>Asked by the agent {0}</value></data>
+  <data name="Perm.BlockedPath" xml:space="preserve"><value>Blocked path:</value></data>
+  <data name="Perm.WhyAskRule" xml:space="preserve"><value>Asks because of the rule {0} in {1}.</value></data>
+  <data name="Perm.WhyRule" xml:space="preserve"><value>A permission rule asks before this call.</value></data>
+  <data name="Perm.WhyWorkingDir" xml:space="preserve"><value>The path is outside the session's folders.</value></data>
+  <data name="Perm.SaveIn" xml:space="preserve"><value>Save in</value></data>
+  <data name="Perm.Dest.session" xml:space="preserve"><value>this session only</value></data>
+  <data name="Perm.Dest.localSettings" xml:space="preserve"><value>local settings (.claude/settings.local.json)</value></data>
+  <data name="Perm.Dest.projectSettings" xml:space="preserve"><value>project settings (.claude/settings.json)</value></data>
+  <data name="Perm.Dest.userSettings" xml:space="preserve"><value>user settings (~/.claude/settings.json)</value></data>
 </root>

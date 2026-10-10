@@ -16,14 +16,18 @@ public record ToolUseEvt(string Id, string Name, JsonElement Input, string? Pare
 public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result (objects only)
 public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
 public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
-                            string? ToolUseId, JsonElement? Suggestions) : ClaudeEvent;
+                            string? ToolUseId, JsonElement? Suggestions, PermissionInfo? Info = null) : ClaudeEvent;
+// can_use_tool's context (claude 2.1.296): agent_id = the asking subagent (its task id), title = an MCP tool's display
+// title, decision_reason[_type] / matched_ask_rule = why it asks, suppress_always_allow_rule = offer no "always" rule.
+public record PermissionInfo(string? AgentId, string? Title, string? BlockedPath, string? ReasonType, string? Reason,
+                             string? AskRule, string? AskRuleSource, bool NoAlwaysAllow);
 // control_cancel_request: the CLI withdrew one of its own requests (a can_use_tool that timed out or was aborted).
 public record CancelRequestEvt(string RequestId) : ClaudeEvent;
 // system/api_retry: an API call failed and is retried after DelayMs (ErrorStatus null = no HTTP response, e.g. a timeout).
 public record RetryEvt(int Attempt, int MaxRetries, int DelayMs, int? ErrorStatus, string? Error) : ClaudeEvent;
 public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
                         long ContextTokens, long? ContextWindow, string? FastModeState, string? FastModeReason,
-                        string? TerminalReason = null) : ClaudeEvent;
+                        string? TerminalReason = null, IReadOnlyList<string>? Denied = null) : ClaudeEvent;   // Denied: permission_denials' tool_use_ids
 public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
 // TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
 public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
@@ -121,7 +125,7 @@ public static class Events
                 if (e.TryGetProperty("request", out var r) && Str(r, "subtype") == "can_use_tool"
                     && Str(e, "request_id") is { } requestId && Prop(r, "input") is { } permInput)
                     yield return new PermissionEvt(requestId, Str(r, "tool_name") ?? "", permInput,
-                        Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"));
+                        Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"), Info(r));
                 break;
 
             case "control_cancel_request":
@@ -142,7 +146,9 @@ public static class Events
                     yield return new ResultEvt(Str(e, "subtype") ?? "", Bool(e, "is_error"),
                         Prop(e, "total_cost_usd") is { ValueKind: JsonValueKind.Number } cost ? cost.GetDecimal() : 0,
                         (int)Long(e, "duration_ms"), (int)Long(e, "num_turns"), ctx, window,
-                        Str(e, "fast_mode_state"), Str(e, "fast_mode_disabled_reason"), Str(e, "terminal_reason"));
+                        Str(e, "fast_mode_state"), Str(e, "fast_mode_disabled_reason"), Str(e, "terminal_reason"),
+                        Prop(e, "permission_denials") is { ValueKind: JsonValueKind.Array } pd
+                            ? [.. pd.EnumerateArray().Select(x => Str(x, "tool_use_id")).OfType<string>()] : null);
                     break;
                 }
 
@@ -262,6 +268,15 @@ public static class Events
         _ => content.ToString(),
     };
 
+    static PermissionInfo? Info(JsonElement r)
+    {
+        var ask = Prop(r, "matched_ask_rule");
+        var info = new PermissionInfo(Str(r, "agent_id"), Str(r, "title"), Str(r, "blocked_path"), Str(r, "decision_reason_type"),
+            Str(r, "decision_reason"), ask is { } a ? Str(a, "tool_name") + (Str(a, "rule_content") is { } c ? $"({c})" : "") : null,
+            ask is { } b ? Str(b, "source") : null, Bool(r, "suppress_always_allow_rule"));
+        return info == new PermissionInfo(null, null, null, null, null, null, null, false) ? null : info;
+    }
+
     // String arrays, or arrays of objects with a "name" (plugins).
     static string[] Names(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Array } a
         ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString()! : Str(x, "name") ?? "").ToArray()
@@ -337,11 +352,21 @@ public static class Events
 
         var perm = P("""{"type":"control_request","request_id":"edd9","request":{"subtype":"can_use_tool","tool_name":"Write","display_name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"},"description":"b.txt","permission_suggestions":[{"type":"setMode","mode":"acceptEdits","destination":"session"}],"tool_use_id":"toolu_01Y"}}""") as PermissionEvt;
         Ok(perm is { RequestId: "edd9", Tool: "Write", Description: "b.txt", ToolUseId: "toolu_01Y", Suggestions: { } sg } && Str(sg[0], "type") == "setMode", "can_use_tool");
+        // claude 2.1.296 with a project ask rule Bash(echo:*): decision_reason_type only, no permission_suggestions.
+        Ok(P("""{"type":"control_request","request_id":"a1","request":{"subtype":"can_use_tool","tool_name":"Bash","display_name":"Bash","input":{"command":"echo hi","description":"Print hi"},"description":"Print hi","decision_reason_type":"rule","tool_use_id":"toolu_01Dq"}}""")
+           is PermissionEvt { Info: { ReasonType: "rule", AskRule: null, NoAlwaysAllow: false }, Suggestions: null }, "can_use_tool reason type");
+        Ok(P("""{"type":"control_request","request_id":"a2","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"git push"},"tool_use_id":"t","agent_id":"a7f3","decision_reason":"Asks before pushing","matched_ask_rule":{"source":"projectSettings","tool_name":"Bash","rule_content":"git push:*"},"suppress_always_allow_rule":true}}""")
+           is PermissionEvt { Info: { AgentId: "a7f3", Reason: "Asks before pushing", AskRule: "Bash(git push:*)", AskRuleSource: "projectSettings", NoAlwaysAllow: true } }, "can_use_tool context");
+        Ok(perm is { Info: null }, "can_use_tool without context");
         var exit = P("""{"type":"control_request","request_id":"1c0e","request":{"subtype":"can_use_tool","tool_name":"ExitPlanMode","display_name":"ExitPlanMode","input":{"plan":"# Plan: create hello.txt\n\n## Steps\n1. Write `hello.txt`.\n","planFilePath":"/Users/u/.claude/plans/p.md"},"tool_use_id":"toolu_01Cc","requires_user_interaction":true}}""") as PermissionEvt;
         Ok(exit is { Tool: "ExitPlanMode", ToolUseId: "toolu_01Cc", Suggestions: null } && Str(exit.Input, "plan")!.StartsWith("# Plan"), "can_use_tool ExitPlanMode (no suggestions)");
 
         var ok = P("""{"type":"result","subtype":"success","is_error":false,"duration_ms":2548,"num_turns":3,"total_cost_usd":0.0063816,"usage":{"input_tokens":8,"cache_creation_input_tokens":22821,"cache_read_input_tokens":139210,"iterations":[{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":41768,"cache_creation_input_tokens":108}]},"modelUsage":{"claude-haiku-5-5":{"costUSD":0.0063816,"contextWindow":1000000}},"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as ResultEvt;
         Ok(ok is { Subtype: "success", IsError: false, TotalCostUsd: 0.0063816m, DurationMs: 2548, NumTurns: 3, ContextTokens: 41878, ContextWindow: 1000000, TerminalReason: "completed", FastModeReason: "sdk_opt_in_required" }, "result success");
+        // claude 2.1.296: a Read refused by a project deny rule (never a can_use_tool) is listed in permission_denials.
+        Ok(P("""{"type":"result","subtype":"success","is_error":false,"duration_ms":10,"num_turns":2,"total_cost_usd":0.01,"usage":{},"permission_denials":[{"tool_name":"Read","tool_use_id":"toolu_01Ao","tool_input":{"file_path":"/w/secret.txt"}}],"terminal_reason":"completed"}""")
+           is ResultEvt { Denied: ["toolu_01Ao"] }, "result permission_denials");
+        Ok(ok is { Denied: null }, "result without permission_denials");
         var ab = P("""{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":15100,"num_turns":2,"total_cost_usd":0.012436335,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"iterations":[]},"terminal_reason":"aborted_streaming"}""") as ResultEvt;
         Ok(ab is { Subtype: "error_during_execution", IsError: true, TerminalReason: "aborted_streaming", ContextTokens: 0, TotalCostUsd: 0.012436335m }, "result interrupted");
 

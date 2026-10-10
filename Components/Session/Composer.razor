@@ -303,7 +303,8 @@
         switch (t)
         {
             case "/model" when models.Count > 0: menuOpen = true; break;
-            case "/mcp" or "/hooks": Nav.NavigateTo($"extensions?tab={t[1..]}"); break;
+            case "/mcp" or "/hooks" or "/permissions": Nav.NavigateTo($"extensions?tab={t[1..]}"); break;
+            case "/allowed-tools": Nav.NavigateTo("extensions?tab=permissions"); break;
             case "/memory" or "/add-dir": Ui.SelectedToolId = null; Ui.InspectorOpen = true; break;   // the context panel holds both
             default: return false;
         }

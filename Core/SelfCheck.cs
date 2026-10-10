@@ -29,6 +29,7 @@ public static class SelfCheck
             Notifications.Check();
             MemoryFiles.Check();
             FolderPicker.Check();
+            PermissionRules.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

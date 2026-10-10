@@ -408,11 +408,11 @@
   <data name="Perm.HintAllow" xml:space="preserve"><value>autoriser</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>refuser</value></data>
   <data name="Perm.HintFocus" xml:space="preserve"><value>clique sur la carte pour utiliser ces touches</value></data>
-  <data name="Perm.HintSession" xml:space="preserve"><value>toute la session</value></data>
+  <data name="Perm.HintSession" xml:space="preserve"><value>toujours autoriser</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Écraser {0} ?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
   <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
-  <data name="Perm.WholeSession" xml:space="preserve"><value>Toute la session</value></data>
+  <data name="Perm.WholeSession" xml:space="preserve"><value>Toujours autoriser</value></data>
   <data name="Plan.ApproveAuto" xml:space="preserve"><value>Approuver et accepter les modifications</value></data>
   <data name="Plan.ApproveReview" xml:space="preserve"><value>Approuver et relire chaque modification</value></data>
   <data name="Plan.Feedback" xml:space="preserve"><value>Que faut-il changer dans le plan ?</value></data>
@@ -665,4 +665,35 @@
   <data name="Task.BackgroundHint" xml:space="preserve"><value>Le laisse tourner en arrière-plan : le tour continue sans l’attendre (Ctrl B dans le terminal)</value></data>
   <data name="Thread.CopyOf" xml:space="preserve"><value>Copier la réponse : {0}</value></data>
   <data name="Wf.Result" xml:space="preserve"><value>Résultat</value></data>
+  <data name="Ext.Tab.Permissions" xml:space="preserve"><value>Permissions</value></data>
+  <data name="Ext.Perm.Lead" xml:space="preserve"><value>Les règles de permission que le CLI applique aux sessions dans {0} : fichiers de réglages, autorisations de session et --allowedTools. Celles des réglages utilisateur, projet et locaux s’ajoutent et se retirent ici ; les autres sont en lecture seule.</value></data>
+  <data name="Ext.Perm.ManagedOnly" xml:space="preserve"><value>Les réglages gérés n’autorisent que les règles de la politique : celles des autres fichiers sont listées mais pas appliquées.</value></data>
+  <data name="Ext.Perm.FileError" xml:space="preserve"><value>Fichier de réglages ignoré, ses règles ne s’appliquent pas : {0}</value></data>
+  <data name="Ext.Perm.allow" xml:space="preserve"><value>Autoriser</value></data>
+  <data name="Ext.Perm.ask" xml:space="preserve"><value>Demander</value></data>
+  <data name="Ext.Perm.deny" xml:space="preserve"><value>Refuser</value></data>
+  <data name="Ext.Perm.None" xml:space="preserve"><value>Aucune règle de permission pour ce dossier.</value></data>
+  <data name="Ext.Col.Rule" xml:space="preserve"><value>Règle</value></data>
+  <data name="Ext.Col.Behavior" xml:space="preserve"><value>Comportement</value></data>
+  <data name="Ext.Col.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Ext.Perm.NotInEffect" xml:space="preserve"><value>sans effet</value></data>
+  <data name="Ext.Perm.RemoveRule" xml:space="preserve"><value>Retirer {0}</value></data>
+  <data name="Ext.Perm.Remove" xml:space="preserve"><value>Retirer</value></data>
+  <data name="Ext.Perm.Add" xml:space="preserve"><value>Ajouter une règle</value></data>
+  <data name="Ext.Perm.AddButton" xml:space="preserve"><value>Ajouter</value></data>
+  <data name="Ext.Perm.Failed" xml:space="preserve"><value>Impossible de lire les règles de permission : {0}</value></data>
+  <data name="Ext.Perm.Invalid" xml:space="preserve"><value>{0} n’est pas une règle : écris un nom d’outil, éventuellement suivi de son contenu entre parenthèses, comme Bash(npm run test:*).</value></data>
+  <data name="Ext.Perm.WriteFailed" xml:space="preserve"><value>Impossible d’enregistrer la règle : {0}</value></data>
+  <data name="Ext.Scope.Session" xml:space="preserve"><value>session</value></data>
+  <data name="Ext.Scope.Policy" xml:space="preserve"><value>politique</value></data>
+  <data name="Perm.AskedBy" xml:space="preserve"><value>Demandé par l’agent {0}</value></data>
+  <data name="Perm.BlockedPath" xml:space="preserve"><value>Chemin bloqué :</value></data>
+  <data name="Perm.WhyAskRule" xml:space="preserve"><value>Demande à cause de la règle {0} dans {1}.</value></data>
+  <data name="Perm.WhyRule" xml:space="preserve"><value>Une règle de permission demande avant cet appel.</value></data>
+  <data name="Perm.WhyWorkingDir" xml:space="preserve"><value>Le chemin est hors des dossiers de la session.</value></data>
+  <data name="Perm.SaveIn" xml:space="preserve"><value>Enregistrer dans</value></data>
+  <data name="Perm.Dest.session" xml:space="preserve"><value>cette session seulement</value></data>
+  <data name="Perm.Dest.localSettings" xml:space="preserve"><value>réglages locaux (.claude/settings.local.json)</value></data>
+  <data name="Perm.Dest.projectSettings" xml:space="preserve"><value>réglages du projet (.claude/settings.json)</value></data>
+  <data name="Perm.Dest.userSettings" xml:space="preserve"><value>réglages utilisateur (~/.claude/settings.json)</value></data>
 </root>
