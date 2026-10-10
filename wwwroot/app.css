@@ -444,7 +444,7 @@ textarea,input{caret-color:var(--accent)}
 .tc .pv .bd{padding:10px;display:flex;flex-direction:column;gap:4px;font:10.5px/1.5 var(--mono);overflow:hidden}
 .tc .pv .ln{white-space:nowrap}
 .tc .pv .btnp{margin-top:auto;align-self:flex-start;background:var(--accent);color:var(--accent-ink);font:600 10px var(--sans);border-radius:var(--r-xs);padding:3px 8px}
-.tc .nm{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tc .nm{flex:1;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .tc .nm b{color:var(--fg);font-weight:500;font-size:13px;min-width:0;line-height:1.3}
 .tc .sw{display:flex;gap:3px;flex:none}.tc .sw i{width:9px;height:9px;border-radius:50%}
 .seg{display:inline-flex;border:1px solid var(--seam-2);border-radius:var(--r);overflow:hidden}
@@ -615,7 +615,7 @@ a.s,a.pi,a.q{color:inherit;text-decoration:none}
 .perm-off{display:none}
 [data-permission]:not(:focus-within) .perm-off{display:inline}
 button.tc,button.t,button.agent,.ledger button.lh{width:100%}
-button.tc{display:block}
+button.tc{display:flex;flex-direction:column}   /* column, not block: a wrapped name grows .nm, the preview stays pinned to the top */
 button.mode{text-align:left}
 /* Modes that act unasked (auto, acceptEdits): warning hue on the name, the composer chip and the confirm line. */
 .risk,.mode b.risk,.slash .si b.risk{color:var(--syn-type)}
