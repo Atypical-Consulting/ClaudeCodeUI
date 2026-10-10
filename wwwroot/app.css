@@ -280,7 +280,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 /* ---------- 4. overview ---------- */
 .ov{flex:1;min-height:0;padding:24px 28px;display:flex;flex-direction:column;gap:18px;overflow:auto}
 .ovhead{display:flex;align-items:flex-end;gap:24px}
-.ovhead h2,.ovhead h3,.settings h3,.wt-head h3,.ext h3{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
+.ovhead h2,.ovhead h3,.settings h2,.wt-head h2,.ext h2{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
 .tot{display:flex;gap:28px;margin-left:auto;font:12px var(--sans);color:var(--fg-4)}
 .tot b{display:block;font:500 20px var(--mono);color:var(--fg);letter-spacing:-.02em}
 .tot .w b{color:var(--accent)}
@@ -296,6 +296,7 @@ td .d{font:12px var(--mono);color:var(--fg-4)}
 .ovt tbody tr{cursor:pointer}
 .ovt td .n a{color:inherit;text-decoration:none}
 td .last{font:12px var(--mono);color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:330px;display:block}
+td .last.prose{font-family:var(--sans);max-width:72ch}
 td .hookcmd{font:12px var(--mono);color:var(--fg-3);white-space:pre-wrap;overflow-wrap:anywhere;max-width:48ch;display:block}   /* wraps instead of truncating: readable without a hover title */
 tr.hot td{background:color-mix(in srgb,var(--accent) 4%,transparent)}
 tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
@@ -435,6 +436,7 @@ textarea,input{caret-color:var(--accent)}
 .tc{border:1px solid var(--seam-2);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;background:var(--ground);color:var(--fg-2);transition:border-color .15s,box-shadow .15s}
 .tc:hover{border-color:var(--seam-3)}
 .tc.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tc.on:focus-visible{outline-offset:5px}
 .tc .pv{display:grid;grid-template-columns:30px minmax(0,1fr);height:122px;border-bottom:1px solid var(--seam)}
 .tc .pv .rl{background:var(--sunk);border-right:1px solid var(--seam);display:flex;flex-direction:column;gap:6px;padding:10px 7px}
 .tc .pv .rl i{height:5px;border-radius:var(--r-full);background:var(--seam-2)}
@@ -443,7 +445,7 @@ textarea,input{caret-color:var(--accent)}
 .tc .pv .ln{white-space:nowrap}
 .tc .pv .btnp{margin-top:auto;align-self:flex-start;background:var(--accent);color:var(--accent-ink);font:600 10px var(--sans);border-radius:var(--r-xs);padding:3px 8px}
 .tc .nm{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.tc .nm b{color:var(--fg);font-weight:500;font-size:13px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tc .nm b{color:var(--fg);font-weight:500;font-size:13px;min-width:0;line-height:1.3}
 .tc .sw{display:flex;gap:3px;flex:none}.tc .sw i{width:9px;height:9px;border-radius:50%}
 .seg{display:inline-flex;border:1px solid var(--seam-2);border-radius:var(--r);overflow:hidden}
 .seg>*{padding:7px 14px;font:500 13px var(--mono);color:var(--fg-3);border-left:1px solid var(--seam-2);cursor:pointer}
@@ -484,7 +486,7 @@ textarea,input{caret-color:var(--accent)}
 .filters .chip b{font-weight:600;margin-left:2px}
 .wtt td{padding:11px 12px}
 .wtt td.num{white-space:nowrap}
-.wtt{table-layout:fixed;min-width:720px}.wtt th:nth-child(1){width:236px}.wtt th:nth-child(2){width:112px}.wtt th:nth-child(4){width:92px}.wtt th:nth-child(5){width:108px}.wtt td{overflow:hidden}
+.wtt{table-layout:fixed;min-width:680px}.wtt th:nth-child(1){width:220px}.wtt th:nth-child(2){width:112px}.wtt th:nth-child(4){width:92px}.wtt th:nth-child(5){width:108px}.wtt td{overflow:hidden}
 .wtt td .n{display:flex;align-items:center;gap:8px}
 .wtt tr.sel td{background:var(--raise)}
 .wtt tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
@@ -562,9 +564,10 @@ textarea,input{caret-color:var(--accent)}
 /* ---------- 11. extensions ---------- */
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
 .ext>[role=tabpanel]{display:flex;flex-direction:column;gap:18px}
+.ext .lead+.acts{margin-top:14px}
 .subtabs{display:flex;gap:2px;border-bottom:1px solid var(--seam)}
 .subtabs>*{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;margin-bottom:-1px}
-.subtabs>* b{font:500 12px var(--mono);color:var(--fg-4);margin-left:6px}
+.subtabs>* b{font:500 12px var(--mono);color:var(--fg-4);margin-left:2px}
 .subtabs>*.on{color:var(--fg);border-color:var(--accent)}
 .mcp td{padding:10px 12px}
 .mcp tr.sel td{background:var(--raise)}

@@ -32,4 +32,12 @@ public static class Fmt
     public static string Cost(decimal usd, int decimals) => "$" + usd.ToString("F" + decimals, CultureInfo.InvariantCulture);
 
     public static string Time(DateTimeOffset t) => t.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    public static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
+
+    public static string Home(string path)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
+        return path.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
+    }
 }

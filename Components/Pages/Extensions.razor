@@ -6,12 +6,12 @@
 <PageTitle>@L["Nav.Extensions"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Extensions"]</span></div>
+    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Extensions"]@(Live is { } lv ? " · " + Fmt.Home(lv.Cwd) : "")</span></div>
     <div class="ext">
         @if (Live is not { } s)
         {
-            <div><h3>@L["Nav.Extensions"]</h3><p class="lead">@L["Ext.NoSession"]</p>
-                <div class="acts" style="margin-top:14px"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></div></div>
+            <div><h2>@L["Nav.Extensions"]</h2><p class="lead">@L["Ext.NoSession"]</p>
+                <div class="acts"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></div></div>
         }
         else
         {
@@ -19,7 +19,7 @@
             var skills = s.Init?.Skills ?? [];
             var agents = Agents(s);
             var plugins = s.Init?.Plugins ?? [];
-            <div><h3>@L["Nav.Extensions"]</h3><p class="lead">@L["Ext.Lead"]</p></div>
+            <div><h2>@L["Nav.Extensions"]</h2><p class="lead">@L["Ext.Lead"]</p></div>
             <div class="subtabs" role="tablist" aria-label="@L["Nav.Extensions"]">
                 @Tab("mcp", "MCP", servers.Count)
                 @Tab("skills", L["Ext.Tab.Skills"], skills.Length)
@@ -54,7 +54,7 @@
                                     @switch (m.Status)
                                     {
                                         case "failed":
-                                            <button class="btn" disabled="@busy" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
+                                            <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Retry"]}: {m.Short}")" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
                                             break;
                                         case "needs-auth" when SignsInHere(m):
                                             <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.SignIn"]}: {m.Short}")" @onclick="() => SignIn(s, m.Name)">@L["Ext.SignIn"]</button>
@@ -73,7 +73,7 @@
             }
             else if (tab == "hooks")
             {
-                <p class="lead">@L["Ext.Hooks.Lead", s.Cwd]</p>
+                <p class="lead">@((MarkupString)L["Ext.Hooks.Lead", $"<code title=\"{Fmt.Enc(s.Cwd)}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
                 @if (hooksNote is not null)
                 {
                     <div class="errbox" role="alert">@hooksNote</div>
@@ -120,7 +120,7 @@
                         @foreach (var k in skills)
                         {
                             var d = Describe(s, k);
-                            <tr><td><div class="n">@k</div></td><td><span class="last" style="max-width:72ch" title="@d">@d</span></td></tr>
+                            <tr><td><div class="n">@k</div></td><td><span class="last prose" title="@d">@(d ?? "—")</span></td></tr>
                         }
                     </tbody>
                 </table>
@@ -132,7 +132,7 @@
                     <tbody>
                         @foreach (var (name, desc, model) in agents)
                         {
-                            <tr><td><div class="n">@name</div></td><td><span class="last" style="max-width:64ch" title="@desc">@desc</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
+                            <tr><td><div class="n">@name</div></td><td><span class="last prose" title="@desc">@(desc ?? "—")</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
                         }
                     </tbody>
                 </table>
@@ -411,7 +411,7 @@
 
     RenderFragment Tab(string key, string label, int n) =>
         @<button id="ext-tab-@key" role="tab" aria-selected="@(tab == key ? "true" : "false")" aria-controls="ext-panel" tabindex="@(tab == key ? 0 : -1)"
-                 class="@(tab == key ? "on" : null)" @onclick="() => Show(key)">@label<b>@n</b></button>;
+                 class="@(tab == key ? "on" : null)" @onclick="() => Show(key)">@label <b>@n</b></button>;
 
     RenderFragment Filter(string key, string label, int n) =>
         @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label <b>@n</b></button>;

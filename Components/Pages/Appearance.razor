@@ -6,7 +6,7 @@
 <div class="pane">
     <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Appearance"]</span></div>
     <div class="settings">
-        <div><h3>@L["Nav.Appearance"]</h3><p class="lead">@((MarkupString)Strings.Kbd(L["Appearance.Lead"]))</p></div>
+        <div><h2>@L["Nav.Appearance"]</h2><p class="lead">@((MarkupString)Strings.Kbd(L["Appearance.Lead"]))</p></div>
         <div class="set-row">
             <div><label for="lang"><b>@L["Appearance.Language"]</b></label><span>@L["Appearance.LanguageHint"]</span></div>
             @* A plain POST form: choosing an option changes nothing until Apply, then /culture sets the cookie and reloads. *@
@@ -51,7 +51,7 @@
                     @foreach (var px in Sizes)
                     {
                         var v = px + "px";
-                        <button class="@(v == size ? "on" : null)" aria-pressed="@(v == size ? "true" : "false")" @onclick="() => SetSize(v)">@px</button>
+                        <button class="@(v == size ? "on" : null)" aria-pressed="@(v == size ? "true" : "false")" aria-label="@($"{px} px")" @onclick="() => SetSize(v)">@px</button>
                     }
                 </div>
             </div>
