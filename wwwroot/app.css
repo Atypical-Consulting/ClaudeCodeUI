@@ -259,6 +259,12 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .field label,.field .lbl{display:block;margin-top:0;font:500 13px var(--sans);color:var(--fg-2);margin-bottom:8px}
 .input{display:flex;align-items:center;gap:10px;border:1px solid var(--fg-5);border-radius:var(--r);background:var(--field);padding:10px 12px;font:13.5px var(--mono);color:var(--fg)}
 .input .i{color:var(--fg-4)}
+/* The field's folder icon is its picker: a ghost icon button that lights up like the others. */
+.input .pickdir{display:inline-flex;flex:none;border:0;background:none;padding:4px;margin:-4px;border-radius:var(--r);color:var(--fg-4);cursor:pointer;transition:background-color .15s cubic-bezier(.2,.8,.2,1),color .15s cubic-bezier(.2,.8,.2,1)}
+.input .pickdir .i{color:inherit}
+.input .pickdir:hover:enabled{color:var(--fg);background:var(--raise)}
+.input .pickdir:disabled{cursor:default;opacity:.45}
+.input .pickdir[aria-busy=true]{cursor:progress;opacity:1;color:var(--fg-2)}
 .input .b{margin:-5px -6px -5px auto;padding:4px 8px}
 .input .toggle{flex:none;white-space:nowrap}
 .input input::placeholder{font-family:var(--sans);color:var(--fg-4)}

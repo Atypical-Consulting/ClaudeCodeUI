@@ -381,6 +381,8 @@
   <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>
   <data name="Ov.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
   <data name="Ov.ThisRun" xml:space="preserve"><value>spent since launch</value></data>
+  <data name="Pick.Folder" xml:space="preserve"><value>Choose a folder…</value></data>
+  <data name="Pick.None" xml:space="preserve"><value>No folder dialog on this system — type the path.</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Palette.ChangeTheme" xml:space="preserve"><value>change…</value></data>
   <data name="Palette.Navigate" xml:space="preserve"><value>navigate</value></data>

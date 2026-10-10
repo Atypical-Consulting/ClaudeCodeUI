@@ -1,0 +1,31 @@
+@implements IDisposable
+
+@* The folder icon of a path field: opens the OS folder dialog. Busy while it is open, so a second click never stacks a dialog. *@
+
+<button type="button" class="pickdir" disabled="@(busy || Disabled)" aria-busy="@(busy ? "true" : null)" aria-label="@L["Pick.Folder"]" title="@L["Pick.Folder"]" @onclick="Pick"><Icon Name="folder" /></button>
+
+@code {
+    // The field's value: the dialog opens there when it is an existing folder, else in ~.
+    [Parameter] public string? Start { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+    // No dialog tool on this machine: the parent shows the message in its field's error area.
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    readonly CancellationTokenSource cts = new();
+    bool busy;
+
+    async Task Pick()
+    {
+        if (busy) return;
+        busy = true;
+        try
+        {
+            if (await FolderPicker.Pick(Start, L["Pick.Folder"], cts.Token) is { } d) await OnPick.InvokeAsync(d);   // cancel changes nothing
+        }
+        catch (PlatformNotSupportedException) { await OnError.InvokeAsync(L["Pick.None"]); }
+        finally { busy = false; }
+    }
+
+    public void Dispose() { cts.Cancel(); cts.Dispose(); }
+}

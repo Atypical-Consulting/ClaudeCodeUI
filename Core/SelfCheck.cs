@@ -27,6 +27,7 @@ public static class SelfCheck
             PromptHistory.Check();
             Notifications.Check();
             MemoryFiles.Check();
+            FolderPicker.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

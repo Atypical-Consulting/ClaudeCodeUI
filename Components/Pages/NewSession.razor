@@ -42,8 +42,12 @@
             </div>
             <div class="field">
                 <label for="cwd">@L["New.Folder"]</label>
-                <div class="input"><Icon Name="folder" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
-                @if (!exists)
+                <div class="input"><PickFolder Start="@cwd" OnPick="SetCwd" OnError="m => pickError = m" /><input id="cwd" @ref="cwdInput" value="@cwd" aria-invalid="@(exists ? null : "true")" aria-describedby="@(exists && pickError is null ? null : "cwd-err")" @onchange="e => SetCwd(e.Value?.ToString() ?? string.Empty)" spellcheck="false" autocomplete="off" /></div>
+                @if (pickError is not null)
+                {
+                    <div id="cwd-err" role="alert" class="fmsg">@pickError</div>
+                }
+                else if (!exists)
                 {
                     <div id="cwd-err" role="alert" class="fmsg">@L["New.NoFolder"]</div>
                 }
@@ -138,7 +142,7 @@
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
-    string? branch, wtName, lastQuery, shownCwd;
+    string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput;
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
@@ -181,6 +185,7 @@
     {
         value = value.Trim().Trim('"');
         if (value != cwd) untrusted = false;   // the user picked another folder themselves
+        pickError = null;
         cwd = value;
         confirmRisk = false;
         exists = Local(cwd);
