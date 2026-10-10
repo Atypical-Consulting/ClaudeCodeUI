@@ -21,7 +21,7 @@
             }
             <div class="kv">
                 <span>@L["Kv.Status"]</span><span>@WorkflowCard.Label(r.State, r.RawStatus)</span>
-                <span>@L["Kv.Agents"]</span><span>@L["Wf.AgentsDone", r.Done, r.Agents.Count]</span>
+                <span>@L["Kv.Agents"]</span><span>@r.Done/@r.Agents.Count</span>
                 <span>@L["Kv.Elapsed"]</span><span>@Fmt.Dur(r.Elapsed)</span>
                 <span>@L["Kv.Tokens"]</span><span>@(r.Tokens > 0 ? Fmt.Tokens(r.Tokens) : "—")</span>
                 <span>@L["Kv.Tools"]</span><span>@r.ToolCalls</span>

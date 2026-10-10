@@ -92,7 +92,9 @@ public static class WorkflowRuns
             Events.Str(receipt, "summary") ?? Meta(script, "description"), dir, phases, agents,
             final?.Tokens ?? (t.Tokens > 0 ? t.Tokens : agents.Sum(a => a.Tokens)),
             final?.ToolCalls ?? (t.SubToolUses > 0 ? t.SubToolUses : agents.Sum(a => a.ToolCalls)),
-            elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed, state, status is "completed" ? null : status,
+            elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed,
+            live && state == WfState.Unknown ? WfState.Running : state,   // still being written: it reads as running, not as "no end"
+            status is "completed" ? null : status,
             final?.Model, live);
     }
 
