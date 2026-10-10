@@ -75,25 +75,26 @@ public static class TranscriptStore
                 continue;
             }
             if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
-            try
-            {
-                foreach (var ev in Events.ParseAll(e))
-                {
-                    s.Apply(ev);
-                    if (at is null) continue;
-                    if (ev is ToolUseEvt u && Tool(s, u.Id) is { } tu) s.Set(tu, tu with { StartedAt = at.Value });
-                    if (ev is ToolResultEvt r && Tool(s, r.ToolUseId) is { } tr) s.Set(tr, tr with { EndedAt = tr.Background ? null : at.Value });
-                    if (ev is TaskDoneEvt { DurationMs: 0 } td && (Tool(s, td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
-                        s.Set(tt, tt with { EndedAt = at.Value });
-                }
-            }
+            try { Apply(s, e, at); }
             catch (Exception ex) { Console.Error.WriteLine($"transcript: line skipped ({ex.Message})"); }   // one bad line must not lose the session
         }
         // No result in the file: the turn was cut short.
         return s.Items.ConvertAll(i => i is ToolItem { State: ToolState.Running or ToolState.Waiting } t
             ? t with { State = ToolState.Error, EndedAt = t.EndedAt ?? t.StartedAt } : i);
+    }
 
-        static ToolItem? Tool(LiveSession s, string id) => s.Items.LastOrDefault(i => i is ToolItem t && t.Id == id) as ToolItem;
+    // One transcript line through the reducer, tool times taken from the line's timestamp (also a workflow agent's log).
+    internal static void Apply(LiveSession s, JsonElement e, DateTimeOffset? at)
+    {
+        foreach (var ev in Events.ParseAll(e))
+        {
+            s.Apply(ev);
+            if (at is null) continue;
+            if (ev is ToolUseEvt u && s.Tool(u.Id) is { } tu) s.Set(tu, tu with { StartedAt = at.Value });
+            if (ev is ToolResultEvt r && s.Tool(r.ToolUseId) is { } tr) s.Set(tr, tr with { EndedAt = tr.Background ? null : at.Value });
+            if (ev is TaskDoneEvt { DurationMs: 0 } td && (s.Tool(td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
+                s.Set(tt, tt with { EndedAt = at.Value });
+        }
     }
 
     // Lines the terminal does not show as a conversation turn: sub-agent, injected context, compaction summary.
@@ -551,6 +552,17 @@ public static class TranscriptStore
         Ok(Replay([.. branched, """{"type":"last-prompt","lastPrompt":"un","explicit":true,"rewound":true,"sessionId":"s"}"""]) is [],
             "replay after a rewind to the first message");
         Ok(bg is [ToolItem { State: ToolState.Done, ResultText: "pong", Tokens: 31599 } a] && a.EndedAt - a.StartedAt == TimeSpan.FromSeconds(5), "replay background agent");
+        // Workflow (2.1.295 transcript, trimmed): receipt as toolUseResult, then the notification user line; without it the
+        // run has no recorded end.
+        string[] wfLines = [
+            """{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_W","name":"Workflow","input":{"script":"export const meta = { name: 'p', description: 'd', phases: [{ title: 'Ping' }] }"}}]},"timestamp":"2026-10-10T09:00:00Z"}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_W","type":"tool_result","content":"Workflow launched in background. Task ID: wjft8xn1u"}]},"toolUseResult":{"status":"async_launched","taskId":"wjft8xn1u","taskType":"local_workflow","workflowName":"impeccable-v020-screen-review","runId":"wf_a6cc7d95-465","summary":"Capture every screen","transcriptDir":"/nowhere/subagents/workflows/wf_a6cc7d95-465"},"timestamp":"2026-10-10T09:00:01Z"}""",
+            """{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>wjft8xn1u</task-id>\n<tool-use-id>toolu_W</tool-use-id>\n<status>completed</status>\n<summary>Dynamic workflow \"Capture every screen\" completed</summary>\n<result>{\"ok\":1}</result>\n<usage><agent_count>2</agent_count><agents_done>2</agents_done><agents_error>0</agents_error><subagent_tokens>49076</subagent_tokens><tool_uses>3</tool_uses><duration_ms>3493</duration_ms></usage>\n</task-notification>"},"origin":{"kind":"task-notification","producer":"session-task","runId":"0mv248zke-2d993936"},"turnOrigin":"task_notification","timestamp":"2026-10-10T09:10:01Z"}""",
+        ];
+        Ok(Replay(wfLines) is [ToolItem { State: ToolState.Done, TaskStatus: "completed", Tokens: 49076, SubToolUses: 3 } w] && w.EndedAt - w.StartedAt == TimeSpan.FromMilliseconds(3493)
+           && WorkflowRuns.Of(w) is { Name: "impeccable-v020-screen-review", Description: "Capture every screen", State: WfState.Done, RunDir: null, Tokens: 49076, Phases: [{ Title: "Ping" }] },
+            "replay workflow");
+        Ok(Replay(wfLines[..2]) is [ToolItem { State: ToolState.Error, TaskStatus: null } wu] && WorkflowRuns.Of(wu).State == WfState.Unknown, "replay workflow without its notification");
 
         // AskUserQuestion answered (CLI 2.1.296): the answers come back in toolUseResult.
         var ask = Replay([

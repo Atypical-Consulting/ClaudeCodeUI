@@ -24,7 +24,7 @@ public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double
 // TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
 public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
 public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt) : ClaudeEvent;   // patch.status: running|completed|failed|killed…
-public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs) : ClaudeEvent;
+public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs, JsonElement? Workflow = null) : ClaudeEvent;   // Workflow: workflow_progress, a full snapshot
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
@@ -170,7 +170,8 @@ public static class Events
             ? new TaskUpdatedEvt(Str(e, "task_id") ?? "", Str(patch, "status"),
                 Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null) : null,   // out of range = unknown: the reducer uses now
         "task_progress" => Prop(e, "usage") is { } u
-            ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms")) : null,
+            ? new TaskProgressEvt(Str(e, "task_id") ?? "", Long(u, "total_tokens"), (int)Long(u, "tool_uses"), (int)Long(u, "duration_ms"),
+                Prop(e, "workflow_progress") is { ValueKind: JsonValueKind.Array } wp ? wp.Clone() : null) : null,
         "task_notification" => Prop(e, "usage") is { } nu
             ? new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? "", null, Long(nu, "total_tokens"), (int)Long(nu, "tool_uses"), (int)Long(nu, "duration_ms"))
             : new TaskDoneEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "status") ?? ""),
@@ -328,7 +329,10 @@ public static class Events
         Ok(rl is { FiveHour: 0.36, SevenDay: 0.26 } && rl.FiveHourReset.ToUnixTimeSeconds() == 1791552000, "rate_limit_event");
 
         Ok(P("""{"type":"system","subtype":"task_started","task_id":"ab1","tool_use_id":"toolu_B","description":"Reply pong","subagent_type":"general-purpose","is_backgrounded":false}""") is TaskStartedEvt { TaskId: "ab1", ToolUseId: "toolu_B", Description: "Reply pong", SubagentType: "general-purpose" }, "task_started");
-        Ok(P("""{"type":"system","subtype":"task_progress","task_id":"ab1","usage":{"total_tokens":26511,"tool_uses":1,"duration_ms":2092}}""") is TaskProgressEvt { TotalTokens: 26511, ToolUses: 1, DurationMs: 2092 }, "task_progress");
+        Ok(P("""{"type":"system","subtype":"task_progress","task_id":"ab1","usage":{"total_tokens":26511,"tool_uses":1,"duration_ms":2092}}""") is TaskProgressEvt { TotalTokens: 26511, ToolUses: 1, DurationMs: 2092, Workflow: null }, "task_progress");
+        // claude 2.1.296, a Workflow run (--probe-cli workflow), trimmed.
+        Ok(P("""{"type":"system","subtype":"task_progress","task_id":"w0wlsjjl5","run_id":"0mv27zrg4-60a257c6","tool_use_id":"toolu_01KX","description":"Ping: pong:a","usage":{"total_tokens":0,"tool_uses":0,"duration_ms":20},"last_tool_name":"pong:a","summary":"Two agents reply pong","workflow_progress":[{"type":"workflow_phase","index":1,"title":"Ping"},{"type":"workflow_agent","index":1,"label":"pong:a","phaseIndex":1,"phaseTitle":"Ping","state":"start"}]}""")
+           is TaskProgressEvt { TaskId: "w0wlsjjl5", DurationMs: 20, Workflow: { } wp } && wp.GetArrayLength() == 2, "task_progress workflow_progress");
         Ok(P("""{"type":"system","subtype":"task_notification","task_id":"ab1","tool_use_id":"toolu_B","status":"completed","usage":{"total_tokens":26702,"tool_uses":1,"duration_ms":3000}}""") is TaskDoneEvt { TaskId: "ab1", ToolUseId: "toolu_B", Status: "completed", Tokens: 26702, DurationMs: 3000 }, "task_notification");
         var notif = P("""{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5aab0eece92a372</task-id>\n<tool-use-id>toolu_01TEgqvrrwU4RMLtNJYrEavF</tool-use-id>\n<status>completed</status>\n<summary>Agent finished</summary>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens><tool_uses>1</tool_uses><duration_ms>5088</duration_ms></usage>\n</task-notification>"},"parent_tool_use_id":null}""");
         Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");

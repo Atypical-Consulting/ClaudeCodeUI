@@ -23,7 +23,9 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public JsonElement? Structured { get; init; }
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset? EndedAt { get; init; }
-    public string? TaskId { get; init; }          // Agent only
+    public string? TaskId { get; init; }          // Agent and Workflow
+    public string? TaskStatus { get; init; }      // its task-notification status (completed, …)
+    public JsonElement? Progress { get; init; }   // Workflow: the last task_progress.workflow_progress snapshot
     public long Tokens { get; init; }
     public int SubToolUses { get; init; }
     public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
@@ -704,10 +706,10 @@ public sealed class LiveSession : IAsyncDisposable
                 ToolCount++;
                 break;
 
-            case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && ToolKinds.IsAgent(t.Name)
+            case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && (ToolKinds.IsAgent(t.Name) || t.Name == WorkflowRuns.Tool)
                                                               && Events.Str(rs, "status") == "async_launched":
                 // launch receipt, not the outcome: stays Running until the task-notification
-                Set(t, t with { Background = true, TaskId = Events.Str(rs, "agentId") ?? t.TaskId, Structured = rs });
+                Set(t, t with { Background = true, TaskId = Events.Str(rs, "agentId") ?? Events.Str(rs, "taskId") ?? t.TaskId, Structured = rs });
                 break;
 
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
@@ -777,7 +779,7 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case TaskProgressEvt tp when Items.LastOrDefault(i => i is ToolItem t && t.TaskId == tp.TaskId) is ToolItem t:   // IList: scans from the end
-                Set(t, t with { Tokens = tp.TotalTokens, SubToolUses = tp.ToolUses });
+                Set(t, t with { Tokens = tp.TotalTokens, SubToolUses = tp.ToolUses, Progress = tp.Workflow ?? t.Progress });   // some carry no snapshot
                 break;
 
             case TaskDoneEvt td when (Tool(td.ToolUseId) ?? Items.LastOrDefault(i => i is ToolItem x && td.TaskId.Length > 0 && x.TaskId == td.TaskId) as ToolItem) is { } t
@@ -785,6 +787,7 @@ public sealed class LiveSession : IAsyncDisposable
                 Set(t, t with
                 {
                     State = td.Status == "completed" ? ToolState.Done : ToolState.Error,
+                    TaskStatus = td.Status,
                     EndedAt = td.DurationMs > 0 ? t.StartedAt.AddMilliseconds(td.DurationMs) : now,
                     ResultText = td.Result ?? t.ResultText,
                     Tokens = td.Tokens > 0 ? td.Tokens : t.Tokens,
@@ -1058,6 +1061,22 @@ public sealed class LiveSession : IAsyncDisposable
         ag2.Apply(new ToolResultEvt("toolu_B", "Async agent launched", false, recv));
         ag2.EndTools(DateTimeOffset.Now, false);
         Ok(ag2.Items[^1] is ToolItem { State: ToolState.Error }, "process exit ends background row");
+
+        // Workflow (claude 2.1.296, --probe-cli workflow): task_started, the async receipt, snapshots, the launching turn's
+        // result mid-run, a progress line without a snapshot, then the notification.
+        var wf = new LiveSession("w", "w", "/w", "default");
+        var snap = JsonDocument.Parse("""[{"type":"workflow_phase","index":1,"title":"Ping"}]""").RootElement.Clone();
+        wf.BeginTurn("wf");
+        wf.Apply(new ToolUseEvt("toolu_W", WorkflowRuns.Tool, input, null));
+        wf.Apply(new TaskStartedEvt("w0wlsjjl5", "toolu_W", "Two agents reply pong", "", "local_workflow"));
+        wf.Apply(new ToolResultEvt("toolu_W", "Workflow launched in background. Task ID: w0wlsjjl5", false,
+            JsonDocument.Parse("""{"status":"async_launched","taskId":"w0wlsjjl5","taskType":"local_workflow","workflowName":"pong-probe","runId":"wf_8e162ae6-279"}""").RootElement.Clone()));
+        wf.Apply(new TaskProgressEvt("w0wlsjjl5", 0, 0, 20, snap));
+        wf.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null));
+        wf.Apply(new TaskProgressEvt("w0wlsjjl5", 49076, 0, 3483));
+        Ok(wf.Items[^1] is ToolItem { State: ToolState.Running, Background: true, TaskId: "w0wlsjjl5", Tokens: 49076, Progress: not null, ResultText: null }, "workflow runs past its turn, snapshot kept");
+        wf.Apply(new TaskDoneEvt("w0wlsjjl5", "toolu_W", "completed", null, 49076, 0, 3493));
+        Ok(wf.Items[^1] is ToolItem { State: ToolState.Done, TaskStatus: "completed", Progress: not null }, "workflow notification");
 
         // ExitPlanMode (2.1.296): "keep planning" denies with the feedback; an approval's mode comes back as system/status.
         var plan = JsonDocument.Parse("""{"plan":"# P\n\n1. a","planFilePath":"/p.md"}""").RootElement.Clone();

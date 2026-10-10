@@ -17,6 +17,7 @@ public static class SelfCheck
             LiveSession.Check();
             TodoList.Check();
             ThreadBlocks.Check();
+            WorkflowRuns.Check();
             Md.Check();
             EditDiff.Check();
             WorktreeService.Check();
