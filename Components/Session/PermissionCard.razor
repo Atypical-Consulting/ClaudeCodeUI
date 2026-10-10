@@ -195,6 +195,9 @@
             case "Enter" when question:
                 if (form is not null) await form.FocusFirst();
                 return;
+            case "Delete" when question:   // the form owns its answered state and its role=alert error
+                if (form is not null) await form.Skip();
+                return;
             case "Enter": await Answer(Decision.Allow); break;
             case "Shift+Enter" when !question: await Answer(Decision.AllowSession); break;
             case "Delete": await Answer(Decision.Deny); break;

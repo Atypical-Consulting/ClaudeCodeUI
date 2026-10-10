@@ -122,11 +122,14 @@
         catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 
-    async Task Skip()
+    // Public: Suppr also arrives through the card (UiState.Key), outside any form event, hence the explicit renders.
+    public async Task Skip()
     {
         if (answered) return;
         answered = true;
+        StateHasChanged();
         try { await Session.Answer(Permission, Decision.Deny); }
         catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
+        StateHasChanged();
     }
 }
