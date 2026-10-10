@@ -40,7 +40,15 @@
                     @Filter("connected", L["Ext.Filter.Connected"], servers.Count(x => x.Status == "connected"))
                     @Filter("needs-auth", L["Ext.Filter.Auth"], servers.Count(x => x.Status == "needs-auth"))
                     @Filter("failed", L["Ext.Filter.Failed"], servers.Count(x => x.Status == "failed"))
+                    @if (servers.Count(x => x.Status == "failed") > 1)
+                    {
+                        <button class="btn" disabled="@busy" @onclick="() => ReconnectAll(s, servers)"><Icon Name="refresh" Sm />@L["Ext.RetryAll"]</button>
+                    }
                 </div>
+                @foreach (var skipped in s.Init?.McpErrors ?? [])
+                {
+                    <div class="errbox" role="status">@L["Ext.Skipped", skipped.Name, skipped.Message]</div>
+                }
                 <table class="mcp">
                     <thead><tr><th>@L["Ext.Col.Server"]</th><th>@L["Ext.Col.Source"]</th><th>@L["Col.State"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ext.Col.ThisFolder"]</th></tr></thead>
                     <tbody>
@@ -50,7 +58,7 @@
                                 <td><div class="n">@m.Short</div><div class="d">@m.Origin</div></td>
                                 <td><span class="tag">@m.Tag</span></td>
                                 <td>@State(m.Status)</td>
-                                <td class="num">@(m.Status == "failed" ? m.Tools ?? 0 : m.Status == "connected" ? m.Tools?.ToString() ?? "—" : "—")</td>
+                                <td class="num">@(m.Status == "failed" ? m.Tools?.Length ?? 0 : m.Status == "connected" ? m.Tools?.Length.ToString() ?? "—" : "—")</td>
                                 <td class="num" @onclick:stopPropagation>
                                     @switch (m.Status)
                                     {
@@ -297,19 +305,48 @@
                 {
                     <span>@L["Ext.Kv.Target"]</span><span>@t</span>
                 }
-                <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
+                <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.Length.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
                 <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope ?? "—")</span>
                 @if (sel.Version is { } v)
                 {
                     <span>@L["Ext.Kv.Version"]</span><span>@v</span>
                 }
             </div>
+            @if (sel.Status == "connected" && sel.Transport is "http" or "sse")
+            {
+                @* mcp_clear_auth drops the token the CLI stored (--probe-cli mcp-auth): the next call signs in again. *@
+                <div class="acts"><button class="btn" disabled="@busy" @onclick="() => SignOut(ls, sel.Name)">@L["Ext.SignOut"]</button></div>
+            }
         </div>
+        @if (sel.Tools is { Length: > 0 } tools)
+        {
+            <div class="section last">
+                <h3>@L["Col.Tools"]</h3>
+                <ul class="mcp-tools">
+                    @foreach (var tl in tools)
+                    {
+                        <li><code>@tl.Name</code>@if (tl.ReadOnly)
+                            {
+                                <span class="tag">@L["Ext.Tool.ReadOnly"]</span>
+                            }@if (tl.Destructive)
+                            {
+                                <span class="tag">@L["Ext.Tool.Destructive"]</span>
+                            }@if (tl.OpenWorld)
+                            {
+                                <span class="tag">@L["Ext.Tool.OpenWorld"]</span>
+                            }@if (tl.Description is { Length: > 0 } td)
+                            {
+                                <div class="d">@td</div>
+                            }</li>
+                    }
+                </ul>
+            </div>
+        }
     </aside>
 }
 
 @code {
-    record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, int? Tools, string? Scope, string? Version);
+    record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, Mcp.ToolInfo[]? Tools, string? Scope, string? Version);
 
     string tab = "mcp", filter = "";
     string? selected, note, refreshedFor, hooksNote;
@@ -326,10 +363,12 @@
     LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
 
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }   // /mcp, /hooks typed in a Composer
+    [SupplyParameterFromQuery(Name = "server")] public string? ServerQuery { get; set; }   // a failed MCP call's link in the thread
 
     protected override void OnInitialized()
     {
         if (TabQuery is "mcp" or "hooks" or "permissions") tab = TabQuery;
+        if (ServerQuery is { Length: > 0 }) Select(ServerQuery);
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
         if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
@@ -433,6 +472,21 @@
     Task Reconnect(LiveSession s, string name) =>
         Run(async () => { try { await s.Request("mcp_reconnect", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
 
+    // The CLI has no bulk reconnect ("/mcp reconnect all" is terminal-only): one mcp_reconnect per failed server, then
+    // one mcp_status. A server that still fails is named in the note, the others carry on.
+    Task ReconnectAll(LiveSession s, List<Srv> servers) => Run(async () =>
+    {
+        List<string> still = [];
+        foreach (var m in servers.Where(x => x.Status == "failed"))
+            try { await s.Request("mcp_reconnect", new() { ["serverName"] = m.Name }); }
+            catch (ClaudeRequestException) { still.Add(m.Short); }
+        await s.RefreshMcp();
+        if (still.Count > 0) note = L["Ext.StillFailing", string.Join(", ", still)];
+    });
+
+    Task SignOut(LiveSession s, string name) =>
+        Run(async () => { try { await s.Request("mcp_clear_auth", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
+
     // mcp_authenticate answers at once with the sign-in page; the CLI then waits for the browser's redirect on its own
     // localhost port and reconnects the server itself (`--probe-cli mcp-auth`). The page is opened by a link, not
     // window.open: after the round-trip there is no user gesture left, so browsers and the desktop webview would block it.
@@ -508,7 +562,7 @@
                 var (shortName, origin, tag) = Split(name, Events.Str(m, "source"), scope);
                 return new Srv(name, Events.Str(m, "status") ?? "", shortName, origin, tag, Events.Str(m, "error"),
                     Events.Str(cfg, "type"), Target(cfg),
-                    Events.Prop(m, "tools") is { ValueKind: JsonValueKind.Array } t ? t.GetArrayLength() : null,
+                    Events.Prop(m, "tools") is { ValueKind: JsonValueKind.Array } ? Mcp.Tools(m) : null,
                     scope, Events.Prop(m, "serverInfo") is { } si ? Events.Str(si, "version") : null);
             }).ToList();
         return (s.Init?.Mcp ?? []).Select(m =>

@@ -20,7 +20,7 @@
     case SessionStatus.Running:
         <div class="status"><span class="spin"></span>@L["Status.Writing"] <small aria-hidden="true">@Elapsed@(Session.ThinkingTokens > 0 ? " · " + L["Status.Thinking", Fmt.Tokens(Session.ThinkingTokens)] : "")</small></div>
         break;
-    case SessionStatus.Waiting when Session.Pending.FirstOrDefault()?.Tool == AskUser.Tool:
+    case SessionStatus.Waiting when Session.Pending.FirstOrDefault()?.Tool is AskUser.Tool or Elicit.Tool:
         <div class="status wait"><span class="dot wait"></span>@L["Status.PausedQuestion"]</div>
         break;
     case SessionStatus.Waiting:

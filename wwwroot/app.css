@@ -145,6 +145,11 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 /* hook activity: one folded line, opened when a hook failed */
 .hooks{border:1px solid var(--seam);border-radius:var(--r);font:12px var(--mono);color:var(--fg-4)}
 .hooks.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
+.notice{margin:0;border:1px solid var(--seam);border-radius:var(--r);padding:6px 12px;font-size:12px;color:var(--fg-2)}
+.notice.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
+.mcp-tools{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mcp-tools li{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.mcp-tools .d{flex-basis:100%;font-size:12px;color:var(--fg-3)}
 .hooks>summary{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer}
 .hooks>summary:focus-visible{outline-offset:-2px}
 .hooks .hn{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3)}

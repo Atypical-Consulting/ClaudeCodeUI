@@ -24,6 +24,8 @@ public static class SelfCheck
             TranscriptStore.Check();
             ListNav.Check();
             AskUser.Check();
+            Elicit.Check();
+            Mcp.Check();
             FileIndex.Check();
             PromptHistory.Check();
             Notifications.Check();

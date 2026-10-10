@@ -6,8 +6,15 @@ namespace ClaudeCodeUI;
 public abstract record ClaudeEvent;
 public record InitEvt(string SessionId, string Cwd, string Model, string PermissionMode, string[] Tools,
                       McpBrief[] Mcp, string[] SlashCommands, string[] Skills, string[] Agents, string[] Plugins,
-                      string FastModeState, string? FastModeReason) : ClaudeEvent;
+                      string FastModeState, string? FastModeReason, McpSkipped[]? McpErrors = null) : ClaudeEvent;
 public record McpBrief(string Name, string Status);                                   // connected|failed|needs-auth|pending
+// init.mcp_server_errors: a --mcp-config entry that failed validation and was skipped (absent from mcp_servers).
+public record McpSkipped(string Name, string Type, string Message);
+// system/elicitation_complete: the MCP server says the URL-mode elicitation it asked for is done.
+public record ElicitDoneEvt(string Server, string ElicitationId) : ClaudeEvent;
+// system/notification (the REPL's notification bar: fast mode credits, a failed compaction, the stop-hook cap…) and a
+// plugin's system/ui_toast. Color: error / warning / … when the CLI gives one.
+public record NoticeEvt(string Text, string? Color) : ClaudeEvent;
 public record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;
 public record ThinkingEvt(int EstimatedTokens) : ClaudeEvent;
 public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
@@ -126,6 +133,9 @@ public static class Events
                     && Str(e, "request_id") is { } requestId && Prop(r, "input") is { } permInput)
                     yield return new PermissionEvt(requestId, Str(r, "tool_name") ?? "", permInput,
                         Str(r, "description"), Str(r, "tool_use_id"), Prop(r, "permission_suggestions"), Info(r));
+                // An MCP elicitation queues like a permission, the whole request as its input (see Elicit).
+                else if (Str(r, "subtype") == "elicitation" && Str(e, "request_id") is { } elicitId)
+                    yield return new PermissionEvt(elicitId, Elicit.Tool, r, Str(r, "message"), null, null, Info(r));
                 break;
 
             case "control_cancel_request":
@@ -176,7 +186,9 @@ public static class Events
             Prop(e, "mcp_servers") is { ValueKind: JsonValueKind.Array } mcp
                 ? mcp.EnumerateArray().Select(m => new McpBrief(Str(m, "name") ?? "", Str(m, "status") ?? "")).ToArray() : [],
             Names(e, "slash_commands"), Names(e, "skills"), Names(e, "agents"), Names(e, "plugins"),
-            Str(e, "fast_mode_state") ?? "off", Str(e, "fast_mode_disabled_reason")),
+            Str(e, "fast_mode_state") ?? "off", Str(e, "fast_mode_disabled_reason"),
+            Prop(e, "mcp_server_errors") is { ValueKind: JsonValueKind.Array } me
+                ? [.. me.EnumerateArray().Select(x => new McpSkipped(Str(x, "name") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? ""))] : null),
         "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
         "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
         "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? "",
@@ -195,6 +207,9 @@ public static class Events
         "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
         "hook_response" => new HookEvt(Str(e, "hook_name") ?? Str(e, "hook_event") ?? "", Str(e, "outcome") ?? "",
             Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd()),
+        "elicitation_complete" => new ElicitDoneEvt(Str(e, "mcp_server_name") ?? "", Str(e, "elicitation_id") ?? ""),
+        "notification" when Str(e, "text") is { Length: > 0 } nt => new NoticeEvt(nt, Str(e, "color")),
+        "ui_toast" when Str(e, "text") is { Length: > 0 } tt => new NoticeEvt(Str(e, "plugin") is { } pl ? $"{pl}: {tt}" : tt, null),
         _ => null,   // hook_started included: only the response says what the hook did
     };
 
@@ -300,7 +315,20 @@ public static class Events
 
         var init = P("""{"type":"system","subtype":"init","cwd":"C:\\w","session_id":"s1","tools":["Task","Edit","PowerShell"],"mcp_servers":[{"name":"plugin:github:github","status":"failed","source":"plugin"},{"name":"x","status":"connected"}],"model":"claude-haiku-5-5","permissionMode":"default","slash_commands":["cost"],"skills":["impeccable"],"agents":["Explore"],"plugins":[{"name":"context7","path":"C:\\p","source":"x"}],"fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as InitEvt;
         Ok(init is { SessionId: "s1", Cwd: @"C:\w", Model: "claude-haiku-5-5", PermissionMode: "default", FastModeReason: "sdk_opt_in_required" }, "init");
-        Ok(init!.Tools.Contains("PowerShell") && init.Mcp is [{ Status: "failed" }, { Name: "x" }] && init.Plugins is ["context7"] && init.Skills is ["impeccable"], "init lists");
+        Ok(init!.Tools.Contains("PowerShell") && init.Mcp is [{ Status: "failed" }, { Name: "x" }] && init.Plugins is ["context7"] && init.Skills is ["impeccable"] && init.McpErrors is null, "init lists");
+        // claude 2.1.296 with --mcp-config holding {"bad":{"url":…}} (no type).
+        Ok(P("""{"type":"system","subtype":"init","session_id":"s","mcp_servers":[{"name":"probe","status":"connected","source":"dynamic"}],"mcp_server_errors":[{"name":"bad","type":"url_missing_type","message":"Skipped — MCP server \"bad\" has a \"url\" but no \"type\""}]}""")
+           is InitEvt { McpErrors: [{ Name: "bad", Type: "url_missing_type", Message: var skipped }] } && skipped.StartsWith("Skipped"), "init mcp_server_errors");
+        // MCP elicitation, form then URL mode, and its completion (claude 2.1.296, the probe's fake stdio server).
+        Ok(P("""{"type":"control_request","request_id":"9627","request":{"subtype":"elicitation","mcp_server_name":"probe","message":"What is your name?","mode":"form","requested_schema":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]},"title":"Sign up"}}""")
+           is PermissionEvt { RequestId: "9627", Tool: Elicit.Tool, Description: "What is your name?", ToolUseId: null, Info.Title: "Sign up" } ef && Events.Str(ef.Input, "mcp_server_name") == "probe", "elicitation form");
+        Ok(P("""{"type":"control_request","request_id":"4717","request":{"subtype":"elicitation","mcp_server_name":"probe","message":"Open the page","mode":"url","url":"https://example.com/link?x=1","elicitation_id":"el-42"}}""")
+           is PermissionEvt { Tool: Elicit.Tool, Info: null } ue && Elicit.IsUrl(ue.Input), "elicitation url");
+        Ok(P("""{"type":"system","subtype":"elicitation_complete","mcp_server_name":"probe","elicitation_id":"el-42","uuid":"6be3","session_id":"b0f2"}""") is ElicitDoneEvt { Server: "probe", ElicitationId: "el-42" }, "elicitation_complete");
+        // The SDK schema of system/notification (the compaction failure the CLI emits) and of a plugin's ui_toast.
+        Ok(P("""{"type":"system","subtype":"notification","key":"error-compacting-conversation","text":"Error compacting conversation","priority":"immediate","color":"error","uuid":"u","session_id":"s"}""") is NoticeEvt { Text: "Error compacting conversation", Color: "error" }
+           && P("""{"type":"system","subtype":"ui_toast","plugin":"impeccable","text":"Saved","timeout_ms":4000,"uuid":"u","session_id":"s"}""") is NoticeEvt { Text: "impeccable: Saved", Color: null }
+           && P("""{"type":"system","subtype":"notification","key":"k","text":"","priority":"low"}""") is null, "notification and ui_toast");
 
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}},"parent_tool_use_id":null}""") is TextDeltaEvt { Text: "done", ParentToolUseId: null }, "text_delta");
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}}}""") is null, "thinking_delta ignored");

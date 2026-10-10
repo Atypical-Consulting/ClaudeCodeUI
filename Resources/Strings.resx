@@ -696,4 +696,29 @@
   <data name="Perm.Dest.localSettings" xml:space="preserve"><value>local settings (.claude/settings.local.json)</value></data>
   <data name="Perm.Dest.projectSettings" xml:space="preserve"><value>project settings (.claude/settings.json)</value></data>
   <data name="Perm.Dest.userSettings" xml:space="preserve"><value>user settings (~/.claude/settings.json)</value></data>
+  <data name="Tool.Label.Elicit" xml:space="preserve"><value>MCP input</value></data>
+  <data name="Elicit.Title" xml:space="preserve"><value>Input requested</value></data>
+  <data name="Elicit.Asks" xml:space="preserve"><value>{0} needs your input</value></data>
+  <data name="Elicit.Open" xml:space="preserve"><value>Open in browser</value></data>
+  <data name="Elicit.OpenAgain" xml:space="preserve"><value>Open again</value></data>
+  <data name="Elicit.Waiting" xml:space="preserve"><value>Finish in your browser, then continue here.</value></data>
+  <data name="Elicit.BadUrl" xml:space="preserve"><value>This URL can't be opened from here. Decline to continue.</value></data>
+  <data name="Elicit.Done" xml:space="preserve"><value>I'm done, continue</value></data>
+  <data name="Elicit.Accept" xml:space="preserve"><value>Accept</value></data>
+  <data name="Elicit.Decline" xml:space="preserve"><value>Decline</value></data>
+  <data name="Elicit.HintAccept" xml:space="preserve"><value>continue</value></data>
+  <data name="Elicit.HintDecline" xml:space="preserve"><value>decline</value></data>
+  <data name="Elicit.Invalid" xml:space="preserve"><value>Check “{0}”: it is required, or its value is not valid.</value></data>
+  <data name="Ext.RetryAll" xml:space="preserve"><value>Retry all failed</value></data>
+  <data name="Ext.StillFailing" xml:space="preserve"><value>Still failing: {0}</value></data>
+  <data name="Ext.Skipped" xml:space="preserve"><value>{0} skipped, invalid configuration: {1}</value></data>
+  <data name="Ext.SignOut" xml:space="preserve"><value>Sign out</value></data>
+  <data name="Ext.Tool.ReadOnly" xml:space="preserve"><value>read-only</value></data>
+  <data name="Ext.Tool.Destructive" xml:space="preserve"><value>destructive</value></data>
+  <data name="Ext.Tool.OpenWorld" xml:space="preserve"><value>open world</value></data>
+  <data name="Mcp.SignInAgain" xml:space="preserve"><value>Sign in again</value></data>
+  <data name="Mcp.Servers" xml:space="preserve"><value>MCP servers</value></data>
+  <data name="Mcp.AuthFailed" xml:space="preserve"><value>{0} refused this call's credentials.</value></data>
+  <data name="Mcp.AuthWaiting" xml:space="preserve"><value>Finish signing in in your browser, then ask Claude to try again.</value></data>
+  <data name="Mcp.SignedIn" xml:space="preserve"><value>{0} is signed in. Ask Claude to try again.</value></data>
 </root>

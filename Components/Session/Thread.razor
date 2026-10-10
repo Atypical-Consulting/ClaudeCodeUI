@@ -54,6 +54,9 @@
             case ApiErrorItem e:
                 <ApiErrorCard Error="e.Error" />
                 break;
+            case NoticeItem n:
+                <p class="notice @(n.Notice.Color is "error" or "warning" ? "bad" : null)">@n.Notice.Text</p>
+                break;
             case ThreadBlocks.Hooks h:
                 <HookActivity Hooks="h.Items" />
                 break;

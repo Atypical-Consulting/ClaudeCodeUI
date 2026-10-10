@@ -5,7 +5,7 @@
 @inject UiState Ui
 @inject IJSRuntime JS
 
-<div class="ph"><h2 class="ttl">@(question ? L["Ask.Title"] : L["Perm.Title"])</h2><span class="sub">@Permission.Tool</span>
+<div class="ph"><h2 class="ttl">@(question ? L["Ask.Title"] : elicit ? L["Elicit.Title"] : L["Perm.Title"])</h2><span class="sub">@(elicit ? Events.Str(Permission.Input, "mcp_server_name") : Permission.Tool)</span>
     <span class="end"><span class="pill wait">@L["OfN", queue.FindIndex(x => x.P == Permission) + 1, queue.Count]</span></span>
 </div>
 <div class="scroll">
@@ -37,10 +37,14 @@
     }
     else
     {
-        <div class="section" data-permission tabindex="-1" role="group" aria-label="@(question ? L["Ask.Title"] : Title)" @ref="card">
+        <div class="section" data-permission tabindex="-1" role="group" aria-label="@(question ? L["Ask.Title"] : elicit ? L["Elicit.Title"] : Title)" @ref="card">
         @if (question)
         {
             <QuestionForm @ref="form" Session="Session" Permission="Permission" />
+        }
+        else if (elicit)
+        {
+            <ElicitForm @ref="elicitForm" Session="Session" Permission="Permission" />
         }
         else
         {
@@ -139,6 +143,8 @@
     bool IsPlan => Permission.Tool == "ExitPlanMode";
     bool question;           // AskUserQuestion: answered through QuestionForm, never allowed with its bare input
     QuestionForm? form;
+    bool elicit => Permission.Tool == Elicit.Tool;   // an MCP elicitation: ElicitForm answers it
+    ElicitForm? elicitForm;
 
     // "Toujours autoriser": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions,
     // with the destination picked. suppress_always_allow_rule: the CLI itself offers no "always" for this call.
@@ -235,6 +241,12 @@
             case "Enter" when IsPlan: await Answer(Decision.Allow, "acceptEdits"); break;
             case "Shift+Enter" when IsPlan: await Answer(Decision.Allow, "default"); break;
             case "Delete" when IsPlan: await feedbackBox.FocusAsync(); return;   // the feedback is typed, then sent with Ctrl ⏎
+            case "Enter" when elicit:
+                if (elicitForm is not null) await elicitForm.Submit();
+                return;
+            case "Delete" when elicit:
+                if (elicitForm is not null) await elicitForm.Decline();
+                return;
             case "Enter" when question:
                 if (form is not null) await form.FocusFirst();
                 return;

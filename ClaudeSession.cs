@@ -135,10 +135,14 @@ public sealed class ClaudeSession : IAsyncDisposable
     }
 
     // Answer a "can_use_tool" control_request. A deny's message reaches the model verbatim as the tool_result.
-    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) => Write(new JsonObject
+    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) =>
+        Answer(requestId, Reply(allow, input, updatedPermissions, message));
+
+    // Answer any control_request the CLI sent us (an elicitation's {action, content}).
+    public Task Answer(string requestId, JsonNode response) => Write(new JsonObject
     {
         ["type"] = "control_response",
-        ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = Reply(allow, input, updatedPermissions, message) },
+        ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = response },
     });
 
     internal static JsonObject Reply(bool allow, JsonElement input, JsonNode? updatedPermissions, string? message)

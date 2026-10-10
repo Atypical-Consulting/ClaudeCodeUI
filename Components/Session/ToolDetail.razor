@@ -28,7 +28,32 @@
             </div>
             break;
         case 0 when Tool.State is ToolState.Error or ToolState.Denied:
-            <div style="padding:16px"><div class="errbox">@Tool.ResultText</div></div>
+            <div style="padding:16px"><div class="errbox">@Tool.ResultText</div>
+                @if (Tool.State == ToolState.Error && Mcp.ServerOf(Tool.Name, Mcp.Names(Session)) is { } server)
+                {
+                    @* A failed MCP call: its server's page (status, Retry), and for a refused credential a fresh sign-in. *@
+                    @if (Mcp.AuthError(Tool.ResultText) && !server.StartsWith("claude.ai "))
+                    {
+                        <p>@L["Mcp.AuthFailed", server]</p>
+                        @if (authUrl is { } au)
+                        {
+                            <p role="status">@L["Mcp.AuthWaiting"]</p>
+                            <div class="acts"><a class="btn primary" href="@au" target="_blank" rel="noopener noreferrer">@L["Ext.OpenSignIn"]</a></div>
+                        }
+                        else if (authNote is { } an)
+                        {
+                            <p role="status">@an</p>
+                        }
+                    }
+                    <div class="acts">
+                        @if (Mcp.AuthError(Tool.ResultText) && !server.StartsWith("claude.ai ") && authUrl is null)
+                        {
+                            <button class="btn primary" disabled="@authBusy" @onclick="() => SignInAgain(server)"><Icon Name="plug" Sm />@L["Mcp.SignInAgain"]</button>
+                        }
+                        <a class="btn" href="@($"extensions?tab=mcp&server={Uri.EscapeDataString(server)}")">@L["Mcp.Servers"]</a>
+                    </div>
+                }
+            </div>
             break;
         case 0 when Tool.Name == AskUser.Tool && AskUser.Answered(Tool.Structured) is { Length: > 0 } answered:
             <div class="section last">
@@ -94,7 +119,23 @@
     public static string Pretty(JsonElement e) => JsonSerializer.Serialize(e, Indented);
 
     int tab;
-    bool edit;
+    bool edit, authBusy;
+    string? authUrl, authNote;
+
+    // mcp_clear_auth then mcp_authenticate (LiveSession.SignInAgain); the CLI reconnects the server once the browser is done.
+    async Task SignInAgain(string server)
+    {
+        authBusy = true;
+        authNote = null;
+        try
+        {
+            var start = await Session.SignInAgain(server);
+            if (start.Url is { } u && start.CallbackExpected) authUrl = u;
+            else authNote = start.Url is null ? L["Mcp.SignedIn", server] : L["Ext.AuthTerminal", server];
+        }
+        catch (Exception ex) { authNote = L["Ext.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { authBusy = false; }
+    }
     IReadOnlyList<DiffLine> diff = [];
     ToolState? diffState;
 

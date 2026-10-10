@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch), ("workflow", Workflow)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("elicitation", Elicitation), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch), ("workflow", Workflow)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -253,10 +253,99 @@ public static class CliProbe
             string cleared;
             try { await c.S.Request("mcp_clear_auth", new() { ["serverName"] = "probe-auth" }, Seconds); cleared = "success"; }
             catch (ClaudeRequestException ex) { cleared = $"error \"{ex.Message}\""; }
+            var signedOut = await Status();
+            // "Sign in again" (LiveSession.SignInAgain): after the clear, mcp_authenticate must hand out a fresh page.
+            var again = McpAuthStart.Parse(await c.S.Request("mcp_authenticate", new() { ["serverName"] = "probe-auth" }, Seconds));
             var detail = $"{before} -> authUrl {new Uri(url).GetLeftPart(UriPartial.Path)}, callback HTTP {(int)landed.StatusCode}, "
-                + $"token {(fake.TokenIssued ? "issued" : "never asked")}, bearer {(fake.BearerSeen ? "used" : "unused")} -> {after}; mcp_clear_auth {cleared}, then {await Status()}";
-            return [after == "connected" && fake.BearerSeen ? ("PASS", detail) : ("FAIL", detail)];
+                + $"token {(fake.TokenIssued ? "issued" : "never asked")}, bearer {(fake.BearerSeen ? "used" : "unused")} -> {after}; mcp_clear_auth {cleared}, then {signedOut}, "
+                + $"mcp_authenticate again -> {(again.Url is null ? "no authUrl" : "authUrl")}";
+            return [after == "connected" && fake.BearerSeen && signedOut == "needs-auth" && again is { Url: not null, CallbackExpected: true } ? ("PASS", detail) : ("FAIL", detail)];
         });
+    }
+
+    // elicitation-form: an MCP tool asks for input (elicitation/create, form mode): the CLI forwards it as control_request
+    // elicitation, Events turns it into the queued request, and Elicit's content reaches the server as the user's answer.
+    // elicitation-url: a URL-mode one, whose server sends notifications/elicitation/complete before the answer: the
+    // CLI streams system/elicitation_complete while the request waits, and "accept" on it (LiveSession.OnEvent) closes it.
+    // The server is this executable (--fake-mcp-elicit, FakeElicitMcp): no network, no account.
+    static async Task<IEnumerable<(string, string, string)>> Elicitation(string dir)
+    {
+        var config = Path.Combine(dir, "mcp-elicit.json");
+        File.WriteAllText(config, new JsonObject { ["mcpServers"] = new JsonObject { ["probe-elicit"] = new JsonObject
+            { ["type"] = "stdio", ["command"] = Environment.ProcessPath, ["args"] = new JsonArray("--fake-mcp-elicit") } } }.ToJsonString());
+        await using var c = await Cli.Start(dir, "--mcp-config", config, "--strict-mcp-config", "--allowedTools", "mcp__probe-elicit__ask,mcp__probe-elicit__link");
+        return await Guard(["elicitation-form", "elicitation-url"], async () =>
+        {
+            async Task<(PendingPermission? Asked, bool Completed, string Result)> Call(string tool, Func<PermissionEvt, JsonElement, Task> onAsk)
+            {
+                PermissionEvt? asked = null;
+                var completed = false;
+                await c.S.SendUser($"Call the mcp__probe-elicit__{tool} tool once, then stop.");
+                var seen = await c.Collect(1, onEvent: async e =>
+                {
+                    switch (Events.Parse(e))
+                    {
+                        case PermissionEvt { Tool: Elicit.Tool } p: asked = p; await onAsk(p, e); break;
+                        case ElicitDoneEvt d when asked is { } a && Elicit.Matches(new(a.RequestId, a.Tool, a.Input, null, null, null), d.Server, d.ElicitationId):
+                            completed = true;
+                            await c.S.Answer(a.RequestId, Elicit.Reply("accept", null));
+                            break;
+                    }
+                });
+                var result = seen.SelectMany(Events.ParseAll).OfType<ToolResultEvt>().Select(r => r.Text).FirstOrDefault(t => t.StartsWith("elicitation result")) ?? "no elicitation result";
+                return (asked is null ? null : new(asked.RequestId, asked.Tool, asked.Input, asked.Description, null, null), completed, result);
+            }
+
+            var form = await Call("ask", async (p, _) =>
+            {
+                var fields = Elicit.Parse(p.Input);
+                var (content, _) = Elicit.Content(fields, new Dictionary<string, string> { ["name"] = "Ada", ["age"] = "36", ["ok"] = "true" }, new Dictionary<string, HashSet<string>>());
+                await c.S.Answer(p.RequestId, Elicit.Reply("accept", JsonSerializer.SerializeToElement(content)));
+            });
+            var url = await Call("link", (_, _) => Task.CompletedTask);   // answered on elicitation_complete
+            var formDetail = $"{(form.Asked is { } fa ? $"asked \"{fa.Description}\", {Elicit.Parse(fa.Input).Length} field(s)" : "never asked")}; server got {form.Result}";
+            var urlDetail = $"{(url.Asked is { } ua ? $"asked, url {Elicit.Url(ua.Input)}" : "never asked")}, elicitation_complete {(url.Completed ? "seen" : "absent")}; server got {url.Result}";
+            return [form.Result.Contains("\"name\":\"Ada\"") && form.Result.Contains("\"age\":36") ? ("PASS", formDetail) : ("FAIL", formDetail),
+                    url.Completed && url.Result.Contains("\"action\":\"accept\"") ? ("PASS", urlDetail) : ("FAIL", urlDetail)];
+        });
+    }
+
+    // The elicitation probe's MCP server, over stdio: `ask` elicits a form (name, age, ok), `link` a URL and sends its
+    // completion before waiting for the answer. Each call returns "elicitation result: <the client's answer>".
+    public static async Task FakeElicitMcp()
+    {
+        var stdin = Console.In;
+        async Task Send(object o) { await Console.Out.WriteLineAsync(JsonSerializer.Serialize(o)); await Console.Out.FlushAsync(); }
+        while (await stdin.ReadLineAsync() is { } line)
+        {
+            var m = JsonNode.Parse(line)!;
+            var id = m["id"]?.DeepClone();
+            switch ((string?)m["method"])
+            {
+                case null: break;   // a response nobody waits for
+                case "initialize":
+                    await Send(new { jsonrpc = "2.0", id, result = new { protocolVersion = (string?)m["params"]?["protocolVersion"] ?? "2025-06-18", capabilities = new { tools = new { } }, serverInfo = new { name = "probe-elicit", version = "1.0.0" } } });
+                    break;
+                case "tools/list":
+                    var empty = new { type = "object", properties = new { } };
+                    await Send(new { jsonrpc = "2.0", id, result = new { tools = new object[] { new { name = "ask", description = "Asks the user for their name", inputSchema = empty }, new { name = "link", description = "Asks the user to open a page", inputSchema = empty } } } });
+                    break;
+                case "tools/call":
+                    var link = (string?)m["params"]?["name"] == "link";
+                    await Send(new { jsonrpc = "2.0", id = "e1", method = "elicitation/create", @params = link
+                        ? (object)new { mode = "url", message = "Open the page to link your account", url = "https://example.com/link", elicitationId = "el-1" }
+                        : new { mode = "form", message = "What is your name?", requestedSchema = JsonNode.Parse("""{"type":"object","properties":{"name":{"type":"string","title":"Name"},"age":{"type":"integer","minimum":0},"ok":{"type":"boolean"}},"required":["name"]}""") } });
+                    if (link) await Send(new { jsonrpc = "2.0", method = "notifications/elicitation/complete", @params = new { elicitationId = "el-1" } });
+                    JsonNode? answer = null;
+                    while (answer is null && await stdin.ReadLineAsync() is { } l)
+                        if (JsonNode.Parse(l) is { } r && (string?)r["id"] == "e1" && r["method"] is null) answer = r["result"] ?? r["error"] ?? JsonValue.Create("none");
+                    await Send(new { jsonrpc = "2.0", id, result = new { content = new[] { new { type = "text", text = "elicitation result: " + answer?.ToJsonString() } } } });
+                    break;
+                default:
+                    if (id is not null) await Send(new { jsonrpc = "2.0", id, error = new { code = -32601, message = "Method not found" } });
+                    break;
+            }
+        }
     }
 
     // compact: "/compact" sent as user text (ContextPanel's button) compacts: a compact_boundary or a smaller context.

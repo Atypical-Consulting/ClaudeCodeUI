@@ -696,4 +696,29 @@
   <data name="Perm.Dest.localSettings" xml:space="preserve"><value>réglages locaux (.claude/settings.local.json)</value></data>
   <data name="Perm.Dest.projectSettings" xml:space="preserve"><value>réglages du projet (.claude/settings.json)</value></data>
   <data name="Perm.Dest.userSettings" xml:space="preserve"><value>réglages utilisateur (~/.claude/settings.json)</value></data>
+  <data name="Tool.Label.Elicit" xml:space="preserve"><value>Saisie MCP</value></data>
+  <data name="Elicit.Title" xml:space="preserve"><value>Saisie demandée</value></data>
+  <data name="Elicit.Asks" xml:space="preserve"><value>{0} a besoin de ta réponse</value></data>
+  <data name="Elicit.Open" xml:space="preserve"><value>Ouvrir dans le navigateur</value></data>
+  <data name="Elicit.OpenAgain" xml:space="preserve"><value>Rouvrir</value></data>
+  <data name="Elicit.Waiting" xml:space="preserve"><value>Termine dans ton navigateur, puis continue ici.</value></data>
+  <data name="Elicit.BadUrl" xml:space="preserve"><value>Cette URL ne peut pas être ouverte d’ici. Refuse pour continuer.</value></data>
+  <data name="Elicit.Done" xml:space="preserve"><value>C’est fait, continuer</value></data>
+  <data name="Elicit.Accept" xml:space="preserve"><value>Accepter</value></data>
+  <data name="Elicit.Decline" xml:space="preserve"><value>Refuser</value></data>
+  <data name="Elicit.HintAccept" xml:space="preserve"><value>continuer</value></data>
+  <data name="Elicit.HintDecline" xml:space="preserve"><value>refuser</value></data>
+  <data name="Elicit.Invalid" xml:space="preserve"><value>Vérifie « {0} » : champ requis ou valeur invalide.</value></data>
+  <data name="Ext.RetryAll" xml:space="preserve"><value>Réessayer tous les échecs</value></data>
+  <data name="Ext.StillFailing" xml:space="preserve"><value>Toujours en échec : {0}</value></data>
+  <data name="Ext.Skipped" xml:space="preserve"><value>{0} ignoré, configuration invalide : {1}</value></data>
+  <data name="Ext.SignOut" xml:space="preserve"><value>Se déconnecter</value></data>
+  <data name="Ext.Tool.ReadOnly" xml:space="preserve"><value>lecture seule</value></data>
+  <data name="Ext.Tool.Destructive" xml:space="preserve"><value>destructif</value></data>
+  <data name="Ext.Tool.OpenWorld" xml:space="preserve"><value>monde ouvert</value></data>
+  <data name="Mcp.SignInAgain" xml:space="preserve"><value>Se reconnecter</value></data>
+  <data name="Mcp.Servers" xml:space="preserve"><value>Serveurs MCP</value></data>
+  <data name="Mcp.AuthFailed" xml:space="preserve"><value>{0} a refusé les identifiants de cet appel.</value></data>
+  <data name="Mcp.AuthWaiting" xml:space="preserve"><value>Termine la connexion dans ton navigateur, puis demande à Claude de réessayer.</value></data>
+  <data name="Mcp.SignedIn" xml:space="preserve"><value>{0} est connecté. Demande à Claude de réessayer.</value></data>
 </root>

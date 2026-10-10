@@ -15,6 +15,7 @@ public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = 
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
 public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
+public record NoticeItem(NoticeEvt Notice) : Item;   // a CLI notification or plugin toast
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -257,12 +258,15 @@ public sealed class LiveSession : IAsyncDisposable
     {
         // A bare allow makes AskUserQuestion return "The user did not answer the questions." (see AskUser).
         if (p.Tool == AskUser.Tool && d != Decision.Deny && input is null) throw new InvalidOperationException(Strings.Get("Ask.NeedsAnswers"));
+        if (p.Tool == Elicit.Tool && d != Decision.Deny && input is null && !Elicit.IsUrl(p.Input)) throw new InvalidOperationException(Strings.Get("Ask.NeedsAnswers"));
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
         lock (gate) if (!answering.Add(p.RequestId)) return;
         try
         {
-            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input, message: message);
+            // An elicitation: a deny declines, an allow accepts with the form's content (none in URL mode).
+            if (p.Tool == Elicit.Tool) await c.Answer(p.RequestId, Elicit.Reply(d == Decision.Deny ? "decline" : "accept", input));
+            else if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input, message: message);
             else
             {
                 JsonNode? updated = null;
@@ -393,6 +397,14 @@ public sealed class LiveSession : IAsyncDisposable
 
     public async Task RefreshContext() { Context = await Request("get_context_usage"); Notify(); }
     public async Task RefreshMcp() { McpStatus = await Request("mcp_status"); Notify(); }
+
+    // "Sign in again" after an MCP call refused for its credential: mcp_clear_auth drops the stored token (the server
+    // turns needs-auth), then mcp_authenticate hands out a fresh sign-in page. Both verified by --probe-cli mcp-auth.
+    public async Task<McpAuthStart> SignInAgain(string server)
+    {
+        await Request("mcp_clear_auth", new() { ["serverName"] = server });
+        return McpAuthStart.Parse(await Request("mcp_authenticate", new() { ["serverName"] = server }));
+    }
 
     public Task<JsonElement> Request(string subtype, JsonObject? f = null) => EnsureProcess().Request(subtype, f);
 
@@ -525,6 +537,9 @@ public sealed class LiveSession : IAsyncDisposable
             else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
             if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
+            // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
+            if (e is ElicitDoneEvt ed && Pending.FirstOrDefault(p => Elicit.Matches(p, ed.Server, ed.ElicitationId)) is { } ep)
+                _ = Answer(ep, Decision.Allow).ContinueWith(t => Console.Error.WriteLine($"[{Id}] elicitation accept: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
             if (e is ResultEvt && turnUltra)
             {
                 turnUltra = false;
@@ -872,6 +887,10 @@ public sealed class LiveSession : IAsyncDisposable
             case ResetEvt:
                 Items = Items.Add(new ResetItem());
                 break;
+
+            case NoticeEvt n:
+                Items = Items.Add(new NoticeItem(n));
+                break;
         }
     }
 
@@ -1154,6 +1173,17 @@ public sealed class LiveSession : IAsyncDisposable
         pm.Apply(new StatusEvt(null, "acceptEdits"));
         Ok(pm.Mode == "acceptEdits" && pm.Status == SessionStatus.Running && pm.Items[^1] is ToolItem { State: ToolState.Running }, "plan approved, mode follows status");
         var bare = new PendingPermission("r", AskUser.Tool, input, null, null, null);
+        // An MCP elicitation queues like a permission and pauses the turn; a form one is never accepted without content.
+        var el = new LiveSession("el", "el", @"C:\w", "default");
+        el.BeginTurn("ask");
+        var elForm = JsonDocument.Parse("""{"subtype":"elicitation","mcp_server_name":"probe","message":"Name?","mode":"form","requested_schema":{"type":"object","properties":{"name":{"type":"string"}}}}""").RootElement.Clone();
+        el.Apply(new PermissionEvt("e1", Elicit.Tool, elForm, "Name?", null, null));
+        Ok(el.Status == SessionStatus.Waiting && el.Pending is [{ Tool: Elicit.Tool, Description: "Name?" }], "elicitation pending");
+        Ok(ThrowsMsg(() => el.Answer(el.Pending[0], Decision.Allow)) == Strings.Get("Ask.NeedsAnswers"), "form elicitation never accepted bare");
+        el.Apply(new CancelRequestEvt("e1"));
+        Ok(el.Pending.IsEmpty && el.Status == SessionStatus.Running, "elicitation withdrawn by the CLI");
+        el.Apply(new NoticeEvt("Error compacting conversation", "error"));
+        Ok(el.Items[^1] is NoticeItem { Notice.Color: "error" }, "notification joins the thread");
         Ok(ThrowsMsg(() => s.Answer(bare, Decision.Allow)) == Strings.Get("Ask.NeedsAnswers")
            && ThrowsMsg(() => s.Answer(bare, Decision.Deny)) == Strings.Get("Session.NoProcess"), "AskUserQuestion is never allowed bare");
         // Background shell: launch receipt, stop, process exit; the agent path above is untouched by it.
