@@ -7,14 +7,21 @@ namespace ClaudeCodeUI;
 
 // `dotnet run -- --probe-cli`: drives the real, logged-in claude CLI (haiku, a throw-away git repo under the temp dir)
 // to check the controls docs/PLAN.md §1.2 lists as "accepted but untested". One `PASS|FAIL|SKIP <id>: <detail>` line
-// per probe, then the CLI version. Exit 0 = no FAIL, 1 = a FAIL, 2 = claude could not start.
-// Costs a few haiku tokens: opt-in, never part of --self-check or CI.
+// per probe, then the CLI version. Exit 0 = no FAIL, 1 = a FAIL, 2 = claude could not start or an unknown case.
+// `--probe-cli plan compact` runs only those cases. Costs a few haiku tokens: opt-in, never part of --self-check or CI.
 public static class CliProbe
 {
     const int Seconds = 120;   // per probe, overall
 
-    public static async Task<int> Run()
+    public static async Task<int> Run(string[] cases)
     {
+        (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan)];
+        if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
+        {
+            Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
+            return 2;
+        }
         if (!ClaudeSession.OnPath()) { Console.WriteLine("claude not found on PATH"); return 2; }
         var dir = Path.Combine(Path.GetTempPath(), "ccui-probe-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -26,7 +33,7 @@ public static class CliProbe
             Git(dir, "-c", "user.name=probe", "-c", "user.email=probe@localhost", "commit", "-q", "-m", "init");
 
             var fails = 0;
-            foreach (var probe in new Func<string, Task<IEnumerable<(string, string, string)>>>[] { Ultracode, PermissionSession, Mcp, Compact })
+            foreach (var (_, probe) in all.Where(p => cases.Length == 0 || cases.Contains(p.Name)))
                 foreach (var (verdict, id, detail) in await probe(dir))
                 {
                     Console.WriteLine($"{verdict} {id}: {detail}");
@@ -167,6 +174,74 @@ public static class CliProbe
         });
     }
 
+    // ExitPlanMode reaches can_use_tool with {plan, planFilePath} and no permission_suggestions (2.1.296). A bare allow
+    // drops to `default` on its own; PermissionCard sets the mode explicitly, which is what these three cases check:
+    // plan-accept-edits / plan-review-edits: set_permission_mode {mode} then allow → system/status reports that mode and
+    // the edit that follows is prompted in `default` only. plan-keep-planning: a deny's message comes back verbatim as
+    // ExitPlanMode's tool_result, with no mode change and nothing written. Each runs in its own process, in parallel.
+    // The CLI also saves each plan under ~/.claude/plans/: the probe leaves those files.
+    static async Task<IEnumerable<(string, string, string)>> Plan(string dir) =>
+        (await Task.WhenAll(PlanApprove(dir, "plan-accept-edits", "acceptEdits", "a.txt"), PlanApprove(dir, "plan-review-edits", "default", "b.txt"), PlanKeep(dir)))
+        .SelectMany(r => r);
+
+    static async Task<IEnumerable<(string, string, string)>> PlanApprove(string dir, string id, string mode, string file)
+    {
+        await using var c = await Cli.Start(dir, "--permission-mode", "plan");
+        return await Guard([id], async () =>
+        {
+            string? set = null, suggestions = null;
+            var prompts = 0;
+            var turn = await c.Turn($"Plan how to create the file {file} containing the word hi, then call ExitPlanMode with the plan. Once it is approved, create the file.", async e =>
+            {
+                var r = e.GetProperty("request");
+                if (Events.Str(r, "tool_name") == "ExitPlanMode" && set is null)
+                {
+                    suggestions = Events.Prop(r, "permission_suggestions") is { ValueKind: JsonValueKind.Array } sg
+                        ? string.Join("+", sg.EnumerateArray().Select(x => Events.Str(x, "type"))) : "none";
+                    set = Events.Str(await c.S.Request("set_permission_mode", new() { ["mode"] = mode }), "mode") ?? "?";
+                }
+                else if (Targets(r.GetProperty("input"), file)) prompts++;
+                return false;   // then allowed as asked
+            });
+            var status = turn.Select(StatusMode).LastOrDefault(m => m is not null);
+            var writes = turn.SelectMany(ToolBlocks).Count(b => Events.Str(b, "name") is "Write" or "Edit" && Targets(b.GetProperty("input"), file));
+            var detail = $"suggestions {suggestions ?? "-"}, set_permission_mode → {set ?? "-"}, status {status ?? "absent"}, {writes} write(s) of {file}, {prompts} prompt(s)";
+            if (set is null || writes == 0) return [("FAIL", "inconclusive: " + detail)];
+            return [set == mode && status == mode && (mode == "default" ? prompts > 0 : prompts == 0) ? ("PASS", detail) : ("FAIL", detail)];
+        });
+    }
+
+    static async Task<IEnumerable<(string, string, string)>> PlanKeep(string dir)
+    {
+        const string feedback = "Keep planning: the plan must also add a line saying hello to README.md.";
+        await using var c = await Cli.Start(dir, "--permission-mode", "plan");
+        return await Guard(["plan-keep-planning"], async () =>
+        {
+            string? toolUseId = null;
+            var calls = 0;
+            var turn = await c.Turn("Plan how to create the file c.txt containing the word hi, then call ExitPlanMode with the plan.", async e =>
+            {
+                var r = e.GetProperty("request");
+                if (Events.Str(r, "tool_name") != "ExitPlanMode") return false;
+                // The revised plan is refused too, so the turn ends without leaving plan mode.
+                await c.S.Respond(Events.Str(e, "request_id")!, false, r.GetProperty("input"), message: calls++ == 0 ? feedback : "Stop here.");
+                toolUseId ??= Events.Str(r, "tool_use_id");
+                return true;
+            });
+            var result = turn.SelectMany(Events.ParseAll).OfType<ToolResultEvt>().FirstOrDefault(t => t.ToolUseId == toolUseId);
+            var modes = turn.Select(StatusMode).OfType<string>().ToList();
+            var created = File.Exists(Path.Combine(dir, "c.txt"));
+            var detail = $"tool_result {(result is null ? "absent" : $"is_error={result.IsError} \"{result.Text}\"")}, status [{string.Join(",", modes)}], {calls} ExitPlanMode call(s), c.txt {(created ? "created" : "absent")}";
+            if (toolUseId is null) return [("FAIL", "inconclusive: " + detail)];
+            return [result is { IsError: true } && result.Text == feedback && modes.All(m => m == "plan") && !created ? ("PASS", detail) : ("FAIL", detail)];
+        });
+    }
+
+    static string? StatusMode(JsonElement e) =>
+        Events.Str(e, "type") == "system" && Events.Str(e, "subtype") == "status" ? Events.Str(e, "permissionMode") : null;
+
+    static bool Targets(JsonElement input, string file) => Events.Str(input, "file_path") is { } f && Path.GetFileName(f) == file;
+
     // ---------- plumbing ----------
 
     // Runs a probe body that yields one (verdict, detail) per id; a throw or timeout fails every id it had not answered.
@@ -180,9 +255,11 @@ public static class CliProbe
     }
 
     // Names of every tool_use block in an assistant message (parallel calls share one message).
-    static IEnumerable<string?> ToolUses(JsonElement e) =>
+    static IEnumerable<string?> ToolUses(JsonElement e) => ToolBlocks(e).Select(b => Events.Str(b, "name"));
+
+    static IEnumerable<JsonElement> ToolBlocks(JsonElement e) =>
         Events.Str(e, "type") == "assistant" && Events.Prop(e, "message") is { } m && Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array } c
-            ? c.EnumerateArray().Where(b => Events.Str(b, "type") == "tool_use").Select(b => Events.Str(b, "name"))
+            ? c.EnumerateArray().Where(b => Events.Str(b, "type") == "tool_use")
             : [];
 
     static void Git(string dir, params string[] args)
@@ -209,7 +286,7 @@ public static class CliProbe
 
     sealed class StartException(string message) : Exception(message);
 
-    // One claude process (haiku, manual permissions) whose stdout events land in a channel.
+    // One claude process (haiku, manual permissions unless extra names a --permission-mode) whose stdout events land in a channel.
     sealed class Cli : IAsyncDisposable
     {
         readonly Channel<JsonElement> events = Channel.CreateUnbounded<JsonElement>();
@@ -220,7 +297,7 @@ public static class CliProbe
             var c = new Cli();
             try
             {
-                c.S = new ClaudeSession(cwd, ["--model", "haiku", "--permission-mode", "manual", .. extra],
+                c.S = new ClaudeSession(cwd, ["--model", "haiku", .. extra.Contains("--permission-mode") ? [] : (string[])["--permission-mode", "manual"], .. extra],
                     e => c.events.Writer.WriteAsync(e).AsTask(), (_, text) => c.events.Writer.TryComplete(new InvalidOperationException(text)));
             }
             catch (Exception ex) { throw new StartException(ex.Message); }

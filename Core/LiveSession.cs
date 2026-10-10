@@ -118,22 +118,29 @@ public sealed class LiveSession : IAsyncDisposable
         await p.SendUser(text);
     }
 
-    public async Task Answer(PendingPermission p, Decision d)
+    // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
+    public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null)
     {
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
         lock (gate) if (!answering.Add(p.RequestId)) return;
         try
         {
-            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input);
+            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input, message: message);
             else
             {
                 JsonNode? updated = null;
                 if (d == Decision.AllowSession && p.Suggestions is { ValueKind: JsonValueKind.Array } sg)
                 {
                     var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
-                    if (Events.Str(setMode, "mode") is { } mode) await c.Request("set_permission_mode", new() { ["mode"] = mode });
+                    if (Events.Str(setMode, "mode") is { } m) mode = m;
                     else updated = JsonNode.Parse(sg.GetRawText());   // verified by --probe-cli permission-session
+                }
+                // Answers {"mode":…}; the CLI then emits system/status with it once the allow lands (--probe-cli plan-*).
+                if (mode is not null)
+                {
+                    Mode = Events.Str(await c.Request("set_permission_mode", new() { ["mode"] = mode }), "mode") ?? mode;
+                    Notify();
                 }
                 await c.Respond(p.RequestId, true, p.Input, updated);
             }
@@ -664,6 +671,19 @@ public sealed class LiveSession : IAsyncDisposable
         ag2.Apply(new ToolResultEvt("toolu_B", "Async agent launched", false, recv));
         ag2.EndTools(DateTimeOffset.Now, false);
         Ok(ag2.Items[^1] is ToolItem { State: ToolState.Error }, "process exit ends background row");
+
+        // ExitPlanMode (2.1.296): "keep planning" denies with the feedback; an approval's mode comes back as system/status.
+        var plan = JsonDocument.Parse("""{"plan":"# P\n\n1. a","planFilePath":"/p.md"}""").RootElement.Clone();
+        Ok(ClaudeSession.Reply(false, plan, null, "  add tests  ")["message"]?.GetValue<string>() == "add tests"
+           && ClaudeSession.Reply(false, plan, null, " ")["message"]?.GetValue<string>() == "The user denied this tool use."
+           && ClaudeSession.Reply(true, plan, null, "x")["message"] is null, "deny message = feedback");
+        var pm = new LiveSession("p", "p", @"C:\w", "plan");
+        pm.BeginTurn("plan it");
+        pm.Apply(new ToolUseEvt("toolu_P", "ExitPlanMode", plan, null));
+        pm.Apply(new PermissionEvt("rp", "ExitPlanMode", plan, null, "toolu_P", null));
+        pm.Resolve(pm.Pending[0], Decision.Allow);
+        pm.Apply(new StatusEvt(null, "acceptEdits"));
+        Ok(pm.Mode == "acceptEdits" && pm.Status == SessionStatus.Running && pm.Items[^1] is ToolItem { State: ToolState.Running }, "plan approved, mode follows status");
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("salut") == "salut", "user text");
     }

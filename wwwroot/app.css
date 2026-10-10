@@ -171,6 +171,9 @@ code{font-family:var(--mono)}
 .cmd{margin:0;background:var(--field);border:1px solid var(--seam);border-radius:var(--r);padding:12px;font:13px var(--mono);color:var(--fg);white-space:pre-wrap;overflow-wrap:anywhere}
 .acts{display:flex;gap:8px;align-items:center}
 .acts .btn.danger{margin-left:auto}
+.acts.wrap{flex-wrap:wrap}
+.plan-fb{display:block;box-sizing:border-box;width:100%;min-height:64px;resize:vertical;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:10px 12px;font:13px/1.5 var(--sans)}
+.plan-fb::placeholder{color:var(--fg-4)}
 .diff{font:12px/1.65 var(--mono);border:1px solid var(--seam);border-radius:var(--r);overflow:hidden;background:var(--field)}
 .diff .fh{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--seam);color:var(--fg-3);font-size:12px}
 .diff .fh .a{color:var(--ok)}.diff .fh .d{color:var(--err)}

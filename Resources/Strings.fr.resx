@@ -298,6 +298,15 @@
   <data name="Perm.Run" xml:space="preserve"><value>Lancer cette commande ?</value></data>
   <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
   <data name="Perm.WholeSession" xml:space="preserve"><value>Toute la session</value></data>
+  <data name="Plan.ApproveAuto" xml:space="preserve"><value>Approuver et accepter les modifications</value></data>
+  <data name="Plan.ApproveReview" xml:space="preserve"><value>Approuver et relire chaque modification</value></data>
+  <data name="Plan.Feedback" xml:space="preserve"><value>Que faut-il changer dans le plan ?</value></data>
+  <data name="Plan.FeedbackHint" xml:space="preserve"><value>Transmis tel quel à Claude, qui continue de planifier</value></data>
+  <data name="Plan.HintAuto" xml:space="preserve"><value>accepter les modifications</value></data>
+  <data name="Plan.HintFeedback" xml:space="preserve"><value>retour</value></data>
+  <data name="Plan.HintReview" xml:space="preserve"><value>relire chaque modification</value></data>
+  <data name="Plan.Keep" xml:space="preserve"><value>Continuer à planifier</value></data>
+  <data name="Plan.Title" xml:space="preserve"><value>Approuver ce plan ?</value></data>
   <data name="Quota.FiveHours" xml:space="preserve"><value>5 h</value></data>
   <data name="Quota.Hint" xml:space="preserve"><value>Utilisation du forfait rapportée par Claude. La fenêtre de 7 jours se réinitialise le {0}.</value></data>
   <data name="Quota.Resets" xml:space="preserve"><value>réinit. {0}</value></data>
