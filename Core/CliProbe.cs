@@ -18,7 +18,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -513,6 +513,38 @@ public static class CliProbe
                 ? ("PASS", $"interrupt answered {a4?.GetRawText()}, first result {aborted}, {f4}")
                 : ("FAIL", $"interrupt answered {a4?.GetRawText()}, first result {aborted}, {f4}");
             return [next, fold, cancel, interrupt];
+        });
+    }
+
+    // notify-*: what a desktop notification tells apart (Notifications.cs). A decision (permission, AskUserQuestion, ExitPlanMode)
+    // reaches us as a can_use_tool named after the tool, and every turn, answered or denied, still ends with a `result`.
+    // The plan is entered with set_permission_mode, as the mode menu does.
+    static async Task<IEnumerable<(string, string, string)>> Waiting(string dir)
+    {
+        await using var c = await Cli.Start(dir);
+        return await Guard(["notify-permission", "notify-question", "notify-plan"], async () =>
+        {
+            async Task<(string, string)> Case(string want, string prompt, bool allow)
+            {
+                var asked = new List<string>();
+                var turn = await c.Turn(prompt, async e =>
+                {
+                    var r = e.GetProperty("request");
+                    asked.Add(Events.Str(r, "tool_name") ?? "?");
+                    await c.S.Respond(Events.Str(e, "request_id")!, allow, r.GetProperty("input"));
+                    return true;
+                });
+                var detail = $"can_use_tool [{string.Join(", ", asked)}], turn ended by result/{Events.Str(turn[^1], "subtype")}";
+                return (asked.Contains(want) ? "PASS" : "FAIL", detail);
+            }
+
+            var permission = await Case("Bash", $"Run the shell command: {Cmd}", true);
+            var question = await Case("AskUserQuestion",
+                "Use the AskUserQuestion tool to ask me whether I prefer red or blue (two options). Do nothing else.", false);
+            await c.S.Request("set_permission_mode", new() { ["mode"] = "plan" });
+            var plan = await Case("ExitPlanMode",
+                "Plan adding a one-line CONTRIBUTING.md to this repo, then present the plan for approval with ExitPlanMode.", false);
+            return [permission, question, plan];
         });
     }
 

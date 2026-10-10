@@ -36,6 +36,13 @@
   <data name="Appearance.Language" xml:space="preserve"><value>Language</value></data>
   <data name="Appearance.LanguageHint" xml:space="preserve"><value>Interface language. Applying it reloads the page.</value></data>
   <data name="Appearance.Lead" xml:space="preserve"><value>The theme recolors the whole interface, syntax highlighting included. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; then “theme” switches it without opening settings.</value></data>
+  <data name="Appearance.Notify" xml:space="preserve"><value>Notifications</value></data>
+  <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Notifications are blocked for this site: allow them in the browser's site settings, then reload this page.</value></data>
+  <data name="Appearance.NotifyHint" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background or another session is on screen.</value></data>
+  <data name="Appearance.NotifyHintDesktop" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background.</value></data>
+  <data name="Appearance.NotifyHintMac" xml:space="preserve"><value>When a session needs a decision or finishes a turn while the window is in the background. Clicking the notification opens the session.</value></data>
+  <data name="Appearance.NotifyLabel" xml:space="preserve"><value>Notify me</value></data>
+  <data name="Appearance.NotifyUnsupported" xml:space="preserve"><value>This browser cannot show notifications.</value></data>
   <data name="Appearance.Preview" xml:space="preserve"><value>Preview</value></data>
   <data name="Appearance.PreviewHint" xml:space="preserve"><value>How it really looks with the chosen theme.</value></data>
   <data name="Appearance.SampleComment" xml:space="preserve"><value>The duck's mood follows the session state</value></data>
@@ -284,6 +291,12 @@
   <data name="NotFound.Heading" xml:space="preserve"><value>Nothing lives at this address.</value></data>
   <data name="NotFound.Text" xml:space="preserve"><value>The link may be out of date or mistyped. Start a new session or open the overview.</value></data>
   <data name="NotFound.Title" xml:space="preserve"><value>Not found</value></data>
+  <data name="Notify.Decision" xml:space="preserve"><value>Waiting for your decision</value></data>
+  <data name="Notify.Done" xml:space="preserve"><value>Turn finished in {0}</value></data>
+  <data name="Notify.Failed" xml:space="preserve"><value>Turn stopped on an error after {0}</value></data>
+  <data name="Notify.Permission" xml:space="preserve"><value>Needs your permission: {0}</value></data>
+  <data name="Notify.Plan" xml:space="preserve"><value>Plan ready for review</value></data>
+  <data name="Notify.Question" xml:space="preserve"><value>Has a question for you</value></data>
   <data name="OfN" xml:space="preserve"><value>{0} of {1}</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Cost</value></data>
   <data name="Ov.Col.Duration" xml:space="preserve"><value>Duration</value></data>

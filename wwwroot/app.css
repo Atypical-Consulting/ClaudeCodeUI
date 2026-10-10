@@ -532,9 +532,11 @@ textarea,input{caret-color:var(--accent)}
 .pick.dis[title]:focus::after{content:attr(title);position:absolute;left:0;bottom:calc(100% + 6px);z-index:5;width:max-content;max-width:320px;white-space:normal;padding:6px 8px;border-radius:var(--r);background:var(--raise-2);border:1px solid var(--seam-2);color:var(--fg-2);font:12px/1.4 var(--sans)}
 .effort>*:not(.on):hover,.subtabs>*:not(.on):hover{color:var(--fg-2)}
 .agent:not(.sel):hover,.slash .si:not(.on):hover,.wtt tbody tr:not(.grp-row):not(.sel):hover td,.mcp tbody tr:not(.sel):hover td,table tbody tr:not(.hot):hover td{background:var(--raise)}
-.toggle{cursor:pointer}
-.toggle:hover .sw{box-shadow:inset 0 0 0 1px var(--fg-4),0 0 0 3px var(--accent-soft)}
-.toggle.on:hover .sw{box-shadow:0 0 0 3px var(--accent-soft)}
+.toggle:not(:disabled){cursor:pointer}
+.toggle:disabled{opacity:.45;cursor:not-allowed}
+.toggle:not(:disabled):hover .sw{box-shadow:inset 0 0 0 1px var(--fg-4),0 0 0 3px var(--accent-soft)}
+.toggle.on:not(:disabled):hover .sw{box-shadow:0 0 0 3px var(--accent-soft)}
+.hint.why{margin-top:8px}
 .quota .qh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
 .quota .qh span:last-child{font:12px var(--mono);color:var(--fg-4)}
 

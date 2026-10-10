@@ -13,3 +13,11 @@ sys-locale = "0.3"
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
+
+# Desktop notifications (main.rs notify). macOS: mac-notification-sys directly, the only way to learn about a click
+# (tauri-plugin-notification drops it on desktop). It is what the plugin itself posts through, via notify-rust.
+[target.'cfg(target_os = "macos")'.dependencies]
+mac-notification-sys = "0.6"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tauri-plugin-notification = "2"

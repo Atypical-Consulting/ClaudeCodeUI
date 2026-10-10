@@ -1,9 +1,9 @@
-// Theme, code size, copy buttons, syntax highlighting and global shortcuts. Blazor owns the markup:
+// Theme, code size, notifications, copy buttons, syntax highlighting and global shortcuts. Blazor owns the markup:
 // never replace a node it rendered (the .cb wrapping is done server-side by Md.cs).
 (() => {
-    const THEMES = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'], THEME_KEY = 'claude-ui.theme', SIZE_KEY = 'claude-ui.code-size';
+    const THEMES = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'], THEME_KEY = 'claude-ui.theme', SIZE_KEY = 'claude-ui.code-size', NOTIFY_KEY = 'claude-ui.notify';
     const root = document.documentElement;
-    let net = null, queued = false, opener = null;
+    let net = null, queued = false, opener = null, asking = null;
 
     window.claudeUi = {
         getTheme: () => root.dataset.theme || 'graphite',
@@ -16,6 +16,33 @@
         setCodeSize(v) {
             root.style.setProperty('--code-size', v);
             localStorage.setItem(SIZE_KEY, v);
+        },
+        // Notifications (Notifications.cs), browser side. The desktop app keeps its toggle on the server: its origin
+        // (loopback port) changes with every launch, and localStorage with it.
+        notifyState() {
+            if (!window.Notification) return 'unsupported';
+            if (Notification.permission === 'denied') return 'denied';
+            return localStorage.getItem(NOTIFY_KEY) === 'on' && Notification.permission === 'granted' ? 'on' : 'off';
+        },
+        async setNotify(on) {
+            if (on && window.Notification && Notification.permission !== 'granted') {
+                try { await (asking || Notification.requestPermission()); } finally { asking = null; }
+            }
+            localStorage.setItem(NOTIFY_KEY, on && window.Notification?.permission === 'granted' ? 'on' : 'off');
+            return claudeUi.notifyState();
+        },
+        // Browser: nothing while this session is on screen in a focused window. Desktop (shell): returns true when the shell
+        // must post it, only while the window is in the background: macOS does not present a frontmost app's own notification.
+        notify(id, title, body, shell) {
+            if (shell) return !document.hasFocus();
+            if (localStorage.getItem(NOTIFY_KEY) !== 'on' || (document.hasFocus() && location.pathname.endsWith('/session/' + id))) return false;
+            if (window.Notification?.permission !== 'granted') return false;
+            try {
+                // tag: one per session, the newest replaces the previous one and alerts again (renotify).
+                const n = new Notification(title, { body, tag: id, renotify: true, icon: 'favicon.png' });
+                n.onclick = () => { window.focus(); n.close(); Blazor.navigateTo('session/' + id); };
+            } catch { }   // Android Chrome: only a service worker may show one (Illegal constructor)
+            return false;
         },
         copy: text => navigator.clipboard?.writeText(text),
         registerShortcuts(ref) { net = ref; },
@@ -233,6 +260,11 @@
     document.addEventListener('keydown', e => {
         if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.isComposing && e.target instanceof Element && e.target.matches('.composer textarea')
             && e.target.closest('.composer').querySelector('.pop [role=option]')) e.preventDefault();
+    });
+
+    // The permission prompt needs the click itself (user activation): the toggle's Blazor handler only runs after a round trip.
+    document.addEventListener('click', e => {
+        if (e.target instanceof Element && e.target.closest('#notify') && window.Notification?.permission === 'default') asking = Notification.requestPermission();
     });
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');

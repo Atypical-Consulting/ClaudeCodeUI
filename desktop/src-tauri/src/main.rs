@@ -3,6 +3,8 @@
 // --parent-pid and shuts itself down (killing its claude children) when this process exits.
 // Updates: tauri-plugin-updater, checked silently once the server is up, from the app menu, or when the server prints
 // UPDATE_LINE (the UI's "Check for updates" action); see check_for_updates.
+// The page gets no IPC (no capability): desktop notifications come from the server as `ccui-notify` stdout lines
+// (Notifications.cs), and a click on one comes back to the page as an eval.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -37,9 +39,12 @@ const UPDATE_LINE: &str = "ccui:check-for-updates";
 const MENU_CHECK: &str = "check-for-updates";
 
 fn main() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+    builder
         .menu(|app| {
             let check = MenuItem::with_id(app, MENU_CHECK, t("Check for Updates…", "Rechercher des mises à jour…"), true, None::<&str>)?;
             // macOS: in the app menu, under About. Elsewhere there is no default menu bar: a Help menu holds it.
@@ -118,9 +123,23 @@ fn main() {
                     None => return fail(wait_child(), false),
                 }
                 // Keep draining stdout so the server's console logging never blocks; echoed for a terminal launch.
+                // Post the notifications it asks for.
                 for l in lines {
+                    let mut f = l.splitn(4, '\t');
                     if l == UPDATE_LINE {
                         check_for_updates(window.app_handle().clone(), true);
+                    } else if let (Some("ccui-notify"), Some(id), Some(title), Some(body)) = (f.next(), f.next(), f.next(), f.next()) {
+                        let (window, id, title, body) = (window.clone(), id.to_owned(), title.to_owned(), body.to_owned());
+                        // A thread per notification: on macOS it waits for the click. Clicked: bring the window up on that session.
+                        std::thread::spawn(move || {
+                            if notify(&window, &title, &body) {
+                                // set_focus alone is a no-op on a minimized or hidden window (tao, macOS): restore it first.
+                                let _ = window.unminimize();
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                let _ = window.eval(format!("Blazor.navigateTo({:?})", format!("session/{id}")));
+                            }
+                        });
                     } else {
                         let _ = writeln!(std::io::stdout(), "{l}");
                     }
@@ -360,6 +379,27 @@ fn open_external(url: &Url) {
     let mut c = Command::new("xdg-open");
     c.arg(url.as_str()).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     std::thread::spawn(move || c.spawn().and_then(|mut p| p.wait())); // waited, so no zombie
+}
+
+// Posts one notification; true once the user clicks it. The page only asks for one while the window is in the background
+// (app.js notify): NSUserNotificationCenter does not present the frontmost app's own notifications.
+#[cfg(target_os = "macos")]
+fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
+    use mac_notification_sys::{set_application, Notification, NotificationResponse};
+    // Posted as this app (as Terminal under `tauri dev`, like tauri-plugin-notification); only the first call sets it.
+    let _ = set_application(if tauri::is_dev() { "com.apple.Terminal" } else { &window.config().identifier });
+    // ponytail: until the click, or until the notification is cleared from Notification Center, this thread parks and the
+    // crate polls deliveredNotifications every 0.5 s on the main run loop: N unclicked notifications cost N threads and N
+    // timers. The crate has no call to withdraw one; replacing the previous one per session needs that (or UNUserNotificationCenter).
+    matches!(Notification::new().title(title).message(body).wait_for_click(true).send(), Ok(NotificationResponse::Click))
+}
+
+// Windows / Linux: tauri-plugin-notification posts it but reports no click on desktop.
+#[cfg(not(target_os = "macos"))]
+fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = window.app_handle().notification().builder().title(title).body(body).show();
+    false
 }
 
 // GUI apps on macOS (and most Linux launchers) don't inherit the shell PATH, so `claude` would not be found.
