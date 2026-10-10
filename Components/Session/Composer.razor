@@ -250,8 +250,8 @@
         if (level == Ultra)
         {
             var top = LiveSession.UltraEffort(EffortLevels!);
-            if (Effort != top) await SetEffort(top);
-            if (error is null) await Run(() => Session.SetUltracode(true));
+            if (Effort != top) { await SetEffort(top); if (error is not null) return; }   // not a stale error from another action
+            await Run(() => Session.SetUltracode(true));
             return;
         }
         if (Session.Ultracode) await Run(() => Session.SetUltracode(false));

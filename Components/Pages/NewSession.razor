@@ -147,7 +147,7 @@
     string cwd = Directory.GetCurrentDirectory(), prompt = "", mode = "default", model = "", effort = "";
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
-    string draft = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
+    string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
     bool? focusName;   // keyboard-first: Edit hands focus to the input (true), OK / Escape back to Edit (false); refs exist only after the render
     bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
     List<string> recents = [];
@@ -182,6 +182,7 @@
         if (ct.IsCancellationRequested) return;   // newer keystrokes own the hint now
         naming = null;
         Land(text, name);
+        StateHasChanged();   // the toggle fires Name() and forgets it: nothing else renders the landed name
     }
 
     void Land(string text, string? name)
@@ -272,10 +273,11 @@
         return free;
     }
 
-    void EditName() { draft = WtName; editing = true; focusName = true; }
+    void EditName() { draft = editFrom = WtName; editing = true; focusName = true; }
 
-    // A draft that sanitizes to nothing falls back to the name derived from the prompt.
-    void CommitName() { wtName = TranscriptStore.WorktreeName(draft); editing = false; focusName = false; }
+    // A draft that sanitizes to nothing falls back to the name derived from the prompt. An untouched draft is no manual
+    // name: Edit then OK must not freeze the heuristic over a pending Haiku name, nor stop it following the prompt.
+    void CommitName() { if (draft != editFrom) wtName = TranscriptStore.WorktreeName(draft); editing = false; focusName = false; }
 
     void NameKeys(KeyboardEventArgs e)
     {
