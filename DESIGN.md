@@ -301,6 +301,14 @@ With no session running the Overview is a "pick up where you left off" page, nev
 
 **Status.** Cached rows render at once; while a scan runs, "Looking for worktrees… 7 of 24 repositories" (a repository counts once read; the last scan's age is its title) replaces the header totals while it runs, beside Refresh, whose icon turns (still focusable); the "to reclaim" clause waits for the sizes, and the `.gitignore` warnings of the last scan show with the cached rows, so nothing pushes the table down when the scan lands. Row buttons name the row as it is shown (the branch); "New session" says it starts one in that folder.
 
+### Settings Page
+
+**Layout.** One page, named Settings in the rail, the palette and its header (`/settings/appearance`); Extensions keeps its own title. Three headed groups, divided by a seam: Appearance (Language, Theme, Code size with its preview right under it: size is judged by looking; the preview is `inert`, a picture with no Copy or scroller in the Tab order), Sessions (Notifications, Thinking summaries, Message times), About (Version). Each row is a label column (25%, 200px minimum) with a `fg-4` hint, and the control. The ⌘K "theme" tip sits in the Theme hint. Language is the one row that waits: Apply stays disabled until another language is picked, then turns primary, and reloads the page.
+
+**Truth.** Every hint says what the setting really does: code size reaches code blocks, diffs and file views (diffs and files sit 1px under it), notifications skip only the session on screen in a focused window, thinking summaries are asked of sessions started or resumed afterwards and shown or hidden by threads opened afterwards. Theme and code size live on the server (`AppPref`, a file beside the `AppFlag` toggles), because the desktop page's storage resets each launch: the head applies them before first paint, the page knows them on its first render (no card flashes unselected), and a change made elsewhere (the palette's theme command) moves the cards too.
+
+**Keys.** Theme and code size are radio groups: one Tab stop, arrows and Home/End move and choose. Every button carries `tabindex="0"` so WebKit's default Tab reaches it. A theme card's ring and resting border use the page's tokens, never its own (High contrast's white seam would outshine the selection); the selected card has a 1px accent ring plus the soft halo.
+
 ### Tool Ledger (signature)
 Bordered 8px container with a `sunk` header line ("3 outils · ..."). Each row is a mono grid: chevron, tool kind in its syntax colour (500), target in `fg` with ellipsis, meta in `fg-4`. Hover `raise`; selected or expanded rows get `raise` plus the 2px accent inset bar; a row waiting for permission is tinted 6% accent with accent meta; voided rows strike through. On the site rows expand (Enter or click) on a screenshot and explanation, animating `grid-template-rows` over 320ms.
 

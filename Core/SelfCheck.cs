@@ -40,6 +40,7 @@ public static class SelfCheck
             Bookmarks.Check();
             Usage.Check();
             UserSettings.Check();
+            AppPref.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

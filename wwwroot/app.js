@@ -271,6 +271,7 @@
         if (j === undefined) return;
         e.preventDefault();
         const next = items[(j + n) % n];
+        items.forEach(x => x.tabIndex = x === next ? 0 : -1);   // now, not on the server's render: a Tab right after lands right
         next.focus();
         next.click();
     });

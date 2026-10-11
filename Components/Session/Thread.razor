@@ -13,7 +13,7 @@
     @{ var blocks = Blocks(); var last = blocks.OfType<ThreadBlocks.Run>().LastOrDefault(r => !r.Agents); DateTime? day = null; }
     @foreach (var b in blocks)
     {
-        @* Times (Appearance): a divider when the day changes, but none above a thread that starts today. *@
+        @* Times (Settings): a divider when the day changes, but none above a thread that starts today. *@
         if (stamps && (b switch { UserItem u => u.At, TextItem t => t.At, _ => null }) is { } dated && dated.ToLocalTime().Date is var d && d != day)
         {
             if (day is not null || d != DateTime.Today)
