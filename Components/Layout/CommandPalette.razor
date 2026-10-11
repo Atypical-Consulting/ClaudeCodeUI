@@ -104,7 +104,7 @@
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
         rows.AddRange(hits.Select(h => new Row(true, h.Snippet, Sessions.Get(h.Session.Id) is { } live ? RailSessionRow.Dot(live) : "exited",
-            Join(h.Session.Title, TranscriptStore.RepoName(h.Session.Cwd)), 0, Day(h.At), null, PastRow(h.Session).Run, Msg: true)));
+            Join(h.Session.Title, TranscriptStore.RepoName(h.Session.Cwd)), 0, Fmt.Day(h.At), null, PastRow(h.Session).Run, Msg: true)));
         return rows;
     }
 
@@ -120,15 +120,8 @@
         null, Go($"session/{s.Id}"));
 
     Row PastRow(PastSession p) => new(true, p.Title, "exited",
-        Join(p.Branch, TranscriptStore.RepoName(p.Cwd), Day(p.LastWrite), p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : null),
+        Join(p.Branch, TranscriptStore.RepoName(p.Cwd), Fmt.Day(p.LastWrite), p.CostUsd >= 0.005m ? Fmt.Cost(p.CostUsd.Value, 2) : null),
         0, Sessions.RunningElsewhere(p.Id) ? L["Status.Elsewhere"] : L["Status.History"], null, () => { Sessions.Open(p); return Go($"session/{p.Id}")(); });
-
-    string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
-    {
-        0 => Fmt.Time(t),
-        1 => L["Day.Yesterday"],
-        var d => L["Day.Ago", d],
-    };
 
     static string Join(params string?[] parts) => string.Join(" · ", parts.Where(p => !string.IsNullOrEmpty(p)));
 

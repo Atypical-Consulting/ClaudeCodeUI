@@ -33,6 +33,15 @@ public static class Fmt
 
     public static string Time(DateTimeOffset t) => t.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
 
+    // 14:05 today, "yesterday", "3d ago"; a later day (a quota reset) "Mon 19:00".
+    public static string Day(DateTimeOffset t) => (DateTime.Today - t.LocalDateTime.Date).Days switch
+    {
+        < 0 => t.ToLocalTime().ToString("ddd HH:mm", C),
+        0 => Time(t),
+        1 => Strings.Get("Day.Yesterday"),
+        var d => Strings.Get("Day.Ago", d),
+    };
+
     public static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
 
     public static string Home(string path)
