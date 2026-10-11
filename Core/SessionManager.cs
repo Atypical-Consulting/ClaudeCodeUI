@@ -24,12 +24,14 @@ public sealed class SessionManager : IAsyncDisposable
 
     // The latest quota received, all sessions included.
     public RateLimitEvt? Limits => all.Where(s => s.Limits is not null).MaxBy(s => s.LimitsAt)?.Limits;
+    // And the latest get_usage, from the newest session that has one (the one that can be asked again, if it still runs).
+    public LiveSession? UsageSource => all.LastOrDefault(s => s.Usage is not null && s.HasProcess) ?? all.LastOrDefault(s => s.Usage is not null);
 
     public event Action? Changed;
 
-    public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort, IReadOnlyList<string> addDirs)
+    public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort, IReadOnlyList<string> addDirs, string? fallback = null)
     {
-        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs));
+        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs) { FallbackModel = fallback });
         if (addDirs.Count > 0) TranscriptStore.RecordDirs(s.Id, addDirs);
         try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
         _ = s.RefreshGit();

@@ -143,6 +143,9 @@ public sealed class LiveSession : IAsyncDisposable
     public string? Model { get; private set; }
     public string? Effort { get; private set; }
     public bool Ultracode { get; private set; }               // toggle "for this turn"
+    public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
+    public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0 live, --thinking disabled at launch
+    public string? Advisor { get; private set; }              // get_settings applied.advisor: the model actually attached, or null
     public string FastModeState { get; private set; } = "off";
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
@@ -150,6 +153,9 @@ public sealed class LiveSession : IAsyncDisposable
     public ImmutableDictionary<string, string> PluginStatus { get; private set; } = ImmutableDictionary<string, string>.Empty;   // plugin → its ui_status line
     public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
+    public Usage? Usage { get; private set; }                  // get_usage past the two windows; Week only after RefreshUsage(true)
+    public long CacheRead { get; private set; }                // the last API call's prompt read from the cache, and written to it
+    public long CacheWrite { get; private set; }
     public RetryEvt? Retry { get; private set; }               // the API call being retried; cleared by the next sign of progress
     public DateTimeOffset? CompactingSince { get; private set; }   // status "compacting" (manual or automatic), until the next status
     public ImmutableList<Artifact> Artifacts { get; private set; } = [];   // the session's published artifacts (session_metadata)
@@ -353,6 +359,40 @@ public sealed class LiveSession : IAsyncDisposable
         Notify();
     }
 
+    // As the terminal's thinking toggle: 0 turns it off, null back to the session default (claude 2.1.296).
+    public async Task SetThinking(bool on)
+    {
+        await Request("set_max_thinking_tokens", new() { ["max_thinking_tokens"] = on ? null : 0 });
+        Thinking = on;
+        Notify();
+    }
+
+    // advisorModel in the flag layer, null to remove it (/advisor off). The CLI drops an advisor weaker than the model:
+    // applied.advisor says what stuck (verified on 2.1.296: "opus" → claude-opus-5-5, null → null).
+    public async Task SetAdvisor(string? model)
+    {
+        await Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["advisorModel"] = model } });
+        Advisor = Events.Prop(await Request("get_settings"), "applied") is { } a ? Events.Str(a, "advisor") : null;
+        Notify();
+    }
+
+    // The breakdown (behaviors) scans every local transcript of the week: asked only when shown.
+    public async Task RefreshUsage(bool behaviors)
+    {
+        if (proc is not { } p) return;
+        Usage = Usage.Parse(await p.Request("get_usage", behaviors ? null : new() { ["skip_behaviors"] = true }, 60));
+        Notify();
+    }
+
+    // The model goes into the user settings file (the CLI's update_settings takes effortLevel only); the effort through
+    // update_settings, saved for the session's model as /effort does ("max" is session-only: not written).
+    public async Task SetDefault(string model, string? effort)
+    {
+        UserSettings.SetModel(model);
+        if (effort is { } e and not "max")
+            await Request("update_settings", new() { ["source"] = "userSettings", ["settings"] = new JsonObject { ["effortLevel"] = e } });
+    }
+
     public Task SetFast(bool on) => Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["fastMode"] = on } });
 
     public Task SetUltracode(bool on)
@@ -514,6 +554,8 @@ public sealed class LiveSession : IAsyncDisposable
         }
         if (Model is { } m) args.AddRange(["--model", m]);
         if (Effort is { } e) args.AddRange(["--effort", e]);
+        if (FallbackModel is { } fb) args.AddRange(["--fallback-model", fb]);
+        if (!Thinking) args.Add("--thinking=disabled");   // the SDK's form; set_max_thinking_tokens does not survive a relaunch
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
         // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
         if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
@@ -543,13 +585,18 @@ public sealed class LiveSession : IAsyncDisposable
             InitializeInfo = info;
             if (Mode.Length == 0) Mode = Events.Str(info, "current_permission_mode") ?? "default";
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
-            var applied = Events.Prop(await p.Request("get_settings"), "applied");
-            if (applied is { } a)
+            var settings = await p.Request("get_settings");
+            if (Events.Prop(settings, "applied") is { } a)
             {
                 Effort = Events.Str(a, "effort") ?? Effort;
                 Model ??= Events.Str(a, "model");
+                Advisor = Events.Str(a, "advisor");
             }
-            if (Events.Prop(await p.Request("get_usage"), "rate_limits") is { } rl
+            // alwaysThinkingEnabled: false starts the session with thinking off, as the terminal's toggle shows it.
+            if (Events.Prop(settings, "effective") is { } eff && Events.Prop(eff, "alwaysThinkingEnabled") is { ValueKind: JsonValueKind.False }) Thinking = false;
+            var usage = await p.Request("get_usage", new() { ["skip_behaviors"] = true });
+            Usage = Usage.Parse(usage);
+            if (Events.Prop(usage, "rate_limits") is { } rl
                 && Events.Prop(rl, "five_hour") is { } h5 && Events.Prop(rl, "seven_day") is { } d7 && Limits is null)
             {
                 Limits = new(Pct(h5), Reset(h5), Pct(d7), Reset(d7));   // get_usage is 0..100, normalised to 0..1
@@ -875,7 +922,7 @@ public sealed class LiveSession : IAsyncDisposable
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
                 LastResultSubtype = r.TerminalReason?.StartsWith("aborted") == true ? Interrupted : r.Subtype;
                 LastResultAt = now;
-                if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
+                if (r.ContextTokens > 0) (ContextTokens, CacheRead, CacheWrite) = (r.ContextTokens, r.CacheRead, r.CacheWrite);
                 if (r.ContextWindow is { } w) ContextWindow = w;
                 if (r.FastModeState is { } fs) { FastModeState = fs; FastModeReason = r.FastModeReason; }
                 // A call refused by a deny rule or the auto-mode classifier never asked: only its error result and this list say so.
@@ -899,7 +946,8 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case RateLimitEvt l:
-                Limits = l;
+                // An event without unifiedWindows still carries the status: keep the windows known so far.
+                Limits = l.FiveHourReset == default && Limits is { } k ? l with { FiveHour = k.FiveHour, FiveHourReset = k.FiveHourReset, SevenDay = k.SevenDay, SevenDayReset = k.SevenDayReset } : l;
                 LimitsAt = now;
                 break;
 
@@ -992,6 +1040,20 @@ public sealed class LiveSession : IAsyncDisposable
         return [.. i < 0 ? items : items.Take(i + 1)];
     }
 
+    // maxEffortLevel from get_settings.effective: modelSettings.<model> replaces the top-level one ("max" exempts the model),
+    // keyed by canonical name, which also matches the dated and [1m] spellings. Levels above it the CLI clamps: not offered.
+    internal static string? EffortCap(JsonElement effective, string? model)
+    {
+        var cap = Events.Str(effective, "maxEffortLevel");
+        if (model is { } m && Events.Prop(effective, "modelSettings") is { ValueKind: JsonValueKind.Object } ms)
+            foreach (var x in ms.EnumerateObject())
+                if (m.StartsWith(x.Name, StringComparison.OrdinalIgnoreCase) && Events.Str(x.Value, "maxEffortLevel") is { } own) cap = own;
+        return cap == "max" ? null : cap;
+    }
+
+    internal static IReadOnlyList<string> Capped(IReadOnlyList<string> levels, string? cap) =>
+        cap is not null && levels.ToList().IndexOf(cap) is >= 0 and var i ? [.. levels.Take(i + 1)] : levels;
+
     // A silent success is the common case (and most of the stream's hook events): nothing to show. Context a hook injects
     // into the prompt is for the model, not to read: a successful SessionStart (plugins: ~11 KB per start) or SubagentStart
     // (~5 KB per Agent call, measured on 2.1.296), and any output that is only hookSpecificOutput.additionalContext.
@@ -1038,6 +1100,19 @@ public sealed class LiveSession : IAsyncDisposable
         AppFlag.Thinking.On = true;
         Ok(new LiveSession("t", "t", "/w", "default").Args(false) is [.., "--name", "t", "--thinking-display", "summarized"], "thinking summaries asked when on");
         AppFlag.Thinking.On = false;
+        var fb = new LiveSession("fb", "fb", "/w", "default", model: "opus") { FallbackModel = "sonnet" };
+        fb.Thinking = false;
+        Ok(fb.Args(false) is [.., "--model", "opus", "--fallback-model", "sonnet", "--thinking=disabled"], "fallback model and thinking off at launch");
+        Ok(Capped(["low", "medium", "high", "xhigh", "max"], "high") is ["low", "medium", "high"] && Capped(["low", "high"], null).Count == 2 && Capped(["low", "high"], "auto").Count == 2, "effort cap");
+        var effS = JsonDocument.Parse("""{"maxEffortLevel":"high","modelSettings":{"claude-fable-5-1":{"maxEffortLevel":"max"},"claude-opus-5-5":{"maxEffortLevel":"medium"}}}""").RootElement;
+        Ok(EffortCap(effS, "claude-haiku-5-5") == "high" && EffortCap(effS, "claude-fable-5-1") is null && EffortCap(effS, "claude-opus-5-5[1m]") == "medium"
+           && EffortCap(JsonDocument.Parse("{}").RootElement, "x") is null, "maxEffortLevel, per model, max exempts");
+        var rlm = new LiveSession("rl", "rl", "/w", "default");
+        rlm.Apply(new RateLimitEvt(0.05, DateTimeOffset.FromUnixTimeSeconds(1), 0.91, DateTimeOffset.FromUnixTimeSeconds(2)));
+        rlm.Apply(new RateLimitEvt(0, default, 0, default, "rejected", "seven_day"));
+        Ok(rlm.Limits is { Status: "rejected", SevenDay: 0.91, FiveHour: 0.05 }, "rate limit status keeps the known windows");
+        rlm.Apply(new ResultEvt("success", false, 0, 10, 1, 34232, null, null, null, CacheRead: 11204, CacheWrite: 23026));
+        Ok(rlm is { ContextTokens: 34232, CacheRead: 11204, CacheWrite: 23026 }, "prompt cache of the last call");
 
         // /compact as probed on 2.1.296: compacting, hooks, status null, boundary, summary; then an auto compaction mid-turn.
         var cp = new LiveSession("cp", "cp", "/w", "default");

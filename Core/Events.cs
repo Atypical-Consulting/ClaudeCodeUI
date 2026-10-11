@@ -57,8 +57,12 @@ public record CancelRequestEvt(string RequestId) : ClaudeEvent;
 public record RetryEvt(int Attempt, int MaxRetries, int DelayMs, int? ErrorStatus, string? Error) : ClaudeEvent;
 public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int DurationMs, int NumTurns,
                         long ContextTokens, long? ContextWindow, string? FastModeState, string? FastModeReason,
-                        string? TerminalReason = null, IReadOnlyList<string>? Denied = null) : ClaudeEvent;   // Denied: permission_denials' tool_use_ids
-public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset) : ClaudeEvent; // 0..1
+                        string? TerminalReason = null, IReadOnlyList<string>? Denied = null,
+                        long CacheRead = 0, long CacheWrite = 0) : ClaudeEvent;   // Denied: permission_denials' tool_use_ids; Cache*: the last call's
+// Windows 0..1 (FiveHourReset default = the event had no unifiedWindows). Status: allowed|allowed_warning|rejected, for the
+// limiting window Type (five_hour, seven_day…). ExtraOn = overageEnabled, ExtraInUse = isUsingOverage, ExtraOff = overageDisabledReason.
+public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset,
+                           string Status = "allowed", string? Type = null, bool ExtraOn = false, bool ExtraInUse = false, string? ExtraOff = null) : ClaudeEvent;
 // TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
 public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
 public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt, bool Backgrounded = false) : ClaudeEvent;   // patch.status: running|completed|failed|killed…; patch.is_backgrounded after background_tasks
@@ -187,7 +191,8 @@ public static class Events
                         (int)Long(e, "duration_ms"), (int)Long(e, "num_turns"), ctx, window,
                         Str(e, "fast_mode_state"), Str(e, "fast_mode_disabled_reason"), Str(e, "terminal_reason"),
                         Prop(e, "permission_denials") is { ValueKind: JsonValueKind.Array } pd
-                            ? [.. pd.EnumerateArray().Select(x => Str(x, "tool_use_id")).OfType<string>()] : null);
+                            ? [.. pd.EnumerateArray().Select(x => Str(x, "tool_use_id")).OfType<string>()] : null,
+                        usage is { } c ? Long(c, "cache_read_input_tokens") : 0, usage is { } w2 ? Long(w2, "cache_creation_input_tokens") : 0);
                     break;
                 }
 
@@ -200,10 +205,14 @@ public static class Events
                 break;
 
             case "rate_limit_event":
-                if (Prop(e, "rate_limit_info") is { } info && Prop(info, "unifiedWindows") is { } uw
-                    && Prop(uw, "five_hour") is { } h5 && Prop(uw, "seven_day") is { } d7)
-                    yield return new RateLimitEvt(Double(h5, "utilization"), DateTimeOffset.FromUnixTimeSeconds(Long(h5, "resetsAt")),
-                        Double(d7, "utilization"), DateTimeOffset.FromUnixTimeSeconds(Long(d7, "resetsAt")));
+                if (Prop(e, "rate_limit_info") is { } info)
+                {
+                    var uw = Prop(info, "unifiedWindows");
+                    JsonElement? h5 = uw is { } u5 ? Prop(u5, "five_hour") : null, d7 = uw is { } u7 ? Prop(u7, "seven_day") : null;
+                    yield return new RateLimitEvt(h5 is { } w1 ? Double(w1, "utilization") : 0, h5 is { } w2 ? DateTimeOffset.FromUnixTimeSeconds(Long(w2, "resetsAt")) : default,
+                        d7 is { } w3 ? Double(w3, "utilization") : 0, d7 is { } w4 ? DateTimeOffset.FromUnixTimeSeconds(Long(w4, "resetsAt")) : default,
+                        Str(info, "status") ?? "allowed", Str(info, "rateLimitType"), Bool(info, "overageEnabled"), Bool(info, "isUsingOverage"), Str(info, "overageDisabledReason"));
+                }
                 break;
         }
     }
@@ -488,7 +497,7 @@ public static class Events
         Ok(exit is { Tool: "ExitPlanMode", ToolUseId: "toolu_01Cc", Suggestions: null } && Str(exit.Input, "plan")!.StartsWith("# Plan"), "can_use_tool ExitPlanMode (no suggestions)");
 
         var ok = P("""{"type":"result","subtype":"success","is_error":false,"duration_ms":2548,"num_turns":3,"total_cost_usd":0.0063816,"usage":{"input_tokens":8,"cache_creation_input_tokens":22821,"cache_read_input_tokens":139210,"iterations":[{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":41768,"cache_creation_input_tokens":108}]},"modelUsage":{"claude-haiku-5-5":{"costUSD":0.0063816,"contextWindow":1000000}},"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as ResultEvt;
-        Ok(ok is { Subtype: "success", IsError: false, TotalCostUsd: 0.0063816m, DurationMs: 2548, NumTurns: 3, ContextTokens: 41878, ContextWindow: 1000000, TerminalReason: "completed", FastModeReason: "sdk_opt_in_required" }, "result success");
+        Ok(ok is { Subtype: "success", IsError: false, TotalCostUsd: 0.0063816m, DurationMs: 2548, NumTurns: 3, ContextTokens: 41878, ContextWindow: 1000000, TerminalReason: "completed", FastModeReason: "sdk_opt_in_required", CacheRead: 41768, CacheWrite: 108 }, "result success");
         // claude 2.1.296: a Read refused by a project deny rule (never a can_use_tool) is listed in permission_denials.
         Ok(P("""{"type":"result","subtype":"success","is_error":false,"duration_ms":10,"num_turns":2,"total_cost_usd":0.01,"usage":{},"permission_denials":[{"tool_name":"Read","tool_use_id":"toolu_01Ao","tool_input":{"file_path":"/w/secret.txt"}}],"terminal_reason":"completed"}""")
            is ResultEvt { Denied: ["toolu_01Ao"] }, "result permission_denials");
@@ -497,7 +506,11 @@ public static class Events
         Ok(ab is { Subtype: "error_during_execution", IsError: true, TerminalReason: "aborted_streaming", ContextTokens: 0, TotalCostUsd: 0.012436335m }, "result interrupted");
 
         var rl = P("""{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1791552000,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.36,"resetsAt":1791552000},"seven_day":{"utilization":0.26,"resetsAt":1791828000}}}}""") as RateLimitEvt;
-        Ok(rl is { FiveHour: 0.36, SevenDay: 0.26 } && rl.FiveHourReset.ToUnixTimeSeconds() == 1791552000, "rate_limit_event");
+        Ok(rl is { FiveHour: 0.36, SevenDay: 0.26, Status: "allowed", ExtraOn: false } && rl.FiveHourReset.ToUnixTimeSeconds() == 1791552000, "rate_limit_event");
+        // claude 2.1.296 past 75 % of the week, extra usage off for the org (probed).
+        Ok(P("""{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1791828000,"rateLimitType":"seven_day","utilization":0.91,"overageStatus":"rejected","overageDisabledReason":"org_level_disabled","isUsingOverage":false,"surpassedThreshold":0.75,"unifiedWindows":{"five_hour":{"utilization":0.05,"resetsAt":1791696000},"seven_day":{"utilization":0.91,"resetsAt":1791828000}},"overageEnabled":false},"uuid":"u","session_id":"s"}""")
+           is RateLimitEvt { Status: "allowed_warning", Type: "seven_day", SevenDay: 0.91, ExtraOn: false, ExtraOff: "org_level_disabled" }
+           && P("""{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","rateLimitType":"five_hour","overageEnabled":true,"isUsingOverage":true}}""") is RateLimitEvt { Status: "rejected", ExtraInUse: true, FiveHourReset.Ticks: 0 }, "rate_limit_event warning and rejected");
 
         Ok(P("""{"type":"system","subtype":"task_started","task_id":"ab1","tool_use_id":"toolu_B","description":"Reply pong","subagent_type":"general-purpose","is_backgrounded":false}""") is TaskStartedEvt { TaskId: "ab1", ToolUseId: "toolu_B", Description: "Reply pong", SubagentType: "general-purpose" }, "task_started");
         Ok(P("""{"type":"system","subtype":"task_progress","task_id":"ab1","usage":{"total_tokens":26511,"tool_uses":1,"duration_ms":2092}}""") is TaskProgressEvt { TotalTokens: 26511, ToolUses: 1, DurationMs: 2092, Workflow: null }, "task_progress");

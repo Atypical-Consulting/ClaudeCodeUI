@@ -108,6 +108,16 @@
                 </div>
             </div>
             <div class="field">
+                <label for="fallback">@L["New.Fallback"]</label>
+                <div class="picks">
+                    @* --fallback-model: used when the model is overloaded. The CLI refuses the model itself as its fallback. *@
+                    <select id="fallback" @bind="fallback" title="@L["New.FallbackHint"]">
+                        <option value="">@L["New.NoFallback"]</option>
+                        @foreach (var m in Models.Where(m => m != model)) { <option value="@m">@m</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
                 <label for="effort">@L["New.Effort"]</label>
                 <EffortSlider Id="effort" Levels="Efforts" @bind-Value="effort" Name='e => Strings.Name("Effort.", e is "" ? "default" : e)' />
             </div>
@@ -138,7 +148,7 @@
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "";
+    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "", fallback = "";
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
     string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
@@ -265,7 +275,8 @@
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         // The CLI retitles the session after the first prompt (session_title_changed).
         var name = wt ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
-        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs,
+            fallback is { Length: > 0 } && fallback != model ? fallback : null);
         Nav.NavigateTo($"session/{s.Id}");
     }
 }

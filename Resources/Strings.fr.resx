@@ -85,6 +85,10 @@
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Outils</value></data>
+  <data name="Composer.Advisor" xml:space="preserve"><value>conseiller · {0}</value></data>
+  <data name="Composer.Thinking" xml:space="preserve"><value>Réflexion</value></data>
+  <data name="Composer.ThinkingHint" xml:space="preserve"><value>Réflexion étendue pour cette session</value></data>
+  <data name="Composer.ThinkingMid" xml:space="preserve"><value>Changer la réflexion en cours de conversation ajoute de la latence et peut réduire la qualité.</value></data>
   <data name="Copy.Done" xml:space="preserve"><value>Copié</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Action impossible : {0}</value></data>
   <data name="Composer.Attach" xml:space="preserve"><value>Joindre des images (ou les coller ou les déposer ici)</value></data>
@@ -135,6 +139,9 @@
   <data name="Crash.Title" xml:space="preserve"><value>Le processus Claude s’est arrêté</value></data>
   <data name="Ctx.Auto" xml:space="preserve"><value>Auto à {0}</value></data>
   <data name="Ctx.AutoTitle" xml:space="preserve"><value>Seuil d’auto-compactage du CLI</value></data>
+  <data name="Ctx.Cache" xml:space="preserve"><value>Cache de prompt</value></data>
+  <data name="Ctx.CacheHint" xml:space="preserve"><value>Une part faible après une pause, un changement de modèle ou une compaction : le cache avait expiré ou ne correspondait plus, et le prompt a été réécrit.</value></data>
+  <data name="Ctx.CacheLine" xml:space="preserve"><value>Dernière requête : {0} lu dans le cache, {1} jetons écrits.</value></data>
   <data name="Ctx.Cat.Agents" xml:space="preserve"><value>agents personnalisés</value></data>
   <data name="Ctx.Cat.Mcp" xml:space="preserve"><value>outils MCP</value></data>
   <data name="Ctx.Cat.McpN" xml:space="preserve"><value>outils MCP · {0}</value></data>
@@ -316,7 +323,16 @@
   <data name="Mode.Name." xml:space="preserve"><value>Réglages</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Lecture seule, propose un plan</value></data>
   <data name="Model" xml:space="preserve"><value>Modèle</value></data>
+  <data name="Model.Advisor" xml:space="preserve"><value>Conseiller</value></data>
+  <data name="Model.AdvisorHint" xml:space="preserve"><value>Un modèle plus puissant que Claude consulte aux moments clés (/advisor).</value></data>
+  <data name="Model.AdvisorOff" xml:space="preserve"><value>Désactivé</value></data>
+  <data name="Model.AdvisorRefused" xml:space="preserve"><value>{0} ne peut pas conseiller ce modèle : le conseiller doit être au moins aussi capable.</value></data>
+  <data name="Model.CacheHint" xml:space="preserve"><value>Changer de modèle en cours de conversation repart sans le cache de prompt : le tour suivant relit toute la conversation au plein tarif.</value></data>
   <data name="Model.Current" xml:space="preserve"><value>actuel</value></data>
+  <data name="Model.DefaultFailed" xml:space="preserve"><value>Enregistrement impossible : {0}</value></data>
+  <data name="Model.DefaultSet" xml:space="preserve"><value>Enregistré par défaut.</value></data>
+  <data name="Model.DefaultSetNoMax" xml:space="preserve"><value>Modèle enregistré par défaut ; l’effort max reste propre à cette session.</value></data>
+  <data name="Model.SetDefault" xml:space="preserve"><value>Par défaut pour les nouvelles sessions</value></data>
   <data name="Model.SetFailed" xml:space="preserve"><value>Changement de modèle impossible : {0}</value></data>
   <data name="Nav.Appearance" xml:space="preserve"><value>Apparence</value></data>
   <data name="Nav.Extensions" xml:space="preserve"><value>Extensions</value></data>
@@ -326,6 +342,8 @@
   <data name="New.DefaultModel" xml:space="preserve"><value>Modèle par défaut</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Modifier</value></data>
   <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
+  <data name="New.Fallback" xml:space="preserve"><value>Modèle de repli</value></data>
+  <data name="New.FallbackHint" xml:space="preserve"><value>Utilisé quand le modèle est surchargé (--fallback-model).</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Dossier de travail</value></data>
   <data name="New.Guide" xml:space="preserve"><value>Guide complet :</value></data>
   <data name="New.GuideUrl" xml:space="preserve"><value>https://docs.claude.com/fr/docs/claude-code/setup</value></data>
@@ -336,6 +354,7 @@
   <data name="New.HintSwitch" xml:space="preserve"><value>changer de session</value></data>
   <data name="New.Isolation" xml:space="preserve"><value>Isolation</value></data>
   <data name="New.HomeFolder" xml:space="preserve"><value>C’est ton dossier personnel : Claude peut y lire et modifier tout, sans worktree pour l’isoler. Préfère un dossier de projet.</value></data>
+  <data name="New.NoFallback" xml:space="preserve"><value>Aucun</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>Ce dossier n’existe pas.</value></data>
   <data name="New.NotFound" xml:space="preserve"><value>Claude Code est introuvable</value></data>
   <data name="New.NotFoundText" xml:space="preserve"><value>Cette application pilote le CLI &lt;code&gt;claude&lt;/code&gt;, qui n’est pas dans le PATH.</value></data>
@@ -422,11 +441,41 @@
   <data name="Plan.HintReview" xml:space="preserve"><value>relire chaque modification</value></data>
   <data name="Plan.Keep" xml:space="preserve"><value>Continuer à planifier</value></data>
   <data name="Plan.Title" xml:space="preserve"><value>Approuver ce plan ?</value></data>
+  <data name="Quota.Beh.cache_miss" xml:space="preserve"><value>Échecs de cache</value></data>
+  <data name="Quota.Beh.cron" xml:space="preserve"><value>Planifié</value></data>
+  <data name="Quota.Beh.high_parallel" xml:space="preserve"><value>Parallélisme élevé</value></data>
+  <data name="Quota.Beh.long_context" xml:space="preserve"><value>Contexte long</value></data>
+  <data name="Quota.Beh.subagent_heavy" xml:space="preserve"><value>Beaucoup de sous-agents</value></data>
+  <data name="Quota.Blocked" xml:space="preserve"><value>Limite {0} atteinte.</value></data>
+  <data name="Quota.Breakdown" xml:space="preserve"><value>Détail</value></data>
+  <data name="Quota.Credits" xml:space="preserve"><value>Crédits</value></data>
+  <data name="Quota.ExtraInUse" xml:space="preserve"><value>L’usage supplémentaire prend le relais.</value></data>
+  <data name="Quota.ExtraOff" xml:space="preserve"><value>L’usage supplémentaire est désactivé.</value></data>
+  <data name="Quota.ExtraOn" xml:space="preserve"><value>L’usage supplémentaire est activé.</value></data>
   <data name="Quota.FiveHours" xml:space="preserve"><value>5 h</value></data>
   <data name="Quota.Hint" xml:space="preserve"><value>Utilisation du forfait rapportée par Claude. La fenêtre de 7 jours se réinitialise le {0}.</value></data>
+  <data name="Quota.Kind.agents" xml:space="preserve"><value>Agents</value></data>
+  <data name="Quota.Kind.behaviors" xml:space="preserve"><value>Comportements</value></data>
+  <data name="Quota.Kind.mcp_servers" xml:space="preserve"><value>Serveurs MCP</value></data>
+  <data name="Quota.Kind.plugins" xml:space="preserve"><value>Plugins</value></data>
+  <data name="Quota.Kind.skills" xml:space="preserve"><value>Skills</value></data>
+  <data name="Quota.ModelWeek" xml:space="preserve"><value>Fenêtre hebdomadaire {0}</value></data>
+  <data name="Quota.NoBreakdown" xml:space="preserve"><value>Pas de détail pour ce compte.</value></data>
+  <data name="Quota.ReadFailed" xml:space="preserve"><value>Lecture de l’usage impossible : {0}</value></data>
+  <data name="Quota.Reading" xml:space="preserve"><value>Lecture des transcripts de la semaine…</value></data>
   <data name="Quota.Resets" xml:space="preserve"><value>réinit. {0}</value></data>
+  <data name="Quota.Settings" xml:space="preserve"><value>Réglages d’usage</value></data>
   <data name="Quota.SevenDays" xml:space="preserve"><value>7 j</value></data>
+  <data name="Quota.Surfaces" xml:space="preserve"><value>Cette semaine par produit</value></data>
   <data name="Quota.Usage" xml:space="preserve"><value>Utilisation</value></data>
+  <data name="Quota.Used" xml:space="preserve"><value>{0} utilisés</value></data>
+  <data name="Quota.Warn" xml:space="preserve"><value>Tu approches de ta limite {0}.</value></data>
+  <data name="Quota.Window.five_hour" xml:space="preserve"><value>de 5 h</value></data>
+  <data name="Quota.Window.overage" xml:space="preserve"><value>d’usage supplémentaire</value></data>
+  <data name="Quota.Window.seven_day" xml:space="preserve"><value>hebdomadaire</value></data>
+  <data name="Quota.Window.seven_day_opus" xml:space="preserve"><value>hebdomadaire Opus</value></data>
+  <data name="Quota.Window.seven_day_overage_included" xml:space="preserve"><value>hebdomadaire du modèle</value></data>
+  <data name="Quota.Window.seven_day_sonnet" xml:space="preserve"><value>hebdomadaire Sonnet</value></data>
   <data name="Rail.Active" xml:space="preserve"><value>Actives</value></data>
   <data name="Rail.FailedMcp1" xml:space="preserve"><value>1 serveur MCP en échec</value></data>
   <data name="Rail.FailedMcpN" xml:space="preserve"><value>{0} serveurs MCP en échec</value></data>

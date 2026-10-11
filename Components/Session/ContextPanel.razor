@@ -60,6 +60,14 @@
     {
         <div class="section"><p>@L[Session.HasProcess ? "Ctx.Unknown" : "Ctx.NoProcess"]</p></div>
     }
+    @if (Session.ContextTokens > 0 && Session.CacheRead + Session.CacheWrite > 0)
+    {
+        @* The last API call's usage: what of its prompt came from the prompt cache, and what it (re)wrote there. *@
+        <div class="section">
+            <span class="cap">@L["Ctx.Cache"]</span>
+            <p title="@L["Ctx.CacheHint"]">@L["Ctx.CacheLine", Fmt.Pct(Session.CacheRead / (double)Session.ContextTokens), Fmt.Tokens(Session.CacheWrite)]</p>
+        </div>
+    }
     <div class="section">
         <label class="cap" for="ctx-add-dir">@L["Dirs.Label"]</label>
         <p>@L["Dirs.LiveHint"]</p>

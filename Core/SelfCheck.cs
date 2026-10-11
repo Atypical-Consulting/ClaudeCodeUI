@@ -34,6 +34,8 @@ public static class SelfCheck
             PermissionRules.Check();
             Plugins.Check();
             Bookmarks.Check();
+            Usage.Check();
+            UserSettings.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

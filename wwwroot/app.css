@@ -517,7 +517,7 @@ textarea,input{caret-color:var(--accent)}
 .branch{display:block;font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .branch .i{width:12px;height:12px;display:inline-block;vertical-align:-1px;margin-right:4px}
 .quota{padding:12px 16px 4px;display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--seam)}
-.quota .qrow{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center;font:12px var(--mono);color:var(--fg-4)}
+.quota .qrow{display:grid;grid-template-columns:44px 1fr 34px;gap:8px;align-items:center;font:12px var(--mono);color:var(--fg-4)}
 .quota .qrow span:last-child{text-align:right;color:var(--fg-3)}
 .bar{height:4px;border-radius:var(--r-full);background:var(--seam-2);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:var(--r-full);background:var(--fg-3)}
@@ -692,6 +692,13 @@ textarea,input{caret-color:var(--accent)}
 .hint.why{margin-top:8px}
 .quota .qh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
 .quota .qh span:last-child{font:12px var(--mono);color:var(--fg-4)}
+.quota .qrow span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quota .qrow.wide{grid-template-columns:minmax(0,1fr) 56px 34px}
+.quota .qrow.kv{grid-template-columns:auto 1fr}
+.quota .qwarn{margin:0;font-size:12px;line-height:1.45;color:var(--fg-2)}
+.quota .qmore{align-self:flex-start;font-size:12px}
+.quota .qweek{display:flex;flex-direction:column;gap:5px;max-height:40vh;overflow:auto}
+.quota .qweek p{margin:0;font-size:12px;color:var(--fg-3)}
 
 /* ---------- app glue (not in mockup) ---------- */
 html,body{height:100%}
@@ -778,6 +785,9 @@ button.mode{text-align:left}
 .ph .ttl:focus{outline:none}
 .pop.menu{max-height:60vh;overflow:auto}
 .pop.menu [role=listbox]:focus-visible{outline-offset:-2px}
+.pop.menu [role=group]{display:contents}
+.pop.menu .gh{grid-column:1/-1;padding:8px 12px 4px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
+.pop.menu .mm-cache{margin:0;padding:8px 12px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
 .lang,.picks{display:flex;gap:8px;align-items:center}
 .lang select,.picks select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}
 .said{position:relative}.said>.md{display:flow-root}
