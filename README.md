@@ -15,6 +15,7 @@ Download the installer for your system from the [GitHub releases](https://github
 | Windows 10/11 | `.msi` or `-setup.exe` | Unsigned installer: SmartScreen shows "Windows protected your PC". Click "More info", then "Run anyway". WebView2 is already included in Windows 11. |
 | macOS (Apple Silicon) | `.dmg` (`aarch64`) | Signed with a Developer ID and notarized by Apple: it opens normally, no workaround needed. Intel Macs are not supported (macOS 26 is their last version). |
 | Linux x64 | `.AppImage` or `.deb` | Requires WebKitGTK 4.1 (`libwebkit2gtk-4.1-0` on Debian/Ubuntu, already installed on most desktops). For the AppImage: `chmod +x`, then run it. |
+| Linux arm64 | `.AppImage` or `.deb` (`aarch64` / `arm64`) | Same requirements as Linux x64 (Raspberry Pi 5, Asahi Linux, ARM servers and laptops). |
 
 **Verify your download.** Each release ships a `SHA256SUMS` file (`shasum -a 256 -c SHA256SUMS`) and GitHub build-provenance attestations: `gh attestation verify <file> -R Atypical-Consulting/ClaudeCodeUI`.
 
