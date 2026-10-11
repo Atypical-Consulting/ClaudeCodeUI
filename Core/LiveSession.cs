@@ -146,6 +146,13 @@ public sealed class LiveSession : IAsyncDisposable
     public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
     public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0, live and again at each launch
     public string? Advisor { get; private set; }              // get_settings applied.advisor: the model actually attached, or null
+    public string? OutputStyle { get; private set; }          // initialize / init output_style (default, Concise…)
+    public JsonElement? MemoryDialog { get; private set; }
+    public string? StatusText { get; private set; }           // what the settings' statusLine command printed (StatusCommand)
+    string? statusCommand;
+    int statusRunning;    // raw get_memory_dialog: instruction files, auto-memory folder and memories
+    // Hooks announced by hook_started and not answered yet (hook_id → name, start), shown while they hold the turn.
+    public ImmutableDictionary<string, (string Name, DateTimeOffset At)> RunningHooks { get; private set; } = ImmutableDictionary<string, (string, DateTimeOffset)>.Empty;
     public string FastModeState { get; private set; } = "off";
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
@@ -376,6 +383,30 @@ public sealed class LiveSession : IAsyncDisposable
         Notify();
     }
 
+    // update_settings localSettings takes outputStyle (its allowlist on 2.1.296): written where /config writes it, the
+    // project's .claude/settings.local.json, and live-applied; the next init reports it (verified by a probe).
+    public async Task SetOutputStyle(string style)
+    {
+        await Request("update_settings", new() { ["source"] = "localSettings", ["settings"] = new JsonObject { ["outputStyle"] = style } });
+        OutputStyle = style;
+        Notify();
+    }
+
+    // get_memory_dialog clears the CLI's memory-file cache first, as /memory does: asked when the panel shows.
+    public async Task RefreshMemory()
+    {
+        if (proc is not { } p) return;
+        MemoryDialog = await p.Request("get_memory_dialog");
+        Notify();
+    }
+
+    // autoMemoryEnabled in the user settings, through the CLI's writer (it also keeps an account-memory key in step).
+    public async Task SetAutoMemory(bool on)
+    {
+        if (await CliEdit.Run(Cwd, "edit-memory-settings", new JsonObject { ["autoMemoryEnabled"] = on }) is { } err) throw new ClaudeRequestException(err);
+        await RefreshMemory();
+    }
+
     // The breakdown (behaviors) scans every local transcript of the week: asked only when shown.
     public async Task RefreshUsage(bool behaviors)
     {
@@ -585,6 +616,7 @@ public sealed class LiveSession : IAsyncDisposable
                 return;
             }
             InitializeInfo = info;
+            OutputStyle ??= Events.Str(info, "output_style");
             if (off is not null) await off;
             if (Mode.Length == 0) Mode = Events.Str(info, "current_permission_mode") ?? "default";
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
@@ -595,6 +627,7 @@ public sealed class LiveSession : IAsyncDisposable
                 Model ??= Events.Str(a, "model");
                 Advisor = Events.Str(a, "advisor");
             }
+            statusCommand = StatusCommand.Of(settings);
             // alwaysThinkingEnabled: false starts the session with thinking off, as the terminal's toggle shows it.
             if (Events.Prop(settings, "effective") is { } eff && Events.Prop(eff, "alwaysThinkingEnabled") is { ValueKind: JsonValueKind.False }) Thinking = false;
             var usage = await p.Request("get_usage", new() { ["skip_behaviors"] = true });
@@ -609,10 +642,23 @@ public sealed class LiveSession : IAsyncDisposable
         catch (Exception ex) { Console.Error.WriteLine($"[{Id}] startup: {ex.Message}"); }
         lock (gate) if (Status == SessionStatus.Starting) Status = SessionStatus.Idle;
         Notify();
+        _ = RunStatusLine();
 
         static int Count(JsonElement e, string n) => Events.Prop(e, n) is { ValueKind: JsonValueKind.Array } x ? x.GetArrayLength() : 0;
         static double Pct(JsonElement w) => Events.Prop(w, "utilization") is { ValueKind: JsonValueKind.Number } u ? u.GetDouble() / 100 : 0;
         static DateTimeOffset Reset(JsonElement w) => DateTimeOffset.TryParse(Events.Str(w, "resets_at"), out var t) ? t : default;
+    }
+
+    // One run at a time; a failing or silent command leaves the last line rather than flicker.
+    async Task RunStatusLine()
+    {
+        if (statusCommand is not { } cmd || Interlocked.Exchange(ref statusRunning, 1) == 1) return;
+        try
+        {
+            if (await StatusCommand.Run(cmd, Cwd, StatusCommand.Payload(this)) is { } text) { StatusText = text; Notify(); }
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"[{Id}] statusLine: {ex.Message}"); }
+        finally { Interlocked.Exchange(ref statusRunning, 0); }
     }
 
     // One notification per batch, coalesced to 50 ms; a permission or a result is shown at once.
@@ -627,6 +673,7 @@ public sealed class LiveSession : IAsyncDisposable
             if (e is PermissionEvt or ResultEvt) urgent = true;
             else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
+            if (e is ResultEvt) _ = RunStatusLine();
             if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
             // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
             if (e is ElicitDoneEvt ed && Pending.FirstOrDefault(p => Elicit.Matches(p, ed.Server, ed.ElicitationId)) is { } ep)
@@ -656,6 +703,7 @@ public sealed class LiveSession : IAsyncDisposable
             Queued = []; draining = false;
             TurnStartedAt = null;
             CompactingSince = null;
+            RunningHooks = RunningHooks.Clear();
             ClearStream();
             EndTools(DateTimeOffset.Now, false);
             PluginStatus = PluginStatus.Clear();   // the next process never sends text:null for the old plugins' lines
@@ -802,9 +850,14 @@ public sealed class LiveSession : IAsyncDisposable
     {
         var now = DateTimeOffset.Now;
         LastEventAt = now;
-        if (e is not (RetryEvt or RateLimitEvt or HookEvt)) Retry = null;
+        if (e is not (RetryEvt or RateLimitEvt or HookEvt or HookStartedEvt)) Retry = null;
+        if (e is HookEvt { Id: { } hid }) RunningHooks = RunningHooks.Remove(hid);
         switch (e)
         {
+            case HookStartedEvt hs:
+                RunningHooks = RunningHooks.SetItem(hs.Id, (hs.Name, now));
+                break;
+
             case RetryEvt rt:
                 Retry = rt;
                 break;
@@ -821,6 +874,7 @@ public sealed class LiveSession : IAsyncDisposable
                 if (i.PermissionMode.Length > 0) Mode = i.PermissionMode;
                 FastModeState = i.FastModeState;
                 FastModeReason = i.FastModeReason;
+                if (i.OutputStyle is { } os) OutputStyle = os;
                 break;
 
             case StatusEvt se:
@@ -936,6 +990,7 @@ public sealed class LiveSession : IAsyncDisposable
                 ClearStream();
                 ThinkingTokens = 0;
                 CompactingSince = null;
+                RunningHooks = RunningHooks.Clear();   // one that never answered (an interrupted turn) must not hold the line
                 if (!Queued.IsEmpty)   // a queued message runs next, even after an interrupt
                 {
                     draining = true;
@@ -1063,6 +1118,16 @@ public sealed class LiveSession : IAsyncDisposable
         return cap == "max" ? null : cap;
     }
 
+    // The keys of the CLI's reply to a bare "/config" (2.1.296): "Usage: /config key=value…" then "  key=a|b|c" or
+    // "  key=<value>" (free text: no choices). null when the text is not that reply.
+    internal static IReadOnlyList<(string Key, string[] Choices)>? ConfigKeys(string text)
+    {
+        if (!text.StartsWith(ConfigUsage)) return null;
+        return [.. text.Split('\n').Skip(1).Select(l => l.Trim()).Where(l => l.IndexOf('=') > 0)
+            .Select(l => (l[..l.IndexOf('=')], l[(l.IndexOf('=') + 1)..] is var v && v.StartsWith('<') ? [] : v.Split('|')))];
+    }
+    internal const string ConfigUsage = "Usage: /config key=value";
+
     internal static IReadOnlyList<string> Capped(IReadOnlyList<string> levels, string? cap) =>
         cap is not null && levels.ToList().IndexOf(cap) is >= 0 and var i ? [.. levels.Take(i + 1)] : levels;
 
@@ -1115,6 +1180,10 @@ public sealed class LiveSession : IAsyncDisposable
         var fb = new LiveSession("fb", "fb", "/w", "default", model: "opus") { FallbackModel = "sonnet" };
         fb.Thinking = false;
         Ok(fb.Args(false) is [.., "--model", "opus", "--fallback-model", "sonnet"], "fallback model, thinking off not anchored at launch");
+        // claude 2.1.296's answer to a bare /config (trimmed).
+        Ok(ConfigKeys("Usage: /config key=value [key=value ...]\n  autoCompact=true|false\n  language=<value>\n  switchModelsOnFlag=Switch automatically|Ask each time")
+           is [("autoCompact", ["true", "false"]), ("language", []), ("switchModelsOnFlag", ["Switch automatically", "Ask each time"])]
+           && ConfigKeys("Set Language to French") is null, "/config usage keys");
         Ok(Capped(["low", "medium", "high", "xhigh", "max"], "high") is ["low", "medium", "high"] && Capped(["low", "high"], null).Count == 2 && Capped(["low", "high"], "auto").Count == 2, "effort cap");
         var effS = JsonDocument.Parse("""{"maxEffortLevel":"high","modelSettings":{"claude-fable-5-1":{"maxEffortLevel":"max"},"claude-opus-5-5":{"maxEffortLevel":"medium"}}}""").RootElement;
         Ok(EffortCap(effS, "claude-haiku-5-5") == "high" && EffortCap(effS, "claude-fable-5-1") is null && EffortCap(effS, "claude-opus-5-5[1m]") == "medium"
@@ -1190,6 +1259,15 @@ public sealed class LiveSession : IAsyncDisposable
         hk.Apply(new HookEvt("SessionStart:resume", "error", 1, "boom"));
         Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }, HookItem { Hook.ExitCode: 1 }],
             "silent hooks and successful SessionStart hidden, output and errors kept");
+        // claude 2.1.296: hook_started per hook, answered by hook_id; one left unanswered ends with the turn.
+        hk.Apply(new HookStartedEvt("h1", "SessionStart:startup"));
+        hk.Apply(new HookStartedEvt("h2", "SessionStart:startup"));
+        hk.Apply(new HookEvt("SessionStart:startup", "success", 0, "", "h1"));
+        Ok(hk.RunningHooks.Count == 1 && hk.RunningHooks.ContainsKey("h2") && hk.Items.Count == 3, "running hooks: started until answered");
+        hk.Apply(new ResultEvt("success", false, 0, 1, 1, 0, null, null, null));
+        Ok(hk.RunningHooks.IsEmpty, "a result ends the hooks still listed");
+        hk.Apply(new InitEvt("s", "", "", "", [], [], [], [], [], [], "off", null, OutputStyle: "Concise"));
+        Ok(hk.OutputStyle == "Concise", "init output_style");
 
         // claude 2.1.296, two Agent calls in a row: each streams a successful SubagentStart (plugin context, plain or JSON)
         // between its tool_use and its result, then a silent PostToolBatch. None of it is shown, the agents share one Workflow.

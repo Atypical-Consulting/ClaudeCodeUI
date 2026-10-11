@@ -1004,7 +1004,10 @@ public static class CliProbe
     // hooks-listing: get_hooks_listing returns the hooks of the folder's .claude/settings.json with event, matcher, type,
     // command and source (the Extensions page's Hooks tab).
     // hooks-events: with --include-hook-events (LiveSession.Args) a PreToolUse hook that exits 2 streams a hook_response
-    // (outcome error, exit 2, its stderr) and the tool does not run; a hook that prints streams its output.
+    // (outcome error, exit 2, its stderr) after a hook_started of the same hook_id, and the tool does not run; a hook that
+    // prints streams its output.
+    // hooks-edit: `claude edit-hook` (CliEdit) adds a project hook with onFailure block, the listing then shows it with its
+    // stored entry, and a remove naming that entry takes it out again.
     // hooks-subagent: a SubagentStart hook streams between the Agent tool_use and its tool_result, named SubagentStart:<type>,
     // and its hookSpecificOutput.additionalContext output is hidden by the reducer (LiveSession.Shown); PostToolBatch streams
     // after the tool_result under that name.
@@ -1023,23 +1026,43 @@ public static class CliProbe
         try
         {
             await using var c = await Cli.Start(dir, "--include-hook-events");
-            return await Guard(["hooks-listing", "hooks-events", "hooks-subagent"], async () =>
+            return await Guard(["hooks-listing", "hooks-edit", "hooks-events", "hooks-subagent"], async () =>
             {
-                var (rows, _) = Events.Hooks(await c.S.Request("get_hooks_listing"));
+                var rows = Events.Hooks(await c.S.Request("get_hooks_listing")).Rows;
                 var mine = rows.Where(r => r.Source == "projectSettings").ToList();
                 var found = $"{rows.Count} hooks, projectSettings: {string.Join(", ", mine.Select(r => $"{r.Event}[{r.Matcher}] {r.Type} \"{r.Command}\""))}";
                 var listing = mine.Any(r => r is { Event: "PreToolUse", Matcher: "Write", Type: "command" } && r.Command.Contains("ccui-probe-block"))
                               && mine.Any(r => r is { Event: "UserPromptSubmit", Timeout: 5 })
                     ? ("PASS", found) : ("FAIL", found);
 
+                var addErr = await CliEdit.Run(dir, "edit-hook", CliEdit.Hook("add", "projectSettings", "Stop", "", CliEdit.CommandHook(null, "echo ccui-probe-edit", null, true), null));
+                // The listing follows the CLI's settings watcher: polled, as the Hooks tab does.
+                async Task<HookRow?> Find(bool present)
+                {
+                    HookRow? r = null;
+                    for (var i = 0; i < 20; i++)
+                    {
+                        r = Events.Hooks(await c.S.Request("get_hooks_listing")).Rows.FirstOrDefault(x => x.Command == "echo ccui-probe-edit");
+                        if (r is not null == present) break;
+                        await Task.Delay(500);
+                    }
+                    return r;
+                }
+                var added = addErr is null ? await Find(true) : null;
+                var rmErr = added is null ? "not listed" : await CliEdit.Run(dir, "edit-hook", CliEdit.Hook("remove", added.Source, added.Event, added.Edit?.Matcher ?? "", null, added));
+                var gone = rmErr is null && await Find(false) is null;
+                var editDetail = $"add {addErr ?? "ok"}, listed {(added is null ? "no" : $"{added.Event} blocks={added.BlocksOnFailure} editable={added.Edit is not null}")}, remove {rmErr ?? "ok"}, gone {gone}";
+                var edit = addErr is null && added is { BlocksOnFailure: true, Edit: not null } && rmErr is null && gone ? ("PASS", editDetail) : ("FAIL", editDetail);
+
                 var turn = await c.Turn($"Use the Write tool to create {Blocked} containing hi. Do nothing else.");
                 var seen = turn.SelectMany(Events.ParseAll).OfType<HookEvt>().ToList();
                 var block = seen.FirstOrDefault(h => h.Output.Contains("ccui-probe-block"));
+                var started = block?.Id is { } bid && turn.SelectMany(Events.ParseAll).OfType<HookStartedEvt>().Any(x => x.Id == bid);
                 var prompt = seen.Any(h => h.Name == "UserPromptSubmit" && h.Output == "ccui-probe-prompt");
                 var written = File.Exists(Path.Combine(dir, Blocked));
                 var detail = $"{seen.Count} hook_response, block {(block is null ? "absent" : $"{block.Name} {block.Outcome} exit {block.ExitCode}")}, "
-                             + $"UserPromptSubmit output {(prompt ? "seen" : "absent")}, {Blocked} {(written ? "written" : "not written")}";
-                var events = block is { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2 } && prompt && !written ? ("PASS", detail) : ("FAIL", detail);
+                             + $"UserPromptSubmit output {(prompt ? "seen" : "absent")}, {Blocked} {(written ? "written" : "not written")}, hook_started {(started ? "seen" : "absent")}";
+                var events = block is { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2 } && prompt && !written && started ? ("PASS", detail) : ("FAIL", detail);
 
                 var sub = await c.Turn("Use the Agent tool once: a general-purpose agent with the prompt 'Reply with the word one. Use no tools.'. Then reply done.");
                 int At(Func<JsonElement, bool> f) => sub.FindIndex(e => f(e));
@@ -1052,7 +1075,7 @@ public static class CliProbe
                 var h = start >= 0 ? Events.ParseAll(sub[start]).OfType<HookEvt>().FirstOrDefault() : null;
                 var order = $"Agent tool_use #{use}, {h?.Name ?? "SubagentStart"} {h?.Outcome} #{start}, tool_result #{result}, PostToolBatch #{batch}";
                 var hidden = h is not null && h.Outcome == "success" && Events.ContextOnly(h.Output) && !LiveSession.Shown(h);
-                return [listing, events, use >= 0 && use < start && start < result && result < batch && hidden && h!.Name.StartsWith("SubagentStart:")
+                return [listing, edit, events, use >= 0 && use < start && start < result && result < batch && hidden && h!.Name.StartsWith("SubagentStart:")
                     ? ("PASS", $"{order}, context-only output hidden") : ("FAIL", $"{order}, hidden={hidden}")];
             });
         }

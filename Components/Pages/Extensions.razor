@@ -91,6 +91,10 @@
                 {
                     <div class="errbox" role="status">@L["Ext.Hooks.Disabled"]</div>
                 }
+                @if (hooks is { Locked: true })
+                {
+                    <div class="errbox" role="status">@L["Ext.Hooks.Locked"]</div>
+                }
                 @if (hooks is { Rows.Count: 0 })
                 {
                     <p class="lead">@L["Ext.Hooks.None"]</p>
@@ -98,23 +102,71 @@
                 else if (hooks is { } hl)
                 {
                     <table class="mcp">
-                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th></tr></thead>
+                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                         <tbody>
                             @foreach (var h in hl.Rows)
                             {
                                 var meta = string.Join(" · ", new[] { h.Type, h.Timeout is { } t ? $"{t} s" : null, h.Display }.Where(x => !string.IsNullOrEmpty(x)));
-                                <tr>
+                                <tr class="@(h == hookEditing ? "sel" : null)">
                                     <td><div class="n">@h.Event</div>@if (h.Disabled)
                                         {
                                             <span class="tag">@L["Ext.Hooks.RowDisabled"]</span>
                                         }</td>
                                     <td><code>@(h.Matcher.Length > 0 ? h.Matcher : "—")</code></td>
-                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div></td>
+                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div>@if (h.BlocksOnFailure)
+                                        {
+                                            <span class="tag" title="@L["Ext.Hooks.BlocksHint"]">@L["Ext.Hooks.Blocks"]</span>
+                                        }</td>
                                     <td><span class="tag">@SourceTag(h.Source)</span><div class="d">@(h.Plugin ?? h.SourceLabel)</div></td>
+                                    <td class="num">@if (h.Edit is not null && !hl.Locked && PermissionRules.Files.Contains(h.Source))
+                                        {
+                                            @if (h.Type == "command")
+                                            {
+                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.EditRow", h.Event, h.Command]" @onclick="() => EditHook(h)">@L["Ext.Hooks.Edit"]</button>
+                                            }
+                                            <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.RemoveRow", h.Event, h.Command]" @onclick="() => SaveHook(s, h, true)">@L["Ext.Perm.Remove"]</button>
+                                        }</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                }
+                @if (hooks is { Locked: false, Catalog.Count: > 0 } hf)
+                {
+                    var ev = hf.Catalog.FirstOrDefault(x => x.Name == hookEvent) ?? hf.Catalog[0];
+                    <div class="field">
+                        <span class="lbl" id="hook-form-cap">@(hookEditing is null ? L["Ext.Hooks.AddTitle"] : L["Ext.Hooks.EditTitle"])</span>
+                        <div class="picks" role="group" aria-labelledby="hook-form-cap">
+                            <select aria-label="@L["Ext.Col.Event"]" @bind="hookEvent" disabled="@busy" title="@ev.Summary">
+                                @foreach (var c in hf.Catalog)
+                                {
+                                    <option value="@c.Name">@c.Name</option>
+                                }
+                            </select>
+                            <div class="input"><input aria-label="@L["Ext.Col.Matcher"]" @bind="hookMatcher" @bind:event="oninput" placeholder="@(ev.Matcher ? "Bash|Write" : L["Ext.Hooks.NoMatcher"])"
+                                                      disabled="@(busy || !ev.Matcher)" spellcheck="false" autocomplete="off" /></div>
+                            @if (hookEditing is null)
+                            {
+                                <select aria-label="@L["Perm.SaveIn"]" @bind="hookFile" disabled="@busy">
+                                    @foreach (var src in PermissionRules.Files)
+                                    {
+                                        <option value="@src">@L["Perm.Dest." + src]</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                        <div class="input"><input aria-label="@L["Ext.Col.Command"]" @bind="hookCommand" @bind:event="oninput" placeholder="npm run lint" spellcheck="false" autocomplete="off" disabled="@busy"
+                                                  @onkeydown='async e => { if (e.Key == "Enter") await SaveHook(s, hookEditing, false); }' /></div>
+                        <div class="picks">
+                            <div class="input"><input type="number" min="1" aria-label="@L["Ext.Hooks.Timeout"]" placeholder="@L["Ext.Hooks.Timeout"]" @bind="hookTimeout" disabled="@busy" /></div>
+                            <label class="toggle"><input type="checkbox" @bind="hookBlock" disabled="@busy" />@L["Ext.Hooks.Block"]</label>
+                            <button class="btn primary" disabled="@(busy || hookCommand.Trim().Length == 0)" @onclick="() => SaveHook(s, hookEditing, false)"><Icon Name="@(hookEditing is null ? "plus" : "check")" Sm />@(hookEditing is null ? L["Ext.Hooks.AddButton"] : L["Ext.Hooks.SaveButton"])</button>
+                            @if (hookEditing is not null)
+                            {
+                                <button class="btn" @onclick="ResetHookForm">@L["Action.Cancel"]</button>
+                            }
+                        </div>
+                    </div>
                 }
             }
             else if (tab == "permissions")
@@ -384,7 +436,11 @@
     string tab = "mcp", filter = "";
     string? selected, note, refreshedFor, hooksNote;
     bool busy, focusAuth;
-    (List<HookRow> Rows, bool Disabled)? hooks;
+    HookListing? hooks;
+    HookRow? hookEditing;   // the row the form replaces; null = the form adds
+    string hookEvent = "PreToolUse", hookMatcher = "", hookCommand = "", hookFile = "localSettings";
+    int? hookTimeout;
+    bool hookBlock;
     PermissionState? perms;
     string? permsNote;
     string ruleDraft = "", ruleBehavior = "allow", ruleFile = "localSettings";
@@ -432,7 +488,7 @@
     async Task LoadHooks(LiveSession s)
     {
         if (!s.HasProcess) return;
-        (List<HookRow>, bool)? got = null;
+        HookListing? got = null;
         string? failed = null;
         try { got = Events.Hooks(await s.Request("get_hooks_listing")); }
         catch (Exception ex) { failed = L["Ext.Hooks.Failed", ex.Message.TrimEnd()]; }   // fire-and-forget from Show: nothing may escape
@@ -440,6 +496,41 @@
         (hooks, hooksNote) = (got, failed);
         try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
     }
+
+    void EditHook(HookRow h) =>
+        (hookEditing, hookEvent, hookMatcher, hookCommand, hookTimeout, hookBlock) = (h, h.Event, h.Edit!.Matcher, Events.Str(h.Edit.Config, "command") ?? h.Command, h.Timeout, h.BlocksOnFailure);
+
+    void ResetHookForm() => (hookEditing, hookMatcher, hookCommand, hookTimeout, hookBlock) = (null, "", "", null, false);
+
+    // `claude edit-hook` writes the settings file (the CLI's own writer and checks); a replace or remove names the row's
+    // stored entry, so a hook changed on disk meanwhile is refused rather than overwritten. The session's listing follows
+    // once its file watcher reloads the settings: listed again until it changed.
+    async Task SaveHook(LiveSession s, HookRow? target, bool remove)
+    {
+        if (busy || !remove && hookCommand.Trim().Length == 0) return;
+        busy = true;
+        hooksNote = null;
+        try
+        {
+            var matcher = hooks?.Catalog.FirstOrDefault(x => x.Name == hookEvent) is { Matcher: false } ? "" : hookMatcher.Trim();
+            var edit = remove ? CliEdit.Hook("remove", target!.Source, target.Event, target.Edit!.Matcher, null, target)
+                : CliEdit.Hook(target is null ? "add" : "replace", target?.Source ?? hookFile, hookEvent, matcher,
+                    CliEdit.CommandHook(target?.Edit?.Config, hookCommand.Trim(), hookTimeout, hookBlock), target);
+            var before = HookRows(hooks);
+            if (await CliEdit.Run(perms?.Cwd ?? s.Cwd, "edit-hook", edit) is { } err) { hooksNote = L["Ext.Hooks.EditFailed", err]; return; }
+            if (!remove || target == hookEditing) ResetHookForm();
+            for (var i = 0; i < 20; i++)   // 10 s at most
+            {
+                await Task.Delay(500);
+                await LoadHooks(s);
+                if (hooks is null || HookRows(hooks) != before) break;
+            }
+        }
+        catch (Exception ex) { hooksNote = L["Ext.Hooks.EditFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+
+    static string HookRows(HookListing? l) => string.Join("\n", l?.Rows.Select(r => $"{r.Event}|{r.Source}|{r.Matcher}|{r.Command}|{r.Timeout}|{r.BlocksOnFailure}") ?? []);
 
     // list_permission_rules: rules from every settings file plus session grants and --allowedTools, each with its source.
     async Task LoadPerms(LiveSession s)

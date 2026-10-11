@@ -8,6 +8,9 @@ public sealed record MemoryFile(string Path, string Type, long? Tokens, bool Exi
 
 public enum MemorySave { Saved, Conflict, NotAllowed }
 
+// One saved auto-memory of get_memory_dialog.memories (claude 2.1.296). Type: user, feedback, project, reference or null.
+public sealed record AutoMemory(string Name, string Path, string? Description, string? Type);
+
 // MemoryPanel's state, kept on the LiveSession: the panel unmounts whenever a permission request (or a selected tool)
 // takes the inspector, and an unsaved edit must come back with it. Loaded: the file as read (null = absent), the baseline
 // of the conflict check.
@@ -40,11 +43,39 @@ public static class MemoryFiles
                     list.Add(new(p, Events.Str(m, "type") ?? "", Events.Prop(m, "tokens") is { ValueKind: JsonValueKind.Number } t ? (long)t.GetDouble() : null, exists(p)));
         // A cwd that is not absolute (a session still without one) would resolve against the server's own folder.
         var candidates = new List<(string, string)> { (Path.Combine(userDir, "CLAUDE.md"), "User") };
+        // An AGENTS.md-only folder: the CLI reads AGENTS.md when no CLAUDE.md is there (its "agents-fallback"), so creating
+        // a CLAUDE.md would silently stop it being read. AGENTS.md is offered instead.
         if (Path.IsPathFullyQualified(cwd))
-            candidates.AddRange([(Path.Combine(cwd, "CLAUDE.md"), "Project"), (Path.Combine(cwd, ".claude", "CLAUDE.md"), "Project"), (Path.Combine(cwd, "CLAUDE.local.md"), "Local")]);
+            candidates.AddRange(exists(Path.Combine(cwd, "AGENTS.md")) && !exists(Path.Combine(cwd, "CLAUDE.md")) && !exists(Path.Combine(cwd, ".claude", "CLAUDE.md"))
+                ? [(Path.Combine(cwd, "AGENTS.md"), "Project"), (Path.Combine(cwd, "CLAUDE.local.md"), "Local")]
+                : [(Path.Combine(cwd, "CLAUDE.md"), "Project"), (Path.Combine(cwd, ".claude", "CLAUDE.md"), "Project"), (Path.Combine(cwd, "CLAUDE.local.md"), "Local")]);
         foreach (var (p, type) in candidates)
             if (!list.Any(f => Same(f.Path, p))) list.Add(new(p, type, null, exists(p)));
         return list;
+    }
+
+    // The auto-memory folder get_memory_dialog reports (folders, kind auto); none while auto-memory is off.
+    public static string? AutoFolder(JsonElement? dialog) =>
+        dialog is { } d && Events.Prop(d, "folders") is { ValueKind: JsonValueKind.Array } fs
+            ? fs.EnumerateArray().Where(f => Events.Str(f, "kind") == "auto").Select(f => Events.Str(f, "path")).FirstOrDefault(p => p is not null && Path.IsPathFullyQualified(p)) : null;
+
+    // The CLI's own memory scan (MEMORY.md first, then newest first), kept to absolute paths inside the auto-memory folder:
+    // the only files the panel may open, save or delete there.
+    public static IReadOnlyList<AutoMemory> Memories(JsonElement? dialog)
+    {
+        if (AutoFolder(dialog) is not { } folder || Events.Prop(dialog!.Value, "memories") is not { ValueKind: JsonValueKind.Array } a) return [];
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar;
+        return [.. a.EnumerateArray()
+            .Where(m => Events.Str(m, "path") is { } p && Path.IsPathFullyQualified(p) && Path.GetFullPath(p).StartsWith(root, PathCmp))
+            .Select(m => new AutoMemory(Events.Str(m, "name") ?? Path.GetFileName(Events.Str(m, "path")!), Events.Str(m, "path")!, Events.Str(m, "description"), Events.Str(m, "type")))];
+    }
+
+    // Deletes a listed memory; false for any other path. The MEMORY.md index is the model's to keep in step.
+    public static bool Delete(IReadOnlyList<AutoMemory> known, string path)
+    {
+        if (!known.Any(m => Same(m.Path, path))) return false;
+        File.Delete(path);
+        return true;
     }
 
     // ~ for the home folder, relative under cwd: the full path is in the row's title.
@@ -102,6 +133,29 @@ public static class MemoryFiles
         Ok(List(null, "", Path.Combine(home, ".claude"), _ => false) is [{ Type: "User" }] &&List(ctx, "repo", Path.Combine(home, ".claude"), _ => true).Count == 3,
             "relative or empty cwd: no candidate resolved against the server's folder");
         Ok(Display(Path.Combine(root, "elsewhere.md"), cwd, home) == Path.Combine(root, "elsewhere.md"), "outside cwd and home: full path");
+        // A folder with only AGENTS.md (2.1.296 loads it as a Project file): offered, and no CLAUDE.md that would hide it.
+        var agents = List(null, cwd, Path.Combine(home, ".claude"), p => p == Path.Combine(cwd, "AGENTS.md"));
+        Ok(agents.Select(f => Display(f.Path, cwd, home)).SequenceEqual([$"~{Path.DirectorySeparatorChar}{Path.Combine(".claude", "CLAUDE.md")}", "AGENTS.md", "CLAUDE.local.md"])
+           && agents[1] is { Type: "Project", Exists: true }, "AGENTS.md only: offered instead of CLAUDE.md");
+        Ok(List(null, cwd, Path.Combine(home, ".claude"), p => p.EndsWith("AGENTS.md") || p == Path.Combine(cwd, "CLAUDE.md")).Count == 4, "AGENTS.md beside CLAUDE.md: the standard list");
+        // get_memory_dialog, claude 2.1.296 (shape of the probe, paths of this check's folder).
+        var auto = Path.Combine(home, ".claude", "projects", "-repo", "memory") + Path.DirectorySeparatorChar;
+        var dlg = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            files = Array.Empty<object>(),
+            folders = new object[] { new { kind = "auto", path = auto, label = "Open auto-memory folder", description = "" } },
+            memories = new object[]
+            {
+                new { name = "MEMORY.md", path = auto + "MEMORY.md", description = (string?)null, type = (string?)null, modified_ms = 1 },
+                new { name = "user_role.md", path = auto + "user_role.md", description = (string?)"Role", type = (string?)"user", modified_ms = 2 },
+                new { name = "evil.md", path = Path.Combine(root, "evil.md"), description = (string?)null, type = (string?)null, modified_ms = 3 },
+                new { name = "up.md", path = auto + ".." + Path.DirectorySeparatorChar + "up.md", description = (string?)null, type = (string?)null, modified_ms = 4 },
+            },
+            auto_memory = new { enabled = true, toggleable = true, status = "on" },
+        })).RootElement;
+        var mems = Memories(dlg);
+        Ok(AutoFolder(dlg) == auto && mems is [{ Name: "MEMORY.md", Type: null }, { Name: "user_role.md", Description: "Role", Type: "user" }], "memories inside the auto folder only");
+        Ok(Memories(JsonDocument.Parse("""{"folders":[],"auto_memory":{"enabled":false}}""").RootElement).Count == 0 && AutoFolder(null) is null, "auto-memory off: no memories");
         Ok(Eol("a\r\nb", "a\nb\nc") == "a\r\nb\r\nc" && Eol("a\nb", "x\r\ny") == "x\ny" && Eol(null, "x\ny") == "x\ny", "line endings");
 
         try
@@ -115,6 +169,9 @@ public static class MemoryFiles
             Ok(Save(list, md, "one\n", "mine\n") == MemorySave.Conflict && Read(md) == "changed on disk\n", "changed since load: conflict");
             File.WriteAllText(md, "a\r\nb\r\n", new UTF8Encoding(true));
             Ok(Save(list, md, Read(md), "a\nb\nc\n") == MemorySave.Saved && File.ReadAllBytes(md) is [0xEF, 0xBB, 0xBF, (byte)'a', (byte)'\r', ..], "BOM and CRLF kept");
+            Directory.CreateDirectory(auto);
+            File.WriteAllText(auto + "user_role.md", "x");
+            Ok(!Delete(mems, Path.Combine(cwd, "CLAUDE.md")) && File.Exists(Path.Combine(cwd, "CLAUDE.md")) && Delete(mems, auto + "user_role.md") && !File.Exists(auto + "user_role.md"), "delete a listed memory only");
         }
         finally { try { Directory.Delete(root, true); } catch { } }
     }

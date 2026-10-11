@@ -6,7 +6,8 @@ namespace ClaudeCodeUI;
 public abstract record ClaudeEvent;
 public record InitEvt(string SessionId, string Cwd, string Model, string PermissionMode, string[] Tools,
                       McpBrief[] Mcp, string[] SlashCommands, string[] Skills, string[] Agents, string[] Plugins,
-                      string FastModeState, string? FastModeReason, McpSkipped[]? McpErrors = null, PluginError[]? PluginErrors = null) : ClaudeEvent;
+                      string FastModeState, string? FastModeReason, McpSkipped[]? McpErrors = null, PluginError[]? PluginErrors = null,
+                      string? OutputStyle = null) : ClaudeEvent;
 public record McpBrief(string Name, string Status);                                   // connected|failed|needs-auth|pending
 // init.mcp_server_errors: a --mcp-config entry that failed validation and was skipped (absent from mcp_servers).
 public record McpSkipped(string Name, string Type, string Message);
@@ -72,10 +73,21 @@ public record TitleEvt(string Title) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
 public record QueueEvt(string Uuid, string State) : ClaudeEvent;   // command_lifecycle: queued|started|completed|cancelled|discarded|refused
 // system/hook_response, streamed with --include-hook-events. Output = stdout + stderr; exit 2 is the CLI's blocking error.
-public record HookEvt(string Name, string Outcome, int? ExitCode, string Output) : ClaudeEvent;
-// One configured hook from the get_hooks_listing control response (read-only: the CLI owns the settings files).
-// Disabled is the row's own flag (claude 2.1.296 sets it on every row under disableAllHooks), not inferred from the policy.
-public record HookRow(string Event, string Matcher, string Type, string Command, string? Display, string Source, string? SourceLabel, string? Plugin, int? Timeout, bool Disabled = false);
+// Id: hook_id, shared with the hook_started that announced it.
+public record HookEvt(string Name, string Outcome, int? ExitCode, string Output, string? Id = null) : ClaudeEvent;
+public record HookStartedEvt(string Id, string Name) : ClaudeEvent;   // system/hook_started: running until its hook_response
+// One configured hook from the get_hooks_listing control response. Disabled is the row's own flag (claude 2.1.296 sets it
+// on every row under disableAllHooks), not inferred from the policy. Edit: the entry as stored (editable), only on a row
+// of a settings file the session may write: what `claude edit-hook` names as the target of a replace or remove.
+public record HookRow(string Event, string Matcher, string Type, string Command, string? Display, string Source, string? SourceLabel, string? Plugin, int? Timeout,
+                      bool Disabled = false, HookEdit? Edit = null)
+{
+    public bool BlocksOnFailure => Edit is { } e && Events.Str(e.Config, "onFailure") == "block";   // the CLI's onFailure: "block"
+}
+public record HookEdit(string Matcher, JsonElement Config);
+public record HookEvent(string Name, string Summary, bool Matcher);   // eventCatalog: every event, for the add form
+// Locked: a managed policy keeps every hook edit out (edit_hook refuses them all, fail-closed when it cannot be read).
+public record HookListing(List<HookRow> Rows, bool Disabled, bool Locked, IReadOnlyList<HookEvent> Catalog);
 
 // Answer of mcp_authenticate (verified by `--probe-cli mcp-auth`): `authUrl` to open in a browser, or none when the stored
 // token was still valid. With callbackExpected the CLI listens on a localhost port for the redirect and reconnects the
@@ -228,7 +240,8 @@ public static class Events
             Prop(e, "mcp_server_errors") is { ValueKind: JsonValueKind.Array } me
                 ? [.. me.EnumerateArray().Select(x => new McpSkipped(Str(x, "name") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? ""))] : null,
             Prop(e, "plugin_errors") is { ValueKind: JsonValueKind.Array } pe
-                ? [.. pe.EnumerateArray().Select(x => new PluginError(Str(x, "plugin") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? "", Str(x, "path")))] : null),
+                ? [.. pe.EnumerateArray().Select(x => new PluginError(Str(x, "plugin") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? "", Str(x, "path")))] : null,
+            Str(e, "output_style")),
         "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
         "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
         "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? "",
@@ -246,7 +259,8 @@ public static class Events
             Prop(e, "error_status") is { ValueKind: JsonValueKind.Number } es ? (int)es.GetDouble() : null, Str(e, "error")),
         "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
         "hook_response" => new HookEvt(Str(e, "hook_name") ?? Str(e, "hook_event") ?? "", Str(e, "outcome") ?? "",
-            Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd()),
+            Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd(), Str(e, "hook_id")),
+        "hook_started" when Str(e, "hook_id") is { } hid => new HookStartedEvt(hid, Str(e, "hook_name") ?? Str(e, "hook_event") ?? ""),
         "elicitation_complete" => new ElicitDoneEvt(Str(e, "mcp_server_name") ?? "", Str(e, "elicitation_id") ?? ""),
         "notification" when Str(e, "text") is { Length: > 0 } nt => new NoticeEvt(nt, Str(e, "color")),
         // ui_log is a plugin's $.ui.log line: the REPL appends it to the transcript as a notice under the plugin's name.
@@ -267,11 +281,11 @@ public static class Events
             new ArtifactsEvt(arts.ValueKind == JsonValueKind.Array
                 ? [.. arts.EnumerateArray().Where(a => Uri.TryCreate(Str(a, "url"), UriKind.Absolute, out var au) && au.Scheme is "http" or "https").Select(a => new Artifact(Str(a, "url")!, Str(a, "title") is { Length: > 0 } t ? t : Str(a, "url")!))]
                 : []),
-        _ => null,   // hook_started included: only the response says what the hook did
+        _ => null,
     };
 
-    // get_hooks_listing → its `hooks` rows (grouped by event by the CLI) and whether a policy turns them all off.
-    public static (List<HookRow> Rows, bool Disabled) Hooks(JsonElement listing)
+    // get_hooks_listing → its `hooks` rows (grouped by event by the CLI), whether a policy turns them all off or locks edits.
+    public static HookListing Hooks(JsonElement listing)
     {
         var rows = Prop(listing, "hooks") is { ValueKind: JsonValueKind.Array } a
             ? a.EnumerateArray().Select(h =>
@@ -280,10 +294,15 @@ public static class Events
                 var display = Str(h, "displayText");
                 return new HookRow(Str(h, "event") ?? "", Str(h, "matcher") ?? "", Str(h, "type") ?? "", cmd, display == cmd ? null : display,
                     Str(h, "source") ?? "", Str(h, "sourceLabel"), Str(h, "pluginName"),
-                    Prop(h, "timeout") is { ValueKind: JsonValueKind.Number } t ? (int)t.GetDouble() : null, Bool(h, "disabled"));
+                    Prop(h, "timeout") is { ValueKind: JsonValueKind.Number } t ? (int)t.GetDouble() : null, Bool(h, "disabled"),
+                    Prop(h, "editable") is { } ed && Prop(ed, "config") is { ValueKind: JsonValueKind.Object } cfg ? new HookEdit(Str(ed, "matcher") ?? "", cfg.Clone()) : null);
             }).ToList()
             : [];
-        return (rows, Prop(listing, "policy") is { } p && (Bool(p, "allDisabled") || Bool(p, "disabledByPolicy")));
+        var p = Prop(listing, "policy") ?? default;
+        return new(rows, Bool(p, "allDisabled") || Bool(p, "disabledByPolicy"),
+            Bool(p, "disabledByPolicy") || Bool(p, "managedOnly") || Bool(p, "pluginOnly") || Bool(p, "policyUnreadable"),
+            Prop(listing, "eventCatalog") is { ValueKind: JsonValueKind.Array } ec
+                ? [.. ec.EnumerateArray().Select(x => new HookEvent(Str(x, "name") ?? "", Str(x, "summary") ?? "", Bool(x, "supportsMatcher"))).Where(x => x.Name.Length > 0)] : []);
     }
 
     // A hook output that is only {"hookSpecificOutput":{"hookEventName":…,"additionalContext":…}}: context the CLI injects
@@ -385,7 +404,8 @@ public static class Events
 
         var init = P("""{"type":"system","subtype":"init","cwd":"C:\\w","session_id":"s1","tools":["Task","Edit","PowerShell"],"mcp_servers":[{"name":"plugin:github:github","status":"failed","source":"plugin"},{"name":"x","status":"connected"}],"model":"claude-haiku-5-5","permissionMode":"default","slash_commands":["cost"],"skills":["impeccable"],"agents":["Explore"],"plugins":[{"name":"context7","path":"C:\\p","source":"x"}],"fast_mode_state":"off","fast_mode_disabled_reason":"sdk_opt_in_required"}""") as InitEvt;
         Ok(init is { SessionId: "s1", Cwd: @"C:\w", Model: "claude-haiku-5-5", PermissionMode: "default", FastModeReason: "sdk_opt_in_required" }, "init");
-        Ok(init!.Tools.Contains("PowerShell") && init.Mcp is [{ Status: "failed" }, { Name: "x" }] && init.Plugins is ["context7"] && init.Skills is ["impeccable"] && init.McpErrors is null, "init lists");
+        Ok(init!.Tools.Contains("PowerShell") && init.Mcp is [{ Status: "failed" }, { Name: "x" }] && init.Plugins is ["context7"] && init.Skills is ["impeccable"] && init.McpErrors is null && init.OutputStyle is null, "init lists");
+        Ok(P("""{"type":"system","subtype":"init","session_id":"s","output_style":"Concise","memory_paths":{"auto":"/u/.claude/projects/-w/memory/"}}""") is InitEvt { OutputStyle: "Concise" }, "init output_style");
         // claude 2.1.296 with --mcp-config holding {"bad":{"url":…}} (no type).
         Ok(P("""{"type":"system","subtype":"init","session_id":"s","mcp_servers":[{"name":"probe","status":"connected","source":"dynamic"}],"mcp_server_errors":[{"name":"bad","type":"url_missing_type","message":"Skipped — MCP server \"bad\" has a \"url\" but no \"type\""}]}""")
            is InitEvt { McpErrors: [{ Name: "bad", Type: "url_missing_type", Message: var skipped }] } && skipped.StartsWith("Skipped"), "init mcp_server_errors");
@@ -411,7 +431,9 @@ public static class Events
 
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}},"parent_tool_use_id":null}""") is TextDeltaEvt { Text: "done", ParentToolUseId: null }, "text_delta");
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}}}""") is null, "thinking_delta ignored");
-        Ok(P("""{"type":"system","subtype":"hook_started","hook_id":"h"}""") is null, "hook_started ignored");
+        // claude 2.1.296 with --include-hook-events, a SessionStart plugin hook (trimmed): started, then its response by hook_id.
+        Ok(P("""{"type":"system","subtype":"hook_started","hook_id":"d11d","hook_name":"SessionStart:startup","hook_event":"SessionStart","uuid":"6e4d","session_id":"7f85"}""") is HookStartedEvt { Id: "d11d", Name: "SessionStart:startup" }
+           && P("""{"type":"system","subtype":"hook_started"}""") is null, "hook_started");
         // claude 2.1.296 shapes: the SDK schema of api_retry, the cancel its control client writes, a probed background_tasks patch.
         Ok(P("""{"type":"system","subtype":"api_retry","attempt":2,"max_retries":10,"retry_delay_ms":4000,"error_status":529,"error":"overloaded"}""")
            is RetryEvt { Attempt: 2, MaxRetries: 10, DelayMs: 4000, ErrorStatus: 529, Error: "overloaded" }, "api_retry");
@@ -420,10 +442,14 @@ public static class Events
         Ok(P("""{"type":"system","subtype":"task_updated","task_id":"b6","patch":{"is_backgrounded":true}}""") is TaskUpdatedEvt { TaskId: "b6", Status: null, Backgrounded: true }, "task moved to the background");
         // claude 2.1.296 with --include-hook-events: a PreToolUse hook that exits 2.
         Ok(P("""{"type":"system","subtype":"hook_response","hook_id":"98f5","hook_name":"PreToolUse:Write","hook_event":"PreToolUse","output":"nope: blocked\n","stdout":"","stderr":"nope: blocked\n","exit_code":2,"outcome":"error","uuid":"7e61","session_id":"d427"}""")
-           is HookEvt { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2, Output: "nope: blocked" }, "hook_response");
-        var (hooks, off) = Hooks(JsonDocument.Parse("""{"events":[],"hooks":[{"event":"PreToolUse","matcher":"Bash|PowerShell","source":"projectSettings","sourceLabel":"Project settings (.claude/settings.json)","type":"command","displayText":"echo ok","commandText":"echo ok","contentLabel":"Command","timeout":5,"editable":{}},{"event":"Stop","matcher":"","source":"pluginHook","sourceLabel":"Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)","pluginName":"impeccable@impeccable","type":"command","displayText":"Design deep pass","commandText":"impeccable hook","contentLabel":"Command","statusMessage":"Design deep pass"}],"policy":{"disabledByPolicy":false,"managedOnly":false,"pluginOnly":false,"allDisabled":false,"policyHookCount":0}}""").RootElement);
-        Ok(!off && hooks is [{ Event: "PreToolUse", Matcher: "Bash|PowerShell", Type: "command", Command: "echo ok", Display: null, Source: "projectSettings", Plugin: null, Timeout: 5 },
-                             { Event: "Stop", Matcher: "", Command: "impeccable hook", Display: "Design deep pass", Source: "pluginHook", Plugin: "impeccable@impeccable", Timeout: null }], "get_hooks_listing");
+           is HookEvt { Name: "PreToolUse:Write", Outcome: "error", ExitCode: 2, Output: "nope: blocked", Id: "98f5" }, "hook_response");
+        var (hooks, off, locked, catalog) = Hooks(JsonDocument.Parse("""{"events":[],"hooks":[{"event":"PreToolUse","matcher":"Bash|PowerShell","source":"projectSettings","sourceLabel":"Project settings (.claude/settings.json)","type":"command","displayText":"echo ok","commandText":"echo ok","contentLabel":"Command","timeout":5,"editable":{}},{"event":"Stop","matcher":"","source":"pluginHook","sourceLabel":"Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)","pluginName":"impeccable@impeccable","type":"command","displayText":"Design deep pass","commandText":"impeccable hook","contentLabel":"Command","statusMessage":"Design deep pass"}],"policy":{"disabledByPolicy":false,"managedOnly":false,"pluginOnly":false,"allDisabled":false,"policyHookCount":0}}""").RootElement);
+        Ok(!off && !locked && catalog.Count == 0 && hooks is [{ Event: "PreToolUse", Matcher: "Bash|PowerShell", Type: "command", Command: "echo ok", Display: null, Source: "projectSettings", Plugin: null, Timeout: 5, Edit: null },
+                             { Event: "Stop", Matcher: "", Command: "impeccable hook", Display: "Design deep pass", Source: "pluginHook", Plugin: "impeccable@impeccable", Timeout: null, Edit: null }], "get_hooks_listing");
+        // claude 2.1.296, a hook written by `claude edit-hook` with onFailure, and the head of the event catalog.
+        var ed = Hooks(JsonDocument.Parse("""{"hooks":[{"event":"PostToolUse","matcher":"","source":"projectSettings","sourceLabel":"Project settings (.claude/settings.json)","type":"command","displayText":"echo bye","commandText":"echo bye","contentLabel":"Command","editable":{"matcher":"","config":{"type":"command","command":"echo bye","onFailure":"block"}}}],"eventCatalog":[{"name":"PreToolUse","summary":"Before tool execution","supportsMatcher":true},{"name":"Stop","summary":"Right before Claude concludes its response","supportsMatcher":false}],"policy":{"disabledByPolicy":false,"managedOnly":false,"pluginOnly":false,"allDisabled":false,"policyHookCount":0,"policyUnreadable":true}}""").RootElement);
+        Ok(ed is { Locked: true, Disabled: false, Rows: [{ BlocksOnFailure: true, Edit: { Matcher: "" } e1 }], Catalog: [{ Name: "PreToolUse", Matcher: true }, { Name: "Stop", Matcher: false }] }
+           && Str(e1.Config, "command") == "echo bye" && !hooks[0].BlocksOnFailure, "editable rows, onFailure, catalog, policy lock");
         Ok(Hooks(JsonDocument.Parse("""{"hooks":[],"policy":{"allDisabled":true}}""").RootElement).Disabled, "hooks disabled by policy");
         // claude 2.1.296, project settings with "disableAllHooks": true: every row carries "disabled": true.
         Ok(Hooks(JsonDocument.Parse("""{"hooks":[{"event":"Stop","matcher":"","source":"projectSettings","type":"command","displayText":"echo a","commandText":"echo a","disabled":true}],"policy":{"allDisabled":true}}""").RootElement).Rows is [{ Disabled: true }]

@@ -6,7 +6,7 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-<section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='e => { if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
+<section class="composer rich" aria-label="@L["Composer.Label"]" @onkeydown='async e => { if (e.Key == "Escape" && configOpen) await CloseConfig(); if (e.Key == "Escape") menuOpen = modeOpen = false; }'>
     @if (modeOpen)
     {
         <div class="shield" @onclick="CloseModeToTrigger"></div>
@@ -16,6 +16,11 @@
     {
         <div class="shield" @onclick="CloseMenuToTrigger"></div>
         <ModelMenu Session="Session" OnClose="CloseMenuToTrigger" OnEscape="CloseMenuToTrigger" />
+    }
+    else if (configOpen)
+    {
+        <div class="shield" @onclick="CloseConfig"></div>
+        <ConfigMenu Session="Session" />
     }
     else if (SlashQuery is { } sq)
     {
@@ -87,6 +92,10 @@
             @if (Session.Advisor is { } adv)
             {
                 <span class="tag" title="@L["Model.AdvisorHint"]">@L["Composer.Advisor", AdvisorLabel(adv)]</span>
+            }
+            @if (Session.OutputStyle is { } os && os != "default")
+            {
+                <span class="tag" title="@L["Model.StyleHint"]">@L["Composer.Style", os]</span>
             }
             @if (!crashed && EffortLevels is { } levels)
             {
@@ -196,7 +205,7 @@
     // The draft lives on the session: it survives navigation, reloads and reconnects.
     string text { get => Session.Draft; set => Session.Draft = value; }
     IReadOnlyList<UserImage> images { get => Session.DraftImages; set => Session.DraftImages = value; }
-    bool menuOpen, modeOpen, slashDismissed, mentionDismissed, settingsAsked, reading;
+    bool menuOpen, modeOpen, configOpen, slashDismissed, mentionDismissed, settingsAsked, reading;
     string? recalled;  // the prompt Recall put in the box, kept to tell an untouched recall from an edit
     bool? ultraAvailable;
     string? appliedEffort, effortCap, error;
@@ -297,6 +306,13 @@
         await JS.InvokeVoidAsync("claudeUi.focus", modeBtn);
     }
 
+    async Task CloseConfig()
+    {
+        configOpen = false;
+        StateHasChanged();
+        await JS.InvokeVoidAsync("claudeUi.focus", area);
+    }
+
     async Task CloseMenuToTrigger()
     {
         menuOpen = false;
@@ -314,7 +330,7 @@
         images = [];
         recalled = null;
         history.Reset();
-        menuOpen = modeOpen = false;
+        menuOpen = modeOpen = configOpen = false;
         if (imgs.Count == 0 && Native(t)) return;
         // "Ou explique à Claude ce que tu veux à la place…": the pending tools are refused, then the message follows.
         await Run(async () =>
@@ -334,7 +350,8 @@
     {
         switch (t)
         {
-            case "/model" when models.Count > 0: menuOpen = true; break;
+            case "/model" or "/output-style" when models.Count > 0: menuOpen = true; break;   // the model menu holds the styles
+            case "/config" or "/settings" when !crashed: configOpen = true; break;
             case "/mcp" or "/hooks" or "/permissions": Nav.NavigateTo($"extensions?tab={t[1..]}"); break;
             case "/allowed-tools": Nav.NavigateTo("extensions?tab=permissions"); break;
             case "/plugin" or "/plugins": Nav.NavigateTo("extensions?tab=plugins"); break;

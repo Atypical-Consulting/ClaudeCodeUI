@@ -216,7 +216,7 @@
   <data name="Ext.Col.Event" xml:space="preserve"><value>Événement</value></data>
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>Une politique ou un réglage désactive les hooks : aucun de ceux-ci ne s’exécute.</value></data>
-  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Les hooks que le CLI exécute pour les sessions dans {0}, tels qu’il les rapporte. Lecture seule : ils se trouvent dans les fichiers de réglages indiqués sous Source.</value></data>
+  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Les hooks que le CLI exécute pour les sessions dans {0}, tels qu’il les rapporte. Ceux d’un fichier de réglages se modifient ici : le CLI écrit lui-même le fichier.</value></data>
   <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>désactivé</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>Aucun hook configuré pour ce dossier.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Impossible de lire les hooks : {0}</value></data>
@@ -839,4 +839,40 @@
   <data name="Bookmark.Add" xml:space="preserve"><value>Marquer</value></data>
   <data name="Bookmark.Of" xml:space="preserve"><value>Marquer la réponse : {0}</value></data>
   <data name="Bookmark.Title" xml:space="preserve"><value>Signets</value></data>
+  <data name="Ext.Hooks.Locked" xml:space="preserve"><value>Les réglages gérés de ton organisation verrouillent les hooks : aucun ne peut être ajouté, modifié ou retiré ici.</value></data>
+  <data name="Ext.Hooks.Blocks" xml:space="preserve"><value>bloque en cas d’échec</value></data>
+  <data name="Ext.Hooks.BlocksHint" xml:space="preserve"><value>onFailure : block. Si ce hook échoue, l’action qu’il garde n’a pas lieu.</value></data>
+  <data name="Ext.Hooks.Edit" xml:space="preserve"><value>Modifier</value></data>
+  <data name="Ext.Hooks.EditRow" xml:space="preserve"><value>Modifier le hook {0} : {1}</value></data>
+  <data name="Ext.Hooks.RemoveRow" xml:space="preserve"><value>Retirer le hook {0} : {1}</value></data>
+  <data name="Ext.Hooks.AddTitle" xml:space="preserve"><value>Ajouter un hook de commande</value></data>
+  <data name="Ext.Hooks.EditTitle" xml:space="preserve"><value>Modifier le hook</value></data>
+  <data name="Ext.Hooks.NoMatcher" xml:space="preserve"><value>pas de matcher pour cet événement</value></data>
+  <data name="Ext.Hooks.Timeout" xml:space="preserve"><value>Délai (s)</value></data>
+  <data name="Ext.Hooks.Block" xml:space="preserve"><value>Bloquer s’il échoue</value></data>
+  <data name="Ext.Hooks.AddButton" xml:space="preserve"><value>Ajouter le hook</value></data>
+  <data name="Ext.Hooks.SaveButton" xml:space="preserve"><value>Enregistrer le hook</value></data>
+  <data name="Ext.Hooks.EditFailed" xml:space="preserve"><value>Le hook n’a pas été enregistré : {0}</value></data>
+  <data name="Status.HookRunning" xml:space="preserve"><value>Hook {0} en cours…</value></data>
+  <data name="Status.HooksMore" xml:space="preserve"><value>{0} de plus</value></data>
+  <data name="Mem.Auto" xml:space="preserve"><value>Mémoire automatique</value></data>
+  <data name="Mem.AutoFolder" xml:space="preserve"><value>Claude enregistre ce qu’il apprend sur toi et sur ce projet dans {0}, pour toutes les sessions de ce dossier.</value></data>
+  <data name="Mem.AutoList" xml:space="preserve"><value>Souvenirs enregistrés ({0})</value></data>
+  <data name="Mem.AutoNone" xml:space="preserve"><value>Aucun souvenir enregistré pour l’instant.</value></data>
+  <data name="Mem.AutoFailed" xml:space="preserve"><value>La mémoire automatique n’a pas été modifiée : {0}</value></data>
+  <data name="Mem.Delete" xml:space="preserve"><value>Supprimer</value></data>
+  <data name="Mem.DeleteConfirm" xml:space="preserve"><value>Supprimer {0} définitivement</value></data>
+  <data name="Mem.DeleteFailed" xml:space="preserve"><value>Non supprimé : {0}</value></data>
+  <data name="Model.Style" xml:space="preserve"><value>Style de réponse</value></data>
+  <data name="Model.StyleHint" xml:space="preserve"><value>La façon dont Claude rédige ses réponses (/output-style). Enregistré pour ce projet, dans .claude/settings.local.json.</value></data>
+  <data name="Composer.Style" xml:space="preserve"><value>style · {0}</value></data>
+  <data name="Ctx.Window" xml:space="preserve"><value>Fenêtre d’auto-compactage</value></data>
+  <data name="Ctx.WindowHint" xml:space="preserve"><value>Le remplissage du contexte au-delà duquel Claude Code le résume (/autocompact), enregistré pour ce modèle. Auto est la fenêtre adaptée au modèle.</value></data>
+  <data name="Ctx.WindowAuto" xml:space="preserve"><value>auto (recommandé)</value></data>
+  <data name="Ctx.WindowFailed" xml:space="preserve"><value>La fenêtre n’a pas été modifiée : {0}</value></data>
+  <data name="Config.Title" xml:space="preserve"><value>Réglages (/config)</value></data>
+  <data name="Config.Loading" xml:space="preserve"><value>Demande de ses réglages à Claude Code…</value></data>
+  <data name="Config.Value" xml:space="preserve"><value>valeur</value></data>
+  <data name="Config.Hint" xml:space="preserve"><value>Chaque choix est envoyé en /config clé=valeur : Claude Code le vérifie, l’enregistre et répond dans le fil.</value></data>
+  <data name="Config.Sent" xml:space="preserve"><value>{0} envoyé</value></data>
 </root>

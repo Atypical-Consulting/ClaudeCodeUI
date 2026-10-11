@@ -120,7 +120,8 @@ public static class Plugins
 
     // stdin is a pipe, never a TTY: every confirmation the CLI would ask for is refused rather than awaited. Installs clone
     // git repositories: 5 minutes before giving up.
-    static async Task<(int Code, string Out, string Err)> Run(string cwd, string[] args, string? stdin = null)
+    // command: `plugin` here; CliEdit runs the CLI's edit-* writers through the same path.
+    internal static async Task<(int Code, string Out, string Err)> Run(string cwd, string[] args, string? stdin = null, string command = "plugin")
     {
         var psi = new ProcessStartInfo("claude")
         {
@@ -131,7 +132,7 @@ public static class Plugins
         // ignore --accept-command and ask again for the same command forever.
         psi.Environment.Remove("CLAUDECODE");
         psi.Environment.Remove("CLAUDE_CODE_CHILD_SESSION");
-        psi.ArgumentList.Add("plugin");
+        psi.ArgumentList.Add(command);
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;
         if (stdin is not null) await p.StandardInput.WriteAsync(stdin);
@@ -140,7 +141,7 @@ public static class Plugins
         var err = p.StandardError.ReadToEndAsync();
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
         try { await p.WaitForExitAsync(cts.Token); }
-        catch (OperationCanceledException) { p.Kill(true); throw new TimeoutException("claude plugin " + string.Join(" ", args)); }
+        catch (OperationCanceledException) { p.Kill(true); throw new TimeoutException($"claude {command} " + string.Join(" ", args)); }
         return (p.ExitCode, await output, await err);
     }
 

@@ -39,6 +39,14 @@
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
                     <span class="why" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
+                    @* /autocompact <tokens|auto>: the CLI saves the window for the model (modelSettings) and answers in the thread. *@
+                    <span class="picks"><select aria-label="@L["Ctx.Window"]" title="@L["Ctx.WindowHint"]" value="" disabled="@(compacting || Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @onchange="SetWindow">
+                        <option value="">@L["Ctx.Window"]</option>
+                        @foreach (var w in Windows)
+                        {
+                            <option value="@w">@(w == "auto" ? L["Ctx.WindowAuto"] : Fmt.Tokens(long.Parse(w)))</option>
+                        }
+                    </select></span>
                 }
             </div>
             @if (error is not null)
@@ -132,6 +140,18 @@
         refreshed = true;
         refreshedFor = Session.LastResultAt;
         _ = Session.RefreshContext().ContinueWith(t => Console.Error.WriteLine($"[{Session.Id}] get_context_usage : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    static readonly string[] Windows = ["auto", "200000", "400000", "600000", "1000000"];   // the CLI takes 100k to 1M
+
+    async Task SetWindow(ChangeEventArgs e)
+    {
+        if (e.Value is not string { Length: > 0 } w || compacting) return;
+        compacting = true;
+        error = null;
+        try { await Session.Send($"/autocompact {w}"); }
+        catch (Exception ex) { error = L["Ctx.WindowFailed", ex.Message]; }
+        finally { compacting = false; }
     }
 
     // Plain user text: slash commands run locally in the CLI.

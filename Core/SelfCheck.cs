@@ -33,6 +33,8 @@ public static class SelfCheck
             FolderPicker.Check();
             PermissionRules.Check();
             Plugins.Check();
+            CliEdit.Check();
+            StatusCommand.Check();
             Bookmarks.Check();
             Usage.Check();
             UserSettings.Check();

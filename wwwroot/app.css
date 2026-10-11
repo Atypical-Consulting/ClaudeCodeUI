@@ -200,6 +200,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .badge.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 27%,transparent)}
 .badge.dim{color:var(--fg-4);box-shadow:inset 0 0 0 1px var(--seam-2)}
 .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3)}
+.status.custom small{white-space:pre-line;font-family:var(--mono)}   /* the statusLine command's lines, as printed */
 .status.wait{color:var(--accent)}
 .dock{flex:none;position:relative;padding:0 32px}
 .dock .status{max-width:760px;padding:0 0 12px}
@@ -608,7 +609,7 @@ textarea,input{caret-color:var(--accent)}
 .slash .si span{font-size:12px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Menus and @ mentions: one column grid shared by the rows (subgrid), the name column as wide as the longest name.
    Menu descriptions wrap: the Auto warning must never be cut. */
-.pop.menu [role=listbox]{display:grid;grid-template-columns:max-content minmax(0,1fr) auto}
+.pop.menu [role=listbox],.pop.menu .cfg{display:grid;grid-template-columns:max-content minmax(0,1fr) auto}
 #mention-list{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr) auto}
 .pop.menu .si,#mention-list .si{grid-column:1/-1;grid-template-columns:subgrid}
 .pop.menu .si span{white-space:normal}

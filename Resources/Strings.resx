@@ -216,7 +216,7 @@
   <data name="Ext.Col.Event" xml:space="preserve"><value>Event</value></data>
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>A policy or setting turns hooks off: none of these run.</value></data>
-  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Read-only: they live in the settings files named under Source.</value></data>
+  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Those kept in a settings file can be changed here: the CLI writes the file itself.</value></data>
   <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>disabled</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>No hooks configured for this folder.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Couldn't read the hooks: {0}</value></data>
@@ -839,4 +839,40 @@
   <data name="Bookmark.Add" xml:space="preserve"><value>Bookmark</value></data>
   <data name="Bookmark.Of" xml:space="preserve"><value>Bookmark the reply: {0}</value></data>
   <data name="Bookmark.Title" xml:space="preserve"><value>Bookmarks</value></data>
+  <data name="Ext.Hooks.Locked" xml:space="preserve"><value>Your organization’s managed settings lock hooks: none can be added, changed or removed here.</value></data>
+  <data name="Ext.Hooks.Blocks" xml:space="preserve"><value>blocks on failure</value></data>
+  <data name="Ext.Hooks.BlocksHint" xml:space="preserve"><value>onFailure: block. When this hook fails, the action it guards does not go ahead.</value></data>
+  <data name="Ext.Hooks.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Ext.Hooks.EditRow" xml:space="preserve"><value>Edit the {0} hook: {1}</value></data>
+  <data name="Ext.Hooks.RemoveRow" xml:space="preserve"><value>Remove the {0} hook: {1}</value></data>
+  <data name="Ext.Hooks.AddTitle" xml:space="preserve"><value>Add a command hook</value></data>
+  <data name="Ext.Hooks.EditTitle" xml:space="preserve"><value>Edit the hook</value></data>
+  <data name="Ext.Hooks.NoMatcher" xml:space="preserve"><value>no matcher for this event</value></data>
+  <data name="Ext.Hooks.Timeout" xml:space="preserve"><value>Timeout (s)</value></data>
+  <data name="Ext.Hooks.Block" xml:space="preserve"><value>Block when it fails</value></data>
+  <data name="Ext.Hooks.AddButton" xml:space="preserve"><value>Add the hook</value></data>
+  <data name="Ext.Hooks.SaveButton" xml:space="preserve"><value>Save the hook</value></data>
+  <data name="Ext.Hooks.EditFailed" xml:space="preserve"><value>The hook was not saved: {0}</value></data>
+  <data name="Status.HookRunning" xml:space="preserve"><value>Hook {0} running…</value></data>
+  <data name="Status.HooksMore" xml:space="preserve"><value>{0} more</value></data>
+  <data name="Mem.Auto" xml:space="preserve"><value>Auto-memory</value></data>
+  <data name="Mem.AutoFolder" xml:space="preserve"><value>Claude saves what it learns about you and this project in {0}, for every session in this folder.</value></data>
+  <data name="Mem.AutoList" xml:space="preserve"><value>Saved memories ({0})</value></data>
+  <data name="Mem.AutoNone" xml:space="preserve"><value>No memory saved yet.</value></data>
+  <data name="Mem.AutoFailed" xml:space="preserve"><value>Auto-memory was not changed: {0}</value></data>
+  <data name="Mem.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Mem.DeleteConfirm" xml:space="preserve"><value>Delete {0} for good</value></data>
+  <data name="Mem.DeleteFailed" xml:space="preserve"><value>Not deleted: {0}</value></data>
+  <data name="Model.Style" xml:space="preserve"><value>Output style</value></data>
+  <data name="Model.StyleHint" xml:space="preserve"><value>How Claude writes its replies (/output-style). Saved for this project, in .claude/settings.local.json.</value></data>
+  <data name="Composer.Style" xml:space="preserve"><value>style · {0}</value></data>
+  <data name="Ctx.Window" xml:space="preserve"><value>Auto-compact window</value></data>
+  <data name="Ctx.WindowHint" xml:space="preserve"><value>How full the context gets before Claude Code summarizes it (/autocompact), saved for this model. Auto is the window tuned for the model.</value></data>
+  <data name="Ctx.WindowAuto" xml:space="preserve"><value>auto (recommended)</value></data>
+  <data name="Ctx.WindowFailed" xml:space="preserve"><value>The window was not changed: {0}</value></data>
+  <data name="Config.Title" xml:space="preserve"><value>Settings (/config)</value></data>
+  <data name="Config.Loading" xml:space="preserve"><value>Asking Claude Code for its settings…</value></data>
+  <data name="Config.Value" xml:space="preserve"><value>value</value></data>
+  <data name="Config.Hint" xml:space="preserve"><value>Each choice is sent as /config key=value: Claude Code checks it, saves it and answers in the thread.</value></data>
+  <data name="Config.Sent" xml:space="preserve"><value>{0} sent</value></data>
 </root>

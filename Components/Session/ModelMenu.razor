@@ -1,5 +1,6 @@
 @* Model picker (not in the mockup): initialize.models, chosen with set_model. Reuses the .pop.slash / .si styles.
-   Then the advisor (/advisor, when the CLI offers it) and "set as default", in the same keyboard list. *@
+   Then the advisor (/advisor, when the CLI offers it), the output style (/output-style: initialize.available_output_styles)
+   and "set as default", in the same keyboard list. *@
 
 @inject IJSRuntime JS
 
@@ -35,9 +36,25 @@
             }
         </div>
     }
+    @if (styles.Count > 0)
+    {
+        <div role="group" aria-labelledby="mm-style">
+            <div class="gh" id="mm-style" role="presentation" title="@L["Model.StyleHint"]">@L["Model.Style"]</div>
+            @for (var j = 0; j < styles.Count; j++)
+            {
+                var st = styles[j];
+                var n = models.Count + advisors.Count + j;
+                var on = st == (Session.OutputStyle ?? "default");
+                <div id="mm-opt-@n" class="si @(on ? "on" : null) @(n == sel ? "kb" : null)" role="option" aria-selected="@(on ? "true" : "false")" @onclick="() => PickStyle(st)">
+                    <b>@st</b><span></span>
+                    @if (on) { <span class="tag acc">@L["Model.Current"]</span> } else { <span></span> }
+                </div>
+            }
+        </div>
+    }
     @if (cur is not null)
     {
-        var d = models.Count + advisors.Count;
+        var d = models.Count + advisors.Count + styles.Count;
         <div id="mm-opt-@d" class="si @(d == sel ? "kb" : null)" role="option" aria-selected="false" @onclick="SetDefault">
             <b>@L["Model.SetDefault"]</b>
             <span>@(Session.Effort is { } e ? $"{Label(cur)} · {Strings.Name("Effort.", e)}" : Label(cur))</span><span></span>
@@ -60,13 +77,15 @@
     ElementReference list;
     List<JsonElement> models = [];
     List<string> advisors = [];
-    int Count => models.Count + advisors.Count + (Current(Session) is null ? 0 : 1);
+    List<string> styles = [];
+    int Count => models.Count + advisors.Count + styles.Count + (Current(Session) is null ? 0 : 1);
 
     // The active option starts on the current model; it is a keyboard cursor only (hover does not move it).
     protected override void OnInitialized()
     {
         models = [.. Models(Session)];
         advisors = [.. Advisors(Session)];
+        styles = [.. Session.InitializeInfo is { } info ? Events.Names(info, "available_output_styles") : []];
         var cur = Current(Session) is { } c ? Events.Str(c, "value") : null;
         sel = Math.Max(0, models.FindIndex(m => Events.Str(m, "value") == cur));
     }
@@ -84,6 +103,7 @@
             case "Enter" or " ":
                 if (sel < models.Count) await Pick(Events.Str(models[sel], "value") ?? "");
                 else if (sel < models.Count + advisors.Count) await PickAdvisor(advisors[sel - models.Count]);
+                else if (sel < models.Count + advisors.Count + styles.Count) await PickStyle(styles[sel - models.Count - advisors.Count]);
                 else await SetDefault();
                 break;
             case "Escape" or "Tab":
@@ -111,6 +131,16 @@
         {
             await Session.SetAdvisor(a == "off" ? null : a);
             if (a != "off" && Session.Advisor is null) { error = L["Model.AdvisorRefused", Label(a)]; return; }   // weaker than the model
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex) { error = L["Model.SetFailed", ex.Message]; }
+    }
+
+    async Task PickStyle(string style)
+    {
+        try
+        {
+            await Session.SetOutputStyle(style);
             await OnClose.InvokeAsync();
         }
         catch (Exception ex) { error = L["Model.SetFailed", ex.Message]; }
