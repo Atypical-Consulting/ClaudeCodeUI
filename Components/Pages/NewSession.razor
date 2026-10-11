@@ -110,7 +110,7 @@
             <div class="field">
                 <label for="fallback">@L["New.Fallback"]</label>
                 <div class="picks">
-                    @* --fallback-model: used when the model is overloaded. The CLI refuses the model itself as its fallback. *@
+                    @* --fallback-model: used when the model is overloaded. A fallback equal to the model is pointless. *@
                     <select id="fallback" @bind="fallback" title="@L["New.FallbackHint"]">
                         <option value="">@L["New.NoFallback"]</option>
                         @foreach (var m in Models.Where(m => m != model)) { <option value="@m">@m</option> }

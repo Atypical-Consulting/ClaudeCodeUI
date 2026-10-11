@@ -446,7 +446,7 @@
   <data name="Quota.Beh.high_parallel" xml:space="preserve"><value>High parallelism</value></data>
   <data name="Quota.Beh.long_context" xml:space="preserve"><value>Long context</value></data>
   <data name="Quota.Beh.subagent_heavy" xml:space="preserve"><value>Subagent-heavy</value></data>
-  <data name="Quota.Blocked" xml:space="preserve"><value>{0} limit reached.</value></data>
+  <data name="Quota.Blocked" xml:space="preserve"><value>You've reached your {0} limit.</value></data>
   <data name="Quota.Breakdown" xml:space="preserve"><value>Breakdown</value></data>
   <data name="Quota.Credits" xml:space="preserve"><value>Credits</value></data>
   <data name="Quota.ExtraInUse" xml:space="preserve"><value>Extra usage is covering it.</value></data>

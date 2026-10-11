@@ -144,7 +144,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? Effort { get; private set; }
     public bool Ultracode { get; private set; }               // toggle "for this turn"
     public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
-    public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0 live, --thinking disabled at launch
+    public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0, live and again at each launch
     public string? Advisor { get; private set; }              // get_settings applied.advisor: the model actually attached, or null
     public string FastModeState { get; private set; } = "off";
     public string? FastModeReason { get; private set; }
@@ -555,7 +555,6 @@ public sealed class LiveSession : IAsyncDisposable
         if (Model is { } m) args.AddRange(["--model", m]);
         if (Effort is { } e) args.AddRange(["--effort", e]);
         if (FallbackModel is { } fb) args.AddRange(["--fallback-model", fb]);
-        if (!Thinking) args.Add("--thinking=disabled");   // the SDK's form; set_max_thinking_tokens does not survive a relaunch
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
         // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
         if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
@@ -571,6 +570,9 @@ public sealed class LiveSession : IAsyncDisposable
             // request_id: re-sending under a new id dropped a late answer to the first one.
             const int initSeconds = 180;
             var init = p.Request("initialize", null, initSeconds);
+            // Thinking off survives a relaunch as a live 0, sent before any prompt: --thinking=disabled would anchor the CLI's
+            // reset, so the toggle's null could never turn it back on (r0r.resetAnchor, claude 2.1.296).
+            var off = Thinking ? null : p.Request("set_max_thinking_tokens", new() { ["max_thinking_tokens"] = 0 }, initSeconds);
             if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize: still waiting after 60 s");
             JsonElement info;
             try { info = await init; }
@@ -583,6 +585,7 @@ public sealed class LiveSession : IAsyncDisposable
                 return;
             }
             InitializeInfo = info;
+            if (off is not null) await off;
             if (Mode.Length == 0) Mode = Events.Str(info, "current_permission_mode") ?? "default";
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
             var settings = await p.Request("get_settings");
@@ -946,8 +949,17 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case RateLimitEvt l:
-                // An event without unifiedWindows still carries the status: keep the windows known so far.
-                Limits = l.FiveHourReset == default && Limits is { } k ? l with { FiveHour = k.FiveHour, FiveHourReset = k.FiveHourReset, SevenDay = k.SevenDay, SevenDayReset = k.SevenDayReset } : l;
+                // unifiedWindows carries each window only once known: keep the other one, and show nothing before a first window.
+                if (Limits is not { } k)
+                {
+                    if (l.FiveHourReset == default && l.SevenDayReset == default) break;
+                    k = l;
+                }
+                Limits = l with
+                {
+                    FiveHour = l.FiveHourReset == default ? k.FiveHour : l.FiveHour, FiveHourReset = l.FiveHourReset == default ? k.FiveHourReset : l.FiveHourReset,
+                    SevenDay = l.SevenDayReset == default ? k.SevenDay : l.SevenDay, SevenDayReset = l.SevenDayReset == default ? k.SevenDayReset : l.SevenDayReset,
+                };
                 LimitsAt = now;
                 break;
 
@@ -1102,15 +1114,19 @@ public sealed class LiveSession : IAsyncDisposable
         AppFlag.Thinking.On = false;
         var fb = new LiveSession("fb", "fb", "/w", "default", model: "opus") { FallbackModel = "sonnet" };
         fb.Thinking = false;
-        Ok(fb.Args(false) is [.., "--model", "opus", "--fallback-model", "sonnet", "--thinking=disabled"], "fallback model and thinking off at launch");
+        Ok(fb.Args(false) is [.., "--model", "opus", "--fallback-model", "sonnet"], "fallback model, thinking off not anchored at launch");
         Ok(Capped(["low", "medium", "high", "xhigh", "max"], "high") is ["low", "medium", "high"] && Capped(["low", "high"], null).Count == 2 && Capped(["low", "high"], "auto").Count == 2, "effort cap");
         var effS = JsonDocument.Parse("""{"maxEffortLevel":"high","modelSettings":{"claude-fable-5-1":{"maxEffortLevel":"max"},"claude-opus-5-5":{"maxEffortLevel":"medium"}}}""").RootElement;
         Ok(EffortCap(effS, "claude-haiku-5-5") == "high" && EffortCap(effS, "claude-fable-5-1") is null && EffortCap(effS, "claude-opus-5-5[1m]") == "medium"
            && EffortCap(JsonDocument.Parse("{}").RootElement, "x") is null, "maxEffortLevel, per model, max exempts");
         var rlm = new LiveSession("rl", "rl", "/w", "default");
+        rlm.Apply(new RateLimitEvt(0, default, 0, default, "rejected", "five_hour"));
+        Ok(rlm.Limits is null, "no quota before a first window");
         rlm.Apply(new RateLimitEvt(0.05, DateTimeOffset.FromUnixTimeSeconds(1), 0.91, DateTimeOffset.FromUnixTimeSeconds(2)));
         rlm.Apply(new RateLimitEvt(0, default, 0, default, "rejected", "seven_day"));
         Ok(rlm.Limits is { Status: "rejected", SevenDay: 0.91, FiveHour: 0.05 }, "rate limit status keeps the known windows");
+        rlm.Apply(new RateLimitEvt(0.4, DateTimeOffset.FromUnixTimeSeconds(3), 0, default));
+        Ok(rlm.Limits is { FiveHour: 0.4, SevenDay: 0.91, SevenDayReset: var r7 } && r7.ToUnixTimeSeconds() == 2, "a lone five_hour window keeps seven_day");
         rlm.Apply(new ResultEvt("success", false, 0, 10, 1, 34232, null, null, null, CacheRead: 11204, CacheWrite: 23026));
         Ok(rlm is { ContextTokens: 34232, CacheRead: 11204, CacheWrite: 23026 }, "prompt cache of the last call");
 
