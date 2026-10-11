@@ -71,6 +71,8 @@ code{font-family:var(--mono)}
 .ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:45%}
 .ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0}
 .ph .end{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.ph:has(>.end){flex-wrap:wrap;height:auto;min-height:48px;padding-top:6px;padding-bottom:6px;row-gap:6px}   /* a session's buttons wrap under its title instead of squeezing it to nothing */
+.ph:has(>.end) .end{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
 .cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
 
 /* rail */
@@ -674,11 +676,12 @@ button.sl{width:100%;text-align:left}
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
 .ext>[role=tabpanel]{display:flex;flex-direction:column;gap:18px}
 .ext .lead+.acts{margin-top:14px}
-.subtabs{display:flex;gap:2px;box-shadow:inset 0 -1px var(--seam);overflow-x:auto}   /* the seam under the tabs, not a border: it scrolls with them when narrow */
+.subtabs{flex:none;display:flex;gap:2px;box-shadow:inset 0 -1px var(--seam);overflow-x:auto}   /* the seam under the tabs, not a border: it scrolls with them when narrow */
 .subtabs>*{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;white-space:nowrap}
 .subtabs>* b{font:500 12px var(--mono);color:var(--fg-4);margin-left:2px}
 .subtabs>*.on{color:var(--fg);border-color:var(--accent)}
 .mcp td{padding:10px 12px}
+.mcp td.num{white-space:nowrap}.mcp td.num>.btn+.btn{margin-left:6px}   /* a row's Edit and Remove stay side by side */
 .mcp tr.sel td{background:var(--raise)}
 .mcp tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .ms{display:inline-flex;align-items:center;gap:7px;font:500 12px var(--sans);white-space:nowrap}
@@ -810,6 +813,7 @@ dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font
 .pop.menu .gh{grid-column:1/-1;padding:8px 12px 4px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
 .pop.menu .mm-cache{margin:0;padding:8px 12px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
 .lang,.picks{display:flex;gap:8px;align-items:center}
+.picks{flex-wrap:wrap}.picks select{max-width:100%}   /* the hook and rule forms wrap on a phone instead of widening the page */
 .lang select,.picks select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}
 .said{position:relative}.said>.md{display:flow-root}
 /* Out of the flow, bottom right: a spacer as wide as the buttons (FR labels) ends a closing paragraph, so its last line
@@ -864,6 +868,8 @@ dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font
   .ph.wrap .sub{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
   .thread,.composer,.dock,.todos{padding-left:16px;padding-right:16px}
   .pop.slash{left:16px;width:calc(100% - 32px)}
+  .pop.menu [role=listbox]{grid-template-columns:minmax(0,40%) minmax(0,1fr) auto}   /* a long model name ellipsizes instead of crushing the descriptions to a letter per line */
+  .ext table.mcp{display:block;overflow-x:auto;position:relative}   /* a wide table scrolls on its own; relative, or its .vh header escapes the clip and scrolls the page */
   .effort-slider button{white-space:normal;text-align:center;line-height:1.2}  /* "extra high" breaks in its column instead of touching "high" */
   .agent{grid-template-columns:16px 10px minmax(0,1fr);row-gap:2px}.agent .m{grid-column:3}  /* the name keeps the line, its state goes under it */
   .t{grid-template-columns:16px 84px minmax(0,1fr) auto}.subrun .sl{grid-template-columns:84px minmax(0,1fr) auto}  /* the target wins on a phone */
