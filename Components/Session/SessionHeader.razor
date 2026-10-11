@@ -15,6 +15,10 @@
         <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
     }
     <span class="end">
+        @if (Session.Cwd.Length > 0)
+        {
+            <button class="btn ghost" title="@L["Diff.OpenHint"]" aria-pressed="@(Ui.DiffOpen ? "true" : "false")" @onclick="ToggleDiff"><Icon Name="branch" Sm />@L["Diff.Open"]</button>
+        }
         <button class="btn ghost" title="@L["Session.ForkHint"]" aria-label="@L["Session.Fork"]" disabled="@(!Session.CanFork)" @onclick="Fork"><Icon Name="branch" Sm />@L["Session.ForkShort"]</button>
         @if (Session.Status != SessionStatus.Exited)
         {
@@ -33,4 +37,13 @@
     }
 
     void Fork() => Nav.NavigateTo($"session/{Sessions.Fork(Session).Id}");
+
+    // The panel takes the Inspector's place of the context, so a selected tool is let go and a hidden Inspector shown.
+    void ToggleDiff()
+    {
+        Ui.DiffOpen = !Ui.DiffOpen;
+        if (!Ui.DiffOpen) return;
+        Ui.SelectedToolId = null;
+        Ui.InspectorOpen = true;
+    }
 }

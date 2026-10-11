@@ -24,10 +24,26 @@ public record ElicitDoneEvt(string Server, string ElicitationId) : ClaudeEvent;
 public record NoticeEvt(string Text, string? Color) : ClaudeEvent;
 public record StatusEvt(string? Status, string? PermissionMode) : ClaudeEvent;
 public record ThinkingEvt(int EstimatedTokens) : ClaudeEvent;
+// An assistant thinking block that has text: the CLI sends it empty unless the session asked for summaries
+// (--thinking-display summarized, see AppFlag.Thinking).
+public record ThoughtEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
+// system/compact_boundary (compact_metadata on the stream, compactMetadata in the transcript): the conversation was compacted.
+public record CompactEvt(string Trigger, long PreTokens, long PostTokens, int DurationMs) : ClaudeEvent;
+// The summary a compacted conversation goes on from: isCompactSummary in the transcript; on the stream a synthetic user
+// message, told from a skill's body by the CLI's fixed first sentence (Events.SummaryLead).
+public record SummaryEvt(string Text) : ClaudeEvent;
+// system/model_fallback, model_refusal_fallback, model_refusal_no_fallback, model_consent_fallback: the CLI switched model,
+// or a refusal got no retry. Retry = the refused user message (to edit and send again), Retracted = the refused partial's
+// uuids to drop, Model = the session's model from now on (null when only that turn or a subagent switched).
+public record FallbackEvt(string Text, string? Retry, IReadOnlyList<string> Retracted, string? Model) : ClaudeEvent;
+// system/session_metadata: the session's published artifacts, the whole list on each change (null once empty). Url is
+// kept only when http(s): it ends up in an href.
+public record ArtifactsEvt(IReadOnlyList<Artifact> Artifacts) : ClaudeEvent;
+public record Artifact(string Url, string Title);
 public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
-public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic, string? Uuid = null) : ClaudeEvent; // Uuid = the line's (stream and .jsonl alike)
+public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic, string? Uuid = null, DateTimeOffset? At = null) : ClaudeEvent; // Uuid = the line's (stream and .jsonl alike), At = transcript timestamp
 public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
-public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured) : ClaudeEvent; // Structured = tool_use_result (objects only)
+public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured, bool NotRun = false) : ClaudeEvent; // Structured = tool_use_result (objects only); NotRun: see Events.NotRun
 public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
 public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
                             string? ToolUseId, JsonElement? Suggestions, PermissionInfo? Info = null) : ClaudeEvent;
@@ -97,7 +113,8 @@ public static class Events
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
-                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic, Str(e, "uuid")); break;
+                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic, Str(e, "uuid"), Time(e)); break;
+                            case "thinking" when Str(c, "thinking") is { } th && th.Trim().Length > 0: yield return new ThoughtEvt(th.Trim(), parent); break;
                             case "tool_use" when Str(c, "id") is { } id && Prop(c, "input") is { } input:
                                 yield return new ToolUseEvt(id, Str(c, "name") ?? "", input, parent); break;
                         }
@@ -108,8 +125,13 @@ public static class Events
                 {
                     // Text the CLI injects itself (a skill's body: isSynthetic on the stream, isMeta in the transcript) is not a turn.
                     var parent = Bool(e, "isSynthetic") || Bool(e, "isMeta") ? "injected" : Str(e, "parent_tool_use_id");
-                    DateTimeOffset? at = Str(e, "timestamp") is { } ts && DateTimeOffset.TryParse(ts, out var t) ? t : null;
+                    var at = Time(e);
                     if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { } content) break;
+                    if (Bool(e, "isCompactSummary") || Bool(e, "isSynthetic") && ResultText(content).StartsWith(SummaryLead))
+                    {
+                        yield return new SummaryEvt(ResultText(content));
+                        break;
+                    }
                     if (content.ValueKind == JsonValueKind.String)
                     {
                         if (parent is null) yield return Notification(content.GetString()!) ?? (ClaudeEvent)new UserTextEvt(content.GetString()!, at);
@@ -125,7 +147,7 @@ public static class Events
                         {
                             case "tool_result" when Str(c, "tool_use_id") is { } toolUseId:
                                 yield return new ToolResultEvt(toolUseId, ResultText(c.TryGetProperty("content", out var rc) ? rc : default),
-                                    Bool(c, "is_error"), structured);
+                                    Bool(c, "is_error"), structured, Bool(c, "is_error") && NotRun(e, toolUseId));
                                 break;
                             case "text" when parent is null:
                                 yield return Notification(Str(c, "text") ?? "") ?? (ClaudeEvent)new UserTextEvt(Str(c, "text") ?? "", at, texts++ == 0 ? images : null);
@@ -222,6 +244,20 @@ public static class Events
         "ui_toast" or "ui_log" when Str(e, "text") is { Length: > 0 } tt => new NoticeEvt(Str(e, "plugin") is { } pl ? $"{pl}: {tt}" : tt, null),
         "ui_status" when Str(e, "plugin") is { Length: > 0 } sp => new PluginStatusEvt(sp, Str(e, "text") is { Length: > 0 } st ? st : null),
         "commands_changed" when Prop(e, "commands") is { ValueKind: JsonValueKind.Array } cc => new CommandsEvt(cc.Clone()),
+        "compact_boundary" when (Prop(e, "compact_metadata") ?? Prop(e, "compactMetadata")) is { } cm =>
+            new CompactEvt(Str(cm, "trigger") ?? "", Long(cm, "pre_tokens") + Long(cm, "preTokens"), Long(cm, "post_tokens") + Long(cm, "postTokens"),
+                (int)(Long(cm, "duration_ms") + Long(cm, "durationMs"))),
+        // Transcript lines name these in camelCase. Only a refusal says which message to retry; a session-scoped swap
+        // (refusal fallback not "local", consent fallback) changes the model of the turns that follow.
+        "model_fallback" or "model_refusal_fallback" or "model_refusal_no_fallback" or "model_consent_fallback" when Str(e, "content") is { Length: > 0 } fc =>
+            new FallbackEvt(fc, Str(e, "refused_user_message_uuid") ?? Str(e, "refusedUserMessageUuid"),
+                [.. Names(e, "retracted_message_uuids"), .. Names(e, "retractedMessageUuids")],
+                Str(e, "subtype") is "model_consent_fallback" || Str(e, "subtype") == "model_refusal_fallback" && Str(e, "scope") != "local"
+                    ? Str(e, "fallback_model") ?? Str(e, "fallbackModel") : null),
+        "session_metadata" when Prop(e, "metadata") is { } md && md.TryGetProperty("artifacts", out var arts) =>
+            new ArtifactsEvt(arts.ValueKind == JsonValueKind.Array
+                ? [.. arts.EnumerateArray().Where(a => Uri.TryCreate(Str(a, "url"), UriKind.Absolute, out var au) && au.Scheme is "http" or "https").Select(a => new Artifact(Str(a, "url")!, Str(a, "title") is { Length: > 0 } t ? t : Str(a, "url")!))]
+                : []),
         _ => null,   // hook_started included: only the response says what the hook did
     };
 
@@ -275,6 +311,19 @@ public static class Events
             int.TryParse(Tag(rest, "tool_uses"), out var tu) ? tu : 0,
             int.TryParse(Tag(rest, "duration_ms"), out var d) ? d : 0);
     }
+
+    // The first sentence of the summary a compaction leaves (CLI 2.1.296 constant).
+    internal const string SummaryLead = "This session is being continued from a previous conversation that ran out of context.";
+
+    static DateTimeOffset? Time(JsonElement e) => Str(e, "timestamp") is { } ts && DateTimeOffset.TryParse(ts, out var t) ? t : null;
+
+    // Why an is_error result did not run: tool_result_meta[].non_execution_kind on the stream, the line's toolDenialKind in
+    // the transcript (claude 2.1.296). automode-unavailable / automode-parsing-error: auto mode's check had no usable
+    // answer and the call was held back, the CLI's "Not run" (not a decision: retrying is fine). Others are denials or aborts.
+    static bool NotRun(JsonElement e, string toolUseId) =>
+        (Str(e, "toolDenialKind") ?? (Prop(e, "tool_result_meta") is { ValueKind: JsonValueKind.Array } meta
+            ? meta.EnumerateArray().Where(m => Str(m, "id") == toolUseId).Select(m => Str(m, "non_execution_kind")).FirstOrDefault() : null))
+        is "automode-unavailable" or "automode-parsing-error";
 
     // tool_use_result minus the whole files the UI never reads (Edit's originalFile, Read's file.content), copied into its
     // own small document: kept on every ToolItem, the original would pin the full stdout line for the session's lifetime.
@@ -377,11 +426,35 @@ public static class Events
         Ok(!ContextOnly("""{"decision":"block","reason":"tests fail"}""") && !ContextOnly("ccui-probe-pre") && !ContextOnly("{oops"), "plain or other output is not context");
         Ok(P("""{"type":"system","subtype":"thinking_tokens","estimated_tokens":250,"estimated_tokens_delta":200}""") is ThinkingEvt { EstimatedTokens: 250 }, "thinking_tokens");
         Ok(P("""{"type":"system","subtype":"status","status":null,"permissionMode":"acceptEdits"}""") is StatusEvt { Status: null, PermissionMode: "acceptEdits" }, "status");
+        // claude 2.1.296, /compact (probed): status compacting, then the boundary and the summary as a synthetic user message;
+        // in the transcript the same boundary in camelCase and the summary flagged isCompactSummary (and isVisibleInTranscriptOnly).
+        Ok(P("""{"type":"system","subtype":"status","status":"compacting","session_id":"f9ce","uuid":"c24f"}""") is StatusEvt { Status: "compacting", PermissionMode: null }, "status compacting");
+        Ok(P("""{"type":"system","subtype":"compact_boundary","session_id":"f9ce","uuid":"9b6e","compact_metadata":{"trigger":"manual","pre_tokens":37317,"post_tokens":8995,"cumulative_dropped_tokens":28322,"duration_ms":3207},"logical_parent_uuid":"e464"}""")
+           is CompactEvt { Trigger: "manual", PreTokens: 37317, PostTokens: 8995, DurationMs: 3207 }, "compact_boundary");
+        Ok(P("""{"parentUuid":null,"logicalParentUuid":"e464","isSidechain":false,"type":"system","subtype":"compact_boundary","content":"Conversation compacted","isMeta":false,"timestamp":"2026-10-11T00:26:19.756Z","uuid":"9b6e","level":"info","compactMetadata":{"trigger":"auto","preTokens":37317,"durationMs":3207,"postTokens":8995,"cumulativeDroppedTokens":28322}}""")
+           is CompactEvt { Trigger: "auto", PreTokens: 37317, PostTokens: 8995, DurationMs: 3207 }, "compact_boundary in the transcript");
+        const string summary = SummaryLead + " The summary below covers the earlier portion of the conversation.\\n\\nSummary:\\n1. Primary Request";   // JSON-escaped
+        Ok(P($$"""{"type":"user","message":{"role":"user","content":"{{summary}}"},"session_id":"s","parent_tool_use_id":null,"uuid":"30d0","timestamp":"2026-10-11T00:45:05.600Z","isReplay":false,"isSynthetic":true}""") is SummaryEvt { Text: var st1 } && st1.EndsWith("Primary Request"), "compact summary on the stream");
+        Ok(P($$"""{"parentUuid":"9b6e","isSidechain":false,"type":"user","message":{"role":"user","content":"{{summary}}"},"isVisibleInTranscriptOnly":true,"isCompactSummary":true,"uuid":"ec30","timestamp":"2026-10-11T00:26:19.754Z"}""") is SummaryEvt, "compact summary in the transcript");
+        // claude 2.1.296 with --thinking-display summarized (probed): the thinking block carries the summary; by default it is "".
+        Ok(All("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_1","content":[{"type":"thinking","thinking":"Checking 391: 17 × 23 = 391, so it's not prime.\n\n","signature":"CAQS"}]},"parent_tool_use_id":null}""") is [ThoughtEvt { Text: "Checking 391: 17 × 23 = 391, so it's not prime.", ParentToolUseId: null }]
+           && All("""{"type":"assistant","message":{"id":"m","content":[{"type":"thinking","thinking":"","signature":"CAQS"},{"type":"text","text":"hi"}]}}""") is [AssistantTextEvt], "thinking block, empty one skipped");
+        // The SDK schemas (2.1.296) of the fallback notices; a local refusal fallback leaves the session's model alone.
+        Ok(P("""{"type":"system","subtype":"model_refusal_fallback","trigger":"refusal","direction":"retry","scope":"session","original_model":"claude-fable-5","fallback_model":"claude-opus-5-5","request_id":null,"api_refusal_category":"cyber","retracted_message_uuids":["a1","a2"],"refused_user_message_uuid":"u7","content":"Fable 5 declined; retried with Opus 5.5","uuid":"f1","session_id":"s"}""")
+           is FallbackEvt { Text: "Fable 5 declined; retried with Opus 5.5", Retry: "u7", Retracted: ["a1", "a2"], Model: "claude-opus-5-5" }, "model_refusal_fallback");
+        Ok(P("""{"type":"system","subtype":"model_refusal_fallback","trigger":"refusal","direction":"retry","scope":"local","original_model":"a","fallback_model":"b","request_id":null,"refused_user_message_uuid":null,"content":"x","uuid":"f","session_id":"s"}""") is FallbackEvt { Retry: null, Retracted: [], Model: null }
+           && P("""{"type":"system","subtype":"model_fallback","trigger":"overloaded","original_model":"a","fallback_model":"b","content":"Switched to b: a is overloaded","uuid":"f","session_id":"s"}""") is FallbackEvt { Retry: null, Model: null }
+           && P("""{"type":"system","subtype":"model_consent_fallback","choice":"cancelled","original_model":"a","fallback_model":"b","persisted_as_default":false,"content":"Using b","uuid":"f","session_id":"s"}""") is FallbackEvt { Model: "b" }, "turn-scoped and consent fallbacks");
+        Ok(P("""{"type":"system","subtype":"session_metadata","metadata":{"artifacts":[{"url":"https://claude.ai/a/1","title":"Report","kind":"frame","updated_at":"2026-10-11T00:00:00Z"},{"url":"https://claude.ai/a/2","kind":"frame","updated_at":"x"},{"url":"javascript:alert(1)","title":"x"}]},"uuid":"u","session_id":"s"}""")
+           is ArtifactsEvt { Artifacts: [{ Title: "Report" }, { Url: "https://claude.ai/a/2", Title: "https://claude.ai/a/2" }] }
+           && P("""{"type":"system","subtype":"session_metadata","metadata":{"artifacts":null},"uuid":"u","session_id":"s"}""") is ArtifactsEvt { Artifacts: [] }
+           && P("""{"type":"system","subtype":"session_metadata","metadata":{},"uuid":"u","session_id":"s"}""") is null, "session_metadata artifacts");
 
         var tu = P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_1","content":[{"type":"tool_use","id":"toolu_01Y","name":"Write","input":{"file_path":"C:\\w\\b.txt","content":"x"}}]},"parent_tool_use_id":null}""") as ToolUseEvt;
         Ok(tu is { Id: "toolu_01Y", Name: "Write", ParentToolUseId: null } && Str(tu.Input, "file_path") == @"C:\w\b.txt", "tool_use");
         Ok(P("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"Total cost"}]},"parent_tool_use_id":null}""") is AssistantTextEvt { Synthetic: true, Text: "Total cost", MessageId: "m", Uuid: null }, "synthetic text");
-        Ok(P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_2","role":"assistant","content":[{"type":"text","text":"OK"}]},"parent_tool_use_id":null,"session_id":"s","uuid":"66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11"}""") is AssistantTextEvt { Text: "OK", Uuid: "66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11" }, "assistant uuid");
+        Ok(P("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"msg_2","role":"assistant","content":[{"type":"text","text":"OK"}]},"parent_tool_use_id":null,"session_id":"s","uuid":"66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11"}""") is AssistantTextEvt { Text: "OK", Uuid: "66d742fc-2e1b-4c7e-9a43-0f4e3c0b8f11", At: null }, "assistant uuid");
+        Ok(P("""{"type":"assistant","message":{"id":"m","content":[{"type":"text","text":"OK"}]},"uuid":"u","timestamp":"2026-10-09T12:41:34.602Z"}""") is AssistantTextEvt { At: { } aat } && aat.ToUnixTimeMilliseconds() == 1791549694602, "assistant timestamp (transcript)");
 
         static List<ClaudeEvent> All(string json) => ParseAll(JsonDocument.Parse(json).RootElement.Clone()).ToList();
         Ok(All("""{"type":"assistant"}""") is [] && All("""{"type":"user","message":"x"}""") is []
@@ -393,7 +466,11 @@ public static class Events
         Ok(tr?.Structured is { } ts && Prop(ts, "originalFile") is null && Str(ts, "filePath") == @"C:\w\a.txt", "tool_use_result drops originalFile");
         var rd = P("""{"type":"user","message":{"role":"user","content":[{"tool_use_id":"r","type":"tool_result","content":"1→x"}]},"tool_use_result":{"type":"text","file":{"filePath":"a","content":"x","numLines":1}}}""") as ToolResultEvt;
         Ok(rd?.Structured is { } rs && Prop(rs.GetProperty("file"), "content") is null && rs.GetProperty("file").GetProperty("numLines").GetInt32() == 1, "tool_use_result drops file.content");
-        Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null }, "tool_result error");
+        Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Refusé"}],"is_error":true,"tool_use_id":"t"}]},"tool_use_result":"Error: x"}""") is ToolResultEvt { IsError: true, Text: "Refusé", Structured: null, NotRun: false }, "tool_result error");
+        // The SDK's tool_result_meta (stream) and the transcript's toolDenialKind (2.1.296): only auto mode's missing answer is "not run".
+        Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"held back","is_error":true,"tool_use_id":"t1"}]},"tool_result_meta":[{"id":"t1","non_execution_kind":"automode-unavailable"}]}""") is ToolResultEvt { NotRun: true }
+           && P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"no","is_error":true,"tool_use_id":"t1"}]},"tool_result_meta":[{"id":"t1","non_execution_kind":"automode-blocked"}]}""") is ToolResultEvt { NotRun: false }
+           && P("""{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"x","is_error":true,"tool_use_id":"t1"}]},"toolDenialKind":"automode-parsing-error"}""") is ToolResultEvt { NotRun: true }, "not run by auto mode");
         Ok(P("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null,"timestamp":"2026-10-09T12:41:34.602Z"}""") is UserTextEvt { Text: "[Request interrupted by user]", At: not null }, "user text");
         // claude 2.1.296, the Skill tool's injected body (stream-json), trimmed.
         Ok(All("""{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Base directory for this skill: /s\n\n# Pingo"}]},"parent_tool_use_id":null,"isSynthetic":true}""") is []

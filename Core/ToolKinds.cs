@@ -16,6 +16,8 @@ public static class ToolKinds
         _ => "var(--fg-3)",
     };
 
+    public const string SendFile = "SendUserFile";   // input: files (paths, absolute or relative to the cwd), caption
+
     public static bool IsShell(string name) => name is "Bash" or "PowerShell";
     public static bool IsAgent(string name) => name is "Agent" or "Task";
     public static bool IsEdit(string name) => name is "Edit" or "MultiEdit" or "Write";
@@ -42,6 +44,6 @@ public static class ToolKinds
         input.ValueKind == JsonValueKind.Object && input.EnumerateObject().Select(p => p.Value).FirstOrDefault(v => v.ValueKind == JsonValueKind.String) is { ValueKind: JsonValueKind.String } v
             ? v.GetString() : null;
 
-    static string Relative(string path, string cwd) =>
+    internal static string Relative(string path, string cwd) =>
         (cwd.Length > 0 && path.StartsWith(cwd, StringComparison.OrdinalIgnoreCase) ? Path.GetRelativePath(cwd, path) : path).Replace('\\', '/');
 }

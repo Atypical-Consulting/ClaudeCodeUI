@@ -70,6 +70,7 @@
             ToolState.Done => Strings.Get("Tool.Done") + " · " + Fmt.Dur(Elapsed(a)),
             ToolState.Waiting => Strings.Get("Tool.Waiting"),
             ToolState.Denied => Strings.Get("Tool.Denied"),
+            ToolState.NotRun => Strings.Get("Tool.NotRun"),
             _ => Strings.Get("Tool.Error"),
         };
     }

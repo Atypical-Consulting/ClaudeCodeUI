@@ -24,7 +24,7 @@
 
 @code {
     DotNetObjectReference<MainLayout>? self;
-    readonly Dictionary<string, (SessionStatus Status, DateTimeOffset? Result)> seen = [];
+    readonly Dictionary<string, (SessionStatus Status, DateTimeOffset? Result, int Pushes)> seen = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -50,12 +50,15 @@
         var due = new List<(string, string, string)>();
         foreach (var s in Sessions.All)
         {
-            var (status, result, pending) = (s.Status, s.LastResultAt, s.Pending);
+            var (status, result, pending, pushes) = (s.Status, s.LastResultAt, s.Pending, s.Pushes);
             var had = seen.TryGetValue(s.Id, out var before);
-            seen[s.Id] = (status, Notifications.Remember(status, before.Result, result));
+            seen[s.Id] = (status, Notifications.Remember(status, before.Result, result), pushes);
             var kind = Notifications.Between(had ? before.Status : null, before.Result, status, result, s.LastResultSubtype);
             if (kind != Notifications.Kind.None)
                 due.Add((s.Id, s.Name, Notifications.Body(kind, pending.FirstOrDefault()?.Tool, s.LastTurn, s.LastResultSubtype)));
+            // Claude's PushNotification tool: its message, as the CLI posts it to the terminal (a replayed transcript's are old news).
+            if (had && pushes > before.Pushes)
+                due.Add((s.Id, s.Name, s.LastPush is { Length: > 0 } msg ? msg : Strings.Get("Notify.Push")));
         }
         return due;
     }

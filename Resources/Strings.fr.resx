@@ -750,4 +750,40 @@
   <data name="Ext.Plugins.SecretKept" xml:space="preserve"><value>Enregistré. Laisser vide pour le garder</value></data>
   <data name="Ext.Plugins.Save" xml:space="preserve"><value>Enregistrer</value></data>
   <data name="Ext.Plugins.Saved" xml:space="preserve"><value>Options enregistrées.</value></data>
+  <data name="Status.Compacting" xml:space="preserve"><value>Compactage de la conversation</value></data>
+  <data name="Thread.Compacted" xml:space="preserve"><value>Conversation compactée</value></data>
+  <data name="Thread.Compact.manual" xml:space="preserve"><value>/compact</value></data>
+  <data name="Thread.Compact.auto" xml:space="preserve"><value>automatique</value></data>
+  <data name="Thread.CompactTokens" xml:space="preserve"><value>{0} → {1} jetons</value></data>
+  <data name="Thread.CompactNoSummary" xml:space="preserve"><value>Le résumé n’est pas disponible.</value></data>
+  <data name="Thread.Thinking" xml:space="preserve"><value>Réflexion</value></data>
+  <data name="Thread.EditRetry" xml:space="preserve"><value>Modifier et réessayer</value></data>
+  <data name="Tool.NotRun" xml:space="preserve"><value>Non exécuté</value></data>
+  <data name="Tool.NotRunWhy" xml:space="preserve"><value>Le contrôle du mode auto n’a pas donné de réponse exploitable : cet appel a été retenu. Il n’a pas été refusé, vous pouvez redemander.</value></data>
+  <data name="Diff.MoreFiles" xml:space="preserve"><value>{0} autres fichiers modifiés non affichés</value></data>
+  <data name="Diff.Title" xml:space="preserve"><value>Modifications non validées</value></data>
+  <data name="Diff.Open" xml:space="preserve"><value>Modifications</value></data>
+  <data name="Diff.OpenHint" xml:space="preserve"><value>Modifications non validées de ce dépôt (/diff)</value></data>
+  <data name="Diff.Refresh" xml:space="preserve"><value>Actualiser</value></data>
+  <data name="Diff.Loading" xml:space="preserve"><value>Lecture des modifications…</value></data>
+  <data name="Diff.None" xml:space="preserve"><value>Aucune modification non validée.</value></data>
+  <data name="Diff.NotRepo" xml:space="preserve"><value>Ce dossier n’est pas dans un dépôt git.</value></data>
+  <data name="Diff.Binary" xml:space="preserve"><value>Nouveau fichier : binaire, lien ou trop gros pour être affiché</value></data>
+  <data name="Diff.Files1" xml:space="preserve"><value>1 fichier</value></data>
+  <data name="Diff.FilesN" xml:space="preserve"><value>{0} fichiers</value></data>
+  <data name="File.Sent" xml:space="preserve"><value>Fichiers de Claude</value></data>
+  <data name="File.Reveal" xml:space="preserve"><value>Afficher dans le dossier</value></data>
+  <data name="File.RevealOf" xml:space="preserve"><value>Afficher {0} dans son dossier</value></data>
+  <data name="File.Gone" xml:space="preserve"><value>{0} n’existe plus.</value></data>
+  <data name="File.RevealFailed" xml:space="preserve"><value>Impossible d’afficher le fichier : {0}</value></data>
+  <data name="Artifacts.Count1" xml:space="preserve"><value>1 artefact</value></data>
+  <data name="Artifacts.CountN" xml:space="preserve"><value>{0} artefacts</value></data>
+  <data name="Artifacts.List" xml:space="preserve"><value>Artefacts publiés dans cette session</value></data>
+  <data name="Notify.Push" xml:space="preserve"><value>Claude vous a envoyé une notification</value></data>
+  <data name="Appearance.Thinking" xml:space="preserve"><value>Résumés de réflexion</value></data>
+  <data name="Appearance.ThinkingHint" xml:space="preserve"><value>Demande à Claude un résumé de sa réflexion et l’affiche dans le fil. S’applique aux sessions lancées ou reprises ensuite.</value></data>
+  <data name="Appearance.ThinkingLabel" xml:space="preserve"><value>Afficher la réflexion</value></data>
+  <data name="Appearance.Stamps" xml:space="preserve"><value>Heure des messages</value></data>
+  <data name="Appearance.StampsHint" xml:space="preserve"><value>Affiche l’heure au-dessus de chaque réponse, et un séparateur quand le jour change.</value></data>
+  <data name="Appearance.StampsLabel" xml:space="preserve"><value>Afficher l’heure</value></data>
 </root>

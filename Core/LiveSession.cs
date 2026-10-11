@@ -6,12 +6,16 @@ using System.Text.Json.Nodes;
 namespace ClaudeCodeUI;
 
 public enum SessionStatus { Starting, Idle, Running, Waiting, Exited, Crashed }
-public enum ToolState { Running, Done, Error, Waiting, Denied }
+public enum ToolState { Running, Done, Error, Waiting, Denied, NotRun }   // NotRun: held back by auto mode (Events.NotRun)
 public enum Decision { Allow, AllowSession, Deny }
 
 public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null, string? Uuid = null) : Item;   // Uuid: sent with the message (Send)
-public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null) : Item;   // Uuid: where "Fork from here" cuts
+public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null, DateTimeOffset? At = null) : Item;   // Uuid: where "Fork from here" cuts
+public record ThoughtItem(string Text) : Item;   // a thinking summary (AppFlag.Thinking)
+// A compaction: "Compacted chat", its token counts and the summary the conversation goes on from (set when it arrives).
+public record CompactItem(string Trigger, long PreTokens, long PostTokens, int DurationMs, string? Summary = null) : Item;
+public record FallbackItem(string Text, string? Retry) : Item;   // a model fallback notice; Retry: the refused message's uuid
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
 public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
@@ -147,6 +151,11 @@ public sealed class LiveSession : IAsyncDisposable
     public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
     public RetryEvt? Retry { get; private set; }               // the API call being retried; cleared by the next sign of progress
+    public DateTimeOffset? CompactingSince { get; private set; }   // status "compacting" (manual or automatic), until the next status
+    public ImmutableList<Artifact> Artifacts { get; private set; } = [];   // the session's published artifacts (session_metadata)
+    public int Pushes { get; private set; }                    // PushNotification calls so far; MainLayout notifies on a new one
+    public string? LastPush { get; private set; }              // and the last one's message
+    public const string PushTool = "PushNotification";
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
@@ -506,6 +515,8 @@ public sealed class LiveSession : IAsyncDisposable
         if (Model is { } m) args.AddRange(["--model", m]);
         if (Effort is { } e) args.AddRange(["--effort", e]);
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
+        // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
+        if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
         return args;
     }
 
@@ -594,6 +605,7 @@ public sealed class LiveSession : IAsyncDisposable
             Pending = [];
             Queued = []; draining = false;
             TurnStartedAt = null;
+            CompactingSince = null;
             ClearStream();
             EndTools(DateTimeOffset.Now, false);
             PluginStatus = PluginStatus.Clear();   // the next process never sends text:null for the old plugins' lines
@@ -615,7 +627,7 @@ public sealed class LiveSession : IAsyncDisposable
         (await Git(dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))?.Trim().TrimEnd('/', '\\') is { Length: > 0 } c
         && Path.GetFileName(c) == ".git" ? Path.GetDirectoryName(c) : null;
 
-    static async Task<string?> Git(string dir, params string[] args)
+    internal static async Task<string?> Git(string dir, params string[] args)
     {
         try
         {
@@ -758,8 +770,38 @@ public sealed class LiveSession : IAsyncDisposable
                 FastModeReason = i.FastModeReason;
                 break;
 
-            case StatusEvt { PermissionMode: { } pm }:
-                Mode = pm;
+            case StatusEvt se:
+                if (se.PermissionMode is { } pm) Mode = pm;
+                // A compaction ends on the next status: {status:null, compact_result} or "requesting" (--probe-cli compact).
+                CompactingSince = se.Status == "compacting" ? CompactingSince ?? now : null;
+                break;
+
+            case CompactEvt c:
+                Items = Items.Add(new CompactItem(c.Trigger, c.PreTokens, c.PostTokens, c.DurationMs));
+                break;
+
+            // The summary follows its boundary (SessionStart:compact hooks may come between, on the stream).
+            case SummaryEvt sm when Items.FindLastIndex(i => i is CompactItem) is >= 0 and var ci && Items[ci] is CompactItem { Summary: null } cc:
+                Items = Items.SetItem(ci, cc with { Summary = sm.Text });
+                break;
+
+            case ThoughtEvt { ParentToolUseId: null } th:
+                Items = Items.Add(new ThoughtItem(th.Text));
+                break;
+
+            // A refusal fallback retracts the refused partial (its uuids) before the retried answer comes.
+            case FallbackEvt fb:
+                if (fb.Retracted.Count > 0)
+                {
+                    Items = Items.RemoveAll(i => i is TextItem { Uuid: { } tu } && fb.Retracted.Contains(tu));
+                    ClearStream();
+                }
+                if (fb.Model is { } fm) Model = fm;
+                Items = Items.Add(new FallbackItem(fb.Text, fb.Retry));
+                break;
+
+            case ArtifactsEvt ar:
+                Artifacts = [.. ar.Artifacts];
                 break;
 
             case ThinkingEvt t:
@@ -778,13 +820,14 @@ public sealed class LiveSession : IAsyncDisposable
 
             case AssistantTextEvt a:
                 if (a.ParentToolUseId is null) ClearStream();
-                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid));
+                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid, a.At ?? now));
                 break;
 
             case ToolUseEvt u:
                 if (u.ParentToolUseId is null) ClearStream();
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
+                if (u.Name == PushTool) { Pushes++; LastPush = Events.Str(u.Input, "message"); }
                 break;
 
             case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && (ToolKinds.IsAgent(t.Name) || t.Name == WorkflowRuns.Tool)
@@ -796,12 +839,17 @@ public sealed class LiveSession : IAsyncDisposable
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
                 Set(t, t with
                 {
-                    State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
+                    State = r.NotRun ? ToolState.NotRun : r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
                     ResultText = r.Text,
                     Structured = r.Structured,
                     EndedAt = now,
                     Tokens = r.Structured is { } st && Events.Prop(st, "totalTokens") is { ValueKind: JsonValueKind.Number } tok ? tok.GetInt64() : t.Tokens,
                 });
+                break;
+
+            // A transcript writes the /compact line after the boundary and summary it produced: it goes back above its card.
+            case UserTextEvt u when UserText(u.Text) is { } text && text.StartsWith("/compact") && Items.LastOrDefault() is CompactItem:
+                Items = Items.Insert(Items.Count - 1, new UserItem(text, u.At ?? now, false, u.Images));
                 break;
 
             case UserTextEvt u when UserText(u.Text) is { } text:
@@ -834,6 +882,7 @@ public sealed class LiveSession : IAsyncDisposable
                 Pending = [];
                 ClearStream();
                 ThinkingTokens = 0;
+                CompactingSince = null;
                 if (!Queued.IsEmpty)   // a queued message runs next, even after an interrupt
                 {
                     draining = true;
@@ -947,8 +996,17 @@ public sealed class LiveSession : IAsyncDisposable
         h.Outcome != "success"
         || h.Output.Length > 0 && !h.Name.StartsWith("SessionStart") && !h.Name.StartsWith("SubagentStart") && !Events.ContextOnly(h.Output);
 
-    // send → tool_use → permission → deny → result, replayed on the reducer only.
+    // The Args patterns below are for summaries off, whatever this machine's toggle says.
     internal static void Check()
+    {
+        var flag = AppFlag.Thinking.Path;
+        AppFlag.Thinking.Path = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"));
+        try { CheckReducer(); }
+        finally { if (File.Exists(AppFlag.Thinking.Path)) File.Delete(AppFlag.Thinking.Path); AppFlag.Thinking.Path = flag; }
+    }
+
+    // send → tool_use → permission → deny → result, replayed on the reducer only.
+    static void CheckReducer()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
@@ -974,6 +1032,50 @@ public sealed class LiveSession : IAsyncDisposable
            && !new LiveSession("i", "i", "/r/.claude/worktrees/x", "auto", addDirs: ["/o"]).Isolated
            && !new LiveSession("i", "i", "/r", "auto", worktree: "x", addDirs: ["/o"]).Isolated, "extra folders are never isolated");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
+        AppFlag.Thinking.On = true;
+        Ok(new LiveSession("t", "t", "/w", "default").Args(false) is [.., "--name", "t", "--thinking-display", "summarized"], "thinking summaries asked when on");
+        AppFlag.Thinking.On = false;
+
+        // /compact as probed on 2.1.296: compacting, hooks, status null, boundary, summary; then an auto compaction mid-turn.
+        var cp = new LiveSession("cp", "cp", "/w", "default");
+        cp.BeginTurn("/compact");
+        cp.Apply(new StatusEvt("compacting", null));
+        var since = cp.CompactingSince;
+        cp.Apply(new HookEvt("SessionStart:compact", "success", 0, "ctx"));
+        cp.Apply(new StatusEvt("compacting", null));
+        Ok(since is not null && cp.CompactingSince == since, "compacting since its first status");
+        cp.Apply(new StatusEvt(null, null));
+        Ok(cp.CompactingSince is null, "status null ends compacting");
+        cp.Apply(new CompactEvt("manual", 37317, 8995, 3207));
+        cp.Apply(new HookEvt("SessionStart:compact", "error", 1, "boom"));
+        cp.Apply(new SummaryEvt("This session is being continued… Summary: hi"));
+        Ok(cp.Items is [UserItem, CompactItem { Trigger: "manual", PreTokens: 37317, Summary: "This session is being continued… Summary: hi" }, HookItem], "compact card gets its summary");
+        cp.Apply(new SummaryEvt("again"));
+        Ok(cp.Items[1] is CompactItem { Summary: "This session is being continued… Summary: hi" }, "a summary never replaces another");
+        cp.Apply(new StatusEvt("compacting", null));
+        cp.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
+        Ok(cp.CompactingSince is null && ThreadBlocks.Of(cp.Items) is [UserItem, CompactItem, ThreadBlocks.Hooks], "result ends compacting; the card is a block");
+
+        // Thinking summary, fallback notice (retracts the refused partial, swaps the model), artifacts, push, not run.
+        var fx = new LiveSession("fx", "fx", "/w", "default", model: "claude-fable-5");
+        fx.BeginTurn("q", uuid: "u7");
+        fx.Apply(new ThoughtEvt("Checking.", null));
+        fx.Apply(new ThoughtEvt("sub", "toolu_A"));
+        fx.Apply(new AssistantTextEvt("m", "partial", null, false, "a1"));
+        fx.Apply(new FallbackEvt("Fable 5 declined; retried with Opus 5.5", "u7", ["a1"], "claude-opus-5-5"));
+        Ok(fx.Items is [UserItem, ThoughtItem { Text: "Checking." }, FallbackItem { Retry: "u7" }] && fx.Model == "claude-opus-5-5", "fallback retracts and swaps the model");
+        fx.Apply(new ArtifactsEvt([new("https://claude.ai/a/1", "Report")]));
+        Ok(fx.Artifacts is [{ Title: "Report" }], "artifacts listed");
+        fx.Apply(new ArtifactsEvt([]));
+        Ok(fx.Artifacts.IsEmpty, "artifacts cleared");
+        fx.Apply(new ToolUseEvt("toolu_P", PushTool, JsonDocument.Parse("""{"message":"Build ready","status":"proactive"}""").RootElement.Clone(), null));
+        Ok(fx.Pushes == 1 && fx.LastPush == "Build ready", "push notification counted");
+        fx.Apply(new ToolUseEvt("toolu_N", "Bash", input, null));
+        fx.Apply(new ToolResultEvt("toolu_N", "held back", true, null, NotRun: true));
+        fx.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null, Denied: ["toolu_N"]));
+        Ok(fx.Tool("toolu_N") is { State: ToolState.NotRun }, "held back by auto mode: not run, not denied");
+        fx.Apply(new AssistantTextEvt("m", "x", null, false, "u", DateTimeOffset.UnixEpoch));
+        Ok(fx.Items[^1] is TextItem { At: { } fxa } && fxa == DateTimeOffset.UnixEpoch, "text keeps the transcript time");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
 

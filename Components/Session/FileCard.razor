@@ -1,0 +1,50 @@
+@* SendUserFile: the files Claude sends you, each with "Show in folder" (FolderPicker.Reveal selects it in the file
+   manager; a file the model picked is never opened for you), and the caption under them. The header selects the call. *@
+@inject UiState Ui
+
+<div class="filecard">
+    <button type="button" class="fh @(Ui.SelectedToolId == Tool.Id ? "sel" : null)" aria-pressed="@(Ui.SelectedToolId == Tool.Id ? "true" : "false")" @onclick="Select">
+        <Icon Name="paperclip" Sm /><b>@L["File.Sent"]</b>@ToolRow.Meta(Tool)
+    </button>
+    <ul>
+        @foreach (var f in Files)
+        {
+            var name = Path.GetFileName(f);
+            <li><code title="@f">@ToolKinds.Relative(f, Session.Cwd)</code>
+                <button type="button" class="btn ghost" aria-label="@L["File.RevealOf", name]" @onclick="() => Reveal(f)"><Icon Name="folder" Sm />@L["File.Reveal"]</button></li>
+        }
+    </ul>
+    @if (Events.Str(Tool.Input, "caption") is { Length: > 0 } caption)
+    {
+        <p class="prose">@caption</p>
+    }
+    @if (error is not null)
+    {
+        <p class="errbox" role="alert">@error</p>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public ToolItem Tool { get; set; } = null!;
+    string? error;
+
+    // Paths as sent: absolute, or relative to the session's folder.
+    IEnumerable<string> Files => Events.Prop(Tool.Input, "files") is { ValueKind: JsonValueKind.Array } a
+        ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : null).OfType<string>().Where(x => x.Length > 0)
+           .Select(x => Path.IsPathFullyQualified(x) ? x : Path.GetFullPath(Path.Combine(Session.Cwd, x)))
+        : [];
+
+    void Select()
+    {
+        Ui.SelectedToolId = Tool.Id;
+        Ui.InspectorOpen = true;
+    }
+
+    void Reveal(string path)
+    {
+        error = null;
+        try { FolderPicker.Reveal(path); }
+        catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception or InvalidOperationException) { error = L["File.RevealFailed", ex.Message]; }
+    }
+}

@@ -8,9 +8,18 @@
    until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
 <div class="thread" @ref="el">
 <div role="log" aria-live="polite" aria-relevant="additions">
-    @{ var blocks = Blocks(); var last = blocks.OfType<ThreadBlocks.Run>().LastOrDefault(r => !r.Agents); }
+    @{ var blocks = Blocks(); var last = blocks.OfType<ThreadBlocks.Run>().LastOrDefault(r => !r.Agents); DateTime? day = null; }
     @foreach (var b in blocks)
     {
+        @* Times (Appearance): a divider when the day changes, but none above a thread that starts today. *@
+        if (stamps && (b switch { UserItem u => u.At, TextItem t => t.At, _ => null }) is { } dated && dated.ToLocalTime().Date is var d && d != day)
+        {
+            if (day is not null || d != DateTime.Today)
+            {
+                <div class="day" role="separator">@d.ToString("D", System.Globalization.CultureInfo.CurrentCulture)</div>
+            }
+            day = d;
+        }
         switch (b)
         {
             case UserItem u:
@@ -40,6 +49,10 @@
             case TextItem { Uuid: { } at } t:
                 @* Always rendered (disabled while a turn runs) so the thread does not shift at each turn's start and end. *@
                 <div class="said">
+                    @if (stamps && t.At is { } ta)
+                    {
+                        <time class="stamp" datetime="@ta.ToString("o")">@Fmt.Time(ta)</time>
+                    }
                     <Markdown Text="@t.Markdown" />
                     <span class="said-acts">
                         <button type="button" class="btn ghost fork-here" data-copy="@t.Markdown" aria-label="@L["Thread.CopyOf", Gist(t.Markdown)]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
@@ -49,7 +62,35 @@
                 </div>
                 break;
             case TextItem t:
+                @if (stamps && t.At is { } tb)
+                {
+                    <time class="stamp" datetime="@tb.ToString("o")">@Fmt.Time(tb)</time>
+                }
                 <Markdown Text="@t.Markdown" />
+                break;
+            case ThoughtItem th when thoughts:
+                <details class="fold thought"><summary><Icon Name="right" Sm Class="chev" />@L["Thread.Thinking"]</summary><Markdown Text="@th.Text" /></details>
+                break;
+            case CompactItem c:
+                @* The CLI's "Compacted chat": what was summarized away, and the summary the conversation goes on from. *@
+                <details class="fold compact"><summary><Icon Name="right" Sm Class="chev" /><Icon Name="compress" Sm />@L["Thread.Compacted"]
+                    <small>@string.Join(" · ", new[] { Strings.Name("Thread.Compact.", c.Trigger), c.PreTokens > 0 ? L["Thread.CompactTokens", Fmt.Tokens(c.PreTokens), Fmt.Tokens(c.PostTokens)].Value : null, c.DurationMs > 0 ? Fmt.Dur(TimeSpan.FromMilliseconds(c.DurationMs)) : null }.Where(x => !string.IsNullOrEmpty(x)))</small></summary>
+                    @if (c.Summary is { } sum)
+                    {
+                        <Markdown Text="@sum" />
+                    }
+                    else
+                    {
+                        <p class="prose">@L["Thread.CompactNoSummary"]</p>
+                    }
+                </details>
+                break;
+            case FallbackItem f:
+                <p class="notice warn">@f.Text@if (Session.Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == f.Retry) is { } ru && Session.CanRewind(ru))
+                    {
+                        @* The refused message back in the composer, conversation (and files) rewound to before it: the CLI's "Edit prompt and retry". *@
+                        <button type="button" class="btn ghost" aria-haspopup="dialog" @onclick="() => rewind!.Open(ru)"><Icon Name="undo" Sm />@L["Thread.EditRetry"]</button>
+                    }</p>
                 break;
             case ApiErrorItem e:
                 <ApiErrorCard Error="e.Error" />
@@ -59,6 +100,9 @@
                 break;
             case ThreadBlocks.Hooks h:
                 <HookActivity Hooks="h.Items" />
+                break;
+            case ToolItem { Name: ToolKinds.SendFile } sf:
+                <FileCard @key="sf.Id" Session="Session" Tool="sf" />
                 break;
             case ToolItem w:
                 <WorkflowCard @key="w.Id" Tool="w" />
@@ -87,6 +131,8 @@
     ElementReference el;
     int prompts;
     RewindDialog? rewind;
+    // Appearance toggles, read once per mount (two file probes, not one per block per render).
+    readonly bool stamps = AppFlag.Timestamps.On, thoughts = AppFlag.Thinking.On;
 
     // Rebuilt only when Items is replaced: tool state changes in place and does not move blocks.
     System.Collections.Immutable.ImmutableList<Item>? blocksOf;

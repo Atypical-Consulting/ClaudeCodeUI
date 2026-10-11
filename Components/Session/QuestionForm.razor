@@ -1,7 +1,8 @@
 @* AskUserQuestion, in place of the Allow/Deny body of the PermissionCard: one fieldset per question (radios, or
    checkboxes when multiSelect) plus a free-text "Other". Answer allows the tool with AskUser.WithAnswers; Skip denies it.
    Keys: ↑↓ move between options (native in a radio group, ListNav for checkboxes), Space ticks, ⏎ answers, Suppr skips;
-   ⏎ outside any field focuses the first option (PermissionCard). *@
+   ⏎ outside any field focuses the first option (PermissionCard). An option's preview (markdown: a mockup, a snippet)
+   shows under the question while that option has focus, else the picked one's. *@
 
 <form class="ask" @onsubmit="Submit">
     @for (var i = 0; i < questions.Length; i++)
@@ -21,7 +22,7 @@
                 <div class="opt @(other ? "other" : null) @((other ? st.OtherOn : st.Picked.Contains(oj)) ? "on" : null)">
                     <input id="@Id(qi, oj)" type="@(q.Multi ? "checkbox" : "radio")" name="@Id(qi, -1)" @ref="refs[qi, oj]"
                            checked="@(other ? st.OtherOn : st.Picked.Contains(oj))" aria-label="@(other ? L["Ask.Other"].Value : null)"
-                           @onchange="e => Pick(qi, oj, !q.Multi || e.Value is true)" @onkeydown="e => OnKey(qi, oj, e)" />
+                           @onchange="e => Pick(qi, oj, !q.Multi || e.Value is true)" @onkeydown="e => OnKey(qi, oj, e)" @onfocus="() => focused[qi] = oj" />
                     @if (other)
                     {
                         <input class="otxt" type="text" placeholder="@L["Ask.OtherPlaceholder"]" aria-label="@L["Ask.OtherAnswer", q.Text]"
@@ -35,6 +36,10 @@
                             }</label>
                     }
                 </div>
+            }
+            @if (Preview(qi) is { } pv)
+            {
+                <div class="ask-preview"><Markdown Text="@pv" /></div>
             }
         </fieldset>
     }
@@ -57,6 +62,7 @@
 
     AskUser.Question[] questions = [];
     Picks[] picks = [];
+    int[] focused = [];   // per question, the option that last had focus
     ElementReference[,] refs = new ElementReference[0, 0];
     bool answered;
     string? error;
@@ -64,12 +70,16 @@
     bool Complete => questions.Length > 0 && questions.Select((_, i) => Value(i)).All(v => v.Length > 0);
 
     string Id(int q, int o) => $"ask-{Permission.RequestId}-{q}" + (o >= 0 ? $"-{o}" : "");
+    string? Preview(int q) =>
+        (focused[q] >= 0 && focused[q] < questions[q].Options.Length ? focused[q] : picks[q].Picked.Count > 0 ? picks[q].Picked.Min : -1) is >= 0 and var o
+            ? questions[q].Options[o].Preview : null;
     string Value(int i) => AskUser.Answer(questions[i], picks[i].Picked, picks[i].OtherOn ? picks[i].Other : null);
 
     protected override void OnInitialized()
     {
         questions = AskUser.Parse(Permission.Input);
         picks = [.. questions.Select(_ => new Picks())];
+        focused = [.. questions.Select(_ => -1)];
         refs = new ElementReference[questions.Length, questions.Select(q => q.Options.Length + 1).DefaultIfEmpty(1).Max()];
     }
 

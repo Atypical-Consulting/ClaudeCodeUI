@@ -11,14 +11,14 @@ public static class AskUser
 {
     public const string Tool = "AskUserQuestion";
 
-    public record Option(string Label, string Description);
+    public record Option(string Label, string Description, string? Preview = null);   // Preview: markdown shown while the option is focused
     public record Question(string Text, string Header, Option[] Options, bool Multi);
 
     public static Question[] Parse(JsonElement input) =>
         Events.Prop(input, "questions") is { ValueKind: JsonValueKind.Array } qs
             ? [.. qs.EnumerateArray().Select(q => new Question(Events.Str(q, "question") ?? "", Events.Str(q, "header") ?? "",
                 Events.Prop(q, "options") is { ValueKind: JsonValueKind.Array } os
-                    ? [.. os.EnumerateArray().Select(o => new Option(Events.Str(o, "label") ?? "", Events.Str(o, "description") ?? ""))] : [],
+                    ? [.. os.EnumerateArray().Select(o => new Option(Events.Str(o, "label") ?? "", Events.Str(o, "description") ?? "", Events.Str(o, "preview") is { Length: > 0 } pv ? pv : null))] : [],
                 Events.Prop(q, "multiSelect") is { ValueKind: JsonValueKind.True }))]
             : [];
 
@@ -51,6 +51,9 @@ public static class AskUser
         var qs = Parse(input);
         Ok(qs is [{ Header: "Toppings", Multi: true, Options: [{ Label: "Cheese", Description: "Cheese topping" }, _, _] }, { Text: "Which color do you prefer?", Multi: false, Options.Length: 2 }], "parse");
         Ok(Parse(JsonDocument.Parse("{}").RootElement).Length == 0, "parse without questions");
+        // The option schema of claude 2.1.296: preview is optional markdown (mockups, code) shown while the option has focus.
+        Ok(Parse(JsonDocument.Parse("""{"questions":[{"question":"Which layout?","header":"Layout","options":[{"label":"Grid","description":"Cards","preview":"```\n[ ][ ]\n```"},{"label":"List","description":"Rows"}],"multiSelect":false}]}""").RootElement)
+           is [{ Options: [{ Preview: "```\n[ ][ ]\n```" }, { Preview: null }] }] && qs[0].Options[0].Preview is null, "option preview");
 
         Ok(Answer(qs[0], [2, 0], null) == "Cheese, Olives", "multi joins labels in option order");
         Ok(Answer(qs[0], [1], " Pineapple ") == "Ham, Pineapple", "multi + free text");

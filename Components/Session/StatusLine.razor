@@ -8,6 +8,10 @@
     case SessionStatus.Starting:
         <div class="status"><span class="spin"></span>@L["Status.StartingClaude"]</div>
         break;
+    @* A /compact or an automatic compaction mid-turn (system/status "compacting"), timed from its start. *@
+    case SessionStatus.Running or SessionStatus.Waiting when Session.CompactingSince is { } cs:
+        <div class="status"><span class="spin"></span>@L["Status.Compacting"] <small aria-hidden="true">@Fmt.Dur(DateTimeOffset.Now - cs)</small></div>
+        break;
     case SessionStatus.Running when Session.Retry is { } r:
         <div class="status wait"><span class="spin"></span>@L["Status.Retry", r.Attempt, r.MaxRetries] <small>@Retry(r)</small></div>
         break;

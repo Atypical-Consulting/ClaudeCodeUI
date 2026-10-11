@@ -57,7 +57,7 @@ public static class TranscriptStore
         var s = new LiveSession("", "", "", "default");
         foreach (var line in lines)
         {
-            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"") && !line.Contains("\"queued_command\"")) continue;
+            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"") && !line.Contains("\"queued_command\"") && !line.Contains("\"type\":\"system\"")) continue;
             JsonElement e;
             // The file names the diff field toolUseResult; the stream (and Events) say tool_use_result.
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
@@ -75,7 +75,8 @@ public static class TranscriptStore
                 Step(s, Events.Notification(qp) ?? (ClaudeEvent)new UserTextEvt(qp, at), at);
                 continue;
             }
-            if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
+            // The compaction summary is hidden from search and history, not from the thread: it fills its "Compacted chat" card.
+            if (!Shown(e) || Hidden(e) && Events.Prop(e, "isCompactSummary") is not { ValueKind: JsonValueKind.True }) continue;
             try { Apply(s, e, at); }
             catch (Exception ex) { Console.Error.WriteLine($"transcript: line skipped ({ex.Message})"); }   // one bad line must not lose the session
         }
@@ -99,6 +100,10 @@ public static class TranscriptStore
         if (ev is TaskDoneEvt { DurationMs: 0 } td && (s.Tool(td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
             s.Set(tt, tt with { EndedAt = at.Value });
     }
+
+    // The lines Replay reads: messages, and the system lines the thread shows (compaction boundary, model fallback notices).
+    static bool Shown(JsonElement e) => Events.Str(e, "type") is "user" or "assistant"
+        || Events.Str(e, "type") == "system" && Events.Str(e, "subtype") is "compact_boundary" or "model_fallback" or "model_refusal_fallback" or "model_refusal_no_fallback" or "model_consent_fallback";
 
     // Lines the terminal does not show as a conversation turn: sub-agent, injected context, compaction summary.
     static bool Hidden(JsonElement e) => Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
@@ -511,6 +516,15 @@ public static class TranscriptStore
                && t1.EndedAt - t1.StartedAt == TimeSpan.FromSeconds(2) && t2.EndedAt == t2.StartedAt, "replay");
         }
         finally { File.Delete(path); }
+
+        // A /compact in a 2.1.296 transcript (trimmed): stop-hook summary, boundary, summary; a stray system line stays out.
+        Ok(Replay([
+            """{"parentUuid":"b","isSidechain":false,"type":"system","subtype":"stop_hook_summary","hookCount":2,"level":"suggestion","uuid":"e464"}""",
+            """{"parentUuid":null,"logicalParentUuid":"e464","isSidechain":false,"type":"system","subtype":"compact_boundary","content":"Conversation compacted","isMeta":false,"timestamp":"2026-10-11T00:26:19.756Z","uuid":"9b6e","level":"info","compactMetadata":{"trigger":"manual","preTokens":37317,"durationMs":3207,"postTokens":8995}}""",
+            """{"parentUuid":"9b6e","isSidechain":false,"type":"user","message":{"role":"user","content":"This session is being continued from a previous conversation that ran out of context. Summary: hi"},"isVisibleInTranscriptOnly":true,"isCompactSummary":true,"uuid":"ec30","timestamp":"2026-10-11T00:26:19.754Z"}""",
+            """{"parentUuid":"ec30","isSidechain":false,"type":"user","message":{"role":"user","content":"<command-name>/compact</command-name>\n            <command-message>compact</command-message>\n            <command-args></command-args>"},"uuid":"c0c1","timestamp":"2026-10-11T00:26:19.990Z"}""",
+            """{"parentUuid":"c0c1","isSidechain":false,"type":"user","message":{"role":"user","content":"<local-command-stdout>Compacted </local-command-stdout>"},"uuid":"aed4","timestamp":"2026-10-11T00:26:19.997Z"}""",
+        ]) is [UserItem { Text: "/compact" }, CompactItem { PreTokens: 37317, PostTokens: 8995, Summary: var sum }] && sum!.EndsWith("Summary: hi"), "replay compaction card with its summary, under its /compact");
 
         // The cost-state is stale (clean exits only); the UI ledger carries the real spend.
         var cid = Guid.NewGuid().ToString();

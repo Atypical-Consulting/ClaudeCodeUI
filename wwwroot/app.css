@@ -147,6 +147,27 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .hooks.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
 .notice{margin:0;border:1px solid var(--seam);border-radius:var(--r);padding:6px 12px;font-size:12px;color:var(--fg-2)}
 .notice.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
+.notice.warn{border-color:color-mix(in srgb,var(--accent) 40%,transparent);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* thread folds (Thread): a thinking summary, a "Compacted chat" card */
+.fold{border:1px solid var(--seam);border-radius:var(--r);padding:6px 12px;color:var(--fg-2)}
+.fold summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font:500 12px var(--sans);color:var(--fg-3)}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary small{color:var(--fg-4);font:12px var(--mono)}
+.fold .chev{color:var(--fg-5);transition:transform .15s}
+.fold[open] .chev{transform:rotate(90deg)}
+.fold>:not(summary){margin-top:8px}
+.thought>.md{color:var(--fg-3)}
+.stamp{display:block;font:500 12px var(--mono);color:var(--fg-4);margin-bottom:4px}
+.day{display:flex;align-items:center;gap:12px;font:500 12px var(--sans);color:var(--fg-4)}
+.day::before,.day::after{content:"";flex:1;border-top:1px solid var(--seam)}
+/* SendUserFile (FileCard) */
+.filecard{border:1px solid var(--seam);border-radius:var(--r);padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+.filecard .fh{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;color:var(--fg-2);font:500 13px var(--sans);cursor:pointer;text-align:left}
+.filecard .fh.sel b{color:var(--accent)}
+.filecard .fh .m{color:var(--fg-4);font:12px var(--mono);margin-left:auto}
+.filecard ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.filecard li{display:flex;align-items:center;gap:8px}
+.filecard code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mcp-tools{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mcp-tools li{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
 .mcp-tools .d{flex-basis:100%;font-size:12px;color:var(--fg-3)}
@@ -175,6 +196,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .badge{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;border-radius:var(--r-xs);padding:1px 6px}
 .badge.no{color:var(--err);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--err) 33%,transparent)}
 .badge.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 27%,transparent)}
+.badge.dim{color:var(--fg-4);box-shadow:inset 0 0 0 1px var(--seam-2)}
 .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3)}
 .status.wait{color:var(--accent)}
 .dock{flex:none;position:relative;padding:0 32px}
@@ -195,6 +217,12 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .meta{max-width:760px;display:flex;gap:18px;margin-top:8px;font:12px var(--mono);color:var(--fg-4)}
 .meta b{color:var(--fg-3);font-weight:500}
 .meta .r{margin-left:auto}
+/* /artifacts (Composer): a pill whose list opens above it */
+.arts{position:relative}
+.arts summary{cursor:pointer;list-style:none;color:var(--fg-3)}
+.arts summary::-webkit-details-marker{display:none}
+.arts ul{position:absolute;bottom:100%;left:0;margin:0 0 6px;padding:6px 0;list-style:none;background:var(--raise);border:1px solid var(--seam-2);border-radius:var(--r-pop);box-shadow:var(--shadow-pop);min-width:220px;max-width:360px;z-index:6}
+.arts li a{display:block;padding:4px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)}
 #composer-history:empty{position:absolute}  /* live region kept in the tree, out of the flex gap */
 
 /* inspector */
@@ -223,6 +251,9 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .ask fieldset{margin:0;padding:0;border:0;min-width:0;display:flex;flex-direction:column;gap:6px}
 .ask legend{padding:0;margin-bottom:6px;display:flex;flex-direction:column;gap:4px}
 .ask .qt{font:600 15px/1.35 var(--sans);color:var(--fg)}
+.ask-preview{border:1px solid var(--seam);border-radius:var(--r);padding:8px 12px;background:var(--field);max-height:16em;overflow:auto}
+.diffs{display:flex;flex-direction:column;gap:12px}
+.scroll.diffs{padding:16px}
 .ask .opt{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;border:1px solid var(--seam-2);border-radius:var(--r);padding:9px 12px;background:var(--field)}
 .ask .opt.on{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-soft)}
 .ask .opt input[type=radio],.ask .opt input[type=checkbox]{margin:3px 0 0;accent-color:var(--accent)}
