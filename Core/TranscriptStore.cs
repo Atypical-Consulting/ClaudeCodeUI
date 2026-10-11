@@ -76,7 +76,8 @@ public static class TranscriptStore
                 continue;
             }
             // The compaction summary is hidden from search and history, not from the thread: it fills its "Compacted chat" card.
-            if (!Shown(e) || Hidden(e) && Events.Prop(e, "isCompactSummary") is not { ValueKind: JsonValueKind.True }) continue;
+            // A scheduled task's prompt (isMeta) shows as its marker.
+            if (!Shown(e) || Hidden(e) && Events.Prop(e, "isCompactSummary") is not { ValueKind: JsonValueKind.True } && Events.Str(e, "turnOrigin") != "scheduled") continue;
             try { Apply(s, e, at); }
             catch (Exception ex) { Console.Error.WriteLine($"transcript: line skipped ({ex.Message})"); }   // one bad line must not lose the session
         }

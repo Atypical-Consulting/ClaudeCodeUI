@@ -42,8 +42,8 @@ public record FallbackEvt(string Text, string? Retry, IReadOnlyList<string> Retr
 public record ArtifactsEvt(IReadOnlyList<Artifact> Artifacts) : ClaudeEvent;
 public record Artifact(string Url, string Title);
 public record TextDeltaEvt(string Text, string? ParentToolUseId) : ClaudeEvent;
-public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic, string? Uuid = null, DateTimeOffset? At = null) : ClaudeEvent; // Uuid = the line's (stream and .jsonl alike), At = transcript timestamp
-public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId) : ClaudeEvent;
+public record AssistantTextEvt(string MessageId, string Text, string? ParentToolUseId, bool Synthetic, string? Uuid = null, DateTimeOffset? At = null, string? Model = null) : ClaudeEvent; // Uuid = the line's (stream and .jsonl alike), At = transcript timestamp
+public record ToolUseEvt(string Id, string Name, JsonElement Input, string? ParentToolUseId, string? Model = null) : ClaudeEvent;   // Model: message.model (a subagent's shows which model it runs on)
 public record ToolResultEvt(string ToolUseId, string Text, bool IsError, JsonElement? Structured, bool NotRun = false) : ClaudeEvent; // Structured = tool_use_result (objects only); NotRun: see Events.NotRun
 public record UserTextEvt(string Text, DateTimeOffset? At = null, IReadOnlyList<UserImage>? Images = null) : ClaudeEvent;     // At = transcript timestamp
 public record PermissionEvt(string RequestId, string Tool, JsonElement Input, string? Description,
@@ -65,11 +65,15 @@ public record ResultEvt(string Subtype, bool IsError, decimal TotalCostUsd, int 
 public record RateLimitEvt(double FiveHour, DateTimeOffset FiveHourReset, double SevenDay, DateTimeOffset SevenDayReset,
                            string Status = "allowed", string? Type = null, bool ExtraOn = false, bool ExtraInUse = false, string? ExtraOff = null) : ClaudeEvent;
 // TaskType: local_agent (Agent), local_bash (a Bash/PowerShell run_in_background or a Monitor), local_workflow...
-public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false) : ClaudeEvent;
+// Ambient: housekeeping the CLI asks hosts to keep out of the transcript (auto-mode scans, memory imports…).
+public record TaskStartedEvt(string TaskId, string ToolUseId, string Description, string SubagentType, string? TaskType = null, bool Backgrounded = false, bool Ambient = false) : ClaudeEvent;
 public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? EndedAt, bool Backgrounded = false) : ClaudeEvent;   // patch.status: running|completed|failed|killed…; patch.is_backgrounded after background_tasks
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs, JsonElement? Workflow = null) : ClaudeEvent;   // Workflow: workflow_progress, a full snapshot
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
+// A prompt a scheduled task (CronCreate, /loop) ran: the transcript's isMeta user line with turnOrigin "scheduled". The stream
+// carries neither it nor system/scheduled_task_fire (probed on claude 2.1.296): only a command_lifecycle for an unknown uuid.
+public record ScheduledEvt(string Prompt, DateTimeOffset? At) : ClaudeEvent;
 // code_change_published: the session created, pushed to or checked out a PR (Number = its identifier).
 public record PrEvt(string Url, string? Number) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
@@ -140,13 +144,14 @@ public static class Events
                     if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { ValueKind: JsonValueKind.Array } content) break;
                     var parent = Str(e, "parent_tool_use_id");
                     var synthetic = Str(msg, "model") == "<synthetic>";
+                    var model = synthetic ? null : Str(msg, "model");
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
                         {
-                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic, Str(e, "uuid"), Time(e)); break;
+                            case "text": yield return new AssistantTextEvt(Str(msg, "id") ?? "", Str(c, "text") ?? "", parent, synthetic, Str(e, "uuid"), Time(e), model); break;
                             case "thinking" when Str(c, "thinking") is { } th && th.Trim().Length > 0: yield return new ThoughtEvt(th.Trim(), parent); break;
                             case "tool_use" when Str(c, "id") is { } id && Prop(c, "input") is { } input:
-                                yield return new ToolUseEvt(id, Str(c, "name") ?? "", input, parent); break;
+                                yield return new ToolUseEvt(id, Str(c, "name") ?? "", input, parent, model); break;
                         }
                     break;
                 }
@@ -157,6 +162,11 @@ public static class Events
                     var parent = Bool(e, "isSynthetic") || Bool(e, "isMeta") ? "injected" : Str(e, "parent_tool_use_id");
                     var at = Time(e);
                     if (Prop(e, "message") is not { } msg || Prop(msg, "content") is not { } content) break;
+                    if (Str(e, "turnOrigin") == "scheduled" && Bool(e, "isMeta"))
+                    {
+                        yield return new ScheduledEvt(ResultText(content), at);
+                        break;
+                    }
                     if (Bool(e, "isCompactSummary") || Bool(e, "isSynthetic") && ResultText(content).StartsWith(SummaryLead))
                     {
                         yield return new SummaryEvt(ResultText(content));
@@ -263,7 +273,7 @@ public static class Events
         "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
         "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
         "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? "",
-            Str(e, "task_type"), Bool(e, "is_backgrounded")),
+            Str(e, "task_type"), Bool(e, "is_backgrounded"), Bool(e, "ambient")),
         "task_updated" => Prop(e, "patch") is { } patch
             ? new TaskUpdatedEvt(Str(e, "task_id") ?? "", Str(patch, "status"),
                 Long(patch, "end_time") is > 0 and < 253402300800000 and var end ? DateTimeOffset.FromUnixTimeMilliseconds(end) : null, Bool(patch, "is_backgrounded")) : null,   // out of range = unknown: the reducer uses now
@@ -567,6 +577,14 @@ public static class Events
         Ok(notif is TaskDoneEvt { TaskId: "aa5aab0eece92a372", ToolUseId: "toolu_01TEgqvrrwU4RMLtNJYrEavF", Status: "completed", Result: "pong", Tokens: 31599, ToolUses: 1, DurationMs: 5088 }, "task-notification user message");
         // Background shell (Bash run_in_background) and its stop, from the 2.1.296 capture (--probe-cli background-tasks).
         Ok(P("""{"type":"system","subtype":"task_started","task_id":"b69el8u68","run_id":"0mv1jw258-f850d2f1","tool_use_id":"toolu_01JF","description":"Run 40-tick background loop","is_backgrounded":true,"task_type":"local_bash"}""") is TaskStartedEvt { TaskId: "b69el8u68", ToolUseId: "toolu_01JF", TaskType: "local_bash", Backgrounded: true }, "task_started local_bash");
+        // The 2.1.296 SDK schema: an MCP task carries no is_backgrounded, a housekeeping one says ambient.
+        Ok(P("""{"type":"system","subtype":"task_started","task_id":"m1","tool_use_id":"toolu_M","description":"github/search","task_type":"mcp_task","uuid":"u","session_id":"s"}""") is TaskStartedEvt { TaskType: "mcp_task", Backgrounded: false, Ambient: false }
+           && P("""{"type":"system","subtype":"task_started","task_id":"d1","description":"scan","task_type":"auto_mode_scan","ambient":true}""") is TaskStartedEvt { Ambient: true }, "task_started mcp_task / ambient");
+        // A subagent's message names its model; the scheduled prompt as the 2.1.296 transcript writes it (probed, CronCreate).
+        Ok(All("""{"type":"assistant","message":{"model":"claude-haiku-5-5","id":"m","content":[{"type":"text","text":"hi"},{"type":"tool_use","id":"t1","name":"Read","input":{}}]},"parent_tool_use_id":"toolu_A"}""") is [AssistantTextEvt { Model: "claude-haiku-5-5", ParentToolUseId: "toolu_A" }, ToolUseEvt { Model: "claude-haiku-5-5" }]
+           && All("""{"type":"assistant","message":{"model":"<synthetic>","id":"m","content":[{"type":"text","text":"x"}]}}""") is [AssistantTextEvt { Model: null }], "assistant message model");
+        Ok(P("""{"parentUuid":"e376","isSidechain":false,"type":"user","message":{"role":"user","content":"Reply with the single word tick"},"isMeta":true,"uuid":"d592","timestamp":"2026-10-11T03:19:00.431Z","promptSource":"system","turnOrigin":"scheduled"}""") is ScheduledEvt { Prompt: "Reply with the single word tick", At: not null }
+           && P("""{"type":"user","message":{"role":"user","content":"skill body"},"isMeta":true}""") is null, "scheduled prompt");
         var upd = P("""{"type":"system","subtype":"task_updated","task_id":"b69el8u68","run_id":"0mv1jw258-f850d2f1","patch":{"status":"killed","end_time":1791585746931}}""") as TaskUpdatedEvt;
         Ok(upd is { TaskId: "b69el8u68", Status: "killed", EndedAt: { } end } && end.ToUnixTimeMilliseconds() == 1791585746931, "task_updated");
         Ok(P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"is_backgrounded":true}}""") is TaskUpdatedEvt { Status: null, EndedAt: null }, "task_updated without status");

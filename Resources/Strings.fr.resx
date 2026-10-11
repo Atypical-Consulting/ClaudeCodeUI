@@ -937,4 +937,16 @@
   <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0}. Ce dossier appartient au dépôt git {1} : lui faire confiance, c’est faire confiance à tout ce dépôt, chaque sous-dossier et worktree lié, dont les réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
   <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0} : ses réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
   <data name="Cwd.Moved" xml:space="preserve"><value>Claude travaille désormais dans {0}.</value></data>
+  <data name="Agent.Transcript" xml:space="preserve"><value>Transcription complète</value></data>
+  <data name="Agent.Map" xml:space="preserve"><value>Tous les sous-agents</value></data>
+  <data name="Kv.Effort" xml:space="preserve"><value>effort</value></data>
+  <data name="Bg.Tasks" xml:space="preserve"><value>Tâches en arrière-plan</value></data>
+  <data name="Bg.Type.mcp_task" xml:space="preserve"><value>Appel MCP</value></data>
+  <data name="Bg.Type.monitor_mcp" xml:space="preserve"><value>Surveillance MCP</value></data>
+  <data name="Bg.Type.monitor_ws" xml:space="preserve"><value>Surveillance WebSocket</value></data>
+  <data name="Bg.Type.in_process_teammate" xml:space="preserve"><value>Coéquipier</value></data>
+  <data name="Bg.Type.remote_agent" xml:space="preserve"><value>Agent distant</value></data>
+  <data name="Thread.Scheduled" xml:space="preserve"><value>Tâche planifiée lancée à {0} :</value></data>
+  <data name="New.Agent" xml:space="preserve"><value>Agent</value></data>
+  <data name="New.AgentHint" xml:space="preserve"><value>Aucun : celui de Claude Code par défaut</value></data>
 </root>

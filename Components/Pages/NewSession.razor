@@ -118,6 +118,14 @@
                 </div>
             </div>
             <div class="field">
+                <label for="agent">@L["New.Agent"]</label>
+                @* --agent: the main thread runs as that agent (its prompt, tools and model). Free text: any agent the CLI knows. *@
+                <div class="input"><input id="agent" list="agent-names" @bind="agent" placeholder="@L["New.AgentHint"]" spellcheck="false" autocomplete="off" /></div>
+                <datalist id="agent-names">
+                    @foreach (var a in agentNames) { <option value="@a"></option> }
+                </datalist>
+            </div>
+            <div class="field">
                 <label for="effort">@L["New.Effort"]</label>
                 <EffortSlider Id="effort" Levels="Efforts" @bind-Value="effort" Name='e => Strings.Name("Effort.", e is "" ? "default" : e)' />
             </div>
@@ -169,7 +177,8 @@
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "", fallback = "", fromPr = "";
+    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "", fallback = "", fromPr = "", agent = "";
+    List<string> agentNames = [];
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
     string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
@@ -227,6 +236,21 @@
         confirmRisk = false;
         exists = Local(cwd);
         branch = exists && RendererInfo.IsInteractive ? await Branch(cwd) : null;   // no git process for the prerender
+        agentNames = exists && RendererInfo.IsInteractive ? AgentNames(cwd) : [];
+    }
+
+    // --agent suggestions: what a running session's initialize listed (built-in and plugin agents), and the agent files of
+    // the folder and of ~ by file name (ponytail: the CLI keys on the frontmatter name, which nearly always matches).
+    List<string> AgentNames(string dir)
+    {
+        var files = new[] { dir, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) }.Select(d => Path.Combine(d, ".claude", "agents"));
+        try
+        {
+            return [.. Sessions.All.SelectMany(s => Extensions.Agents(s).Select(a => a.Name))
+                .Concat(files.Where(Directory.Exists).SelectMany(d => Directory.EnumerateFiles(d, "*.md")).Select(f => Path.GetFileNameWithoutExtension(f)))
+                .Where(n => n.Length > 0).Distinct().Order()];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
@@ -311,7 +335,7 @@
         // The CLI retitles the session after the first prompt (session_title_changed).
         var name = wt ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
         var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs,
-            fallback is { Length: > 0 } && fallback != model ? fallback : null, restricted, safeMode);
+            fallback is { Length: > 0 } && fallback != model ? fallback : null, restricted, safeMode, agent.Trim() is { Length: > 0 } ag ? ag : null);
         Nav.NavigateTo($"session/{s.Id}");
     }
 }

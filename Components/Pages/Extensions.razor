@@ -941,7 +941,7 @@
         return (name, origin, source switch { null or "user" => Strings.Get("Ext.Scope.User"), "claudeai" => "claude.ai", _ => source });
     }
 
-    static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>
+    internal static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>
         s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: JsonValueKind.Array } a
             ? a.EnumerateArray().Select(x => (Events.Str(x, "name") ?? "", Events.Str(x, "description"), Events.Str(x, "model"))).ToList()
             : (s.Init?.Agents ?? []).Select(n => (n, (string?)null, (string?)null)).ToList();

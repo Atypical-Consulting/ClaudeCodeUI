@@ -1,6 +1,8 @@
 @* Background shell and Monitor tasks (task_type local_bash): command, status, elapsed and the end of their output,
    read with get_task_output every 2 s while one runs (once more after it ends), and Stop (stop_task). Both requests are
-   verified by --probe-cli background-tasks. Running tasks first, then the last few that ended, which "Clear" drops. *@
+   verified by --probe-cli background-tasks. Other background tasks (an MCP call, an MCP or WebSocket monitor, a teammate)
+   show their type and Stop only: get_task_output reads shells and Monitors alone (its own error text, claude 2.1.296).
+   Running tasks first, then the last few that ended, which "Clear" drops. *@
 @implements IDisposable
 
 @{
@@ -9,7 +11,7 @@
 }
 <section class="section bg-tasks" aria-labelledby="bg-tasks-h">
     <div class="hd">
-        <h2 id="bg-tasks-h" class="cap">@L["Bg.Title"] · @L["Bg.RunningN", tasks.Count(t => t.Running)]</h2>
+        <h2 id="bg-tasks-h" class="cap">@L["Bg.Tasks"] · @L["Bg.RunningN", tasks.Count(t => t.Running)]</h2>
         @if (tasks.Any(t => !t.Running))
         {
             <button class="btn ghost" @onclick="Session.ClearEndedTasks">@L["Bg.Clear"]</button>
@@ -25,14 +27,17 @@
             <details @key="t.Id" class="bg-row" open="@t.Running">
                 <summary>
                     <span class="dot @Dot(t)" aria-hidden="true"></span>
-                    <span class="nm">@(tool is null ? "" : $"{tool.Name} · ")@t.Description</span>
+                    <span class="nm">@(t.Type is { } type ? $"{Strings.Name("Bg.Type.", type)} · " : tool is null ? "" : $"{tool.Name} · ")@t.Description</span>
                     <span class="m">@Label(t) · @Fmt.Dur((t.EndedAt ?? DateTimeOffset.Now) - t.StartedAt)</span>
                 </summary>
                 @if (cmd is not null)
                 {
                     <pre class="cmdlog" aria-label="@L["Bg.Command"]"><span class="c">$ </span>@cmd</pre>
                 }
-                <pre class="cmdlog out" role="region" tabindex="0" aria-label="@L["Bg.Output"]">@(output.TryGetValue(t.Id, out var o) && o.Length > 0 ? BgTask.Tail(o, 12) : L["Bg.NoOutput"])</pre>
+                @if (t.Type is null)
+                {
+                    <pre class="cmdlog out" role="region" tabindex="0" aria-label="@L["Bg.Output", t.Description]">@(output.TryGetValue(t.Id, out var o) && o.Length > 0 ? BgTask.Tail(o, 12) : L["Bg.NoOutput"])</pre>
+                }
                 @if (t.Running && Session.HasProcess)
                 {
                     <div><button class="btn" disabled="@stopping.Contains(t.Id)" aria-label="@L["Bg.StopLabel", t.Description]" @onclick="() => Stop(t)"><Icon Name="stop" Sm />@L["Bg.Stop"]</button></div>
@@ -66,7 +71,7 @@
         try
         {
             var changed = false;
-            foreach (var t in Session.Tasks.Where(t => t.Running || !final.Contains(t.Id)).ToList())
+            foreach (var t in Session.Tasks.Where(t => t.Type is null && (t.Running || !final.Contains(t.Id))).ToList())
             {
                 try
                 {

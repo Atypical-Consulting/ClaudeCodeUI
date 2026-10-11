@@ -29,7 +29,7 @@ public static class ThreadBlocks
                     if (blocks.LastOrDefault() is Hooks hs) hs.Items.Add(h);
                     else blocks.Add(new Hooks([h]));
                     break;
-                case UserItem or ApiErrorItem or NoticeItem or ResumedItem or TextItem { ParentToolUseId: null } or ThoughtItem or CompactItem or FallbackItem:
+                case UserItem or ApiErrorItem or NoticeItem or ScheduledItem or ResumedItem or TextItem { ParentToolUseId: null } or ThoughtItem or CompactItem or FallbackItem:
                     blocks.Add(item);
                     break;
             }

@@ -106,6 +106,10 @@
             case ResumedItem:
                 <p class="notice">@L["Thread.Resumed"]</p>
                 break;
+            case ScheduledItem sc:
+                @* The terminal's "Running scheduled task (time)" line, with the prompt the task ran. *@
+                <p class="notice"><Icon Name="refresh" Sm /> @L["Thread.Scheduled", Fmt.Time(sc.At)] <q>@sc.Prompt</q></p>
+                break;
             case NoticeItem n:
                 <p class="notice @(n.Notice.Color is "error" or "warning" ? "bad" : null)">@n.Notice.Text</p>
                 break;

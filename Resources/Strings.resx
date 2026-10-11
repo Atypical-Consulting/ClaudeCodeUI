@@ -937,4 +937,16 @@
   <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code has never worked in {0}. It sits in the git repository {1}: trusting it trusts that whole repository, every subfolder and linked worktree, and their settings, hooks and CLAUDE.md would load. Trust it?</value></data>
   <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code has never worked in {0}: its settings, hooks and CLAUDE.md would load. Trust it?</value></data>
   <data name="Cwd.Moved" xml:space="preserve"><value>Claude now works in {0}.</value></data>
+  <data name="Agent.Transcript" xml:space="preserve"><value>Full transcript</value></data>
+  <data name="Agent.Map" xml:space="preserve"><value>All subagents</value></data>
+  <data name="Kv.Effort" xml:space="preserve"><value>effort</value></data>
+  <data name="Bg.Tasks" xml:space="preserve"><value>Background tasks</value></data>
+  <data name="Bg.Type.mcp_task" xml:space="preserve"><value>MCP call</value></data>
+  <data name="Bg.Type.monitor_mcp" xml:space="preserve"><value>MCP monitor</value></data>
+  <data name="Bg.Type.monitor_ws" xml:space="preserve"><value>WebSocket monitor</value></data>
+  <data name="Bg.Type.in_process_teammate" xml:space="preserve"><value>Teammate</value></data>
+  <data name="Bg.Type.remote_agent" xml:space="preserve"><value>Remote agent</value></data>
+  <data name="Thread.Scheduled" xml:space="preserve"><value>Scheduled task ran at {0}:</value></data>
+  <data name="New.Agent" xml:space="preserve"><value>Agent</value></data>
+  <data name="New.AgentHint" xml:space="preserve"><value>None: Claude Code’s default</value></data>
 </root>

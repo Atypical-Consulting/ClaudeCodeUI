@@ -21,6 +21,7 @@ public record ResetItem : Item;                                   // /clear went
 public record ResumedItem : Item;                                 // the turn a crash cut off, re-run by the relaunched CLI
 public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
 public record NoticeItem(NoticeEvt Notice) : Item;   // a CLI notification or plugin toast
+public record ScheduledItem(string Prompt, DateTimeOffset At) : Item;   // a scheduled task's prompt ran (transcript replay only, see ScheduledEvt)
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -35,6 +36,7 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public long Tokens { get; init; }
     public int SubToolUses { get; init; }
     public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
+    public string? Model { get; init; }           // Agent: the model of its subagent's first message (Input.model is often absent)
 }
 public record QueuedMessage(string Uuid, string Text, DateTimeOffset At);   // written to stdin mid-turn, not started yet
 // rewind_files {dry_run:true}: what rewinding the files to a message would change, or why it can't (CLI text).
@@ -51,9 +53,11 @@ public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Ins
     // rewind_files handler) while the line counts stay: count those too.
     public bool Changes => CanRewind && (Files.Count > 0 || Insertions + Deletions > 0);
 }
-// A background shell or Monitor command (task_type local_bash): outlives its turn, ends on task_updated or with the process.
+// A background shell or Monitor command (task_type local_bash), or another background task (an auto-backgrounded MCP call,
+// an MCP or WebSocket monitor, a teammate…): outlives its turn, ends on task_updated or with the process.
 public sealed record BgTask(string Id, string ToolUseId, string Description, DateTimeOffset StartedAt)
 {
+    public string? Type { get; init; }                 // task_type when not local_bash: get_task_output only reads shells and Monitors
     public string Status { get; init; } = "running";   // task_updated patch.status: completed, failed, killed…
     public DateTimeOffset? EndedAt { get; init; }
     public bool Running => Status is "running" or "pending" or "paused";
@@ -150,6 +154,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
     public bool Restricted { get; init; }                     // --restricted: no Bash/code-running tools nor WebFetch, user/project/local settings ignored
     public bool SafeMode { get; init; }                       // --safe-mode: CLAUDE.md, skills, plugins, hooks, MCP… off, to troubleshoot a configuration
+    public string? Agent { get; init; }                       // --agent: the main thread runs as this agent (its prompt, tools and model)
     public string? PrUrl { get; internal set; }               // the PR the session is linked to: its transcript's pr-link, then code_change_published
     public string? RemoteUrl { get; private set; }            // the claude.ai/code page while Remote Control is on (this process only)
     public IReadOnlyList<StatusSection>? StatusRows { get; private set; }   // get_status, asked when the panel shows
@@ -711,6 +716,8 @@ public sealed class LiveSession : IAsyncDisposable
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
         if (Restricted) args.Add("--restricted");
         if (SafeMode) args.Add("--safe-mode");
+        // stream-json ignores an unknown name instead of exiting (claude 2.1.296): a wrong one starts a plain session.
+        if (Agent is { } ag) args.AddRange(["--agent", ag]);
         // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
         if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
         return args;
@@ -982,6 +989,12 @@ public sealed class LiveSession : IAsyncDisposable
         }
     }
 
+    // A subagent's messages name the model it runs on: kept from the first one on its Agent row.
+    void SubagentModel(string? parent, string? model)
+    {
+        if (parent is not null && model is not null && Tool(parent) is { Model: null } a && ToolKinds.IsAgent(a.Name)) Set(a, a with { Model = model });
+    }
+
     // Replaces one tool row (by reference: two rows never share an instance). Callers hold the gate, or own the session (replay).
     internal void Set(ToolItem old, ToolItem now) => Items = Items.Replace(old, now, ReferenceEqualityComparer.Instance);
 
@@ -1079,11 +1092,17 @@ public sealed class LiveSession : IAsyncDisposable
 
             case AssistantTextEvt a:
                 if (a.ParentToolUseId is null) ClearStream();
+                SubagentModel(a.ParentToolUseId, a.Model);
                 Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid, a.At ?? now));
+                break;
+
+            case ScheduledEvt sc:
+                Items = Items.Add(new ScheduledItem(sc.Prompt, sc.At ?? now));
                 break;
 
             case ToolUseEvt u:
                 if (u.ParentToolUseId is null) ClearStream();
+                SubagentModel(u.ParentToolUseId, u.Model);
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
                 if (u.Name == PushTool) { Pushes++; LastPush = Events.Str(u.Input, "message"); }
@@ -1178,8 +1197,11 @@ public sealed class LiveSession : IAsyncDisposable
 
             case TaskStartedEvt ts:
                 if (Tool(ts.ToolUseId) is { } launcher) Set(launcher, launcher with { TaskId = ts.TaskId });
-                if (ts is { TaskType: "local_bash", Backgrounded: true } && !Tasks.Any(x => x.Id == ts.TaskId))
-                    Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now));
+                // A shell only when backgrounded; agents and workflows have their own rows. Any other type (mcp_task,
+                // monitor_mcp, monitor_ws, in_process_teammate…) only exists in the background; housekeeping stays out.
+                if ((ts is { TaskType: "local_bash", Backgrounded: true } || ts.TaskType is not (null or "local_bash" or "local_agent" or "local_workflow") && !ts.Ambient)
+                    && !Tasks.Any(x => x.Id == ts.TaskId))
+                    Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now) { Type = ts.TaskType == "local_bash" ? null : ts.TaskType });
                 break;
 
             // Moved to the background mid-run (background_tasks, verified by a probe on claude 2.1.296): a shell joins the
@@ -1744,6 +1766,19 @@ public sealed class LiveSession : IAsyncDisposable
         bg.Apply(new ToolResultEvt("toolu_F", "Command was manually backgrounded by user with ID: b5.", false, null));
         Ok(bg.Tasks is [_, { Id: "b5", Description: "Build", Running: true }] && bg.Items[^1] is ToolItem { Background: true }, "shell moved to the background joins the tasks");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
+        bg.Apply(new TaskStartedEvt("m1", "toolu_M", "github/search", "", "mcp_task"));
+        bg.Apply(new TaskStartedEvt("d1", "", "scan", "", "auto_mode_scan", Ambient: true));
+        bg.Apply(new TaskStartedEvt("w1", "toolu_W", "wf", "", "local_workflow"));
+        Ok(bg.Tasks[^1] is { Id: "m1", Type: "mcp_task", Running: true } && bg.Tasks[^2].Type is null && !bg.Tasks.Any(t => t.Id is "d1" or "w1"), "MCP task listed by type, ambient and workflow not");
+        // A subagent's first message names its model (claude 2.1.296 forwards it with --forward-subagent-text); later ones do not overwrite it.
+        var sm = new LiveSession("sm", "sm", "/w", "default");
+        sm.Apply(new ToolUseEvt("toolu_A", "Agent", input, null, "claude-opus-5-5"));
+        sm.Apply(new AssistantTextEvt("m1", "hi", "toolu_A", false, Model: "claude-haiku-5-5"));
+        sm.Apply(new ToolUseEvt("t1", "Read", input, "toolu_A", "claude-sonnet-5"));
+        Ok(sm.Tool("toolu_A") is { Model: "claude-haiku-5-5" } && sm.Tool("t1") is { Model: null }, "subagent model from its first message");
+        sm.Apply(new ScheduledEvt("tick", null));
+        Ok(sm.Items[^1] is ScheduledItem { Prompt: "tick" } && ThreadBlocks.Of(sm.Items)[^1] is ScheduledItem, "scheduled prompt marker");
+        Ok(new LiveSession("k", "k", "/w", "default") { Agent = "pirate" }.Args(false) is var aa && aa.IndexOf("--agent") is >= 0 and var ai && aa[ai + 1] == "pirate", "--agent");
 
         // Session lifecycle, on claude 2.1.296 shapes.
         var lockdown = new LiveSession("k", "k", "/w", "default") { Restricted = true, SafeMode = true }.Args(false);

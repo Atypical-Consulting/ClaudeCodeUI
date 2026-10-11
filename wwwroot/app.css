@@ -653,6 +653,22 @@ textarea,input{caret-color:var(--accent)}
 .cmdlog.wfres{max-height:240px;overflow:auto}
 .section h3.cap{font:600 11px var(--sans);letter-spacing:.08em;color:var(--fg-4)}
 .subrun .sl.more{display:block;color:var(--fg-4)}
+/* A subagent spawned by a subagent (Workflow, AgentPanel's transcript): a row that opens one level deeper. */
+button.sl{width:100%;text-align:left}
+.subrun .sl.sub.sel{color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.subrun .sl .p small{color:var(--fg-4);margin-left:6px}
+.subrun .sl .k .i{vertical-align:-2px;margin-right:4px}
+.subrun .subrun{padding:0 0 4px 16px}
+/* An agent's tool call that opens onto its input and result (AgentPanel transcript, WorkflowPanel), and a folded section. */
+.sl-d>summary,.fold-sec>summary{cursor:pointer;list-style:none}
+.sl-d>summary::-webkit-details-marker,.fold-sec>summary::-webkit-details-marker{display:none}
+.sl-d>pre{margin:4px 0 8px}
+.wf-todos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--fg-2)}
+.wf-todos li.now{color:var(--fg)}
+.wf-todos li.done{color:var(--fg-4);text-decoration:line-through}
+.fold-sec>summary{display:flex;align-items:center;gap:6px}
+.fold-sec .chev{transition:transform .15s}
+.fold-sec[open]>summary .chev{transform:rotate(90deg)}
 
 /* ---------- 11. extensions ---------- */
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}

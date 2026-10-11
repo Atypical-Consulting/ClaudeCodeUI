@@ -30,9 +30,9 @@ public sealed class SessionManager : IAsyncDisposable
     public event Action? Changed;
 
     public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort, IReadOnlyList<string> addDirs, string? fallback = null,
-                             bool restricted = false, bool safeMode = false)
+                             bool restricted = false, bool safeMode = false, string? agent = null)
     {
-        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs) { FallbackModel = fallback, Restricted = restricted, SafeMode = safeMode });
+        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs) { FallbackModel = fallback, Restricted = restricted, SafeMode = safeMode, Agent = agent });
         if (addDirs.Count > 0) TranscriptStore.RecordDirs(s.Id, addDirs);
         try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
         _ = s.RefreshGit();
@@ -73,7 +73,7 @@ public sealed class SessionManager : IAsyncDisposable
         // src.Mode is the mode src runs in (Open seeds it from the transcript): the fork keeps it, as a resume does.
         var s = new LiveSession(Guid.NewGuid().ToString(), Strings.Get("Session.ForkName", src.Name), src.Cwd, src.Mode, model: src.Model, effort: src.Effort)
         {
-            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut), Restricted = src.Restricted, SafeMode = src.SafeMode,
+            ForkOf = of, ForkAt = cut, Items = LiveSession.Upto(TranscriptStore.Load(of), cut), Restricted = src.Restricted, SafeMode = src.SafeMode, Agent = src.Agent,
             CostUsd = inherited, CostAtOpen = inherited,   // the source's spend, not this run's (Overview counts CostUsd - CostAtOpen)
         };
         s.ToolCount = s.Items.OfType<ToolItem>().Count();
