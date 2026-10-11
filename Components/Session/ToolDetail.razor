@@ -28,14 +28,14 @@
                     {
                         <DiffView @key="(diffState, d.Path)" Path="@ToolKinds.Relative(d.Path, Session.Cwd)" Lines="d.Lines" />
                     }
-                    @if (Events.Prop(Tool.Structured ?? default, "bashEditDiff") is { } bed && Events.Long(bed, "moreFiles") is > 0 and var more)
-                    {
-                        <p style="margin:0;color:var(--fg-4);font-size:13px">@L["Diff.MoreFiles", more]</p>
-                    }
                 }
                 else
                 {
                     <p style="margin:0;color:var(--fg-4);font-size:13px">@L["Tool.NoChanges"]</p>
+                }
+                @if (Events.Prop(Tool.Structured ?? default, "bashEditDiff") is { } bed && Events.Long(bed, "moreFiles") is > 0 and var more)
+                {
+                    <p style="margin:0;color:var(--fg-4);font-size:13px">@L["Diff.MoreFiles", more]</p>
                 }
             </div>
             break;

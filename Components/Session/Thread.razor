@@ -56,7 +56,7 @@
                     <Markdown Text="@t.Markdown" />
                     <span class="said-acts">
                         <button type="button" class="btn ghost fork-here" aria-pressed="@(marked.Contains(at) ? "true" : "false")" aria-label="@L["Bookmark.Of", Gist(t.Markdown)]"
-                                @onclick="() => Mark(at, t.Markdown)">@L[marked.Contains(at) ? "Bookmark.On" : "Bookmark.Add"]</button>
+                                @onclick="() => Mark(at, t.Markdown)">@L["Bookmark.Add"]</button>
                         <button type="button" class="btn ghost fork-here" data-copy="@t.Markdown" aria-label="@L["Thread.CopyOf", Gist(t.Markdown)]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
                         <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" aria-label="@L["Session.ForkHereOf", Gist(t.Markdown)]"
                                 disabled="@(!Session.CanFork)" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
@@ -165,7 +165,8 @@
         var items = Session.Items;
         if (blocksOf == items) return blocks;
         blocksOf = items;
-        return blocks = ThreadBlocks.Of(items);
+        // Hidden thoughts must not split a Ledger into runs with nothing visible between them.
+        return blocks = ThreadBlocks.Of(thoughts ? items : items.Where(i => i is not ThoughtItem));
     }
 
     // Keep the thread pinned to the bottom while it grows, unless the user scrolled up (app.js claudeUi.scrollEnd).

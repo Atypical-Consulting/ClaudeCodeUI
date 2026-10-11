@@ -48,6 +48,8 @@
     List<(string Id, string Title, string Body)> Due()
     {
         var due = new List<(string, string, string)>();
+        // A closed session forgets its observation: reopened under the same id, it is a new LiveSession whose Pushes restart at 0.
+        foreach (var id in seen.Keys.Except(Sessions.All.Select(s => s.Id)).ToList()) seen.Remove(id);
         foreach (var s in Sessions.All)
         {
             var (status, result, pending, pushes) = (s.Status, s.LastResultAt, s.Pending, s.Pushes);

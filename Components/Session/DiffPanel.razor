@@ -52,7 +52,9 @@
             // Whole repository, paths from its root, as git status gives them; HEAD is missing before the first commit.
             root = (await LiveSession.Git(Session.Cwd, "rev-parse", "--show-toplevel"))?.Trim() is { Length: > 0 } r ? r : null;
             if (root is null) { files = []; return; }
-            var diff = await LiveSession.Git(root, "diff", "HEAD", "--no-color", "--no-ext-diff") ?? await LiveSession.Git(root, "diff", "--no-color", "--no-ext-diff") ?? "";
+            // Plain a/ b/ paths whatever the user's config: core.quotePath C-quotes non-ASCII names, mnemonicPrefix/noprefix change the prefixes.
+            string[] opts = ["--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/"];
+            var diff = await LiveSession.Git(root, ["-c", "core.quotePath=false", "diff", "HEAD", .. opts]) ?? await LiveSession.Git(root, ["-c", "core.quotePath=false", "diff", .. opts]) ?? "";
             var added = await LiveSession.Git(root, "ls-files", "--others", "--exclude-standard", "-z") ?? "";
             files = [.. EditDiff.FromGit(diff), .. added.Split('\0', StringSplitOptions.RemoveEmptyEntries).Select(p => Untracked(root, p))];
         }

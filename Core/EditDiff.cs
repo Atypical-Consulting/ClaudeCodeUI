@@ -59,10 +59,12 @@ public static class EditDiff
     }
 
     // Bash's tool_use_result.bashEditDiff (claude 2.1.296 schema; on by default in auto mode, else bashEditDiffEnabled):
-    // the files the command changed, each with structuredPatch-shaped hunks.
+    // the files the command changed, each with structuredPatch-shaped hunks. A file without hunks (binary, mode only, empty or
+    // too large) still changed: it gets a note as its only hunk, as the CLI prints "Updated <path> (+0 -0)" for it.
     public static List<FileDiff> FromBash(JsonElement? structured) =>
         structured is { } s && Events.Prop(s, "bashEditDiff") is { } b && Events.Prop(b, "files") is { ValueKind: JsonValueKind.Array } fs
-            ? [.. fs.EnumerateArray().Select(f => new FileDiff(Events.Str(f, "filePath") ?? "", FromPatch(Events.Prop(f, "hunks") ?? default)))]
+            ? [.. fs.EnumerateArray().Select(f => new FileDiff(Events.Str(f, "filePath") ?? "",
+                FromPatch(Events.Prop(f, "hunks") ?? default) is { Count: > 0 } h ? h : [new(DiffKind.Hunk, null, Strings.Get("Diff.NoHunks"))]))]
             : [];
 
     // `git diff` output, one FileDiff per file (the /diff panel). Path: the +++ side, the --- side for a deletion. A binary
@@ -278,6 +280,8 @@ public static class EditDiff
             // bashEditDiff as the 2.1.296 schema describes it: one file, structuredPatch hunks.
             Ok(FromBash(J("""{"stdout":"","stderr":"","interrupted":false,"bashEditDiff":{"files":[{"filePath":"/w/a.txt","hunks":[{"oldStart":1,"oldLines":1,"newStart":1,"newLines":1,"lines":["-hello","+bye"]}]}],"moreFiles":0}}"""))
                is [{ Path: "/w/a.txt", Lines: var bl }] && Show(bl) == Show(patch) && FromBash(J("""{"stdout":"x"}""")).Count == 0 && FromBash(null).Count == 0, "FromBash");
+            Ok(FromBash(J("""{"bashEditDiff":{"files":[{"filePath":"/w/a.png","hunks":[],"created":true}],"moreFiles":0}}""")) is [{ Lines: [{ Kind: DiffKind.Hunk }] }],
+               "FromBash: a file without hunks keeps a note");
             // `git diff HEAD` (git 2.x): an edit, a deletion, a binary file, a new file with no trailing newline.
             var git = FromGit(string.Join("\n",
                 "diff --git a/src/a.cs b/src/a.cs", "index 1111111..2222222 100644", "--- a/src/a.cs", "+++ b/src/a.cs",

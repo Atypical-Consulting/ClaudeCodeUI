@@ -631,11 +631,14 @@ public sealed class LiveSession : IAsyncDisposable
     {
         try
         {
+            // stderr unread would fill its pipe on a chatty diff (one CRLF warning per file) and block git: drain it alongside stdout.
             var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true };
             psi.ArgumentList.Add("-C"); psi.ArgumentList.Add(dir);
             foreach (var a in args) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
+            var err = p.StandardError.ReadToEndAsync();
             var output = await p.StandardOutput.ReadToEndAsync();
+            await err;
             await p.WaitForExitAsync();
             return p.ExitCode == 0 ? output : null;
         }

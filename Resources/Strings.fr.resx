@@ -760,6 +760,7 @@
   <data name="Thread.EditRetry" xml:space="preserve"><value>Modifier et réessayer</value></data>
   <data name="Tool.NotRun" xml:space="preserve"><value>Non exécuté</value></data>
   <data name="Tool.NotRunWhy" xml:space="preserve"><value>Le contrôle du mode auto n’a pas donné de réponse exploitable : cet appel a été retenu. Il n’a pas été refusé, vous pouvez redemander.</value></data>
+  <data name="Diff.NoHunks" xml:space="preserve"><value>Aucune ligne modifiée à afficher : binaire, vide, mode seul ou trop volumineux</value></data>
   <data name="Diff.MoreFiles" xml:space="preserve"><value>{0} autres fichiers modifiés non affichés</value></data>
   <data name="Diff.Title" xml:space="preserve"><value>Modifications non validées</value></data>
   <data name="Diff.Open" xml:space="preserve"><value>Modifications</value></data>
@@ -787,7 +788,6 @@
   <data name="Appearance.StampsHint" xml:space="preserve"><value>Affiche l’heure au-dessus de chaque réponse, et un séparateur quand le jour change.</value></data>
   <data name="Appearance.StampsLabel" xml:space="preserve"><value>Afficher l’heure</value></data>
   <data name="Bookmark.Add" xml:space="preserve"><value>Marquer</value></data>
-  <data name="Bookmark.On" xml:space="preserve"><value>Marquée</value></data>
   <data name="Bookmark.Of" xml:space="preserve"><value>Marquer la réponse : {0}</value></data>
   <data name="Bookmark.Title" xml:space="preserve"><value>Signets</value></data>
 </root>

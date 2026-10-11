@@ -760,6 +760,7 @@
   <data name="Thread.EditRetry" xml:space="preserve"><value>Edit and retry</value></data>
   <data name="Tool.NotRun" xml:space="preserve"><value>Not run</value></data>
   <data name="Tool.NotRunWhy" xml:space="preserve"><value>Auto mode’s check had no usable answer, so this call was held back. It was not refused: asking again is fine.</value></data>
+  <data name="Diff.NoHunks" xml:space="preserve"><value>No line changes to show: binary, empty, mode only or too large</value></data>
   <data name="Diff.MoreFiles" xml:space="preserve"><value>{0} more changed files not shown</value></data>
   <data name="Diff.Title" xml:space="preserve"><value>Uncommitted changes</value></data>
   <data name="Diff.Open" xml:space="preserve"><value>Changes</value></data>
@@ -787,7 +788,6 @@
   <data name="Appearance.StampsHint" xml:space="preserve"><value>Shows the time above each reply, and a divider when the day changes.</value></data>
   <data name="Appearance.StampsLabel" xml:space="preserve"><value>Show times</value></data>
   <data name="Bookmark.Add" xml:space="preserve"><value>Bookmark</value></data>
-  <data name="Bookmark.On" xml:space="preserve"><value>Bookmarked</value></data>
   <data name="Bookmark.Of" xml:space="preserve"><value>Bookmark the reply: {0}</value></data>
   <data name="Bookmark.Title" xml:space="preserve"><value>Bookmarks</value></data>
 </root>
