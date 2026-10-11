@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.1...v0.4.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **settings:** truthful hints, remembered on desktop, keyboard-reachable, critique rounds 1-3 (33 → 37/40) ([#121](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/121)) ([7c55d5c](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/7c55d5cb38a681d7bc8be635886bc5d1566ad6f6))
+
 ## [0.4.1](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.0...v0.4.1) (2026-10-11)
 
 
