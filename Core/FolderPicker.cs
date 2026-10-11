@@ -84,6 +84,6 @@ public static class FolderPicker
         Ok(Parse(0, "/Users/a/repo/\n") == "/Users/a/repo" && Parse(0, "/\n") == "/", "Parse trims, keeps root");
         Ok(Parse(1, "") is null && Parse(0, "\n") is null, "cancel is null");
         Ok(RevealCommand("mac", "/w/a b.md") is ("open", ["-R", "/w/a b.md"]) && RevealCommand("win", @"C:\w\a.md") is ("explorer", [@"/select,C:\w\a.md"])
-           && RevealCommand("linux", "/w/r/a.md") is ("xdg-open", ["/w/r"]), "reveal selects the file, never opens it");
+           && RevealCommand("linux", "/w/r/a.md") is ("xdg-open", [var d]) && d == Path.GetDirectoryName("/w/r/a.md"), "reveal selects the file, never opens it");   // \w\r when the check runs on Windows
     }
 }
