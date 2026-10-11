@@ -14,69 +14,47 @@
     qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));
 }
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></span></div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1><span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></a></span></div>
     <div class="ov">
         @if (all.Count == 0)
         {
-            <div class="ovhead">
-                <div class="empty">
-                    <h2>@L["Ov.Empty"]</h2>
-                    <p class="lead">@L["Ov.EmptyText"]</p>
-                </div>
-                @if (week is { } w)
-                {
-                    <div class="tot">
-                        <div><b>@w.Count</b>@L["Ov.Wk.Sessions"]</div>
-                        <div><b>@Fmt.Cost(w.Sum(p => p.CostUsd ?? 0), 2)</b>@L["Ov.Wk.Spent"]</div>
-                        <div><b>@Fmt.Cost(w.Where(p => p.LastWrite.LocalDateTime.Date == DateTime.Today).Sum(p => p.CostUsd ?? 0), 2)</b>@L["Ov.Wk.Today"]</div>
-                    </div>
-                }
+            var cards = Cards();
+            <div class="empty">
+                <h2>@L[cards.Count > 0 ? "Ov.Resume" : "Ov.Empty"]</h2>
+                <p class="lead">@(cards.Count > 0 ? Lead() : L["Ov.EmptyText"])</p>
             </div>
-            @if (week is { Count: > 0 } || limits is not null)
+            @if (limits is { } sl)
             {
-                <div class="ovpanels">
-                    @if (week is { Count: > 0 } wk)
+                var l = sl.Limits;
+                var hot = new[] { ("five_hour", l.FiveHour, l.FiveHourReset), ("seven_day", l.SevenDay, l.SevenDayReset) }
+                    .Where(w => Live(w.Item3) && w.Item2 >= HotAt).ToList();
+                <section class="qstrip" aria-labelledby="ov-quota">
+                    <h3 class="cap" id="ov-quota">@L["Quota.Usage"]</h3>
+                    @Window(L["Quota.FiveHours"], L["Quota.Window.five_hour"], l.FiveHour, l.FiveHourReset)
+                    @Window(L["Quota.SevenDays"], L["Quota.Window.seven_day"], l.SevenDay, l.SevenDayReset)
+                    <span class="asof">@L["Ov.AsOf", Fmt.Day(sl.At)]</span>
+                    @foreach (var (kind, used, reset) in hot)
                     {
-                        // ponytail: a session's cost lands on the day it was last written; per-turn timestamps if days must be exact.
-                        var days = Enumerable.Range(0, 7).Select(i => DateTime.Today.AddDays(i - 6))
-                            .Select(d => (Day: d, Usd: wk.Where(p => p.LastWrite.LocalDateTime.Date == d).Sum(p => p.CostUsd ?? 0))).ToList();
-                        var max = Math.Max(days.Max(d => d.Usd), 0.01m);
-                        <section class="ovp" aria-labelledby="ov-spend">
-                            <span class="cap" id="ov-spend">@L["Ov.Spend"]</span>
-                            <div class="days">
-                                @foreach (var (d, usd) in days)
-                                {
-                                    <div class="day @(d == DateTime.Today ? "on" : null)" title="@d.ToString("D") · @Fmt.Cost(usd, 2)">
-                                        <span class="col"><i style="height:@(Math.Round(usd / max * 100))%"></i></span>
-                                        <span class="dl">@d.ToString("ddd")</span>
-                                    </div>
-                                }
-                            </div>
-                        </section>
+                        <p class="qwarn" role="status">@L["Ov.QuotaHot", Strings.Name("Quota.Window.", kind), Fmt.Pct(used), Fmt.Day(reset)]</p>
                     }
-                    @if (limits is { } sl)
-                    {
-                        var l = sl.Limits;
-                        <section class="ovp quota" aria-labelledby="ov-quota">
-                            <div class="qh"><span class="cap" id="ov-quota">@L["Quota.Usage"]</span><span>@L["Ov.AsOf", Fmt.Day(sl.At)]</span></div>
-                            @Window(L["Quota.FiveHours"], l.FiveHour, l.FiveHourReset)
-                            @Window(L["Quota.SevenDays"], l.SevenDay, l.SevenDayReset)
-                        </section>
-                    }
-                </div>
+                </section>
             }
-            @if (recent.Count > 0)
+            @if (cards.Count > 0)
             {
-                <section class="ovs" aria-labelledby="ov-resume">
-                    <span class="cap" id="ov-resume">@L["Ov.Resume"]</span>
-                    <div class="resume">
-                        @foreach (var p in recent)
+                <section class="ovs" aria-labelledby="ov-recent">
+                    <div class="ovcap"><h3 class="cap" id="ov-recent">@L["Ov.Recent"]</h3><span class="keys" id="ov-keys"><kbd>1</kbd>–<kbd>@cards.Count</kbd> @L["Palette.Open"] · <kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
+                    <div class="resume" role="list" tabindex="0" @ref="resumeEl" aria-labelledby="ov-recent" aria-describedby="ov-keys" @onkeydown="e => ResumeKey(e, cards)">
+                        @for (var i = 0; i < cards.Count; i++)
                         {
+                            var p = cards[i];
                             var end = endings.GetValueOrDefault(p.Id);
-                            <a class="rc" href="session/@p.Id" title="@p.Title · @p.Cwd">
-                                <span class="rt"><span class="n">@p.Title</span>@Flag(p, end)</span>
-                                <span class="ex">@end?.Text</span>
-                                <span class="rm"><span class="branch">@if (p.Branch is { Length: > 0 }) { <Icon Name="branch" />@p.Branch<text> · </text> }@TranscriptStore.RepoName(p.Cwd)</span><span>@Fmt.Day(p.LastWrite)@if (p.CostUsd >= 0.005m) { <text> · @Fmt.Cost(p.CostUsd.Value, 2)</text> }</span></span>
+                            var away = Away(p);
+                            <a role="listitem" @key="p.Id" class="rc @(i == 0 ? "lead" : null) @(i == ri ? "sel" : null)" href="session/@p.Id" tabindex="-1"
+                               aria-labelledby="rc-n-@i" aria-describedby="rc-x-@i">
+                                <span class="rt"><kbd class="num" aria-hidden="true">@(i + 1)</kbd><span class="n" id="rc-n-@i">@p.Title</span>@Flag(away, end)</span>
+                                <span class="ex @(end?.Text is null ? "none" : null)" id="rc-x-@i">@(end?.Text ?? (end?.Stop == TranscriptStore.Stop.Cut && !away ? L["Ov.NoReply"] : ""))</span>
+                                <span class="rm"><span class="branch">@if (Branch(p) is { } b) { <Icon Name="branch" />@b<text> · </text> }@TranscriptStore.RepoName(p.Cwd)</span><span>@Fmt.Day(p.LastWrite)@if (p.CostUsd >= 0.005m) { <text> · @Fmt.Cost(p.CostUsd.Value, 2)</text> }</span></span>
+                                @if (i == 0) { <span class="go btn" aria-hidden="true">@L["Ov.ResumeAction"]<kbd>⏎</kbd></span> }
                             </a>
                         }
                     </div>
@@ -85,19 +63,23 @@
             @if (unsaved is { Count: > 0 })
             {
                 <section class="ovs" aria-labelledby="ov-wt">
-                    <div class="ovcap"><span class="cap" id="ov-wt">@L["Ov.Wt"]</span><a href="worktrees">@L["Ov.WtAll"]</a></div>
+                    <div class="ovcap"><h3 class="cap" id="ov-wt">@L["Ov.Wt"]@if (unsaved.Count > WtShown) { <span class="of"> · @L["OfN", WtShown, unsaved.Count]</span> }</h3><a href="worktrees">@L["Ov.WtAll"]</a></div>
                     <div class="ovwt">
-                        @foreach (var t in unsaved.Take(5))
+                        @foreach (var t in unsaved.Take(WtShown))
                         {
-                            <a class="wtr" href="worktrees" title="@t.Path">
-                                <span class="n">@t.Name</span>
-                                <span class="r">@Path.GetFileName(t.Repo)@if (t.Branch is { Length: > 0 }) { <text> · @t.Branch</text> }</span>
-                                <span class="why">@((MarkupString)string.Join(" · ", new[] { t.Dirty > 0 ? Strings.Plural(t.Dirty, "Wt.Why.Dirty") : null, t.Unpushed > 0 ? Strings.Plural(t.Unpushed, "Wt.Why.Ahead") : null }.Where(x => x is not null)))</span>
+                            <a class="wtr @(t.Unpushed >= RiskyAhead ? "risky" : null)" href="worktrees" title="@t.Path">
+                                <span class="n">@(t.Branch ?? t.Name)</span>
+                                <span class="r">@Path.GetFileName(t.Repo)@if (t.Branch is not null) { <text> · @t.Name</text> }</span>
+                                <span class="why">@((MarkupString)string.Join(" · ", new[] { t.Unpushed > 0 ? Strings.Plural(t.Unpushed, "Wt.Why.Ahead") : null, t.Dirty > 0 ? Strings.Plural(t.Dirty, "Wt.Why.Dirty") : null }.Where(x => x is not null)))</span>
                                 <span class="r">@Fmt.Day(t.LastActivity)</span>
                             </a>
                         }
                     </div>
                 </section>
+            }
+            else if (wtError is not null)
+            {
+                <p class="ovnote">@L["Ov.WtFailed", wtError]</p>
             }
         }
         else
@@ -226,6 +208,13 @@
     // unless focus is already somewhere (the Ctrl K palette, a field).
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!resumeFocused && Sessions.Active.Count == 0 && resumeEl.Id is { Length: > 0 })   // the list is in the DOM, not only in `recent`
+        {
+            resumeFocused = true;
+            try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", resumeEl); }
+            catch (JSException) { }
+            catch (JSDisconnectedException) { }
+        }
         if (autofocused || !Sessions.DecisionQueue.Any()) return;
         autofocused = true;
         try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", queueEl); }
@@ -238,24 +227,53 @@
     Dictionary<string, TranscriptStore.Ending> endings = [];
     SessionManager.SavedLimits? limits;
     List<WorktreeInfo>? unsaved;
+    string? wtError;
+    ElementReference resumeEl;
+    bool resumeFocused;
+    int ri;
     readonly CancellationTokenSource cts = new();
+    const double HotAt = 0.8;   // a window this full is the page's alarm: accent, and a sentence
+    const int RiskyAhead = 10, WtShown = 5;
 
-    // The idle view reads transcripts and scans worktrees: all off the render thread, each part shown as it lands.
+    // The idle view reads transcripts and scans worktrees off the render thread. Nothing above the cards depends on a late
+    // part (the week only fills a sentence), so a card never moves under the pointer.
     protected override async Task OnInitializedAsync()
     {
         Sessions.Changed += Refresh;
         if (!RendererInfo.IsInteractive) return;   // not twice: prerender then the circuit
         limits = SessionManager.LastLimits();
-        recent = await Task.Run(() => TranscriptStore.Recent(6));
+        recent = await Task.Run(() => TranscriptStore.Recent(12));
         endings = await Task.Run(() => recent.Select(p => (p.Id, E: TranscriptStore.EndOf(p.Id))).Where(x => x.E is not null).ToDictionary(x => x.Id, x => x.E!));
         StateHasChanged();
         week = await Task.Run(() => TranscriptStore.Since(DateTime.Today.AddDays(-6).ToUniversalTime()));
         StateHasChanged();
-        unsaved = await Unsaved(cts.Token);
+        (unsaved, wtError) = await Unsaved(cts.Token);
     }
 
-    // Worktrees holding work git cannot get back elsewhere: uncommitted files or commits never pushed. Running ones are excluded.
-    async Task<List<WorktreeInfo>?> Unsaved(CancellationToken ct)
+    // Up to 6 sessions worth reopening, newest first: a known cost under 5 cents is a probe or a one-liner. The lead card is the
+    // newest one nobody else holds.
+    List<PastSession> Cards()
+    {
+        var list = recent.Where(p => p.CostUsd is not < 0.05m).Take(6).ToList();
+        if (list.FindIndex(p => !Away(p)) is > 0 and var k) { var lead = list[k]; list.RemoveAt(k); list.Insert(0, lead); }
+        return list;
+    }
+
+    // A plain `claude` names no session id on its command line (RunningElsewhere misses it): a fresh write says it as well.
+    bool Away(PastSession p) => Sessions.RunningElsewhere(p.Id) || DateTimeOffset.Now - p.LastWrite < TimeSpan.FromMinutes(2);
+
+    // A detached HEAD is not a branch name worth showing.
+    static string? Branch(PastSession p) => p.Branch is { Length: > 0 } b && b != "HEAD" ? b : null;
+
+    string Lead()
+    {
+        if (week is not { } w) return L["Ov.Empty"];
+        var today = w.Where(p => p.LastWrite.LocalDateTime.Date == DateTime.Today).Sum(p => p.CostUsd ?? 0);
+        return L["Ov.IdleSpend", L["Ov.Empty"], Fmt.Cost(today, 2), Fmt.Cost(w.Sum(p => p.CostUsd ?? 0), 2)];
+    }
+
+    // Worktrees holding work git cannot get back elsewhere, riskiest first: unpushed commits, then uncommitted files.
+    async Task<(List<WorktreeInfo>?, string?)> Unsaved(CancellationToken ct)
     {
         try
         {
@@ -265,15 +283,24 @@
                 try { found.AddRange(await Wt.ScanAsync(r, ct)); }
                 catch (InvalidOperationException) { }   // one unreadable repo: the Worktrees page names it
             }
-            return [.. found.Where(w => w.State == WtState.Check && (w.Dirty > 0 || w.Unpushed > 0)).OrderByDescending(w => w.LastActivity)];
+            return ([.. found.Where(w => w.State == WtState.Check && (w.Dirty > 0 || w.Unpushed > 0))
+                .OrderByDescending(w => w.Unpushed).ThenByDescending(w => w.Dirty).ThenByDescending(w => w.LastActivity)], null);
         }
-        catch (OperationCanceledException) { return null; }
-        catch (InvalidOperationException) { return null; }   // git missing
+        catch (OperationCanceledException) { return (null, null); }
+        catch (InvalidOperationException e) { return (null, e.Message); }   // git missing: say so rather than show nothing
     }
 
-    // A plain `claude` names no session id on its command line (RunningElsewhere misses it): a fresh write says it as well.
-    RenderFragment Flag(PastSession p, TranscriptStore.Ending? end) =>
-        Sessions.RunningElsewhere(p.Id) || DateTimeOffset.Now - p.LastWrite < TimeSpan.FromMinutes(2) ? @<span class="flag cut">@L["Status.Elsewhere"]</span>
+    static bool Live(DateTimeOffset reset) => reset == default || reset > DateTimeOffset.Now;
+
+    RenderFragment Window(string name, string label, double used, DateTimeOffset reset)
+    {
+        var f = Live(reset) ? used : 0;   // the window rolled over since the reading: it starts again empty
+        var pct = (int)Math.Round(Math.Clamp(f, 0, 1) * 100);
+        return @<div class="qw @(f >= HotAt ? "hot" : null)"><span>@name</span><span class="bar" role="meter" aria-label="@label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@pct"><i style="width:@pct%"></i></span><b>@Fmt.Pct(f)</b>@if (reset != default && Live(reset)) { <span class="rs">@L["Quota.Resets", Fmt.Day(reset)]</span> }</div>;
+    }
+
+    RenderFragment Flag(bool away, TranscriptStore.Ending? end) =>
+        away ? @<span class="flag live">@L["Status.Elsewhere"]</span>
         : end?.Stop switch
         {
             TranscriptStore.Stop.Asked => @<span class="flag">@L["Ov.Asked"]</span>,
@@ -281,11 +308,17 @@
             _ => @<text></text>,
         };
 
-    RenderFragment Window(string name, double used, DateTimeOffset reset)
+    void ResumeKey(KeyboardEventArgs e, List<PastSession> cards)
     {
-        var past = reset != default && reset <= DateTimeOffset.Now;   // the window rolled over since the reading: it starts again empty
-        var f = past ? 0 : used;
-        return @<div class="qrow"><span>@name</span><span class="bar"><i style="width:@(Math.Round(Math.Clamp(f, 0, 1) * 100))%"></i></span><span>@Fmt.Pct(f)</span><span class="rs">@(past || reset == default ? "" : L["Quota.Resets", Fmt.Day(reset)])</span></div>;
+        if (e.CtrlKey || e.MetaKey || e.AltKey || cards.Count == 0) return;
+        ri = Math.Clamp(ri, 0, cards.Count - 1);
+        switch (e.Key)
+        {
+            case [var d] when d is >= '1' and <= '9' && d - '1' < cards.Count: Nav.NavigateTo($"session/{cards[d - '1'].Id}"); break;
+            case "j" or "J" or "ArrowDown" or "ArrowRight": ri = (ri + 1) % cards.Count; break;
+            case "k" or "K" or "ArrowUp" or "ArrowLeft": ri = (ri + cards.Count - 1) % cards.Count; break;
+            case "Enter": Nav.NavigateTo($"session/{cards[ri].Id}"); break;
+        }
     }
 
     void Refresh() => InvokeAsync(StateHasChanged);
