@@ -118,7 +118,7 @@
             const mark = () => el.querySelectorAll('.ex.said').forEach(x => x.classList.toggle('clip', x.scrollHeight > x.clientHeight + 1));
             new ResizeObserver(mark).observe(el);
         },
-        reveal(el, id, block, focus) { const r = el?.querySelector('#' + id); r?.scrollIntoView({ block: block || 'nearest' }); if (focus && r) { r.tabIndex = -1; r.focus({ preventScroll: true }); } },
+        reveal(el, id, block, focus) { const r = el?.querySelector('#' + id); r?.scrollIntoView({ block: block || 'nearest' }); if (focus && r) { if (!r.hasAttribute('tabindex')) r.tabIndex = -1; r.focus({ preventScroll: true }); } },   // a rendered tabindex is Blazor's: keep it
         // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
         // to what had it (unless something, e.g. FocusOnNavigate, already took it). Its input is its only focusable
         // element and owns the keys: Tab keeps focus there, and a click on an option does not take it away.
@@ -246,15 +246,18 @@
         const b = e.target.closest('.cb .copy, [data-copy]');
         if (!b) return;
         const text = b.hasAttribute('data-copy') ? b.dataset.copy : b.closest('.cb').querySelector('code').innerText;
-        navigator.clipboard?.writeText(text);
+        const wrote = navigator.clipboard?.writeText(text);
+        if (!wrote) return;   // no clipboard (insecure context): never claim "Copied"
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
+        wrote.then(() => {
         const old = label.nodeValue;
         const msg = label.nodeValue = document.body.dataset.copied || 'Copied';   // localized from Strings.resx by App.razor
         copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
         requestAnimationFrame(() => copied.textContent = msg);
         b.classList.add('done');
         setTimeout(() => { label.nodeValue = old; copied.textContent = ''; b.classList.remove('done'); }, 1400);
+        }, () => { });   // a refused write says nothing rather than something false
     });
 
     // Tabs and radio groups: arrows / Home / End move focus and selection together (roving tabindex in the markup).
@@ -289,6 +292,34 @@
     });
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');
+
+    // The Worktrees table: rows (and the folded branch rows) walk with J/K/↑/↓, Home/End; Enter or Space opens a fold; Esc from a
+    // row's button returns to its row (→ opens a fold, ← closes it), Esc on a row goes to the filters (focus is never dropped on body). The row moves at once on
+    // the client, so a fast second key reads where the first went; Blazor then moves the one Tab stop to it.
+    document.addEventListener('keydown', e => {
+        if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !(e.target instanceof Element)) return;
+        const tr = e.target.closest('.wtt tbody tr[data-r]');
+        if (!tr) return;
+        const onRow = e.target === tr, rows = [...tr.parentElement.querySelectorAll('tr[data-r]')], i = rows.indexOf(tr);
+        if (e.key === 'Escape') { e.preventDefault(); (onRow ? document.querySelector('.filters .chip.on') : tr).focus(); return; }
+        if (!onRow) return;   // keys on a button stay the button's
+        const to = /^(j|J|ArrowDown)$/.test(e.key) ? rows[i + 1] : /^(k|K|ArrowUp)$/.test(e.key) ? rows[i - 1]
+            : e.key === 'Home' ? rows[0] : e.key === 'End' ? rows[rows.length - 1] : undefined;
+        if (to !== undefined) {
+            e.preventDefault(); to?.focus({ preventScroll: true });
+            if (to === rows[0]) tr.closest('.wt')?.scrollTo({ top: 0 });   // the first row brings the heading and the filters back with it
+            else to?.scrollIntoView({ block: 'nearest' });                  // scroll-margin keeps it clear of the sticky header
+            return;
+        }
+        if (e.key === 'ArrowLeft' && !tr.classList.contains('wfold')) {   // a fold's child: back to its fold row, as in a tree
+            let up = tr.previousElementSibling;
+            while (up && !up.matches('.wfold, .grp-row')) up = up.previousElementSibling;
+            if (up?.matches('.wfold')) { e.preventDefault(); up.focus(); }
+            return;
+        }
+        const fold = tr.querySelector('.fold-t');
+        if (fold && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' && fold.getAttribute('aria-expanded') !== 'true' || e.key === 'ArrowLeft' && fold.getAttribute('aria-expanded') === 'true')) { e.preventDefault(); fold.click(); }
+    });
 
     // The Overview's resume list, from nowhere: with nothing focused a digit, J, K or W brings focus back to the list and is
     // replayed there, so leaving it (Esc twice) never costs the keyboard. Enter is not replayed: it never opens from afar.

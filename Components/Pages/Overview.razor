@@ -266,7 +266,7 @@
     const double HotAt = 0.8;   // a window this full is the page's alarm: its meter turns Ember
     const int RiskyAhead = 10, WtShown = 5;
     // Unpushed commits count only when not merged: WorktreeService.Classify's rule, so the order matches the sentence.
-    static int AtRisk(WorktreeInfo w) => w.Merged || w.SquashMerged ? 0 : w.Unpushed;
+    static int AtRisk(WorktreeInfo w) => w.AtRisk;
     // A repo under the temp root is an agent's scratch: real work is never there, and it would push real risks off a list of 5.
     static readonly string[] Temp = [Path.GetTempPath().TrimEnd('/'), "/tmp", "/private/tmp", "/private/var/folders"];
     static bool Scratch(string repo) => Temp.Any(t => repo.StartsWith(t + "/", StringComparison.OrdinalIgnoreCase));
