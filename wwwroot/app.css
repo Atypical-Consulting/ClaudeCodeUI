@@ -388,25 +388,32 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .qw.hot .bar i{background:var(--accent)}
 .qw.hot b{color:var(--accent);font-weight:600}
 .qstrip .asof{margin-left:auto;font:12px var(--mono);color:var(--fg-4)}
-.qstrip .qwarn{flex-basis:100%;margin:0;font-size:13px;color:var(--fg-2)}
 .ovs{display:flex;flex-direction:column;gap:8px}
 .ovcap{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 .ovcap h3{margin:0}
 .ovcap .of{color:var(--fg-5)}
+.ovcap .keys{visibility:hidden}
+.ovs:focus-within .keys{visibility:visible}   /* the keys work only while the list has focus */
 .ovcap a{font-size:12px;color:var(--fg-3);text-decoration:none}
 .ovcap a:hover{color:var(--fg)}
 .resume{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;outline:none}
 .resume:focus-visible{outline:none}   /* the selected card (raise + accent bar) is the focus indicator */
+.rcw{display:flex;min-width:0}
+.rcw>.rc{flex:1}
 .rc{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px 14px;border:1px solid var(--seam);border-radius:var(--r-lg);color:inherit;text-decoration:none}
 .rc:hover{background:var(--raise);border-color:var(--seam-2)}
-.resume:focus .rc.sel{background:var(--raise);border-color:var(--seam-2);box-shadow:inset 2px 0 0 var(--accent)}
+.resume:focus .rc.sel{background:var(--raise);border-color:var(--seam-2);box-shadow:inset 2px 0 0 var(--fg-3)}   /* neutral: Ember is kept for the alarm and the action */
+.rc .enter{display:none;flex-shrink:0}
+.resume:focus .rc.sel .enter{display:inline-block}
 .rc .num{display:none;flex-shrink:0}
 .resume:focus-within .rc .num{display:inline-block}
-.rc.lead{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;row-gap:8px;padding:16px 18px}
-.rc.lead>.rt,.rc.lead>.ex,.rc.lead>.rm{grid-column:1}
-.rc.lead .go{grid-column:2;grid-row:1/4;align-self:center}
-.rc.lead .n{font:600 15px var(--sans);letter-spacing:-.01em}
-.rc.lead .ex{min-height:0;font-size:14px;color:var(--prose);-webkit-line-clamp:3;max-width:90ch}
+.rcw.lead{grid-column:1/-1}
+.rcw.lead .rc{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;row-gap:8px;padding:16px 18px}
+.rcw.lead .rt{grid-column:1;align-self:center}
+.rcw.lead .go{grid-column:2;grid-row:1}
+.rcw.lead .ex,.rcw.lead .rm{grid-column:1/-1}
+.rcw.lead .n{font:600 15px var(--sans);letter-spacing:-.01em}
+.rcw.lead .ex{min-height:0;font-size:14px;color:var(--prose);-webkit-line-clamp:3}
 .rc .rt{display:flex;align-items:baseline;gap:8px;min-width:0}
 .rc .n{flex:1;min-width:0;font:500 13px var(--sans);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rc .flag{flex-shrink:0;font:500 11px var(--sans);color:var(--accent)}
@@ -424,7 +431,8 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .wtr .n{font-family:var(--mono);color:var(--fg)}
 .wtr .r{font:12px var(--mono);color:var(--fg-4)}
 .wtr .r:last-child{text-align:right}
-.wtr .why{color:var(--fg-3)}
+.wtr .why{color:var(--fg-3);white-space:normal}
+.wtr .more{font-size:12px;color:var(--fg-4)}
 .wtr .why b{font-weight:500;color:var(--fg-2)}
 .wtr.risky .why b:first-child{color:var(--accent);font-weight:600}
 .ovnote{margin:0;font-size:13px;color:var(--fg-4)}
