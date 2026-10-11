@@ -37,7 +37,10 @@ Lance ensuite `claude` une fois dans un terminal pour te connecter. Si `claude` 
 
 - Nouvelle session : dossier, worktree isolé (nom généré), mode de permission ; la session s'ouvre, puis on écrit le premier message.
 - Texte en direct, indicateur de réflexion, journal d'outils avec inspecteur (sortie, entrée, JSON).
-- Demandes de permission avec diff : autoriser, refuser, ou autoriser pour toute la session.
+- Demandes de permission avec diff : autoriser, refuser, ou toujours autoriser (cette session, ou les réglages local, projet ou utilisateur), avec la raison de la demande et le sous-agent qui la fait.
+- Gestionnaire de règles de permission, formulaires d'élicitation et connexion MCP, gestion des plugins et marketplaces, éditeur de hooks, auto-mémoire, styles de sortie et `/config`.
+- Carte de compaction, modifications non commitées (`/diff`), réflexion, favoris, copie, rewind ; envoyer maintenant, mentions `@agent`, pièces jointes PDF, suggestions de prompt.
+- Renommer, exporter, lien de PR, compte et statut, sessions de fond, Remote Control.
 - Vue d'ensemble de toutes les sessions et file des décisions en attente (Ctrl ⇧ A).
 - Palette de commandes (Ctrl K), reprise des sessions récentes avec historique.
 - Modèle, effort, sous-agents, contexte, serveurs MCP, skills et plugins.
