@@ -70,7 +70,10 @@ public static class TranscriptStore
     public enum Stop { Done, Asked, Cut }
     // How a conversation ended: the last thing Claude wrote, and whether it is waiting on the user (a question) or was cut mid-step
     // (a tool call never answered, a prompt never answered).
-    public sealed record Ending(string? Text, Stop Stop);
+    // Tool/Target: the last tool call when Claude wrote nothing after it, the card's "what it was doing" (rendered as a ledger row).
+    // Unanswered: the user wrote last and Claude never replied; Text is then that message ("› …"), what is actually pending.
+    // Interrupted: the user stopped the turn ("[Request interrupted by user…]"), so nothing is pending on Claude's side.
+    public sealed record Ending(string? Text, Stop Stop, string? Tool = null, string? Target = null, bool Unanswered = false, bool Interrupted = false);
 
     public static Ending? EndOf(string id)
     {
@@ -78,7 +81,11 @@ public static class TranscriptStore
         try
         {
             using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            return EndOf(ReadAt(fs, Math.Max(0, fs.Length - Chunk), (int)Math.Min(fs.Length, Chunk)).Split('\n'));
+            var end = EndOf(ReadAt(fs, Math.Max(0, fs.Length - Chunk), (int)Math.Min(fs.Length, Chunk)).Split('\n'));
+            if (end.Text is not null || fs.Length <= Chunk) return end;
+            // Only tool traffic in the last 64 KB (big tool results): look 8× further back for words before settling for a tool row.
+            var wide = EndOf(ReadAt(fs, Math.Max(0, fs.Length - 8 * Chunk), (int)Math.Min(fs.Length, 8 * Chunk)).Split('\n'));
+            return wide.Text is not null ? wide with { Stop = end.Stop, Unanswered = end.Unanswered, Interrupted = end.Interrupted } : end;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
     }
@@ -86,8 +93,9 @@ public static class TranscriptStore
     // The CLI writes one line per content block, so walking back line by line meets the last block first.
     internal static Ending EndOf(IReadOnlyList<string> lines)
     {
-        string? text = null, prompt = null;
+        string? text = null, prompt = null, tool = null, target = null;
         Stop? stop = null;
+        bool unanswered = false, interrupted = false;
         for (var i = lines.Count - 1; i >= 0 && (text is null || stop is null); i--)
         {
             var line = lines[i];
@@ -100,6 +108,8 @@ public static class TranscriptStore
             {
                 // A typed prompt (string content, not a <command> echo) or a tool result that Claude never followed up.
                 if (Events.Str(m, "content") is { } c && c.StartsWith('<')) continue;
+                if (stop is null && blocks.LastOrDefault() is { } ub && Events.Str(ub, "text") is { } it && it.StartsWith("[Request interrupted")) { interrupted = true; stop = Stop.Cut; continue; }
+                if (stop is null && Events.Str(m, "content") is { Length: > 0 }) unanswered = true;   // a typed message, the last word
                 stop ??= Stop.Cut;
                 if (Events.Str(m, "content") is { Length: > 0 } typed) prompt ??= typed;
                 continue;
@@ -111,19 +121,39 @@ public static class TranscriptStore
                 case "text" when Events.Str(last, "text") is { Length: > 0 } t:
                     var plain = Prose(t);
                     if (plain.Length == 0) break;
-                    text ??= Cut(plain);
-                    stop ??= t.TrimEnd().EndsWith('?') ? Stop.Asked : Stop.Done;
+                    text ??= Tail(plain);   // the end: a closing message carries its ask last
+                    stop ??= Stop.Done;   // a closing "?" is an offer, not a pending question: only AskUserQuestion waits
                     break;
                 case "tool_use":
                     stop ??= Events.Str(last, "name") == AskUser.Tool ? Stop.Asked : Stop.Cut;
+                    if (tool is null && Events.Str(last, "name") is { } name)
+                        (tool, target) = (name, Cut(ToolKinds.Target(name, Events.Prop(last, "input") ?? default, "")));
                     break;
             }
         }
-        // Only tool traffic in the tail: the user's last prompt says what it was about.
-        return new(text ?? (prompt is null ? null : "› " + Cut(Prose(prompt))), stop ?? Stop.Done);
+        // Only tool traffic in the tail: the user's last prompt says what it was about, else the last tool call does.
+        var said = unanswered && prompt is not null ? "› " + Tail(Prose(prompt)) : text ?? (prompt is null ? null : "› " + Cut(Prose(prompt)));
+        return new(said, stop ?? Stop.Done, said is null ? tool : null, said is null ? target : null, unanswered, interrupted);
     }
 
     static string Cut(string s) => s.Length <= 220 ? s : s[..219].TrimEnd() + "…";
+
+    // The last ~220 characters, started at a sentence when one begins in the first 80: what Claude ended on, the ask included.
+    internal static string Tail(string s, int max = 220)
+    {
+        if (s.Length <= max) return s;
+        if (s.Length <= max * 6 / 5 && s[0] != '…') return s;   // barely over: the message's own start, the end-anchored clamp shows what fits
+        s = s.TrimStart('…');
+        // A question near the end is the ask: it stands alone (what follows it is a note on the way out).
+        if (Regex.Matches(s, @"[^.!?…]*\?(?=\s|$)") is { Count: > 0 } qs && qs[^1] is var q && q.Index >= s.Length - max * 2
+            && q.Value.Trim() is { Length: >= 8 } ask && ask.Length <= max)
+            return ask;
+        var t = s[^(max - 1)..];
+        var m = Regex.Match(t[..(max * 17 / 20)], @"[.!?…]\s+(?=\S)");   // any sentence start that leaves a real excerpt beats a mid-clause one
+        if (m.Success) return t[(m.Index + m.Length)..];   // starts on a sentence: no ellipsis needed
+        var w = t.IndexOf(' ');   // no sentence start near the front: at least start on a word
+        return "…" + (w >= 0 && w < max / 3 ? t[(w + 1)..] : t);
+    }
 
     // Plain, on one line: code fences dropped, links keep their label, list and quote markers go.
     internal static string Prose(string md)
@@ -585,6 +615,39 @@ public static class TranscriptStore
 
     internal static void ForgetHeld() { Interlocked.Increment(ref heldGen); held = default; }
 
+    // Folders where a plain `claude` runs (no --session-id / --resume on its command line, so HeldByClaude cannot name its
+    // session): a recent transcript of that folder may be the one it is writing. Read through lsof; empty where lsof is missing.
+    // ponytail: lsof per call (~100 ms); the Overview calls it once per snapshot.
+    public static IReadOnlySet<string> PlainClaudeCwds()
+    {
+        try
+        {
+            var ps = Run("ps", "-Ao pid=,args=");
+            var pids = PlainClaudePids(ps);
+            if (pids.Count == 0) return new HashSet<string>();
+            return CwdsFromLsof(Run("lsof", $"-a -d cwd -Fn -p {string.Join(',', pids)}"));
+        }
+        catch (Exception) { return new HashSet<string>(); }
+
+        static string Run(string file, string args)
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(file, args) { RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var o = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(2000);
+            return o;
+        }
+    }
+
+    // "123 claude", "456 node /opt/homebrew/bin/claude --model x": the claude binary itself, without a session on its line.
+    internal static List<int> PlainClaudePids(string ps) =>
+        [.. ps.Split('\n').Select(l => Regex.Match(l, @"^\s*(\d+)\s+(.*)$")).Where(m => m.Success
+                && Regex.IsMatch(m.Groups[2].Value, @"(^|[\s/])claude(\s|$)") && !Regex.IsMatch(m.Groups[2].Value, "--(session-id|resume)"))
+            .Select(m => int.Parse(m.Groups[1].Value))];
+
+    internal static HashSet<string> CwdsFromLsof(string lsof) =>
+        new(lsof.Split('\n').Where(l => l.StartsWith('n') && l.Length > 1).Select(l => Path.TrimEndingDirectorySeparator(l[1..])), StringComparer.Ordinal);
+
     internal static HashSet<string> HeldIds(string ps) =>
         [.. ps.Split('\n').Where(l => l.Contains("claude")).Select(l => Regex.Match(l, @"--(?:session-id|resume)[ =]([0-9a-fA-F-]{36})"))
             .Where(m => m.Success).Select(m => m.Groups[1].Value)];
@@ -593,19 +656,31 @@ public static class TranscriptStore
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "TranscriptStore: " + what);
+        Ok(PlainClaudePids("  12 claude\n  34 node /opt/homebrew/bin/claude --model opus\n  56 claude --resume cf0a03e9-1111-2222-3333-444455556666\n  78 /tmp/claude-501/x/ClaudeCodeUI\n  90 vim claude.md") is [12, 34], "plain claude pids");
+        Ok(CwdsFromLsof("p12\nfcwd\nn/Users/me/repo\np34\nfcwd\nn/Users/me/other/\n").SetEquals(["/Users/me/repo", "/Users/me/other"]), "lsof cwds");
         Ok(HeldIds("node /opt/claude --permission-mode plan --session-id cf0a03e9-1111-2222-3333-444455556666 --name x\nclaude --resume=b45b0de6-1111-2222-3333-444455556666\nvim --resume 00000000-0000-0000-0000-000000000000")
            .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
         string A(string block) => $$$"""{"type":"assistant","isSidechain":false,"message":{"role":"assistant","content":[{{{block}}}]}}""";
         const string Prompt = """{"type":"user","message":{"role":"user","content":"et maintenant ?"}}""";
         Ok(EndOf([A("""{"type":"text","text":"## Fait\n\n- **PR #12** mergée, voir [la PR](https://x/12)."}"""), """{"type":"last-prompt","lastPrompt":"x"}"""])
            is { Text: "Fait PR #12 mergée, voir la PR.", Stop: Stop.Done }, "ending: last text as plain prose");
-        Ok(EndOf([A("""{"type":"text","text":"On merge ?"}""")]) is { Stop: Stop.Asked }, "ending: a question");
+        Ok(EndOf([A("""{"type":"text","text":"On merge ?"}""")]) is { Stop: Stop.Done }, "ending: a closing question is an offer, not a wait");
         Ok(Prose("✅ Merged 🚀 : ok") == "Merged : ok", "prose drops emoji");
+        Ok(Tail(new string('a', 600) + ". Tout est vert. On publie la 0.4 maintenant ?") is var tl && tl.EndsWith("maintenant ?") && tl.Length <= 221,
+           "tail keeps the closing ask");
+        Ok(Tail("Veux-tu que j'enquête ? " + string.Join(' ', Enumerable.Repeat("Elle a été enregistrée sans identifiant.", 4)), 110) == "Veux-tu que j'enquête ?", "tail leads with the ask when one is near the end");
+        Ok(Tail("Le build passe. " + new string('b', 110), 110) is var ts && ts.StartsWith("Le build"), "tail keeps a message barely over the budget from its own start");
+        Ok(Tail(string.Join(' ', Enumerable.Repeat("hierarchy", 40)), 110) is var tw && tw.StartsWith("…hierarchy") && tw.Length <= 111, "tail never starts mid-word");
         Ok(EndOf([A("""{"type":"text","text":"Je regarde."}"""), A("""{"type":"tool_use","id":"t","name":"AskUserQuestion","input":{}}""")]) is { Text: "Je regarde.", Stop: Stop.Asked }, "ending: AskUserQuestion pending");
         Ok(EndOf([A("""{"type":"text","text":"Je lance."}"""), A("""{"type":"tool_use","id":"t","name":"Bash","input":{}}""")]) is { Stop: Stop.Cut }, "ending: tool call never answered");
-        Ok(EndOf([A("""{"type":"text","text":"Fini ?"}"""), Prompt]) is { Text: "Fini ?", Stop: Stop.Cut }, "ending: prompt never answered");
+        Ok(EndOf([A("""{"type":"text","text":"Fini ?"}"""), Prompt]) is { Text: "› et maintenant ?", Stop: Stop.Cut, Unanswered: true }, "ending: the user's unanswered message, not Claude's old question");
         Ok(EndOf([A("""{"type":"text","text":"Fini."}"""), """{"type":"user","message":{"role":"user","content":"<local-command-stdout>x</local-command-stdout>"}}"""]) is { Stop: Stop.Done }, "ending: command echo ignored");
-        Ok(EndOf([]) is { Text: null, Stop: Stop.Done }, "ending: empty");
+        Ok(EndOf([]) is { Text: null, Stop: Stop.Done, Tool: null }, "ending: empty");
+        Ok(EndOf([A("""{"type":"text","text":"Je propose deux options."}"""), A("""{"type":"tool_use","id":"q","name":"AskUserQuestion","input":{}}"""),
+                  """{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}}"""])
+           is { Text: "Je propose deux options.", Stop: Stop.Cut, Interrupted: true }, "ending: interrupted by the user");
+        Ok(EndOf([A("""{"type":"tool_use","id":"t","name":"Bash","input":{"command":"dotnet test"}}"""), """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"t","type":"tool_result","content":"ok"}]}}"""])
+           is { Text: null, Stop: Stop.Cut, Tool: "Bash", Target: "dotnet test" }, "ending: nothing written, the last tool call says what it was doing");
         Ok(EndOf([Prompt, A("""{"type":"tool_use","id":"t","name":"Bash","input":{}}""")]) is { Text: "› et maintenant ?", Stop: Stop.Cut }, "ending: only tools in the tail, the prompt instead");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");

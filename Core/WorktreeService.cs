@@ -39,6 +39,11 @@ public sealed class WorktreeService(SessionManager sessions)
 
     public int? CleanableCount => cleanable.IsEmpty ? null : cleanable.Values.Sum();   // Safe + Orphan of the last scan
 
+    // The last full scan of each repo: a page opens on it at once and reconciles with its own scan (a scan takes seconds).
+    readonly ConcurrentDictionary<string, IReadOnlyList<WorktreeInfo>> lastScan = new(StringComparer.OrdinalIgnoreCase);
+    public DateTimeOffset? CachedAt { get; private set; }
+    public IReadOnlyList<WorktreeInfo> Cached => [.. lastScan.Values.SelectMany(x => x)];
+
     // Repo roots: cwds of the live sessions, plus the newest transcript folders of the last 30 days (not under %TEMP%).
     // Cached; refresh = true rescans.
     public async Task<IReadOnlyList<string>> DiscoverReposAsync(CancellationToken ct) => await DiscoverReposAsync(false, ct);
@@ -214,6 +219,8 @@ public sealed class WorktreeService(SessionManager sessions)
         }));
         WorktreeInfo[] all = [.. rows, .. orphans];
         SetCleanable(Norm(repoRoot), all.Count(w => w.State is WtState.Safe or WtState.Orphan));
+        lastScan[Norm(repoRoot)] = all;
+        CachedAt = DateTimeOffset.Now;
         return all;
     }
 
@@ -351,6 +358,12 @@ public sealed class WorktreeService(SessionManager sessions)
     public async Task<bool> IgnoresWorktreesAsync(string repo, CancellationToken ct) =>
         (await Git(repo, ct, "check-ignore", "-q", ".claude/worktrees/x")).Exit == 0;
 
+    // How both pages name a worktree: its branch (what the work is), else its folder (a detached HEAD).
+    public static string DisplayName(WorktreeInfo w) => w.Branch ?? w.Name;
+
+    // A DOM id for a worktree row, stable across scans: the Overview links /worktrees?path=… to it.
+    public static string Anchor(string path) => "wt-" + Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(path)))[..12].ToLowerInvariant();
+
     public static string Label(WtState s) => s switch
     {
         WtState.Safe => Strings.Get("Wt.State.Safe"), WtState.Orphan => Strings.Get("Wt.State.Orphan"), WtState.Active => Strings.Get("Wt.State.Active"), _ => Strings.Get("Wt.State.Check"),
@@ -364,7 +377,8 @@ public sealed class WorktreeService(SessionManager sessions)
         if (f.Unreadable is { } err) return (WtState.Check, Strings.Get("Wt.Why.Unreadable", Enc(err)));
         if (f.NoWorktree) return f.Merged ? (WtState.Orphan, Strings.Get("Wt.Why.BranchMerged")) : (WtState.Check, Strings.Get("Wt.Why.BranchUnmerged"));
         if (!f.Exists || f.Prunable) return (WtState.Orphan, Strings.Get("Wt.Why.Deleted"));
-        if (f.Dirty > 0) return (WtState.Check, Strings.Plural(f.Dirty, "Wt.Why.Dirty"));
+        // Dirty files and unpushed commits both say so: the commits are the worse loss (a stash does not save them), never dropped.
+        if (f.Dirty > 0) return (WtState.Check, (f.Ahead > 0 && !f.Merged && !f.SquashMerged ? Strings.Plural(f.Ahead, "Wt.Why.Ahead") + " · " : "") + Strings.Plural(f.Dirty, "Wt.Why.Dirty"));
         if (f.Ahead > 0 && !f.Merged && !f.SquashMerged) return (WtState.Check, Strings.Plural(f.Ahead, "Wt.Why.Ahead"));
         if (f.Locked && f.LockPid is { } dead) return (WtState.Check, Strings.Get("Wt.Why.StaleLock", dead));
         if (f.Locked) return (WtState.Check, Strings.Get("Wt.Why.Locked"));

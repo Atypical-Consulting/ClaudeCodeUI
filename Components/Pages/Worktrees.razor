@@ -4,6 +4,7 @@
 @inject SessionManager Sessions
 @inject UiState Ui
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@L["Nav.Worktrees"] · Claude Code</PageTitle>
 
@@ -12,11 +13,11 @@
         <h1 class="ttl">@L["Nav.Worktrees"]</h1>
         @if (rows is not null)
         {
-            <span class="sub">@Strings.Plural(repos.Count, "Wt.Repos") · @Items(rows) · @SizeOf(rows)</span>
+            @if (!fromCache) { <span class="sub">@Strings.Plural(repos.Count, "Wt.Repos") · @Items(rows) · @SizeOf(rows)</span> }   @* the cached rows undercount repos: totals wait for the fresh scan *@
         }
         <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
     </div>
-    <div class="wt">
+    <div class="wt" @ref="paneEl">
         @if (rows is null)
         {
             <div class="wt-head"><div><h2>@L["Wt.Scanning"]</h2><p>@L["Wt.ScanningText"]</p></div></div>
@@ -61,8 +62,8 @@
                         <tr class="grp-row"><td colspan="5">@L[title]</td></tr>
                         @foreach (var w in g)
                         {
-                            <tr class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null)" @key="w.Path">
-                                <td><div class="n">@(w.Name)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div>@{ var bl = Path.GetFileName(w.Repo) + (w.BranchOnly ? "" : " · " + (w.Branch ?? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"]))); }<div class="branch" title="@bl"><Icon Name="branch" />@bl</div></td>
+                            <tr id="@WorktreeService.Anchor(w.Path)" class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null) @(w.Path == Focus && !pulsed ? "landed" : null)" @key="w.Path">
+                                <td><div class="n">@WorktreeService.DisplayName(w)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div>@{ var bl = Path.GetFileName(w.Repo) + (w.BranchOnly ? "" : " · " + (w.Branch is null ? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"]) : w.Name)); }   @* the branch leads, as on the Overview; the folder follows *@<div class="branch" title="@bl"><Icon Name="branch" />@bl</div></td>
                                 <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
                                 <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
                                 <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
@@ -180,7 +181,26 @@
     bool scanning, running;
     readonly CancellationTokenSource cts = new();
 
-    protected override void OnInitialized() => Ui.Changed += Refresh;
+    // ?path=: the Overview links one worktree; its row is selected and scrolled into view once the scan lists it.
+    [SupplyParameterFromQuery(Name = "path")] public string? Focus { get; set; }
+    ElementReference paneEl;
+    bool revealed, fromCache, pulsed;   // pulsed: the landing pulse played once; the fresh scan's re-render must not replay it
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (revealed || Focus is null || rows?.Any(w => w.Path == Focus) != true) return;
+        revealed = true;
+        try { await JS.InvokeVoidAsync("claudeUi.reveal", paneEl, WorktreeService.Anchor(Focus), "center", true); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        await Task.Delay(2600);
+        pulsed = true;
+    }
+
+    protected override void OnInitialized()
+    {
+        Ui.Changed += Refresh;
+    }
     protected override Task OnInitializedAsync() => RendererInfo.IsInteractive ? Scan(false) : Task.CompletedTask;   // not twice: prerender shows "Scanning"
     void Refresh() => InvokeAsync(StateHasChanged);
 
@@ -188,6 +208,11 @@
     {
         if (scanning) return;
         scanning = true;
+        if (rows is null && Wt.CachedAt is not null)   // the last scan at once (an Overview link lands on its row), then the fresh one
+        {
+            (rows, fromCache) = ([.. Wt.Cached], true);
+            StateHasChanged();
+        }
         try
         {
             var ct = cts.Token;
@@ -204,7 +229,7 @@
                 }
                 catch (InvalidOperationException e) { errs.Add(L["Wt.RepoError", Fmt.Home(r), e.Message]); }
             }
-            (rows, unignored, errors) = (found, bad, errs);
+            (rows, unignored, errors, fromCache) = (found, bad, errs, false);
             if (refresh) sizes.Clear();
             plan.RemoveWhere(p => !found.Any(w => w.Path == p && WorktreeService.Cleanable(w)));
             foreach (var w in found.Where(w => w.State != WtState.Orphan && !w.BranchOnly && !sizes.ContainsKey(w.Path))) _ = Measure(w.Path, ct);
