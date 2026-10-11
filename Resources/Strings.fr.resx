@@ -786,4 +786,8 @@
   <data name="Appearance.Stamps" xml:space="preserve"><value>Heure des messages</value></data>
   <data name="Appearance.StampsHint" xml:space="preserve"><value>Affiche l’heure au-dessus de chaque réponse, et un séparateur quand le jour change.</value></data>
   <data name="Appearance.StampsLabel" xml:space="preserve"><value>Afficher l’heure</value></data>
+  <data name="Bookmark.Add" xml:space="preserve"><value>Marquer</value></data>
+  <data name="Bookmark.On" xml:space="preserve"><value>Marquée</value></data>
+  <data name="Bookmark.Of" xml:space="preserve"><value>Marquer la réponse : {0}</value></data>
+  <data name="Bookmark.Title" xml:space="preserve"><value>Signets</value></data>
 </root>

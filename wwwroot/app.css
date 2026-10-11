@@ -157,6 +157,8 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .fold[open] .chev{transform:rotate(90deg)}
 .fold>:not(summary){margin-top:8px}
 .thought>.md{color:var(--fg-3)}
+.bms{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.bms a{color:var(--fg-2);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stamp{display:block;font:500 12px var(--mono);color:var(--fg-4);margin-bottom:4px}
 .day{display:flex;align-items:center;gap:12px;font:500 12px var(--sans);color:var(--fg-4)}
 .day::before,.day::after{content:"";flex:1;border-top:1px solid var(--seam)}

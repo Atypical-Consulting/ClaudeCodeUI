@@ -786,4 +786,8 @@
   <data name="Appearance.Stamps" xml:space="preserve"><value>Message times</value></data>
   <data name="Appearance.StampsHint" xml:space="preserve"><value>Shows the time above each reply, and a divider when the day changes.</value></data>
   <data name="Appearance.StampsLabel" xml:space="preserve"><value>Show times</value></data>
+  <data name="Bookmark.Add" xml:space="preserve"><value>Bookmark</value></data>
+  <data name="Bookmark.On" xml:space="preserve"><value>Bookmarked</value></data>
+  <data name="Bookmark.Of" xml:space="preserve"><value>Bookmark the reply: {0}</value></data>
+  <data name="Bookmark.Title" xml:space="preserve"><value>Bookmarks</value></data>
 </root>

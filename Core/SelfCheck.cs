@@ -33,6 +33,7 @@ public static class SelfCheck
             FolderPicker.Check();
             PermissionRules.Check();
             Plugins.Check();
+            Bookmarks.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

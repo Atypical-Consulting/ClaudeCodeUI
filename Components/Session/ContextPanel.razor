@@ -1,3 +1,4 @@
+@implements IDisposable
 @* get_context_usage, refreshed when the session goes idle after a turn, then the session's memory files. *@
 
 @{
@@ -67,11 +68,29 @@
                    Confirm="@(LiveSession.Risky(Session.Mode) ? L["Dirs.ConfirmRisky", Strings.Name("Mode.Name.", Session.Mode)].Value : null)"
                    Disabled="Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting" />
     </div>
+    @if (Bookmarks.Of(Session.Id) is { Count: > 0 } marks)
+    {
+        @* Bookmarked replies (Thread): a link scrolls the thread to the reply (its id is m-<uuid>). *@
+        <div class="section">
+            <span class="cap" id="bm-cap">@L["Bookmark.Title"]</span>
+            <ul class="bms" aria-labelledby="bm-cap">
+                @foreach (var b in marks)
+                {
+                    <li><a href="@($"session/{Session.Id}#m-{b.Uuid}")">@b.Gist</a></li>
+                }
+            </ul>
+        </div>
+    }
     <MemoryPanel Session="Session" />
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    // A reply bookmarked in the thread shows up here at once.
+    protected override void OnInitialized() => Bookmarks.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Bookmarks.Changed -= Refresh;
     DateTimeOffset? refreshedFor;
     bool refreshed;
     string? error;

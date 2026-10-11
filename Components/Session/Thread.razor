@@ -48,13 +48,15 @@
                 break;
             case TextItem { Uuid: { } at } t:
                 @* Always rendered (disabled while a turn runs) so the thread does not shift at each turn's start and end. *@
-                <div class="said">
+                <div class="said" id="m-@at">
                     @if (stamps && t.At is { } ta)
                     {
                         <time class="stamp" datetime="@ta.ToString("o")">@Fmt.Time(ta)</time>
                     }
                     <Markdown Text="@t.Markdown" />
                     <span class="said-acts">
+                        <button type="button" class="btn ghost fork-here" aria-pressed="@(marked.Contains(at) ? "true" : "false")" aria-label="@L["Bookmark.Of", Gist(t.Markdown)]"
+                                @onclick="() => Mark(at, t.Markdown)">@L[marked.Contains(at) ? "Bookmark.On" : "Bookmark.Add"]</button>
                         <button type="button" class="btn ghost fork-here" data-copy="@t.Markdown" aria-label="@L["Thread.CopyOf", Gist(t.Markdown)]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
                         <button class="btn ghost fork-here" title="@L["Session.ForkHint"]" aria-label="@L["Session.ForkHereOf", Gist(t.Markdown)]"
                                 disabled="@(!Session.CanFork)" @onclick="() => Fork(at)"><Icon Name="branch" Sm />@L["Session.ForkHere"]</button>
@@ -141,10 +143,20 @@
 
     void Fork(string at) => Nav.NavigateTo($"session/{Sessions.Fork(Session, at).Id}");
 
+    // Bookmarked replies of this session (Bookmarks.cs); the context panel lists them.
+    HashSet<string> marked = [];
+    protected override void OnInitialized() => marked = [.. Bookmarks.Of(Session.Id).Select(b => b.Uuid)];
+
+    void Mark(string uuid, string md)
+    {
+        try { if (Bookmarks.Toggle(Session.Id, uuid, Gist(md))) marked.Add(uuid); else marked.Remove(uuid); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.Error.WriteLine($"[{Session.Id}] bookmark: {e.Message}"); }
+    }
+
     // The start of a reply, so each "Fork from here" button has a distinct accessible name.
     static string Gist(string md)
     {
-        var s = string.Join(' ', md.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var s = string.Join(' ', System.Text.RegularExpressions.Regex.Replace(md, @"[*_`#>]", "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));   // markdown marks are noise in a label
         return s.Length > 60 ? s[..60] + "…" : s;
     }
 
