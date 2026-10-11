@@ -13,9 +13,9 @@
         <h1 class="ttl">@L["Nav.Worktrees"]</h1>
         @if (rows is not null)
         {
-            @if (!fromCache) { <span class="sub">@Strings.Plural(repos.Count, "Wt.Repos") · @Items(rows) · @SizeOf(rows)</span> }   @* the cached rows undercount repos: totals wait for the fresh scan *@
+            @if (!fromCache && !scanning) { <span class="sub" title="@L["Wt.ReposScanned", repos.Count]">@Strings.Plural(rows.Select(w => w.Repo).Distinct().Count(), "Wt.Repos") · @Items(rows) · @SizeOf(rows)</span> }   @* the repos that have rows; the scanned count is the title *@   @* the cached rows undercount repos: totals wait for the fresh scan *@
         }
-        <span class="end"><button class="btn" disabled="@scanning" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
+        <span class="end">@if (scanning && rows is not null) { <span class="sub" role="status" title="@((progress is var (d0, t0) && t0 > 0 ? L["Wt.ScanProgress", d0, t0] + " · " : "") + (fromCache && Wt.CachedAt is { } at ? L["Wt.CachedAge", Fmt.Dur(TimeSpan.FromMinutes(Math.Max(1, (int)(DateTimeOffset.Now - at).TotalMinutes)))] : ""))">@(progress is var (done, total) && total > 0 ? L["Wt.ScanProgress", done, total] : L["Wt.Scanning"])</span> }<button class="btn @(scanning ? "busy" : null)" tabindex="0" aria-disabled="@(scanning ? "true" : "false")" @onclick="() => Scan(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
     </div>
     <div class="wt" @ref="paneEl">
         @if (rows is null)
@@ -35,8 +35,14 @@
                 {
                     <h2>@(safe.Any(w => w.BranchOnly) ? L["Wt.SafeMixed", Items(safe)] : Strings.Plural(safe.Count, "Wt.Safe"))</h2>
                 }
-                <p>@(safe.Count == 0 ? Strings.Plural(check, "Wt.CheckOnly") : L["Wt.Recoverable", SizeOf(safe)] + " " + Strings.Plural(check, "Wt.Check") + L["Wt.NothingActive"])</p>
-            </div></div>
+                <p>@if (safe.Count == 0) { @Strings.Plural(check, "Wt.CheckOnly") } else { @(SizeOf(safe) is "…" ? "" : L["Wt.Recoverable", SizeOf(safe)] + " ")@if (check > 0) { <button tabindex="0" class="linkish" title="@L["Wt.ShowCheck"]" @onclick="() => filter = WtState.Check">@Strings.Plural(check, "Wt.Check")</button> } else { @Strings.Plural(check, "Wt.Check") }@L["Wt.NothingActive"] }</p>   @* the count is the way to the decisions *@   @* no "… to reclaim" before the sizes are measured *@
+            </div>
+            @if (safe.Count > 0)
+            {
+                var held = plan.Count > 0 || log.Count > 0;   // kept in place, hidden, while a plan is open: the table never jumps
+                <button tabindex="@(held ? -1 : 0)" aria-hidden="@(held ? "true" : null)" class="btn @(held ? "held" : null)" @ref="headBtn" @onclick='() => { plan.UnionWith(safe.Select(w => w.Path)); Ui.InspectorOpen = true; focusTo = "plan"; }'>@(safe.Any(w => w.BranchOnly) ? L["Wt.AddSafe", Items(safe)] : Strings.Plural(safe.Count, "Wt.AddSafe"))</button>   @* the verdict's action, beside the verdict *@
+            }
+            </div>
             @foreach (var r in unignored)
             {
                 <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.Unignored", $"<b title=\"{Fmt.Enc(r)}\">{Fmt.Enc(Path.GetFileName(r))}</b>"].Value)</span></div>
@@ -45,57 +51,66 @@
             {
                 <div class="errbox" role="alert">@e</div>
             }
-            <div class="filters">
-                <button class="chip @(filter is null ? "on" : null)" aria-pressed="@(filter is null ? "true" : "false")" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
-                <button class="chip @(filter == WtState.Safe ? "on" : null)" aria-pressed="@(filter == WtState.Safe ? "true" : "false")" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>@L["Wt.Filter.Safe"] <b>@Count(WtState.Safe)</b></button>
-                <button class="chip @(filter == WtState.Orphan ? "on" : null)" aria-pressed="@(filter == WtState.Orphan ? "true" : "false")" @onclick="() => filter = WtState.Orphan">@L["Wt.Filter.Orphan"] <b>@Count(WtState.Orphan)</b></button>
-                <button class="chip @(filter == WtState.Check ? "on" : null)" aria-pressed="@(filter == WtState.Check ? "true" : "false")" @onclick="() => filter = WtState.Check">@L["Wt.State.Check"] <b>@Count(WtState.Check)</b></button>
-                <button class="chip @(filter == WtState.Active ? "on" : null)" aria-pressed="@(filter == WtState.Active ? "true" : "false")" @onclick="() => filter = WtState.Active">@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
+            <div class="filters" role="group" aria-label="@L["Wt.FilterLabel"]">
+                <button tabindex="0" class="chip @(filter is null ? "on" : null)" aria-pressed="@(filter is null ? "true" : "false")" @onclick="() => filter = null">@L["Filter.All"] <b>@rows.Count</b></button>
+                <button tabindex="0" class="chip @(filter == WtState.Safe ? "on" : null)" aria-pressed="@(filter == WtState.Safe ? "true" : "false")" @onclick="() => filter = WtState.Safe"><span class="state st-safe"><i></i></span>@L["Wt.Filter.Safe"] <b>@Count(WtState.Safe)</b></button>
+                <button tabindex="0" class="chip @(filter == WtState.Orphan ? "on" : null)" aria-pressed="@(filter == WtState.Orphan ? "true" : "false")" @onclick="() => filter = WtState.Orphan"><span class="state st-orphan"><i></i></span>@L["Wt.Filter.Orphan"] <b>@Count(WtState.Orphan)</b></button>
+                <button tabindex="0" class="chip @(filter == WtState.Check ? "on" : null)" aria-pressed="@(filter == WtState.Check ? "true" : "false")" @onclick="() => filter = WtState.Check"><span class="state st-check"><i></i></span>@L["Wt.State.Check"] <b>@Count(WtState.Check)</b></button>
+                <button tabindex="0" class="chip @(filter == WtState.Active ? "on" : null)" aria-pressed="@(filter == WtState.Active ? "true" : "false")" @onclick="() => filter = WtState.Active"><span class="state st-active"><i></i></span>@L["Wt.Filter.Active"] <b>@Count(WtState.Active)</b></button>
             </div>
-            <table class="wtt">
-                <thead><tr><th>@L["Wt.Col.Worktree"]</th><th>@L["Col.State"]</th><th>@L["Wt.Col.Why"]</th><th class="num">@L["Wt.Col.Size"]</th><th><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
+            <table class="wtt" aria-label="@L["Nav.Worktrees"]">
+                <thead><tr><th scope="col">@L["Wt.Col.Worktree"]</th><th scope="col">@L["Wt.Col.Why"]</th><th scope="col" class="num" aria-sort="@(bySize ? "descending" : "none")"><button tabindex="0" class="thsort @(bySize ? "on" : null)" title="@L["Wt.SortSize"]" @onclick="() => bySize = !bySize">@L["Wt.Col.Size"]@(bySize ? " ↓" : "")</button></th><th scope="col"><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
                 <tbody>
-                    @foreach (var (title, states) in groups)
+                    @{ var shown = Shown(); var cur = cursor is not null && shown.Contains(cursor) ? cursor : Focus is not null && shown.Contains(Focus) ? Focus : shown.FirstOrDefault(); }   @* one Tab stop: the row the keys last reached, else the landed row *@
+                    @foreach (var (title, help, states) in groups)
                     {
-                        var g = rows.Where(w => states.Contains(w.State) && (filter is null || w.State == filter)).ToList();
+                        var g = Order(rows.Where(w => states.Contains(w.State) && (filter is null || w.State == filter))).ToList();
                         if (g.Count == 0) continue;
-                        <tr class="grp-row"><td colspan="5">@L[title]</td></tr>
-                        @foreach (var w in g)
+                        <tr class="grp-row"><th colspan="4" scope="rowgroup">@L[title]<span class="gh">@L[help]</span></th></tr>
+                        @foreach (var (row, f) in Split(g))
                         {
-                            <tr id="@WorktreeService.Anchor(w.Path)" class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null) @(w.Path == Focus && !pulsed ? "landed" : null)" @key="w.Path">
-                                <td><div class="n">@WorktreeService.DisplayName(w)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div>@{ var bl = Path.GetFileName(w.Repo) + (w.BranchOnly ? "" : " · " + (w.Branch is null ? (w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.Detached"]) : w.Name)); }   @* the branch leads, as on the Overview; the folder follows *@<div class="branch" title="@bl"><Icon Name="branch" />@bl</div></td>
-                                <td><span class="state st-@Css(w.State)"><i></i>@WorktreeService.Label(w.State)</span></td>
-                                <td class="why" title="@w.Path">@((MarkupString)w.Why)</td>
-                                <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
+                            if (row is not null) { @RowOf(row, cur) continue; }
+                            var key = FoldKey(f[0]);
+                            var isOpen = open.Contains(key) || filter is not null;   // a chosen filter shows its rows, unfolded
+                            var all = f.Select(w => w.Path).ToList();
+                            var planned = all.All(plan.Contains);
+                            var repoName = Path.GetFileName(f[0].Repo);
+                            var kind = FoldKind(f[0]);
+                            var branches = kind is "b" or "q";
+                            var kept = f[0].Kept ?? "";
+                            var label = kind == "i" ? L["Wt.FoldIgnored", f.Count, kept].Value
+                                : Strings.Plural(f.Count, kind switch { "b" => "Wt.FoldBranches", "s" => "Wt.FoldSquash", "q" => "Wt.FoldKeptBranches", _ => "Wt.FoldDetached" });
+                            var foldHelp = kind switch { "b" => "Wt.FoldHelp", "s" => "Wt.FoldSquashHelp", "q" => "Wt.FoldKeptBranchesHelp", "i" => "Wt.FoldIgnoredHelp", _ => "Wt.FoldDetachedHelp" };
+                            <tr id="@WorktreeService.Anchor(key)" class="wfold @(planned ? "sel" : null)" data-r tabindex="@(key == cur ? 0 : -1)" @key="key" @onfocusin="() => cursor = key">
+                                <td colspan="2"><button class="fold-t" aria-expanded="@(isOpen ? "true" : "false")" aria-disabled="@(filter is not null ? "true" : null)" tabindex="-1" @onclick="() => { if (filter is null && !open.Remove(key)) open.Add(key); }">   @* the row's keys open it: no second Tab stop *@<Icon Name="right" Sm="true" />@label · @repoName</button><span class="gh">@L[foldHelp]@if (!branches) { <span class="sz2"> · @SizeOf(f)</span> }</span></td>
+                                <td class="num">@(branches ? "—" : SizeOf(f))</td>
                                 <td><div class="rowacts">
-                                    @if (WorktreeService.Cleanable(w))
+                                    @if (kind == "q")
                                     {
-                                        @if (plan.Contains(w.Path))
-                                        {
-                                            <button class="btn ghost" disabled="@running" aria-label="@($"{L["Wt.Unplan"]} {w.Name}")" @onclick="() => plan.Remove(w.Path)">@L["Wt.Unplan"]</button>
-                                        }
-                                        else
-                                        {
-                                            <button class="btn" disabled="@running" aria-label="@($"{(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])} {w.Name}")" @onclick="() => Add(w)">@(w.State == WtState.Orphan ? L["Wt.Prune"] : L["Wt.Delete"])</button>
-                                        }
+                                        @* this page never forces a delete: the command is the user's to run *@
+                                        <button type="button" class="btn ghost" tabindex="@(key == cur ? 0 : -1)" data-copy="@($"git -C {f[0].Repo} branch -D {string.Join(' ', f.Select(w => w.Branch))}")" title="@L["Wt.CopyCommandsHelp"]">@L["Wt.CopyCommands"]</button>
                                     }
-                                    else if (w.State == WtState.Active)
+                                    else if (planned)
                                     {
-                                        if (SessionOf(w) is { } s)
-                                        {
-                                            <button class="btn" aria-label="@($"{L["Wt.Go"]} {w.Name}")" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>@L["Wt.Go"]</button>
-                                        }
+                                        <button class="btn ghost" disabled="@running" tabindex="@(key == cur ? 0 : -1)" aria-label="@($"{L["Wt.Unplan"]} {repoName}")" @onclick="() => { plan.ExceptWith(all); keptOk.ExceptWith(all); FocusRow(key); }">@L["Wt.Unplan"]</button>
                                     }
-                                    else if (w.Unpushed > 0 && w.Dirty == 0 && w.Branch is not null && !w.BranchOnly)
+                                    else if (kind == "i")
                                     {
-                                        <button class="btn" disabled="@running" aria-label="@($"{L["Wt.Push"]} {w.Name}")" @onclick="() => { selected = w.Path; push = w; pushResult = null; }">@L["Wt.Push"]</button>
+                                        <button class="btn wrapl" disabled="@running" tabindex="@(key == cur ? 0 : -1)" title="@L["Wt.DeleteAllAnywayHelp", kept]" aria-label="@L["Wt.DeleteAllAnywayIn", repoName, kept]" @onclick="() => { log.Clear(); keptOk.UnionWith(all); plan.UnionWith(all); Ui.InspectorOpen = true; FocusRow(key); }">@L["Wt.DeleteAllAnyway"]</button>   @* the warning verb, wrapping in its cell: it deletes files git can't restore *@
                                     }
-                                    else if (!w.BranchOnly)
+                                    else
                                     {
-                                        <button class="btn" aria-label="@($"{L["Action.Open"]} {w.Name}")" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>@L["Action.Open"]</button>
+                                        <button class="btn" disabled="@running" tabindex="@(key == cur ? 0 : -1)" title="@L["Wt.AddsToPlanAll"]" aria-label="@L[kind switch { "b" => "Wt.PruneAllIn", "s" => "Wt.DeleteSquashIn", _ => "Wt.DeleteDetachedIn" }, repoName]" @onclick="() => { log.Clear(); plan.UnionWith(all); Ui.InspectorOpen = true; FocusRow(key); }">@L["Wt.DeleteAll"]</button>
                                     }
                                 </div></td>
                             </tr>
+                            @if (isOpen)
+                            {
+                                @foreach (var w in f)
+                                {
+                                    @RowOf(w, cur, true)
+                                }
+                            }
                         }
                     }
                 </tbody>
@@ -108,11 +123,11 @@
 {
     var chosen = rows?.Where(w => plan.Contains(w.Path)).ToList() ?? [];
     <aside class="pane insp" aria-label="@L["Inspector"]">
-        <div class="ph"><h2 class="ttl">@L["Wt.Cleanup"]</h2>@if (rows is not null) { <span class="sub">@Items(chosen)@(chosen.Count > 0 ? " · " + SizeOf(chosen) : "")</span> }</div>
+        <div class="ph"><h2 class="ttl">@L["Wt.Cleanup"]</h2>@if (rows is not null) { <span class="sub">@(chosen.Count == 0 ? L["Wt.NothingPlannedShort"] : Items(chosen) + " · " + SizeOf(chosen))</span> }</div>
         @if (push is { } pw)
         {
             <div class="section">
-                <h3>@L["Wt.PushTitle", pw.Name]</h3>
+                <h3>@L["Wt.PushTitle", WorktreeService.DisplayName(pw)]</h3>
                 <p>@((MarkupString)(pw.Unpushed == 1 ? L["Wt.Unpushed1", Fmt.Enc(pw.Branch)] : L["Wt.UnpushedN", pw.Unpushed, Fmt.Enc(pw.Branch)]).Value)</p>
                 <div class="cmdlog" role="status">@CmdLog([new(pw.Path, $"git push -u origin {pw.Branch}", pushResult)])</div>
                 <div class="acts">
@@ -120,43 +135,54 @@
                     {
                         <button class="btn primary" disabled="@running" @onclick="() => Push(pw)">@L["Wt.Push"]</button>
                     }
-                    <button class="btn ghost" @onclick="() => { push = null; selected = null; }">@(pushResult == "ok" ? L["Action.Close"] : L["Action.Cancel"])</button>
+                    <button class="btn ghost" @onclick="() => { FocusRow(pw.Path); push = null; selected = null; }">@(pushResult == "ok" ? L["Action.Close"] : L["Action.Cancel"])</button>
                 </div>
             </div>
         }
-        <div class="section">
+        <div class="section" tabindex="-1" @ref="planEl">   @* focus lands here after "Add the safe ones": the plan, never the Clean up button *@
             <h3>@L["Wt.WhatHappens"]</h3>
             @if (chosen.Count == 0 && log.Count == 0)
             {
                 <p>@L["Wt.NothingPlanned"]</p>
-                var all = rows?.Where(w => w.State is WtState.Safe or WtState.Orphan).ToList() ?? [];
-                @if (all.Count > 0)
-                {
-                    <div class="acts"><button class="btn" @onclick="() => plan.UnionWith(all.Select(w => w.Path))">@(all.Any(w => w.BranchOnly) ? L["Wt.AddSafe", Items(all)] : Strings.Plural(all.Count, "Wt.AddSafe"))</button></div>
-                }
             }
             else
             {
                 @if (chosen.Count > 0)
                 {
-                    <div class="plan">
-                        @foreach (var w in chosen)
-                        {
-                            <div class="it"><Icon Name="check" Sm="true" /><div><div class="n">@w.Name</div><div class="w">@What(w)</div></div><span class="sz">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</span></div>
-                        }
-                    </div>
+                    @* one block per repo, folded once the plan is long: a plan of 120 rows must still fit a glance *@
+                    @foreach (var rg in Order(chosen).GroupBy(w => w.Repo))   @* first occurrence: the table's order *@
+                    {
+                        <details class="plan" open="@(chosen.Count <= 8)">
+                            <summary><span class="n"><Icon Name="right" Sm="true" />@Path.GetFileName(rg.Key)</span><span class="w">@Items(rg.ToList()) · @SizeOf(rg)</span></summary>
+                            @foreach (var w in rg)
+                            {
+                                <div class="it"><Icon Name="check" Sm="true" /><div><div class="n">@WorktreeService.DisplayName(w)</div><div class="w">@(w.BranchOnly || w.Branch is null ? "" : w.Name + " · ")@What(w)</div></div><span class="sz">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</span></div>
+                            }
+                        </details>
+                    }
                 }
-                <div class="cmdlog">@CmdLog(log.Count > 0 ? log : Preview(chosen))</div>
-                <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.NeverForce"].Value)</span></div>
+                var lines = log.Count > 0 ? log : Preview(chosen).ToList();
+                @if (log.Count > 0 || lines.Count <= 12)
+                {
+                    <div class="cmdlog">@CmdLog(lines)</div>
+                }
+                else
+                {
+                    <details class="cmds"><summary><span><Icon Name="right" Sm="true" />@L["Wt.PlanCmds", lines.Count]</span></summary><div class="cmdlog">@CmdLog(lines)</div></details>
+                }
+                @if (lines.Any(l => l.Cmd.Contains(" branch -d ")))
+                {
+                    <div class="guard"><Icon Name="shield" Sm="true" /><span>@((MarkupString)L["Wt.NeverForce"].Value)</span></div>
+                }
                 <div class="acts">
                     @if (log.Count == 0)
                     {
-                        <button class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">@L["Wt.CleanN", Items(chosen)]</button>
-                        <button class="btn ghost" @onclick="() => plan.Clear()">@L["Action.Cancel"]</button>
+                        <button tabindex="0" class="btn primary" disabled="@(running || chosen.Count == 0)" @onclick="() => Run(chosen)">@L["Wt.CleanN", Items(chosen)]</button>
+                        <button tabindex="0" class="btn ghost" @onclick='() => { plan.Clear(); keptOk.Clear(); focusTo = planOrigin is { } o ? "row:" + o : "head"; planOrigin = null; }'>@L["Action.Cancel"]</button>
                     }
                     else
                     {
-                        <button class="btn" disabled="@running" @onclick="() => { log.Clear(); plan.Clear(); }">@L["Action.Close"]</button>
+                        <button class="btn" disabled="@running" @onclick="() => { log.Clear(); plan.Clear(); keptOk.Clear(); }">@L["Action.Close"]</button>
                     }
                 </div>
             }
@@ -165,14 +191,127 @@
 }
 
 @code {
-    static readonly (string, WtState[])[] groups = [("Wt.Group.Go", [WtState.Safe, WtState.Orphan]), ("Wt.State.Check", [WtState.Check]), ("Wt.Filter.Active", [WtState.Active])];   // titles are resource keys
+    static readonly (string, string, WtState[])[] groups = [("Wt.Group.Go", "Wt.Group.GoHelp", [WtState.Safe, WtState.Orphan]), ("Wt.State.Check", "Wt.Group.CheckHelp", [WtState.Check]),
+        ("Wt.Filter.Active", "Wt.Group.ActiveHelp", [WtState.Active])];   // titles are resource keys
+    static List<string> lastUnignored = [];   // shown with the cached rows, so the warnings never push the table down when the scan lands
+    readonly HashSet<string> open = [];
+    readonly HashSet<string> keptOk = [];     // rows planned with "Delete anyway": their ignored files go too       // repos whose merged branches are unfolded
+    string? cursor;                           // the row that holds the list's one Tab stop
+    bool bySize;
+
+    // Folded per repo and kind: orphaned branches, detached Safe folders, squash-merged Safe folders. Dozens of rows saying the
+    // same thing would bury the decisions; a kind with a single row in a repo stays a row.
+    static bool Folds(WorktreeInfo w) => w.BranchOnly && w.State == WtState.Orphan
+        || !w.BranchOnly && w.State == WtState.Safe && (w.Branch is null || w.SquashMerged && !w.Merged)
+        || w.BranchOnly && w.State == WtState.Check && w.SquashMerged && !w.Merged                    // squashed branches whose folder went: nothing to decide here
+        || IgnoredOnly(w);                                                                           // the same ignored file, one decision
+    static bool IgnoredOnly(WorktreeInfo w) => !w.BranchOnly && w.State == WtState.Check && w.Kept is not null && w.Dirty == 0 && w.AtRisk == 0 && WorktreeService.Cleanable(w, keptOk: true);
+    static string FoldKind(WorktreeInfo w) => w.BranchOnly ? (w.State == WtState.Check ? "q" : "b") : IgnoredOnly(w) ? "i" : w.Branch is null ? "d" : "s";
+    // One ordered sequence: a fold takes the place of its first member, so it keeps the risk order and the size sort.
+    List<(WorktreeInfo? Row, List<WorktreeInfo>? Fold)> Split(List<WorktreeInfo> g)
+    {
+        var folds = g.Where(Folds).GroupBy(FoldKey).Where(f => f.Count() >= 2).Select(f => f.ToList()).ToList();
+        var first = folds.ToDictionary(f => f[0].Path);
+        var folded = folds.SelectMany(f => f).Select(w => w.Path).ToHashSet();
+        var seq = new List<(WorktreeInfo?, List<WorktreeInfo>?)>();
+        foreach (var w in g)
+            if (first.TryGetValue(w.Path, out var f)) seq.Add((null, f));
+            else if (!folded.Contains(w.Path)) seq.Add((w, null));
+        return seq;
+    }
+    static string FoldKey(WorktreeInfo w) => $"fold:{FoldKind(w)}:{w.Repo}" + (FoldKind(w) == "i" ? ":" + w.Kept : "");
+
+    // Riskiest first, then a fixed order: the cached rows and the fresh scan list the same rows in the same place.
+    IEnumerable<WorktreeInfo> Order(IEnumerable<WorktreeInfo> g) => bySize
+        ? g.OrderByDescending(w => sizes.TryGetValue(w.Path, out var z) ? z : -1).ThenBy(w => w.Path, StringComparer.Ordinal)
+        : g.OrderBy(Risk).ThenByDescending(w => w.AtRisk).ThenByDescending(w => w.Dirty)   // the Overview's order: commits nothing else holds, then uncommitted files
+            .ThenByDescending(w => w.LastActivity).ThenBy(w => Path.GetFileName(w.Repo), StringComparer.OrdinalIgnoreCase).ThenBy(WorktreeService.DisplayName, StringComparer.Ordinal);   // the Overview's tie-break
+
+    static int Risk(WorktreeInfo w) => w.State != WtState.Check ? (w.BranchOnly ? 2 : w.Branch is null ? 1 : 0)   // branches, then detached folders
+        : w.AtRisk > 0 ? 0 : w.Dirty > 0 ? 1 : w.Unreadable is not null ? 2 : w.Kept is not null ? 3 : w.RecentMin is not null ? 4
+        : w.BranchOnly ? 6 : w.Locked ? 7 : 5;
+
+    // The keys of the rows in display order (fold rows by their key), for the roving Tab stop.
+    List<string> Shown()
+    {
+        var list = new List<string>();
+        foreach (var (_, _, states) in groups)
+        {
+            var g = Order(rows!.Where(w => states.Contains(w.State) && (filter is null || w.State == filter))).ToList();
+            foreach (var (row, f) in Split(g))
+            {
+                if (row is not null) { list.Add(row.Path); continue; }
+                var key = FoldKey(f![0]);
+                list.Add(key);
+                if (open.Contains(key) || filter is not null) list.AddRange(f.Select(w => w.Path));
+            }
+        }
+        return list;
+    }
+
+    RenderFragment RowOf(WorktreeInfo w, string? cur, bool child = false) => @<tr id="@WorktreeService.Anchor(w.Path)" data-r tabindex="@(w.Path == cur ? 0 : -1)" @onfocusin="() => cursor = w.Path"
+            class="@(w.Path == selected || plan.Contains(w.Path) ? "sel" : w.State == WtState.Orphan ? "dim" : null) @(w.Path == Focus && !pulsed ? "landed" : null) @(child ? "fchild" : null)" @key="w.Path">
+        @* the folder first on the second line: it is what tells two rows on the same branch apart *@
+        <td title="@(w.BranchOnly ? w.Branch : w.Path)"><div class="n">@WorktreeService.DisplayName(w)@if (w.BranchOnly) { <span class="tag">@L["Wt.BranchTag"]</span> }</div>@{ var lead = w.BranchOnly || w.Branch is null ? null : w.Name; }<div class="branch"><Icon Name="branch" />@if (w.Branch is null && !w.BranchOnly) { <span class="tag">@(w.State == WtState.Orphan ? L["Wt.BranchMissing"] : L["Wt.DetachedTag"])</span> }@if (lead is not null) { <span class="lf"><bdi>@lead</bdi></span><span class="dot">·</span> }<span class="rp">@Path.GetFileName(w.Repo)</span></div>   @* agent folders share long prefixes: the start gives way, the differing end stays *@   @* the folder gives way, the repo stays readable *@<div class="why2" aria-hidden="true">@((MarkupString)w.Why)@if (!w.BranchOnly && w.State != WtState.Orphan && sizes.TryGetValue(w.Path, out var sz2)) { <span class="sz2"> · @Fmt.Size(sz2)</span> }</div></td>   @* the reason under the name in a narrow pane *@
+        <td class="why" title="@Plain(w.Why)"><span class="cl">@((MarkupString)w.Why)</span></td>
+        <td class="num">@(w.State == WtState.Orphan || w.BranchOnly ? "—" : sizes.TryGetValue(w.Path, out var sz) ? Fmt.Size(sz) : "…")</td>
+        <td><div class="rowacts">@RowActions(w, w.Path == cur ? 0 : -1)</div></td>
+    </tr>;
+
+    RenderFragment RowActions(WorktreeInfo w, int tab) => @<text>
+        @if (WorktreeService.Cleanable(w))
+        {
+            @if (plan.Contains(w.Path))
+            {
+                <button class="btn ghost" disabled="@running" tabindex="@tab" aria-label="@($"{L["Wt.Unplan"]} {WorktreeService.DisplayName(w)}")" @onclick="() => { plan.Remove(w.Path); FocusRow(w.Path); }">@L["Wt.Unplan"]</button>
+            }
+            else
+            {
+                var verb = w.State == WtState.Orphan && !w.BranchOnly ? L["Wt.Prune"] : L["Wt.Delete"];   // prune is git's word for a folder already gone
+                <button class="btn" disabled="@running" tabindex="@tab" title="@L["Wt.AddsToPlan"]" aria-label="@($"{verb} {WorktreeService.DisplayName(w)}")" @onclick="() => Add(w)">@verb</button>
+            }
+        }
+        else if (w.State == WtState.Active && SessionOf(w) is { } s)
+        {
+            <button class="btn" tabindex="@tab" aria-label="@($"{L["Wt.Go"]} {WorktreeService.DisplayName(w)}")" @onclick='() => Nav.NavigateTo($"session/{s.Id}")'>@L["Wt.Go"]</button>
+        }
+        else if (w.AtRisk > 0 && w.Dirty == 0 && w.Branch is not null && !w.BranchOnly)
+        {
+            <button class="btn" disabled="@running" tabindex="@tab" aria-label="@($"{L["Wt.Push"]} {WorktreeService.DisplayName(w)}")" @onclick="() => { selected = w.Path; push = w; pushResult = null; Ui.InspectorOpen = true; }">@L["Wt.Push"]</button>
+        }
+        else if (keptOk.Contains(w.Path) && plan.Contains(w.Path))
+        {
+            <button class="btn ghost" disabled="@running" tabindex="@tab" aria-label="@($"{L["Wt.Unplan"]} {WorktreeService.DisplayName(w)}")" @onclick="() => { plan.Remove(w.Path); keptOk.Remove(w.Path); FocusRow(w.Path); }">@L["Wt.Unplan"]</button>
+        }
+        else if (w.Kept is not null && w.Dirty == 0 && w.AtRisk == 0)
+        {
+            @* look first (the path to the clipboard, confirmed in place), then decide; never --force: git removes ignored files itself *@
+            <button type="button" class="btn ghost" tabindex="@tab" data-copy="@w.Path" title="@L["Wt.CopyPathHelp"]" aria-label="@L["Wt.CopyPathOf", WorktreeService.DisplayName(w)]">@L["Wt.CopyPath"]</button>
+            @if (WorktreeService.Cleanable(w, keptOk: true))
+            {
+                <button class="btn" disabled="@running" tabindex="@tab" title="@L["Wt.DeleteAnywayHelp", w.Kept]" aria-label="@L["Wt.DeleteAnywayOf", WorktreeService.DisplayName(w)]" @onclick="() => { log.Clear(); keptOk.Add(w.Path); plan.Add(w.Path); Ui.InspectorOpen = true; FocusRow(w.Path); }">@L["Wt.DeleteAnyway"]</button>
+            }
+        }
+        else if (w.State == WtState.Active && !w.BranchOnly)
+        {
+            <button type="button" class="btn ghost" tabindex="@tab" data-copy="@w.Path" title="@L["Wt.CopyPathActive"]" aria-label="@L["Wt.CopyPathOf", WorktreeService.DisplayName(w)]">@L["Wt.CopyPath"]</button>
+        }
+        else if (!w.BranchOnly)
+        {
+            @if (w.Dirty > 0)
+            {
+                <button type="button" class="btn ghost" tabindex="@tab" data-copy="@w.Path" title="@L["Wt.CopyPathHelp"]" aria-label="@L["Wt.CopyPathOf", WorktreeService.DisplayName(w)]">@L["Wt.CopyPath"]</button>
+            }
+            <button class="btn" tabindex="@tab" title="@L["Wt.NewSessionIn", w.Path]" aria-label="@L["Wt.NewSessionIn", WorktreeService.DisplayName(w)]" @onclick='() => Nav.NavigateTo("?cwd=" + Uri.EscapeDataString(Path.GetFullPath(w.Path)))'>@L["Wt.NewSession"]</button>
+        }
+    </text>;
 
     record LogLine(string Repo, string Cmd, string? Result);
 
     List<WorktreeInfo>? rows;
     IReadOnlyList<string> repos = [];
     List<string> unignored = [], errors = [];
-    readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> sizes = new();
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> sizes = new();   // kept across visits: arrival shows the last sizes, then re-measures
     readonly HashSet<string> plan = [];
     readonly List<LogLine> log = [];
     WtState? filter;
@@ -184,10 +323,23 @@
     // ?path=: the Overview links one worktree; its row is selected and scrolled into view once the scan lists it.
     [SupplyParameterFromQuery(Name = "path")] public string? Focus { get; set; }
     ElementReference paneEl;
-    bool revealed, fromCache, pulsed;   // pulsed: the landing pulse played once; the fresh scan's re-render must not replay it
+    bool revealed, fromCache, pulsed, seeded;   // seeded: the landed row's fold was opened once, and stays closable
+    (int Done, int Total) progress;
+    ElementReference planEl, headBtn;
+    string? focusTo;   // pulsed: the landing pulse played once; the fresh scan's re-render must not replay it
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (focusTo is { } to)   // the clicked button left the page: focus follows the work instead of dropping to body
+        {
+            focusTo = null;
+            try
+            {
+                if (to.StartsWith("row:")) await JS.InvokeVoidAsync("claudeUi.reveal", paneEl, WorktreeService.Anchor(to[4..]), "nearest", true);
+                else await (to == "plan" ? planEl : headBtn).FocusAsync();
+            }
+            catch (InvalidOperationException) { } catch (JSException) { } catch (JSDisconnectedException) { }
+        }
         if (revealed || Focus is null || rows?.Any(w => w.Path == Focus) != true) return;
         revealed = true;
         try { await JS.InvokeVoidAsync("claudeUi.reveal", paneEl, WorktreeService.Anchor(Focus), "center", true); }
@@ -210,7 +362,8 @@
         scanning = true;
         if (rows is null && Wt.CachedAt is not null)   // the last scan at once (an Overview link lands on its row), then the fresh one
         {
-            (rows, fromCache) = ([.. Wt.Cached], true);
+            (rows, fromCache, unignored) = ([.. Wt.Cached], true, lastUnignored);
+            SeedFocus();
             StateHasChanged();
         }
         try
@@ -219,24 +372,37 @@
             repos = await Wt.DiscoverReposAsync(refresh, ct);
             var found = new List<WorktreeInfo>();
             List<string> bad = [], errs = [];
+            progress = (0, repos.Count);
             foreach (var r in repos)
             {
+                if (rows is not null) StateHasChanged();
                 try
                 {
                     var list = await Wt.ScanAsync(r, ct);
                     found.AddRange(list);
-                    if (list.Count > 0 && !await Wt.IgnoresWorktreesAsync(r, ct)) bad.Add(r);
+                    if (list.Count > 0 && !Scratch(r) && !await Wt.IgnoresWorktreesAsync(r, ct)) bad.Add(r);   // an agent's scratch repo needs no .gitignore advice
                 }
                 catch (InvalidOperationException e) { errs.Add(L["Wt.RepoError", Fmt.Home(r), e.Message]); }
+                progress = (progress.Done + 1, repos.Count);   // counted once read, so the last one never shows done early
             }
             (rows, unignored, errors, fromCache) = (found, bad, errs, false);
-            if (refresh) sizes.Clear();
-            plan.RemoveWhere(p => !found.Any(w => w.Path == p && WorktreeService.Cleanable(w)));
-            foreach (var w in found.Where(w => w.State != WtState.Orphan && !w.BranchOnly && !sizes.ContainsKey(w.Path))) _ = Measure(w.Path, ct);
+            SeedFocus();
+            lastUnignored = bad;
+            plan.RemoveWhere(p => !found.Any(w => w.Path == p && WorktreeService.Cleanable(w, keptOk.Contains(p))));
+            keptOk.IntersectWith(plan);
+            foreach (var w in found.Where(w => w.State != WtState.Orphan && !w.BranchOnly)) _ = Measure(w.Path, ct);   // over the old sizes, so the totals never blank   // a refresh re-measures over the old sizes, so the totals never blank
         }
         catch (OperationCanceledException) { }
         catch (InvalidOperationException e) { (rows, unignored, errors) = ([], [], [e.Message]); }   // git missing: no repo can be resolved
-        finally { scanning = false; }
+        finally { scanning = false; progress = default; }
+    }
+
+    // The landed row's fold opens once; after that it is the user's to close.
+    void SeedFocus()
+    {
+        if (seeded || Focus is null || rows?.FirstOrDefault(w => w.Path == Focus) is not { } fw || !Folds(fw)) return;
+        open.Add(FoldKey(fw));
+        seeded = true;
     }
 
     async Task Measure(string path, CancellationToken ct)
@@ -249,7 +415,13 @@
     {
         log.Clear();
         plan.Add(w.Path);
+        Ui.InspectorOpen = true;   // the plan it joined is in view
+        FocusRow(w.Path);
     }
+
+    // The clicked button is replaced (Delete… becomes Keep): focus goes back to its row rather than to the page.
+    void FocusRow(string key) { focusTo = "row:" + key; planOrigin = key; }   // planOrigin: where Cancel hands focus back
+    string? planOrigin;
 
     // .cmdlog is white-space:pre-wrap: built as one encoded string, "# repo" comments and results dimmed.
     static MarkupString CmdLog(IEnumerable<LogLine> lines)
@@ -269,12 +441,12 @@
         return new(sb.ToString());
     }
 
-    IEnumerable<LogLine> Preview(List<WorktreeInfo> chosen) => Wt.Plan(chosen).Select(s => new LogLine(s.Repo, s.Display, null));
+    IEnumerable<LogLine> Preview(List<WorktreeInfo> chosen) => Wt.Plan(chosen, keptOk).Select(s => new LogLine(s.Repo, s.Display, null));
 
     async Task Run(List<WorktreeInfo> chosen)
     {
         if (running) return;
-        var steps = Wt.Plan(chosen);
+        var steps = Wt.Plan(chosen, keptOk);
         running = true;
         log.Clear();
         try
@@ -284,7 +456,7 @@
                 var first = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 log.Add(new(step.Repo, step.Display, exit switch
                 {
-                    0 => first.Length > 0 && step.GitArgs[1] == "prune" ? string.Join(" · ", first) : "ok",
+                    0 => first.Length > 0 && step.GitArgs[1] is "prune" or "-d" ? string.Join(" · ", first) : "ok",   // "Deleted branch x (was 1a2b3c4)": the sha to restore it
                     -1 => output,
                     _ => L["Wt.ExitOutput", exit, string.Join(" · ", first)],
                 }));
@@ -295,6 +467,7 @@
         catch (InvalidOperationException e) { log.Add(new(chosen[0].Repo, "git", e.Message)); }
         finally { running = false; }
         plan.Clear();
+        keptOk.Clear();
         await Scan(false);
     }
 
@@ -329,14 +502,17 @@
     string SizeOf(IEnumerable<WorktreeInfo> ws)
     {
         var known = ws.Where(w => w.State != WtState.Orphan && !w.BranchOnly).ToList();
-        return known.All(w => sizes.ContainsKey(w.Path)) ? Fmt.Size(known.Sum(w => sizes[w.Path])) : "…";
+        return known.Count == 0 ? "—" : known.All(w => sizes.ContainsKey(w.Path)) ? Fmt.Size(known.Sum(w => sizes[w.Path])) : "…";   // branches alone have no size, as in the table
     }
 
-    string What(WorktreeInfo w) => w.BranchOnly ? L["Wt.What.BranchOnly"] : w.State == WtState.Orphan ? L["Wt.What.RefOnly"]
+    string What(WorktreeInfo w) => keptOk.Contains(w.Path) && w.Kept is { } k ? L["Wt.What.WithKept", k] : w.BranchOnly ? L["Wt.What.BranchOnly"] : w.State == WtState.Orphan ? L["Wt.What.RefOnly"]
         : (w.Locked ? L["Wt.What.Unlock"] : "") + L[w.Branch is null ? "Wt.What.Detached"
-        : w.SquashMerged && !w.Merged ? "Wt.What.FolderOnly" : "Wt.What.FolderAndBranch"];
+        : !w.Merged ? "Wt.What.FolderOnly" : "Wt.What.FolderAndBranch"];
 
-    static string Css(WtState s) => s switch { WtState.Safe => "safe", WtState.Orphan => "orphan", WtState.Active => "active", _ => "check" };
+    static readonly string[] Temp = [Path.GetTempPath().TrimEnd('/'), "/tmp", "/private/tmp", "/private/var/folders"];
+    static bool Scratch(string repo) => Temp.Any(t => repo.StartsWith(t + "/", StringComparison.OrdinalIgnoreCase));
+    static string Plain(string html) => System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", ""));
+
 
 
 
