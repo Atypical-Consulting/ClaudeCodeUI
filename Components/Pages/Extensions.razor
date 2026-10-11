@@ -473,7 +473,11 @@
     async Task Refresh()
     {
         if (Live is not { } s) return;
-        if (refreshedFor != s.Id) (hooks, hooksNote, perms, permsNote, installed, markets) = (null, null, null, null, null, null);   // the previous session's (another folder) must not show meanwhile
+        if (refreshedFor != s.Id)
+        {
+            (hooks, hooksNote, perms, permsNote, installed, markets) = (null, null, null, null, null, null);   // the previous session's (another folder) must not show meanwhile
+            ResetHookForm();   // nor its hook stay the edit target
+        }
         refreshedFor = s.Id;
         await Run(s.RefreshMcp);
         if (selected is null && Servers(s) is { Count: > 0 } all)

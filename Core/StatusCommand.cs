@@ -67,9 +67,9 @@ public static class StatusCommand
         try { await p.StandardInput.WriteAsync(payload.ToJsonString()); p.StandardInput.Close(); }
         catch (IOException) { }   // a command that does not read stdin may exit first
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        try { await p.WaitForExitAsync(cts.Token); }
+        // The read is bounded too: a background child of the script (`git fetch &`) can hold stdout open after the shell exits.
+        try { await p.WaitForExitAsync(cts.Token); return Text(await output.WaitAsync(cts.Token)); }
         catch (OperationCanceledException) { p.Kill(true); return null; }
-        return Text(await output);
     }
 
     internal static void Check()

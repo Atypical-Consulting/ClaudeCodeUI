@@ -19,7 +19,7 @@
                 <b title="@key">@key</b>
                 @if (choices.Length > 0)
                 {
-                    <span class="picks"><select value="" disabled="@busy" @onchange="e => Set(key, e.Value as string)">
+                    <span class="picks"><select disabled="@busy" @bind:get="string.Empty" @bind:set="v => Set(key, v)">
                         <option value="">—</option>
                         @foreach (var c in choices)
                         {
