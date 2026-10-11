@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.0...v0.4.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **worktrees:** truthful verdicts and a calmer table, critique rounds 1-10 (27 → 36/40) ([#118](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/118)) ([3c4528b](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/3c4528b3445a3db4bd9f51b657406fa95db40f92))
+
+
+### Documentation
+
+* **skill:** critique-loop, raise a screen's critique score round after round ([#119](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/119)) ([cbe7e2e](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/cbe7e2e10cc0c6b7108680c77261428a24c91efb))
+
 ## [0.4.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.3.0...v0.4.0) (2026-10-11)
 
 
