@@ -24,6 +24,21 @@ public sealed class SessionManager : IAsyncDisposable
 
     // The latest quota received, all sessions included.
     public RateLimitEvt? Limits => all.Where(s => s.Limits is not null).MaxBy(s => s.LimitsAt)?.Limits;
+    // The last quota any session received, kept on disk with when it was seen: the idle Overview shows it, no process to ask.
+    internal static string LimitsFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeCodeUI", "limits.json");
+    public sealed record SavedLimits(RateLimitEvt Limits, DateTimeOffset At);
+
+    internal static void RememberLimits(RateLimitEvt l)
+    {
+        try { Directory.CreateDirectory(Path.GetDirectoryName(LimitsFile)!); File.WriteAllText(LimitsFile, System.Text.Json.JsonSerializer.Serialize(new SavedLimits(l, DateTimeOffset.Now))); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    public static SavedLimits? LastLimits()
+    {
+        try { return File.Exists(LimitsFile) ? System.Text.Json.JsonSerializer.Deserialize<SavedLimits>(File.ReadAllText(LimitsFile)) : null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return null; }
+    }
     // And the latest get_usage, from the newest session that has one (the one that can be asked again, if it still runs).
     public LiveSession? UsageSource => all.LastOrDefault(s => s.Usage is not null && s.HasProcess) ?? all.LastOrDefault(s => s.Usage is not null);
 

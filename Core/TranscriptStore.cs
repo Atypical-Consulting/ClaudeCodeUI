@@ -46,6 +46,93 @@ public static class TranscriptStore
         return list;
     }
 
+    static (DateTimeOffset At, DateTime Since, IReadOnlyList<PastSession> List) sinceCache;
+
+    // Every transcript written since sinceUtc, newest first, cached 60 s: the Overview's week. Unbounded (a busy week is a few
+    // hundred files, head and tail each), so callers run it off the render thread.
+    public static IReadOnlyList<PastSession> Since(DateTime sinceUtc)
+    {
+        var c = sinceCache;
+        if (c.List is not null && c.Since <= sinceUtc && DateTimeOffset.Now - c.At < TimeSpan.FromSeconds(60)) return [.. c.List.Where(p => p.LastWrite.UtcDateTime >= sinceUtc)];
+        List<PastSession> list = [];
+        try
+        {
+            foreach (var f in new DirectoryInfo(Root).EnumerateDirectories().SelectMany(d => d.EnumerateFiles("*.jsonl"))
+                         .Where(f => f.LastWriteTimeUtc >= sinceUtc).OrderByDescending(f => f.LastWriteTimeUtc))
+                if (Read(f) is { } p) list.Add(p);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        sinceCache = (DateTimeOffset.Now, sinceUtc, list);
+        return list;
+    }
+
+    public enum Stop { Done, Asked, Cut }
+    // How a conversation ended: the last thing Claude wrote, and whether it is waiting on the user (a question) or was cut mid-step
+    // (a tool call never answered, a prompt never answered).
+    public sealed record Ending(string? Text, Stop Stop);
+
+    public static Ending? EndOf(string id)
+    {
+        if (Find(id) is not { } path) return null;
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return EndOf(ReadAt(fs, Math.Max(0, fs.Length - Chunk), (int)Math.Min(fs.Length, Chunk)).Split('\n'));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    // The CLI writes one line per content block, so walking back line by line meets the last block first.
+    internal static Ending EndOf(IReadOnlyList<string> lines)
+    {
+        string? text = null, prompt = null;
+        Stop? stop = null;
+        for (var i = lines.Count - 1; i >= 0 && (text is null || stop is null); i--)
+        {
+            var line = lines[i];
+            if (!line.Contains("\"type\":\"assistant\"") && !line.Contains("\"type\":\"user\"")) continue;
+            if (Parse(line) is not { } e || Events.Prop(e, "message") is not { } m) continue;
+            if (Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True } || Events.Prop(e, "isMeta") is { ValueKind: JsonValueKind.True }) continue;
+            var type = Events.Str(e, "type");
+            var blocks = Events.Prop(m, "content") is { ValueKind: JsonValueKind.Array } a ? a.EnumerateArray().ToList() : [];
+            if (type == "user")
+            {
+                // A typed prompt (string content, not a <command> echo) or a tool result that Claude never followed up.
+                if (Events.Str(m, "content") is { } c && c.StartsWith('<')) continue;
+                stop ??= Stop.Cut;
+                if (Events.Str(m, "content") is { Length: > 0 } typed) prompt ??= typed;
+                continue;
+            }
+            if (type != "assistant" || blocks.Count == 0) continue;
+            var last = blocks[^1];
+            switch (Events.Str(last, "type"))
+            {
+                case "text" when Events.Str(last, "text") is { Length: > 0 } t:
+                    var plain = Prose(t);
+                    if (plain.Length == 0) break;
+                    text ??= Cut(plain);
+                    stop ??= t.TrimEnd().EndsWith('?') ? Stop.Asked : Stop.Done;
+                    break;
+                case "tool_use":
+                    stop ??= Events.Str(last, "name") == AskUser.Tool ? Stop.Asked : Stop.Cut;
+                    break;
+            }
+        }
+        // Only tool traffic in the tail: the user's last prompt says what it was about.
+        return new(text ?? (prompt is null ? null : "› " + Cut(Prose(prompt))), stop ?? Stop.Done);
+    }
+
+    static string Cut(string s) => s.Length <= 220 ? s : s[..219].TrimEnd() + "…";
+
+    // Plain, on one line: code fences dropped, links keep their label, list and quote markers go.
+    internal static string Prose(string md)
+    {
+        md = Regex.Replace(Regex.Replace(md, "```.*?(```|$)", " ", RegexOptions.Singleline), @"!?\[([^\]]*)\]\([^)]*\)", "$1");
+        md = Regex.Replace(Plain(md), @"(?m)^[ \t]*(>|[-*+]|\d+\.)[ \t]+", "");
+        return string.Join(' ', md.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
     // Replays the user/assistant lines through Events.ParseAll and the session reducer.
     public static IReadOnlyList<Item> Load(string id) => Find(id) is { } path ? Replay(File.ReadLines(path)) : [];
 
@@ -507,6 +594,17 @@ public static class TranscriptStore
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "TranscriptStore: " + what);
         Ok(HeldIds("node /opt/claude --permission-mode plan --session-id cf0a03e9-1111-2222-3333-444455556666 --name x\nclaude --resume=b45b0de6-1111-2222-3333-444455556666\nvim --resume 00000000-0000-0000-0000-000000000000")
            .SetEquals(["cf0a03e9-1111-2222-3333-444455556666", "b45b0de6-1111-2222-3333-444455556666"]), "HeldIds");
+        string A(string block) => $$$"""{"type":"assistant","isSidechain":false,"message":{"role":"assistant","content":[{{{block}}}]}}""";
+        const string Prompt = """{"type":"user","message":{"role":"user","content":"et maintenant ?"}}""";
+        Ok(EndOf([A("""{"type":"text","text":"## Fait\n\n- **PR #12** mergée, voir [la PR](https://x/12)."}"""), """{"type":"last-prompt","lastPrompt":"x"}"""])
+           is { Text: "Fait PR #12 mergée, voir la PR.", Stop: Stop.Done }, "ending: last text as plain prose");
+        Ok(EndOf([A("""{"type":"text","text":"On merge ?"}""")]) is { Stop: Stop.Asked }, "ending: a question");
+        Ok(EndOf([A("""{"type":"text","text":"Je regarde."}"""), A("""{"type":"tool_use","id":"t","name":"AskUserQuestion","input":{}}""")]) is { Text: "Je regarde.", Stop: Stop.Asked }, "ending: AskUserQuestion pending");
+        Ok(EndOf([A("""{"type":"text","text":"Je lance."}"""), A("""{"type":"tool_use","id":"t","name":"Bash","input":{}}""")]) is { Stop: Stop.Cut }, "ending: tool call never answered");
+        Ok(EndOf([A("""{"type":"text","text":"Fini ?"}"""), Prompt]) is { Text: "Fini ?", Stop: Stop.Cut }, "ending: prompt never answered");
+        Ok(EndOf([A("""{"type":"text","text":"Fini."}"""), """{"type":"user","message":{"role":"user","content":"<local-command-stdout>x</local-command-stdout>"}}"""]) is { Stop: Stop.Done }, "ending: command echo ignored");
+        Ok(EndOf([]) is { Text: null, Stop: Stop.Done }, "ending: empty");
+        Ok(EndOf([Prompt, A("""{"type":"tool_use","id":"t","name":"Bash","input":{}}""")]) is { Text: "› et maintenant ?", Stop: Stop.Cut }, "ending: only tools in the tail, the prompt instead");
         Ok(NameFrom("Ajoute la persistance des sessions : un fichier") == "ajoute-la-persistance-des", "NameFrom");
         Ok(NameFrom("Évite l'échec") == "evite-l-echec", "NameFrom accents");
         Ok(Enumerable.Range(0, 50).Select(_ => RandomName()).All(n => n.Split('-').Length == 3 && WorktreeName(n) == n), "RandomName is a branch-safe three-word slug");

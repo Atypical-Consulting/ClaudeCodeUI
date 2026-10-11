@@ -276,6 +276,9 @@ Quiet outlines; only the primary action is filled.
 - **Tabs:** 500 13px, `fg-4`; active `fg` with a 2px accent underline.
 - **Mobile (site):** rail becomes a sticky top bar, nav scrolls horizontally, the table of contents opens from a button.
 
+### Overview at Rest
+With no session running the Overview is a "pick up where you left off" page, never an empty screen: the headline with the week's totals as `tot` figures (sessions, spend over 7 days, spend today), then two 8px `seam` panels side by side (spend per day as seven 64px `sunk` columns, today in `fg-3`; the last quota reading with its age, a window past its reset drawn empty), then resume cards (auto-fill grid of 280px minimum, 8px `seam` stroke, hover `raise` + `seam-2`: title 500 13px, a 11px flag right — Ember "waiting on your answer", `fg-4` for "stopped mid-step" or "running elsewhere" — two clamped lines of the last thing Claude wrote in 13px `fg-3`, then branch, repo, age and cost in 11px mono `fg-4`), and last the worktrees holding uncommitted files or unpushed commits as a bordered list with `hair` dividers. Every part is read off the render thread and appears as it lands.
+
 ### Tool Ledger (signature)
 Bordered 8px container with a `sunk` header line ("3 outils · ..."). Each row is a mono grid: chevron, tool kind in its syntax colour (500), target in `fg` with ellipsis, meta in `fg-4`. Hover `raise`; selected or expanded rows get `raise` plus the 2px accent inset bar; a row waiting for permission is tinted 6% accent with accent meta; voided rows strike through. On the site rows expand (Enter or click) on a screenshot and explanation, animating `grid-template-rows` over 320ms.
 

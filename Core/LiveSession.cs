@@ -768,6 +768,7 @@ public sealed class LiveSession : IAsyncDisposable
             {
                 Limits = new(Pct(h5), Reset(h5), Pct(d7), Reset(d7));   // get_usage is 0..100, normalised to 0..1
                 LimitsAt = DateTimeOffset.Now;
+                SessionManager.RememberLimits(Limits);
             }
         }
         catch (Exception ex) { Console.Error.WriteLine($"[{Id}] startup: {ex.Message}"); }
@@ -804,6 +805,7 @@ public sealed class LiveSession : IAsyncDisposable
             if (e is PermissionEvt or ResultEvt) urgent = true;
             else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
+            if (e is RateLimitEvt && Limits is { } lim) SessionManager.RememberLimits(lim);
             if (e is ResultEvt) _ = RunStatusLine();
             if (e is InitEvt && Branch is null || cwd != Cwd) _ = RefreshGit();   // cwd: init, or a worktree move mid-turn
             // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
