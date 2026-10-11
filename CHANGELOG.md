@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.3.0...v0.4.0) (2026-10-11)
+
+
+### Features
+
+* **overview:** resume page at rest: how each session ended, week spend, last quota, unsaved worktrees ([#109](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/109)) ([c2bfe1f](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/c2bfe1fbec010e803f182be4447db4760ce79be8))
+
+
+### Bug Fixes
+
+* **desktop:** lower the window minimum to 640x480 so tiling WMs can halve it ([#110](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/110)) ([c20d2b9](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/c20d2b9c37b5870bfb7dfe8894d293b111745e1e))
+* **overview:** at rest, rounds 10-19 of the critique (22 → 37/40) ([#115](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/115)) ([fb8e292](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/fb8e292736fdade615ac7814b32b9eabd3a7c8d4))
+* **overview:** one gesture at rest: Resume is the primary, lead is the session waiting on you, honest keys, less debris ([#114](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/114)) ([029a209](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/029a20934daf970d86a40cb4a16263d9b92f3c74))
+* **overview:** triage at rest: purpose headline, lead card, quota alarm, keyboard, risk-sorted worktrees ([#113](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/113)) ([eaef9f4](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/eaef9f4460d9f843bb36c8288e56f66d5a027200))
+* **ui:** centre the reading column so hiding the inspector leaves no blank strip ([#106](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/106)) ([c5a8756](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/c5a8756156b8aff4b78957d4f29775b4b6147e0a))
+* **ui:** quieter rail typography: 13px regular rows, 11px meta ([#108](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/108)) ([b79ef2a](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/b79ef2a03992f0084c54a3fea429562753f2f528))
+
+
+### Documentation
+
+* **impeccable:** keep the Overview critique log, rounds 1-19 (22 → 37/40) ([#117](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/117)) ([ff9dda2](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/ff9dda28401b926f5a7418e48ec32c13b5399179))
+
 ## [0.3.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.2.0...v0.3.0) (2026-10-11)
 
 
