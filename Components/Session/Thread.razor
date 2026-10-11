@@ -101,7 +101,10 @@
                     }</p>
                 break;
             case ApiErrorItem e:
-                <ApiErrorCard Error="e.Error" />
+                <ApiErrorCard Error="e.Error" Session="Session" />
+                break;
+            case ResumedItem:
+                <p class="notice">@L["Thread.Resumed"]</p>
                 break;
             case NoticeItem n:
                 <p class="notice @(n.Notice.Color is "error" or "warning" ? "bad" : null)">@n.Notice.Text</p>

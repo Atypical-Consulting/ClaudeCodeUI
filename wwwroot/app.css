@@ -784,6 +784,10 @@ button.mode{text-align:left}
 /* State colours: they override contextual meta colours (.s .c, td .last, .kv span), as the inline styles did. */
 .c-ok{color:var(--ok)!important}.c-err{color:var(--err)!important}.c-err-fg{color:var(--err-fg)!important}.c-wait{color:var(--accent)!important}.c-mute{color:var(--fg-3)!important}
 .ph .ttl:focus{outline:none}
+.ph .ttl-edit{font:600 13px var(--sans);color:var(--fg);background:var(--field);border:1px solid var(--fg-5);border-radius:var(--r-xs);padding:3px 6px;min-width:16ch;max-width:45%;flex:0 1 auto}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 10px;font-size:12px}.kv dt{color:var(--fg-4)}.kv dd{margin:0;color:var(--fg-2);overflow-wrap:anywhere}
+.bgt th:nth-child(5){width:330px}.bgt .rowacts{flex-wrap:wrap}
+.cwd-now{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--fg-2);overflow-wrap:anywhere}
 .pop.menu{max-height:60vh;overflow:auto}
 .pop.menu [role=listbox]:focus-visible{outline-offset:-2px}
 .pop.menu [role=group]{display:contents}

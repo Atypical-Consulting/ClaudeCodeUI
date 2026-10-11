@@ -19,6 +19,7 @@
                 <span class="tag">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
+        <NavLink class="btn block ghost" href="background" ActiveClass="cur" aria-current="@Cur("background")"><Icon Name="agents" Sm />@L["Nav.Background"]</NavLink>
         <NavLink class="btn block ghost" href="extensions" ActiveClass="cur" aria-current="@Cur("extensions")"><Icon Name="plug" Sm />@L["Nav.Extensions"]
             @if (FailedMcp > 0)
             {

@@ -34,6 +34,7 @@ public static class SelfCheck
             FolderPicker.Check();
             PermissionRules.Check();
             Plugins.Check();
+            BackgroundAgents.Check();
             CliEdit.Check();
             StatusCommand.Check();
             Bookmarks.Check();

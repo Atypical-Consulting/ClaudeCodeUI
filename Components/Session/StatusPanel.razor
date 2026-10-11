@@ -1,0 +1,73 @@
+@* /status (not a stream-json command): get_status's rows as the CLI renders them, asked when shown with a process, then
+   the account: sign in through the session, sign out with `claude auth logout`. *@
+<div class="section">
+    <span class="cap" id="st-cap">@L["Status.Title"]</span>
+    @if (Session.StatusRows is { } sections)
+    {
+        @foreach (var sec in sections)
+        {
+            <dl class="kv" aria-label="@sec.Title">
+                @foreach (var (label, value) in sec.Rows)
+                {
+                    <dt>@label</dt><dd>@value</dd>
+                }
+            </dl>
+        }
+    }
+    else
+    {
+        <p>@L[Session.HasProcess ? "Status.Loading" : "Status.NoProcess"]</p>
+    }
+    @if (Session.HasProcess)
+    {
+        <div class="acts">
+            <button type="button" class="btn" disabled="@busy" @onclick="Refresh"><Icon Name="refresh" Sm />@L["Wt.Refresh"]</button>
+            <button type="button" class="btn ghost" disabled="@busy" @onclick="SignOut">@L[confirmOut ? "Account.SignOutConfirm" : "Account.SignOut"]</button>
+        </div>
+        <SignIn Session="Session" />
+    }
+    @if (note is not null)
+    {
+        <p role="status">@note</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LiveSession Session { get; set; } = null!;
+
+    bool busy, confirmOut, asked;
+    string? note;
+
+    protected override void OnParametersSet()
+    {
+        if (asked || !Session.HasProcess || Session.Status is SessionStatus.Starting) return;
+        asked = true;
+        _ = Refresh();
+    }
+
+    async Task Refresh()
+    {
+        busy = true;
+        try { await Session.RefreshStatus(); }
+        catch (Exception ex) { note = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Two clicks: the account leaves every Claude Code on this computer, terminals included.
+    async Task SignOut()
+    {
+        if (!confirmOut) { confirmOut = true; return; }
+        confirmOut = false;
+        busy = true;
+        note = null;
+        try
+        {
+            var (code, output, err) = await Plugins.Run(Session.Cwd, ["logout"], command: "auth");
+            note = code == 0 ? L["Account.SignedOut"] : L["Session.ActionFailed", (err + output).Trim()];
+        }
+        catch (Exception ex) { note = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+        await Refresh();
+    }
+}

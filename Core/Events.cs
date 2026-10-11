@@ -70,6 +70,8 @@ public record TaskUpdatedEvt(string TaskId, string? Status, DateTimeOffset? Ende
 public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int DurationMs, JsonElement? Workflow = null) : ClaudeEvent;   // Workflow: workflow_progress, a full snapshot
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
+// code_change_published: the session created, pushed to or checked out a PR (Number = its identifier).
+public record PrEvt(string Url, string? Number) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
 public record QueueEvt(string Uuid, string State) : ClaudeEvent;                  // command_lifecycle: queued|started|completed|cancelled|discarded|refused
 // prompt_suggestion (--prompt-suggestions): the CLI's guess at the next prompt, after a result. It holds it back while
@@ -101,6 +103,15 @@ public record McpAuthStart(string? Url, bool CallbackExpected)
     public static McpAuthStart Parse(JsonElement r) => new(
         Events.Str(r, "authUrl") is { } u && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? u : null,
         Events.Prop(r, "callbackExpected") is { ValueKind: JsonValueKind.True });
+}
+
+// get_status: the terminal's /status screen, every value already rendered as text by the CLI (version, account, model…).
+public record StatusSection(string Title, IReadOnlyList<(string? Label, string Value)> Rows)
+{
+    public static IReadOnlyList<StatusSection> Parse(JsonElement r) => Events.Prop(r, "sections") is { ValueKind: JsonValueKind.Array } s
+        ? [.. s.EnumerateArray().Select(x => new StatusSection(Events.Str(x, "title") ?? "", Events.Prop(x, "rows") is { ValueKind: JsonValueKind.Array } rows
+            ? [.. rows.EnumerateArray().Select(w => (Events.Str(w, "label"), Events.Str(w, "value") ?? ""))] : []))]
+        : [];
 }
 
 // The single parsing point for CLI stdout lines and transcript (.jsonl) lines.
@@ -265,6 +276,7 @@ public static class Events
         "api_retry" => new RetryEvt((int)Long(e, "attempt"), (int)Long(e, "max_retries"), (int)Long(e, "retry_delay_ms"),
             Prop(e, "error_status") is { ValueKind: JsonValueKind.Number } es ? (int)es.GetDouble() : null, Str(e, "error")),
         "session_title_changed" => new TitleEvt(Str(e, "title") ?? ""),
+        "code_change_published" when Str(e, "url") is { } pu && Uri.TryCreate(pu, UriKind.Absolute, out var pr) && pr.Scheme is "http" or "https" => new PrEvt(pu, Str(e, "identifier")),
         "hook_response" => new HookEvt(Str(e, "hook_name") ?? Str(e, "hook_event") ?? "", Str(e, "outcome") ?? "",
             Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd(), Str(e, "hook_id")),
         "hook_started" when Str(e, "hook_id") is { } hid => new HookStartedEvt(hid, Str(e, "hook_name") ?? Str(e, "hook_event") ?? ""),
@@ -562,6 +574,11 @@ public static class Events
             && P("""{"type":"system","subtype":"task_updated","task_id":"x","patch":{"status":"failed","end_time":1791585746931.5}}""") is TaskUpdatedEvt { EndedAt: { } fe } && fe.ToUnixTimeMilliseconds() == 1791585746931,
             "task_updated with a fractional or out-of-range end_time");
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
+        Ok(P("""{"type":"system","subtype":"code_change_published","provider":"github","url":"https://github.com/o/r/pull/42","repo":"o/r","identifier":"42","action":"created","uuid":"u","session_id":"s"}""") is PrEvt { Url: "https://github.com/o/r/pull/42", Number: "42" }
+           && P("""{"type":"system","subtype":"code_change_published","url":"javascript:alert(1)","identifier":"1"}""") is null, "code_change_published: http(s) only");
+        // claude 2.1.296's get_status answer, trimmed.
+        Ok(StatusSection.Parse(JsonDocument.Parse("""{"sections":[{"title":"Session","rows":[{"label":"Version","value":"2.1.296"},{"label":"Login method","value":"Claude Max account"}]},{"title":"Environment","rows":[{"value":"A sentence row"}]}]}""").RootElement)
+           is [{ Title: "Session", Rows: [("Version", "2.1.296"), ("Login method", "Claude Max account")] }, { Rows: [(null, "A sentence row")] }], "get_status sections");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
         Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");
 

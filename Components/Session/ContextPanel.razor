@@ -77,6 +77,24 @@
         </div>
     }
     <div class="section">
+        @* /cd: LiveSession.SetCwd. A folder the CLI never trusted asks first, as the terminal does. *@
+        <span class="cap" id="cwd-cap">@L["Cwd.Label"]</span>
+        <p class="cwd-now" title="@Session.Cwd"><PickFolder Start="@Session.Cwd" OnPick="MoveTo" OnError="m => cwdNote = m"
+                       Disabled="@(moving || Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting)" /> @TranscriptStore.Short(Session.Cwd)</p>
+        @if (trust is { } t)
+        {
+            <p role="alert">@L["Cwd.Trust", t]</p>
+            <div class="acts">
+                <button type="button" class="btn primary" disabled="@moving" @onclick="() => MoveTo(t, t)">@L["New.Trust"]</button>
+                <button type="button" class="btn ghost" @onclick="() => trust = null">@L["Action.Cancel"]</button>
+            </div>
+        }
+        @if (cwdNote is not null)
+        {
+            <p role="status">@cwdNote</p>
+        }
+    </div>
+    <div class="section">
         <label class="cap" for="ctx-add-dir">@L["Dirs.Label"]</label>
         <p>@L["Dirs.LiveHint"]</p>
         @* Idle, or no process (the folder then goes into --add-dir at the next launch): the only states the probe covers. *@
@@ -98,6 +116,7 @@
         </div>
     }
     <MemoryPanel Session="Session" />
+    <StatusPanel Session="Session" />
 </div>
 
 @code {
@@ -108,6 +127,23 @@
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Bookmarks.Changed -= Refresh;
     DateTimeOffset? refreshedFor;
+    string? trust, cwdNote;
+    bool moving;
+
+    async Task MoveTo(string path) => await MoveTo(path, null);
+
+    async Task MoveTo(string path, string? trusted)
+    {
+        moving = true;
+        cwdNote = null;
+        try
+        {
+            trust = await Session.SetCwd(path, trusted);
+            if (trust is null) cwdNote = L["Cwd.Moved", TranscriptStore.Short(Session.Cwd)];
+        }
+        catch (Exception ex) { trust = null; cwdNote = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { moving = false; }
+    }
     bool refreshed;
     string? error;
 

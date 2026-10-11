@@ -3,18 +3,49 @@
 @inject NavigationManager Nav
 
 <div class="ph">
-    <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
+    @if (renaming)
+    {
+        @* /rename's twin: rename_session (LiveSession.Rename). Enter saves, Escape or an empty name keeps the old one. *@
+        <input class="ttl-edit" @ref="nameInput" @bind="draft" @bind:event="oninput" @onkeydown="NameKeys" @onblur="CommitRename"
+               aria-label="@L["Session.RenameLabel"]" maxlength="200" spellcheck="false" autocomplete="off" />
+    }
+    else
+    {
+        <h1 class="ttl" tabindex="-1" title="@Session.Name">@Session.Name</h1>
+        <button type="button" class="btn ghost" @ref="renameBtn" title="@L["Session.RenameHint"]" aria-label="@L["Session.RenameLabel"]" @onclick="StartRename">@L["Session.Rename"]</button>
+    }
+    @if (Session.PrUrl is { } pr)
+    {
+        <a class="chip" href="@pr" target="_blank" rel="noopener noreferrer" title="@pr" aria-label="@L["Session.PrOf", PrLabel(pr)]"><Icon Name="branch" Sm />@PrLabel(pr)</a>
+    }
     @* The short facts first so the ellipsis eats the path, whose full form is in the title and the Copy button. *@
     <span class="sub" title="@Session.Cwd">@string.Join(" · ", new[] { Session.Branch, Session.Repo, Strings.Name("Mode.Name.", Session.Mode), TranscriptStore.Short(Session.Cwd) }.Where(x => !string.IsNullOrEmpty(x)))</span>
     @if (Session.AddDirs.Count > 0)
     {
         <span class="sub dirs-n" title="@string.Join("\n", Session.AddDirs)">@Strings.Plural(Session.AddDirs.Count, "Dirs.Count")</span>
     }
+    @if (Session.Restricted || Session.SafeMode)
+    {
+        <span class="tag" title="@L[Session.Restricted ? "New.RestrictedHint" : "New.SafeModeHint"]">@L[Session.Restricted ? "New.Restricted" : "New.SafeMode"]</span>
+    }
     @if (Session.Cwd.Length > 0)
     {
         <button type="button" class="btn ghost" data-copy="@Session.Cwd" title="@L["Session.CopyCwd"]" aria-label="@L["Session.CopyCwd"]"><Icon Name="copy" Sm />@L["Md.Copy"]</button>
     }
     <span class="end">
+        @if (note is not null)
+        {
+            <span class="sub" role="status">@note</span>
+        }
+        @if (Session.RemoteUrl is { } ru)
+        {
+            <a class="btn ghost" href="@ru" target="_blank" rel="noopener noreferrer" title="@ru">@L["Remote.Open"]</a>
+        }
+        @if (Session.HasProcess && Session.RemoteAvailable)
+        {
+            <button type="button" class="btn ghost" title="@L["Remote.Hint"]" aria-pressed="@(Session.RemoteUrl is null ? "false" : "true")" disabled="@busy" @onclick="ToggleRemote">@L["Remote.Label"]</button>
+        }
+        <button type="button" class="btn ghost" title="@L["Session.ExportHint"]" disabled="@(busy || Session.Items.Count == 0)" @onclick="Export">@L["Session.Export"]</button>
         @if (Session.Cwd.Length > 0)
         {
             <button class="btn ghost" title="@L["Diff.OpenHint"]" aria-pressed="@(Ui.DiffOpen ? "true" : "false")" @onclick="ToggleDiff"><Icon Name="branch" Sm />@L["Diff.Open"]</button>
@@ -29,6 +60,59 @@
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    bool renaming, busy;
+    bool? focusName;   // true: into the input once rendered, false: back to the Rename button
+    string draft = "";
+    string? note;
+    ElementReference nameInput, renameBtn;
+
+    // #42 for a PR URL; the URL's last segment otherwise.
+    static string PrLabel(string url) => TranscriptStore.PrNumber(url) is { } n ? "#" + n : url.TrimEnd('/').Split('/')[^1];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusName is not { } toInput) return;
+        focusName = null;
+        try { await (toInput ? nameInput : renameBtn).FocusAsync(); } catch (InvalidOperationException) { }
+    }
+
+    void StartRename() { draft = Session.Name; renaming = true; focusName = true; }
+
+    async Task CommitRename()
+    {
+        if (!renaming) return;
+        renaming = false;
+        focusName = false;
+        if (draft.Trim() is not { Length: > 0 } name || name == Session.Name) return;
+        await Run(() => Session.Rename(name));
+    }
+
+    async Task NameKeys(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await CommitRename();
+        else if (e.Key == "Escape") { renaming = false; focusName = false; }
+    }
+
+    async Task ToggleRemote() => await Run(() => Session.SetRemote(Session.RemoteUrl is null));
+
+    async Task Export()
+    {
+        string? path = null;
+        await Run(async () => path = await Session.Export());
+        if (path is null) return;
+        note = L["Session.Exported", TranscriptStore.Short(path)];
+    }
+
+    // One action at a time; a failure shows in the header's status line, the session is unchanged.
+    async Task Run(Func<Task> act)
+    {
+        busy = true;
+        note = null;
+        try { await act(); }
+        catch (Exception ex) { note = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+    }
 
     async Task Stop()
     {

@@ -25,7 +25,8 @@ public sealed class ClaudeSession : IAsyncDisposable
     volatile bool disposing;
 
     // trace (optional): timestamped boot timeline — spawn, writes, first stdout line, live stderr, late answers.
-    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit, Action<string>? trace = null)
+    // resumeTurn: a --resume re-runs the turn the last process was cut off in (CLAUDE_CODE_RESUME_INTERRUPTED_TURN).
+    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit, Action<string>? trace = null, bool resumeTurn = false)
     {
         this.trace = trace;
         var psi = new ProcessStartInfo("claude")
@@ -43,6 +44,7 @@ public sealed class ClaudeSession : IAsyncDisposable
         // A non-interactive CLI only snapshots files before edits (what rewind_files restores) when asked to, like the
         // Agent SDK's enableFileCheckpointing; without it rewind_files answers "File rewinding is not enabled."
         psi.Environment["CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"] = "1";
+        if (resumeTurn) psi.Environment["CLAUDE_CODE_RESUME_INTERRUPTED_TURN"] = "1";
 
         var grouped = ProcessJob.Prepare(psi);
         clock.Start();
@@ -186,6 +188,8 @@ public sealed class ClaudeSession : IAsyncDisposable
 
     static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    internal int Pid => proc.Id;   // --probe-cli resume-turn kills it the way a crash would
 
     public async ValueTask DisposeAsync()
     {

@@ -71,16 +71,16 @@
   <data name="Bg.Command" xml:space="preserve"><value>Commande</value></data>
   <data name="Bg.Completed" xml:space="preserve"><value>terminée</value></data>
   <data name="Bg.Ended" xml:space="preserve"><value>finie</value></data>
-  <data name="Bg.Failed" xml:space="preserve"><value>échouée</value></data>
+  <data name="Bg.Failed" xml:space="preserve"><value>Claude Code a refusé.</value></data>
   <data name="Bg.NoOutput" xml:space="preserve"><value>Pas encore de sortie.</value></data>
-  <data name="Bg.Output" xml:space="preserve"><value>Dernières lignes de sortie</value></data>
+  <data name="Bg.Output" xml:space="preserve"><value>Sortie de {0}</value></data>
   <data name="Bg.Paused" xml:space="preserve"><value>en pause</value></data>
   <data name="Bg.Running" xml:space="preserve"><value>en cours</value></data>
   <data name="Bg.RunningN" xml:space="preserve"><value>{0} en cours</value></data>
   <data name="Bg.Stop" xml:space="preserve"><value>Arrêter</value></data>
   <data name="Bg.StopLabel" xml:space="preserve"><value>Arrêter la tâche en arrière-plan : {0}</value></data>
   <data name="Bg.Stopped" xml:space="preserve"><value>arrêtée</value></data>
-  <data name="Bg.Title" xml:space="preserve"><value>Tâches en arrière-plan</value></data>
+  <data name="Bg.Title" xml:space="preserve"><value>Sessions qui tournent sans fenêtre</value></data>
   <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
@@ -881,4 +881,59 @@
   <data name="Config.Value" xml:space="preserve"><value>valeur</value></data>
   <data name="Config.Hint" xml:space="preserve"><value>Chaque choix est envoyé en /config clé=valeur : Claude Code le vérifie, l’enregistre et répond dans le fil.</value></data>
   <data name="Config.Sent" xml:space="preserve"><value>{0} envoyé</value></data>
+  <data name="Session.Rename" xml:space="preserve"><value>Renommer</value></data>
+  <data name="Session.RenameLabel" xml:space="preserve"><value>Renommer la session</value></data>
+  <data name="Session.RenameHint" xml:space="preserve"><value>Renommer la session, comme /rename</value></data>
+  <data name="Session.PrOf" xml:space="preserve"><value>Pull request {0}</value></data>
+  <data name="Session.Export" xml:space="preserve"><value>Exporter</value></data>
+  <data name="Session.ExportHint" xml:space="preserve"><value>Enregistrer la conversation en texte dans Téléchargements, comme /export</value></data>
+  <data name="Session.Exported" xml:space="preserve"><value>Enregistrée dans {0}</value></data>
+  <data name="Session.ActionFailed" xml:space="preserve"><value>Échec : {0}</value></data>
+  <data name="Remote.Label" xml:space="preserve"><value>Remote Control</value></data>
+  <data name="Remote.Hint" xml:space="preserve"><value>Poursuivre cette session depuis claude.ai/code ou l’app Claude, comme /remote-control</value></data>
+  <data name="Remote.Open" xml:space="preserve"><value>Ouvrir sur claude.ai</value></data>
+  <data name="Crash.RestartContinue" xml:space="preserve"><value>Relancer et reprendre le tour</value></data>
+  <data name="Thread.Resumed" xml:space="preserve"><value>Claude Code a redémarré : le tour interrompu reprend.</value></data>
+  <data name="Status.Title" xml:space="preserve"><value>Statut</value></data>
+  <data name="Status.Loading" xml:space="preserve"><value>Lecture du statut…</value></data>
+  <data name="Status.NoProcess" xml:space="preserve"><value>Aucun processus en cours : envoyez un message pour lire le statut.</value></data>
+  <data name="Account.SignIn" xml:space="preserve"><value>Se connecter</value></data>
+  <data name="Account.SignOut" xml:space="preserve"><value>Se déconnecter</value></data>
+  <data name="Account.SignOutConfirm" xml:space="preserve"><value>Se déconnecter de Claude Code ?</value></data>
+  <data name="Account.SignedOut" xml:space="preserve"><value>Déconnecté de Claude Code sur cet ordinateur.</value></data>
+  <data name="Account.SignedIn" xml:space="preserve"><value>Connecté.</value></data>
+  <data name="Account.Waiting" xml:space="preserve"><value>Terminez la connexion dans votre navigateur.</value></data>
+  <data name="Account.NoUrl" xml:space="preserve"><value>Claude Code n’a fourni aucune page de connexion.</value></data>
+  <data name="New.Launch" xml:space="preserve"><value>Options de lancement</value></data>
+  <data name="New.Restricted" xml:space="preserve"><value>Restreint</value></data>
+  <data name="New.RestrictedHint" xml:space="preserve"><value>--restricted : ni Bash ni autres outils qui exécutent du code, ni WebFetch ; outils de fichiers limités aux dossiers de travail ; réglages utilisateur, projet et local ignorés</value></data>
+  <data name="New.SafeMode" xml:space="preserve"><value>Mode sans échec</value></data>
+  <data name="New.SafeModeHint" xml:space="preserve"><value>--safe-mode : CLAUDE.md, skills, plugins, hooks, serveurs MCP, commandes et agents personnalisés désactivés, pour dépanner une configuration cassée</value></data>
+  <data name="New.FromPr" xml:space="preserve"><value>Reprendre depuis une pull request</value></data>
+  <data name="New.FromPrHint" xml:space="preserve"><value>Numéro ou URL de la PR</value></data>
+  <data name="New.FromPrGo" xml:space="preserve"><value>Reprendre</value></data>
+  <data name="New.FromPrNone" xml:space="preserve"><value>Aucune session de ce dossier n’est liée à {0}.</value></data>
+  <data name="Nav.Background" xml:space="preserve"><value>Arrière-plan</value></data>
+  <data name="Bg.Count1" xml:space="preserve"><value>{0} session en arrière-plan</value></data>
+  <data name="Bg.CountN" xml:space="preserve"><value>{0} sessions en arrière-plan</value></data>
+  <data name="Bg.Count0" xml:space="preserve"><value>{0} session en arrière-plan</value></data>
+  <data name="Bg.Text" xml:space="preserve"><value>Lancées avec &lt;code&gt;claude --bg&lt;/code&gt; ou depuis la vue des agents, elles continuent après la fermeture du terminal. Les sessions ouvertes dans un terminal sont listées aussi.</value></data>
+  <data name="Bg.Loading" xml:space="preserve"><value>Interrogation de Claude Code…</value></data>
+  <data name="Bg.None" xml:space="preserve"><value>Aucune session ne tourne.</value></data>
+  <data name="Bg.Col.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Bg.Col.Kind" xml:space="preserve"><value>Type</value></data>
+  <data name="Bg.Col.Started" xml:space="preserve"><value>Démarrée</value></data>
+  <data name="Bg.Kind.Background" xml:space="preserve"><value>arrière-plan</value></data>
+  <data name="Bg.Kind.Interactive" xml:space="preserve"><value>terminal</value></data>
+  <data name="Bg.Logs" xml:space="preserve"><value>Journal</value></data>
+  <data name="Bg.Respawn" xml:space="preserve"><value>Relancer</value></data>
+  <data name="Bg.RespawnHint" xml:space="preserve"><value>La redémarrer sur la version actuelle de Claude Code</value></data>
+  <data name="Bg.StopHint" xml:space="preserve"><value>L’arrêter ; sa conversation est conservée</value></data>
+  <data name="Bg.Remove" xml:space="preserve"><value>Supprimer</value></data>
+  <data name="Bg.RemoveConfirm" xml:space="preserve"><value>Supprimer définitivement ?</value></data>
+  <data name="Bg.RemoveHint" xml:space="preserve"><value>Supprimer la session et son worktree</value></data>
+  <data name="Bg.Done" xml:space="preserve"><value>Fait.</value></data>
+  <data name="Cwd.Label" xml:space="preserve"><value>Dossier de travail</value></data>
+  <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0} : ses réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
+  <data name="Cwd.Moved" xml:space="preserve"><value>Claude travaille désormais dans {0}.</value></data>
 </root>

@@ -8,9 +8,14 @@
         <div class="acts">
             <button type="button" class="btn" data-copy="@Error.Raw">@L["Error.Copy"]</button>
         </div>
+        @if (Error.Kind == "Auth" && Session is { HasProcess: true } s)
+        {
+            <SignIn Session="s" Primary />
+        }
     </div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public ApiError Error { get; set; } = null!;
+    [Parameter] public LiveSession? Session { get; set; }   // an auth error offers to sign in again through it
 }

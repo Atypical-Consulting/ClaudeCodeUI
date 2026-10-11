@@ -20,7 +20,7 @@ public static class CliProbe
     public static async Task<int> Run(string[] cases)
     {
         (string Name, Func<string, Task<IEnumerable<(string, string, string)>>> Probe)[] all =
-            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("elicitation", Elicitation), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch), ("workflow", Workflow)];
+            [("ultracode", Ultracode), ("permission-session", PermissionSession), ("mcp", Mcp), ("compact", Compact), ("plan", Plan), ("ask-user-question", AskUserQuestion), ("todo-tools", TodoTools), ("image", Image), ("file-mention", FileMention), ("prompt-history", History), ("queue", Queue), ("notify", Waiting), ("rewind", Rewind), ("fork", Fork), ("background-tasks", BackgroundTasks), ("monitor-stop", MonitorStop), ("exit-ends-tasks", ExitEndsTasks), ("hooks", Hooks), ("mcp-auth", McpAuth), ("elicitation", Elicitation), ("memory", Memory), ("add-dir", AddDir), ("transcript-search", TranscriptSearch), ("workflow", Workflow), ("lifecycle", Lifecycle), ("resume-turn", ResumeTurn)];
         if (cases.Except(all.Select(p => p.Name)).ToArray() is { Length: > 0 } unknown)
         {
             Console.WriteLine($"unknown case(s) {string.Join(", ", unknown)}; known: {string.Join(", ", all.Select(p => p.Name))}");
@@ -1085,6 +1085,66 @@ public static class CliProbe
     // memory-files: get_context_usage lists the memory files the session loaded, @imports included, with their type
     // (MemoryPanel's list). memory-reload: an edit to a loaded CLAUDE.md is not seen by the next turn but is after
     // /compact (what MemoryPanel tells the user). Writes memory files into the shared probe repo, removed afterwards.
+    // rename-session: rename_session {source:host} answers, then session_title_changed carries the name (LiveSession.Rename).
+    // status: get_status answers the /status sections, a Version row among them. export: export_conversation gives the
+    // turn's text and a .txt name (LiveSession.Export).
+    static async Task<IEnumerable<(string, string, string)>> Lifecycle(string dir)
+    {
+        await using var c = await Cli.Start(dir, "--name", "probe-life");
+        return await Guard(["rename-session", "status", "export", "set-cwd"], async () =>
+        {
+            await c.S.Request("rename_session", new() { ["title"] = "probe renamed", ["source"] = "host" });
+            var title = Events.Str(await c.Until(e => Events.Str(e, "subtype") == "session_title_changed" && Events.Str(e, "title") != "probe-life"), "title");
+            var rows = StatusSection.Parse(await c.S.Request("get_status", null, 30));
+            var version = rows.SelectMany(r => r.Rows).FirstOrDefault(r => r.Label == "Version").Value;
+            await c.Turn("Reply with just: ok");
+            var x = await c.S.Request("export_conversation");
+            string text = Events.Str(x, "text") ?? "", name = Events.Str(x, "default_filename") ?? "";
+            return [title == "probe renamed" ? ("PASS", $"title \"{title}\"") : ("FAIL", $"title \"{title}\""),
+                version is { Length: > 0 } ? ("PASS", $"{rows.Count} sections, Version {version}") : ("FAIL", $"{rows.Count} sections, no Version row"),
+                text.Contains("Reply with just: ok") && name.EndsWith(".txt") ? ("PASS", $"{text.Length} chars, {name}") : ("FAIL", $"\"{text}\" {name}"),
+                await SetCwd()];
+
+            // A folder of a never-trusted repo answers needs_trust; the re-send with the attestation moves the session.
+            async Task<(string, string)> SetCwd()
+            {
+                var sub = Directory.CreateDirectory(Path.Combine(dir, "sub")).FullName;
+                var first = await c.S.Request("set_cwd", new() { ["path"] = sub });
+                var shown = Events.Str(first, "directory");
+                var r = Events.Str(first, "status") == "needs_trust"
+                    ? await c.S.Request("set_cwd", new() { ["path"] = sub, ["trust_accepted"] = true, ["trusted_directory"] = shown })
+                    : first;
+                var cwd = Events.Str(r, "cwd") ?? "";
+                return Events.Str(r, "status") == "ok" && cwd.EndsWith(Path.DirectorySeparatorChar + "sub")
+                    ? ("PASS", $"{Events.Str(first, "status")} then ok, cwd …/{Path.GetFileName(cwd)}") : ("FAIL", $"{first.GetRawText()} → {r.GetRawText()}");
+            }
+        });
+    }
+
+    // resume-turn: a CLI killed mid-turn, relaunched with --resume and CLAUDE_CODE_RESUME_INTERRUPTED_TURN, re-runs the turn
+    // by itself: command_lifecycle started and status "requesting" with no user frame, then a result (LiveSession.Restart
+    // after a crash mid-turn).
+    static async Task<IEnumerable<(string, string, string)>> ResumeTurn(string dir)
+    {
+        var id = Guid.NewGuid().ToString();
+        return await Guard(["resume-turn"], async () =>
+        {
+            await using (var first = await Cli.Start(dir, "--session-id", id, "--include-partial-messages"))
+            {
+                await first.S.SendUser("Write the numbers from 1 to 400 separated by single spaces. Nothing else.");
+                await first.Until(e => Events.Str(e, "type") == "stream_event" && Events.Prop(e, "event") is { } ev && Events.Str(ev, "type") == "content_block_delta");
+                Process.GetProcessById(first.S.Pid).Kill(true);   // a crash, not DisposeAsync's stdin close (which lets the turn end)
+            }
+            await using var again = await Cli.Start(dir, true, "--resume", id, "--include-partial-messages");
+            var seen = await again.Collect(1);
+            var opened = seen.FindIndex(e => Events.Str(e, "type") == "command_lifecycle" && Events.Str(e, "state") == "started");
+            var userFrame = seen.Any(e => Events.Str(e, "type") == "user" && Events.Prop(e, "message") is { } m && Events.Str(m, "content") is { });
+            var requesting = seen.Any(e => Events.Str(e, "subtype") == "status" && Events.Str(e, "status") == "requesting");
+            return [opened >= 0 && requesting && !userFrame ? ("PASS", $"started at event {opened}, then requesting, {seen.Count} events to the result")
+                : ("FAIL", $"started {opened}, requesting {requesting}, user frame {userFrame}")];
+        });
+    }
+
     static async Task<IEnumerable<(string, string, string)>> Memory(string dir)
     {
         string claudeMd = Path.Combine(dir, "CLAUDE.md"), notes = Path.Combine(dir, "notes.md"),
@@ -1399,13 +1459,15 @@ public static class CliProbe
         readonly Channel<JsonElement> events = Channel.CreateUnbounded<JsonElement>();
         public ClaudeSession S { get; private set; } = null!;
 
-        public static async Task<Cli> Start(string cwd, params string[] extra)
+        public static Task<Cli> Start(string cwd, params string[] extra) => Start(cwd, false, extra);
+
+        public static async Task<Cli> Start(string cwd, bool resumeTurn, params string[] extra)
         {
             var c = new Cli();
             try
             {
                 c.S = new ClaudeSession(cwd, ["--model", "haiku", .. extra.Contains("--permission-mode") ? [] : (string[])["--permission-mode", "manual"], .. extra],
-                    e => c.events.Writer.WriteAsync(e).AsTask(), (_, text) => c.events.Writer.TryComplete(new InvalidOperationException(text)));
+                    e => c.events.Writer.WriteAsync(e).AsTask(), (_, text) => c.events.Writer.TryComplete(new InvalidOperationException(text)), resumeTurn: resumeTurn);
             }
             catch (Exception ex) { throw new StartException(ex.Message); }
             try { await c.S.Request("initialize", null, Seconds); }

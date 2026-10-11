@@ -18,6 +18,7 @@ public record CompactItem(string Trigger, long PreTokens, long PostTokens, int D
 public record FallbackItem(string Text, string? Retry) : Item;   // a model fallback notice; Retry: the refused message's uuid
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
+public record ResumedItem : Item;                                 // the turn a crash cut off, re-run by the relaunched CLI
 public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
 public record NoticeItem(NoticeEvt Notice) : Item;   // a CLI notification or plugin toast
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
@@ -79,6 +80,9 @@ public sealed class LiveSession : IAsyncDisposable
     bool stopped;   // set by DisposeAsync (SessionManager.Stop): EnsureProcess refuses to spawn again
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
+    bool crashedMidTurn;                                       // the process died during a turn: Restart re-runs it
+    bool resumeTurn;                                           // ...and the relaunched CLI has not started it yet
+    public bool CrashedMidTurn => crashedMidTurn;
     bool draining;                                             // a result came with messages still queued: the CLI runs the next one
     bool ultraCarry;                                           // ...and that result ended an ultracode turn
     ImmutableHashSet<string> sent = [];                        // UserItem.Uuid the current process knows (rewind targets)
@@ -108,7 +112,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string Mode { get; private set; }
     public string? Branch { get; private set; }
     public string? Repo { get; private set; }
-    public string? Worktree { get; }
+    public string? Worktree { get; private set; }   // -w name; dropped when ExitWorktree leaves it
     public ImmutableList<string> AddDirs { get; private set; }   // --add-dir folders: Claude works there as in Cwd
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
@@ -144,6 +148,13 @@ public sealed class LiveSession : IAsyncDisposable
     public string? Effort { get; private set; }
     public bool Ultracode { get; private set; }               // toggle "for this turn"
     public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
+    public bool Restricted { get; init; }                     // --restricted: no Bash/code-running tools nor WebFetch, user/project/local settings ignored
+    public bool SafeMode { get; init; }                       // --safe-mode: CLAUDE.md, skills, plugins, hooks, MCP… off, to troubleshoot a configuration
+    public string? PrUrl { get; internal set; }               // the PR the session is linked to: its transcript's pr-link, then code_change_published
+    public string? RemoteUrl { get; private set; }            // the claude.ai/code page while Remote Control is on (this process only)
+    public IReadOnlyList<StatusSection>? StatusRows { get; private set; }   // get_status, asked when the panel shows
+    // initialize.remote_control_available: false where Remote Control can never work (policy, 3P provider); absent = available.
+    public bool RemoteAvailable => InitializeInfo is { } ri && Events.Prop(ri, "remote_control_available") is not { ValueKind: JsonValueKind.False };
     public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0, live and again at each launch
     public string? Advisor { get; private set; }              // get_settings applied.advisor: the model actually attached, or null
     public string? OutputStyle { get; private set; }          // initialize / init output_style (default, Concise…)
@@ -363,7 +374,7 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (proc is { } old) { proc = null; await old.DisposeAsync(); }   // proc is null first, so OnExit ignores old
         lock (gate) PluginStatus = PluginStatus.Clear();
-        EnsureProcess();
+        EnsureProcess(crashedMidTurn);
     }
 
     // Before the first send of a resumed session there is no process yet: the mode goes into --permission-mode.
@@ -538,6 +549,90 @@ public sealed class LiveSession : IAsyncDisposable
         return McpAuthStart.Parse(await Request("mcp_authenticate", new() { ["serverName"] = server }));
     }
 
+    // /cd's headless twin, set_cwd (claude 2.1.296): refused while a turn runs. A folder never trusted answers needs_trust
+    // with its canonical path: re-sent with trust_accepted once the user said yes, trusted pinning the exact folder shown.
+    // Returns that folder still to trust, else null; a refusal throws with the CLI's message.
+    public async Task<string?> SetCwd(string path, string? trusted = null)
+    {
+        var f = new JsonObject { ["path"] = path };
+        if (trusted is not null) { f["trust_accepted"] = true; f["trusted_directory"] = trusted; }
+        var r = await Request("set_cwd", f);
+        switch (Events.Str(r, "status"))
+        {
+            case "needs_trust": return Events.Str(r, "directory") ?? path;
+            case "ok":
+                if (Events.Str(r, "cwd") is { Length: > 0 } c && c != Cwd) { Cwd = c; Worktree = null; }
+                _ = RefreshGit();
+                return null;
+            default: throw new ClaudeRequestException(Events.Str(r, "message") ?? Events.Str(r, "reason") ?? r.GetRawText());
+        }
+    }
+
+    // A user rename, as /rename: rename_session from the host; session_title_changed then carries the name the CLI kept
+    // (cleaned, made unique). Verified on claude 2.1.296.
+    public Task Rename(string title) => Request("rename_session", new() { ["title"] = title.Trim(), ["source"] = "host" });
+
+    // export_conversation: the plain text and file name the terminal's /export writes (verified on claude 2.1.296). Saved
+    // in Downloads, beside a file of that name rather than over it; the path is returned for "Show in folder".
+    public async Task<string> Export()
+    {
+        var r = await Request("export_conversation");
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var dir = Path.Combine(home, "Downloads");
+        var path = FreeFile(Directory.Exists(dir) ? dir : home, Events.Str(r, "default_filename"));
+        await File.WriteAllTextAsync(path, Events.Str(r, "text") ?? "");
+        return path;
+    }
+
+    // A bare file name only (never a path out of dir), numbered -2, -3… while taken.
+    internal static string FreeFile(string dir, string? name)
+    {
+        name = Path.GetFileName(name ?? "");
+        if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) name = "conversation.txt";
+        var (stem, ext) = (Path.GetFileNameWithoutExtension(name), Path.GetExtension(name));
+        var path = Path.Combine(dir, name);
+        for (var i = 2; File.Exists(path); i++) path = Path.Combine(dir, $"{stem}-{i}{ext}");
+        return path;
+    }
+
+    // /status is not a stream-json command: get_status gives its rows (verified on claude 2.1.296).
+    public async Task RefreshStatus()
+    {
+        if (proc is not { } p) return;
+        StatusRows = StatusSection.Parse(await p.Request("get_status", null, 30));
+        Notify();
+    }
+
+    // Remote Control (/remote-control): remote_control {enabled} starts the claude.ai/code bridge and answers its session_url;
+    // {enabled:false} stops it. Both verified on claude 2.1.296. --remote-control itself is for interactive sessions only.
+    public async Task SetRemote(bool on)
+    {
+        var r = await Request("remote_control", new() { ["enabled"] = on });
+        RemoteUrl = on && Events.Str(r, "session_url") is { } u && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == "https" ? u : null;
+        Notify();
+    }
+
+    // Sign in to Claude (/login): claude_authenticate answers the sign-in pages (the CLI itself receives automaticUrl's
+    // callback), claude_oauth_wait_for_completion answers once the browser is done, with the account (claude 2.1.296).
+    public async Task<string?> StartSignIn() =>
+        Events.Str(await Request("claude_authenticate", new() { ["loginWithClaudeAi"] = true }), "automaticUrl") is { } u
+        && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == "https" ? u : null;
+
+    public async Task FinishSignIn()
+    {
+        var r = await EnsureProcess().Request("claude_oauth_wait_for_completion", null, 600);
+        if (InitializeInfo is { } info && Events.Prop(r, "account") is { ValueKind: JsonValueKind.Object } a) InitializeInfo = With(info, "account", a);
+        await RefreshStatus();
+    }
+
+    // EnterWorktree / ExitWorktree move the session mid-turn; their results say where (the next init confirms it).
+    internal static string? WorktreeMove(string tool, JsonElement? result) => result is not { ValueKind: JsonValueKind.Object } r ? null : tool switch
+    {
+        "EnterWorktree" => Events.Str(r, "worktreePath"),
+        "ExitWorktree" => Events.Str(r, "restoredCwd") ?? Events.Str(r, "originalCwd"),
+        _ => null,
+    };
+
     public Task<JsonElement> Request(string subtype, JsonObject? f = null) => EnsureProcess().Request(subtype, f);
 
     // Background tasks live in this process only: without one there is nothing to read or stop, and nothing to spawn.
@@ -555,7 +650,8 @@ public sealed class LiveSession : IAsyncDisposable
     // ---------- process ----------
 
     // Locked check-then-spawn: two circuits (or Boot and the reader thread) would otherwise start two claude with one --session-id.
-    internal ClaudeSession EnsureProcess()
+    // continueTurn (Restart after a crash mid-turn): the --resume CLI re-runs the cut-off turn by itself.
+    internal ClaudeSession EnsureProcess(bool continueTurn = false)
     {
         ClaudeSession s = null!;
         lock (gate)
@@ -569,8 +665,10 @@ public sealed class LiveSession : IAsyncDisposable
             {
                 // --resume restores the last persisted cost-state: total_cost_usd counts on from it (a fork's from its source's).
                 costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : ForkOf is { } src ? TranscriptStore.PersistedCost(src) : 0);
+                resumeTurn = continueTurn && resume;
+                crashedMidTurn = false;
                 s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
-                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); }, resumeTurn);
             }
             catch (Exception ex)
             {
@@ -610,6 +708,8 @@ public sealed class LiveSession : IAsyncDisposable
         if (Effort is { } e) args.AddRange(["--effort", e]);
         if (FallbackModel is { } fb) args.AddRange(["--fallback-model", fb]);
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
+        if (Restricted) args.Add("--restricted");
+        if (SafeMode) args.Add("--safe-mode");
         // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
         if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
         return args;
@@ -697,7 +797,7 @@ public sealed class LiveSession : IAsyncDisposable
             else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
             if (e is ResultEvt) _ = RunStatusLine();
-            if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
+            if (e is InitEvt && Branch is null || cwd != Cwd) _ = RefreshGit();   // cwd: init, or a worktree move mid-turn
             // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
             if (e is ElicitDoneEvt ed && Pending.FirstOrDefault(p => Elicit.Matches(p, ed.Server, ed.ElicitationId)) is { } ep)
                 _ = Answer(ep, Decision.Allow).ContinueWith(t => Console.Error.WriteLine($"[{Id}] elicitation accept: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
@@ -722,7 +822,9 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (s is not null && proc != s) return false;
             proc = null;
+            crashedMidTurn = s is not null && Status is SessionStatus.Running or SessionStatus.Waiting;
             Status = SessionStatus.Crashed;
+            RemoteUrl = null;   // the bridge lived in that process
             ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
             Queued = []; draining = false;
@@ -824,8 +926,20 @@ public sealed class LiveSession : IAsyncDisposable
     internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
     {
         Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images, uuid));
+        resumeTurn = false;
         Status = SessionStatus.Running;
         TurnStartedAt = DateTimeOffset.Now;
+        ClearStream();
+        ThinkingTokens = 0;
+    }
+
+    void ResumedTurn(DateTimeOffset now)
+    {
+        if (!resumeTurn || Status is not (SessionStatus.Idle or SessionStatus.Starting)) return;
+        resumeTurn = false;
+        Items = Items.Add(new ResumedItem());
+        Status = SessionStatus.Running;
+        TurnStartedAt = now;
         ClearStream();
         ThinkingTokens = 0;
     }
@@ -909,6 +1023,14 @@ public sealed class LiveSession : IAsyncDisposable
                 if (se.PermissionMode is { } pm) Mode = pm;
                 // A compaction ends on the next status: {status:null, compact_result} or "requesting" (--probe-cli compact).
                 CompactingSince = se.Status == "compacting" ? CompactingSince ?? now : null;
+                if (se.Status == "requesting") ResumedTurn(now);
+                break;
+
+            // CLAUDE_CODE_RESUME_INTERRUPTED_TURN: the relaunched CLI re-runs the cut-off turn on its own, with no user frame:
+            // command_lifecycle started for the old prompt (before initialize even answers), then status "requesting"
+            // (--probe-cli resume-turn, claude 2.1.296).
+            case QueueEvt { State: "started" } when resumeTurn && Queued.IsEmpty:
+                ResumedTurn(now);
                 break;
 
             case CompactEvt c:
@@ -980,6 +1102,12 @@ public sealed class LiveSession : IAsyncDisposable
                     EndedAt = now,
                     Tokens = r.Structured is { } st && Events.Prop(st, "totalTokens") is { ValueKind: JsonValueKind.Number } tok ? tok.GetInt64() : t.Tokens,
                 });
+                // A subagent's EnterWorktree moves only that agent: top-level calls move the session.
+                if (!r.IsError && t.ParentToolUseId is null && WorktreeMove(t.Name, r.Structured) is { Length: > 0 } moved)
+                {
+                    Cwd = moved;
+                    if (t.Name == "ExitWorktree") Worktree = null;
+                }
                 break;
 
             // A transcript writes the /compact line after the boundary and summary it produced: it goes back above its card.
@@ -1108,6 +1236,10 @@ public sealed class LiveSession : IAsyncDisposable
 
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
+                break;
+
+            case PrEvt pr:
+                PrUrl = pr.Url;
                 break;
 
             case ResetEvt:
@@ -1610,6 +1742,40 @@ public sealed class LiveSession : IAsyncDisposable
         bg.Apply(new ToolResultEvt("toolu_F", "Command was manually backgrounded by user with ID: b5.", false, null));
         Ok(bg.Tasks is [_, { Id: "b5", Description: "Build", Running: true }] && bg.Items[^1] is ToolItem { Background: true }, "shell moved to the background joins the tasks");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
+
+        // Session lifecycle, on claude 2.1.296 shapes.
+        var lockdown = new LiveSession("k", "k", "/w", "default") { Restricted = true, SafeMode = true }.Args(false);
+        Ok(lockdown.Contains("--restricted") && lockdown.Contains("--safe-mode") && !new LiveSession("k", "k", "/w", "default").Args(false).Contains("--restricted"), "--restricted / --safe-mode");
+        var wm = new LiveSession("w", "w", "/r", "default", worktree: "x");
+        wm.BeginTurn("go");
+        wm.Apply(new ToolUseEvt("toolu_E", "EnterWorktree", JsonDocument.Parse("""{"name":"y"}""").RootElement.Clone(), null));
+        wm.Apply(new ToolResultEvt("toolu_E", "Created worktree at /r/.claude/worktrees/y on branch worktree-y.", false,
+            JsonDocument.Parse("""{"worktreePath":"/r/.claude/worktrees/y","worktreeBranch":"worktree-y","message":"Created worktree at /r/.claude/worktrees/y on branch worktree-y."}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r/.claude/worktrees/y", "EnterWorktree moves the session");
+        wm.Apply(new ToolUseEvt("toolu_S", "EnterWorktree", JsonDocument.Parse("""{"path":"/r/.claude/worktrees/z"}""").RootElement.Clone(), "toolu_agent"));
+        wm.Apply(new ToolResultEvt("toolu_S", "Entered worktree", false, JsonDocument.Parse("""{"worktreePath":"/r/.claude/worktrees/z","message":"Entered worktree"}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r/.claude/worktrees/y", "a subagent's EnterWorktree moves only that agent");
+        wm.Apply(new ToolUseEvt("toolu_X", "ExitWorktree", JsonDocument.Parse("""{"action":"keep"}""").RootElement.Clone(), null));
+        wm.Apply(new ToolResultEvt("toolu_X", "Exited worktree.", false, JsonDocument.Parse("""{"action":"keep","originalCwd":"/r","worktreePath":"/r/.claude/worktrees/y","restoredCwd":"/r","message":"Exited worktree."}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r" && wm.Worktree is null && !wm.Isolated, "ExitWorktree moves it back, no longer isolated");
+        Ok(WorktreeMove("EnterWorktree", null) is null && WorktreeMove("Bash", JsonDocument.Parse("""{"worktreePath":"/x"}""").RootElement) is null, "other tools never move it");
+        var rt = new LiveSession("z", "z", "/w", "default") { Items = [new UserItem("count", default, false)] };
+        rt.Status = SessionStatus.Starting;
+        rt.resumeTurn = true;
+        rt.Apply(new QueueEvt("1967353c-03fe-4c2a-8c3b-72e2b6697258", "started"));
+        rt.Apply(new StatusEvt("requesting", null));
+        Ok(rt.Status == SessionStatus.Running && rt.Items is [UserItem, ResumedItem] && rt.TurnStartedAt is not null, "re-run of the cut-off turn starts a turn, labelled once");
+        rt.Apply(new PrEvt("https://github.com/o/r/pull/42", "42"));
+        Ok(rt.PrUrl == "https://github.com/o/r/pull/42", "code_change_published links the PR");
+        var dl = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dl);
+        try
+        {
+            File.WriteAllText(Path.Combine(dl, "a.txt"), "");
+            Ok(FreeFile(dl, "a.txt") == Path.Combine(dl, "a-2.txt") && FreeFile(dl, "../../x.txt") == Path.Combine(dl, "x.txt") && FreeFile(dl, null) == Path.Combine(dl, "conversation.txt"),
+               "export file: never over a file, never out of the folder");
+        }
+        finally { Directory.Delete(dl, true); }
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("<agent-message from=\"a\">\nreport\n</agent-message>") is null && UserText("salut") == "salut", "user text");
