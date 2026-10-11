@@ -19,6 +19,7 @@
       "extra-files": [
         { "type": "json", "path": "desktop/src-tauri/tauri.conf.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "desktop/src-tauri/Cargo.toml", "jsonpath": "$.package.version" },
+        { "type": "toml", "path": "desktop/src-tauri/Cargo.lock", "jsonpath": "$.package[?(@.name.value=='claude-code-ui')].version" },
         { "type": "xml", "path": "ClaudeCodeUI.csproj", "xpath": "//Project/PropertyGroup/Version" }
       ]
     }
