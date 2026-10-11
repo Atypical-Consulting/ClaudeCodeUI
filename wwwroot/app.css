@@ -380,29 +380,39 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .q .qa{display:flex;gap:6px}
 .q.sel{box-shadow:inset 2px 0 0 var(--accent)}
 .queue:focus .q.sel{background:var(--raise)}
-.ovpanels{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-.ovp{border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-.ovp.quota{padding:12px 14px;gap:9px}
-.ovp.quota .qrow{grid-template-columns:28px 1fr 34px max-content}
-.ovp.quota .qrow .rs{color:var(--fg-4)}
-.days{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
-.day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
-.day .col{height:64px;width:100%;max-width:28px;display:flex;align-items:flex-end;border-radius:var(--r-xs);background:var(--sunk)}
-.day .col i{display:block;width:100%;min-height:2px;border-radius:var(--r-xs);background:var(--fg-5)}
-.day.on .col i{background:var(--fg-3)}
-.day .dl{font:11px var(--mono);color:var(--fg-4)}
-.day.on .dl{color:var(--fg-2)}
+.qstrip{display:flex;flex-wrap:wrap;align-items:center;gap:10px 28px;padding:10px 14px;border:1px solid var(--seam);border-radius:var(--r-lg)}
+.qstrip h3{margin:0}
+.qw{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--fg-4)}
+.qw .bar{width:120px}
+.qw b{font-weight:500;color:var(--fg-2)}
+.qw.hot .bar i{background:var(--accent)}
+.qw.hot b{color:var(--accent);font-weight:600}
+.qstrip .asof{margin-left:auto;font:12px var(--mono);color:var(--fg-4)}
+.qstrip .qwarn{flex-basis:100%;margin:0;font-size:13px;color:var(--fg-2)}
 .ovs{display:flex;flex-direction:column;gap:8px}
 .ovcap{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.ovcap h3{margin:0}
+.ovcap .of{color:var(--fg-5)}
 .ovcap a{font-size:12px;color:var(--fg-3);text-decoration:none}
 .ovcap a:hover{color:var(--fg)}
-.resume{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.resume{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;outline:none}
+.resume:focus-visible{outline:none}   /* the selected card (raise + accent bar) is the focus indicator */
 .rc{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px 14px;border:1px solid var(--seam);border-radius:var(--r-lg);color:inherit;text-decoration:none}
 .rc:hover{background:var(--raise);border-color:var(--seam-2)}
+.resume:focus .rc.sel{background:var(--raise);border-color:var(--seam-2);box-shadow:inset 2px 0 0 var(--accent)}
+.rc .num{display:none;flex-shrink:0}
+.resume:focus-within .rc .num{display:inline-block}
+.rc.lead{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;row-gap:8px;padding:16px 18px}
+.rc.lead>.rt,.rc.lead>.ex,.rc.lead>.rm{grid-column:1}
+.rc.lead .go{grid-column:2;grid-row:1/4;align-self:center}
+.rc.lead .n{font:600 15px var(--sans);letter-spacing:-.01em}
+.rc.lead .ex{min-height:0;font-size:14px;color:var(--prose);-webkit-line-clamp:3;max-width:90ch}
 .rc .rt{display:flex;align-items:baseline;gap:8px;min-width:0}
 .rc .n{flex:1;min-width:0;font:500 13px var(--sans);color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rc .flag{flex-shrink:0;font:500 11px var(--sans);color:var(--accent)}
 .rc .flag.cut{color:var(--fg-4)}
+.rc .flag.live{color:var(--ok)}
+.rc .ex.none{font-style:italic;color:var(--fg-4)}
 .rc .ex{min-height:3em;font-size:13px;line-height:1.5;color:var(--fg-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rc .rm{display:flex;justify-content:space-between;gap:10px;margin-top:auto;font:11px var(--mono);color:var(--fg-4);white-space:nowrap}
 .rc .rm .branch{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -416,6 +426,9 @@ tr.hot td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .wtr .r:last-child{text-align:right}
 .wtr .why{color:var(--fg-3)}
 .wtr .why b{font-weight:500;color:var(--fg-2)}
+.wtr.risky .why b:first-child{color:var(--accent);font-weight:600}
+.ovnote{margin:0;font-size:13px;color:var(--fg-4)}
+@media (max-width:1100px){.wtr{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) 72px}.wtr .r:nth-child(2){display:none}}
 .ov .empty h3,.ov .empty h2{margin:0;font:600 22px var(--sans);color:var(--fg);letter-spacing:-.02em}
 .ov .empty .lead{margin:6px 0 0;color:var(--fg-3);font-size:13px;max-width:70ch}
 

@@ -108,7 +108,8 @@
                 || (a.closest('input,textarea,select') && a.value));
             if (!busy) el.focus({ preventScroll: true });
         },
-        focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body) el?.focus(); },
+        // Idle = nothing focused, or only the page heading FocusOnNavigate parked focus on after a navigation.
+        focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body || a.matches('h1')) el?.focus(); },
         reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
         // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
         // to what had it (unless something, e.g. FocusOnNavigate, already took it). Its input is its only focusable

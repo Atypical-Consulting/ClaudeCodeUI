@@ -130,6 +130,7 @@ public static class TranscriptStore
     {
         md = Regex.Replace(Regex.Replace(md, "```.*?(```|$)", " ", RegexOptions.Singleline), @"!?\[([^\]]*)\]\([^)]*\)", "$1");
         md = Regex.Replace(Plain(md), @"(?m)^[ \t]*(>|[-*+]|\d+\.)[ \t]+", "");
+        md = Regex.Replace(md, @"[\p{So}\p{Cs}\uFE0F\u200D]+", "");   // emoji: the only colour glyphs a card would carry
         return string.Join(' ', md.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
@@ -599,6 +600,7 @@ public static class TranscriptStore
         Ok(EndOf([A("""{"type":"text","text":"## Fait\n\n- **PR #12** mergée, voir [la PR](https://x/12)."}"""), """{"type":"last-prompt","lastPrompt":"x"}"""])
            is { Text: "Fait PR #12 mergée, voir la PR.", Stop: Stop.Done }, "ending: last text as plain prose");
         Ok(EndOf([A("""{"type":"text","text":"On merge ?"}""")]) is { Stop: Stop.Asked }, "ending: a question");
+        Ok(Prose("✅ Merged 🚀 : ok") == "Merged : ok", "prose drops emoji");
         Ok(EndOf([A("""{"type":"text","text":"Je regarde."}"""), A("""{"type":"tool_use","id":"t","name":"AskUserQuestion","input":{}}""")]) is { Text: "Je regarde.", Stop: Stop.Asked }, "ending: AskUserQuestion pending");
         Ok(EndOf([A("""{"type":"text","text":"Je lance."}"""), A("""{"type":"tool_use","id":"t","name":"Bash","input":{}}""")]) is { Stop: Stop.Cut }, "ending: tool call never answered");
         Ok(EndOf([A("""{"type":"text","text":"Fini ?"}"""), Prompt]) is { Text: "Fini ?", Stop: Stop.Cut }, "ending: prompt never answered");
