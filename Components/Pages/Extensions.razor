@@ -6,7 +6,7 @@
 <PageTitle>@L["Nav.Extensions"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Extensions"]@(Live is { } lv ? " · " + Fmt.Home(lv.Cwd) : "")</span></div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Extensions"]</h1>@if (Live is { } lv) { <span class="sub">@Fmt.Home(lv.Cwd)</span> }</div>
     <div class="ext">
         @if (Live is not { } s)
         {

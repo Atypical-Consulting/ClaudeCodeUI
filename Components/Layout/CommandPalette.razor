@@ -55,7 +55,7 @@
 }
 
 @code {
-    static readonly string[] Themes = ["graphite", "encre", "ristretto", "mousse", "contraste"];
+    static readonly string[] Themes = AppPref.Theme.Values;
 
     // Dot = dot class for a session, icon name for an action. Msg = a message hit (Name is its snippet).
     sealed record Row(bool Session, string Name, string Dot, string? Detail, int Pill, string? Right, string? Kbd, Func<Task> Run, bool Msg = false);
@@ -99,7 +99,7 @@
             new(false, L["Palette.Theme", L["Theme." + theme]], "palette", null, 0, L["Palette.ChangeTheme"], null, NextTheme),
             new(false, L["Nav.Worktrees"], "branch", null, 0, null, null, Go("worktrees")),
             new(false, L["Nav.Extensions"], "plug", null, 0, null, null, Go("extensions")),
-            new(false, L["Nav.Appearance"], "palette", null, 0, null, null, Go("settings/appearance")),
+            new(false, L["Settings.Title"], "palette", null, 0, null, null, Go("settings/appearance")),
             .. Shell.Desktop ? [new Row(false, L["Appearance.UpdateCheck"], "refresh", null, 0, Shell.Version, null, CheckForUpdates)] : Array.Empty<Row>(),
         ];
         rows.AddRange(actions.Where(a => Hit(a.Name)));
@@ -173,6 +173,7 @@
     {
         theme = Themes[(Array.IndexOf(Themes, theme) + 1) % Themes.Length];
         await JS.InvokeVoidAsync("claudeUi.setTheme", theme);
+        AppPref.Theme.Value = theme;
     }
 
     void Search(ChangeEventArgs e)

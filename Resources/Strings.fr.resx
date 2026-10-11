@@ -32,13 +32,12 @@
   <data name="ApiError.TooLong.Title" xml:space="preserve"><value>La conversation dépasse la taille de contexte du modèle.</value></data>
   <data name="Appearance.Apply" xml:space="preserve"><value>Appliquer</value></data>
   <data name="Appearance.CodeSize" xml:space="preserve"><value>Taille du code</value></data>
-  <data name="Appearance.CodeSizeHint" xml:space="preserve"><value>Blocs de code, diffs, inspecteur.</value></data>
+  <data name="Appearance.CodeSizeHint" xml:space="preserve"><value>Blocs de code, diffs et fichiers affichés. 13 px par défaut.</value></data>
   <data name="Appearance.Language" xml:space="preserve"><value>Langue</value></data>
   <data name="Appearance.LanguageHint" xml:space="preserve"><value>Langue de l’interface. L’appliquer recharge la page.</value></data>
-  <data name="Appearance.Lead" xml:space="preserve"><value>Le thème change les couleurs de toute l’interface, coloration syntaxique comprise. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » pour basculer sans ouvrir les réglages.</value></data>
   <data name="Appearance.Notify" xml:space="preserve"><value>Notifications</value></data>
   <data name="Appearance.NotifyDenied" xml:space="preserve"><value>Les notifications sont bloquées pour ce site : autorise-les dans les réglages du site du navigateur, puis recharge cette page.</value></data>
-  <data name="Appearance.NotifyHint" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan ou qu’une autre session est affichée.</value></data>
+  <data name="Appearance.NotifyHint" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour, sauf si elle est affichée dans une fenêtre active.</value></data>
   <data name="Appearance.NotifyHintDesktop" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan.</value></data>
   <data name="Appearance.NotifyHintMac" xml:space="preserve"><value>Quand une session attend une décision ou termine un tour alors que la fenêtre est en arrière-plan. Cliquer sur la notification ouvre la session.</value></data>
   <data name="Appearance.NotifyLabel" xml:space="preserve"><value>Me prévenir</value></data>
@@ -47,12 +46,12 @@
   <data name="Appearance.PreviewHint" xml:space="preserve"><value>Le rendu réel avec le thème choisi.</value></data>
   <data name="Appearance.SampleComment" xml:space="preserve"><value>Le canard change d’humeur selon l’état de la session</value></data>
   <data name="Appearance.Theme" xml:space="preserve"><value>Thème</value></data>
-  <data name="Appearance.ThemeHint" xml:space="preserve"><value>Appliqué tout de suite, retenu pour la prochaine fois.</value></data>
+  <data name="Appearance.ThemeHint" xml:space="preserve"><value>Appliqué tout de suite, retenu pour la prochaine fois. &lt;kbd&gt;Ctrl K&lt;/kbd&gt; puis « thème » le change de n’importe où.</value></data>
   <data name="Appearance.ThemeLabel" xml:space="preserve"><value>Thème {0}</value></data>
   <data name="Appearance.UpdateCheck" xml:space="preserve"><value>Rechercher des mises à jour</value></data>
   <data name="Appearance.Version" xml:space="preserve"><value>Version</value></data>
   <data name="Appearance.VersionHintDesktop" xml:space="preserve"><value>Les nouvelles versions viennent des releases GitHub, signées et vérifiées avant l’installation.</value></data>
-  <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Lancé avec dotnet run : mets la source à jour avec git pull.</value></data>
+  <data name="Appearance.VersionHintWeb" xml:space="preserve"><value>Lancé depuis la source : mets-la à jour avec git pull, puis relance le serveur.</value></data>
   <data name="Ask.Hint.Move" xml:space="preserve"><value>choisir</value></data>
   <data name="Ask.Hint.Pick" xml:space="preserve"><value>cocher</value></data>
   <data name="Ask.Hint.Skip" xml:space="preserve"><value>passer</value></data>
@@ -340,7 +339,6 @@
   <data name="Model.DefaultSetNoMax" xml:space="preserve"><value>Modèle enregistré par défaut ; l’effort max reste propre à cette session.</value></data>
   <data name="Model.SetDefault" xml:space="preserve"><value>Par défaut pour les nouvelles sessions</value></data>
   <data name="Model.SetFailed" xml:space="preserve"><value>Changement de modèle impossible : {0}</value></data>
-  <data name="Nav.Appearance" xml:space="preserve"><value>Apparence</value></data>
   <data name="Nav.Extensions" xml:space="preserve"><value>Extensions</value></data>
   <data name="Nav.Overview" xml:space="preserve"><value>Vue d’ensemble</value></data>
   <data name="Nav.Worktrees" xml:space="preserve"><value>Worktrees</value></data>
@@ -584,6 +582,9 @@
   <data name="Session.StopHint" xml:space="preserve"><value>Arrête le processus claude. La transcription reste dans Récentes.</value></data>
   <data name="Session.TitleRunning" xml:space="preserve"><value>En cours</value></data>
   <data name="Session.UnknownError" xml:space="preserve"><value>erreur inconnue</value></data>
+  <data name="Settings.About" xml:space="preserve"><value>À propos</value></data>
+  <data name="Settings.Look" xml:space="preserve"><value>Apparence</value></data>
+  <data name="Settings.Sessions" xml:space="preserve"><value>Sessions</value></data>
   <data name="Settings.Title" xml:space="preserve"><value>Réglages</value></data>
   <data name="Slash.Builtin" xml:space="preserve"><value>intégrée</value></data>
   <data name="Slash.Loading" xml:space="preserve"><value>Chargement des commandes…</value></data>
@@ -955,7 +956,7 @@
   <data name="Artifacts.List" xml:space="preserve"><value>Artefacts publiés dans cette session</value></data>
   <data name="Notify.Push" xml:space="preserve"><value>Claude vous a envoyé une notification</value></data>
   <data name="Appearance.Thinking" xml:space="preserve"><value>Résumés de réflexion</value></data>
-  <data name="Appearance.ThinkingHint" xml:space="preserve"><value>Demande à Claude un résumé de sa réflexion et l’affiche dans le fil. S’applique aux sessions lancées ou reprises ensuite.</value></data>
+  <data name="Appearance.ThinkingHint" xml:space="preserve"><value>Demande à Claude de résumer sa réflexion, dans les sessions lancées ou reprises ensuite. Les fils ouverts ensuite affichent ou masquent ces résumés.</value></data>
   <data name="Appearance.ThinkingLabel" xml:space="preserve"><value>Afficher la réflexion</value></data>
   <data name="Appearance.Stamps" xml:space="preserve"><value>Heure des messages</value></data>
   <data name="Appearance.StampsHint" xml:space="preserve"><value>Affiche l’heure au-dessus de chaque réponse, et un séparateur quand le jour change.</value></data>

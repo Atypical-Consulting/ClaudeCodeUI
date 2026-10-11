@@ -5,7 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <script>(function () { var d = document.documentElement, t = localStorage.getItem('claude-ui.theme'); d.dataset.theme = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'].includes(t) ? t : 'graphite'; d.style.setProperty('--code-size', localStorage.getItem('claude-ui.code-size') || '13px'); })()</script>
+    @* The server's choice first (AppPref: the desktop page's storage resets per launch), then a choice made before it existed. *@
+    <script>(function () { var d = document.documentElement, t = '@AppPref.Theme.Value' || localStorage.getItem('claude-ui.theme'); d.dataset.theme = ['graphite', 'encre', 'ristretto', 'mousse', 'contraste'].includes(t) ? t : 'graphite'; d.style.setProperty('--code-size', '@AppPref.CodeSize.Value' || localStorage.getItem('claude-ui.code-size') || '13px'); })()</script>
     <link rel="icon" type="image/png" href="@Assets["favicon.png"]" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />

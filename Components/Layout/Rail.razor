@@ -10,7 +10,7 @@
         <NavLink tabindex="0" class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur" aria-current="@Cur("")"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
         @if (AssignedRenderMode is not null)   @* null only on the static-SSR status pages, where no circuit would answer the click *@
         {
-            <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
+            <button class="search" tabindex="0" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
         }
         <NavLink tabindex="0" class="btn block ghost" href="overview" ActiveClass="cur" aria-current="@Cur("overview")"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
         <NavLink tabindex="0" class="btn block ghost" href="worktrees" ActiveClass="cur" aria-current="@Cur("worktrees")"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
@@ -26,7 +26,7 @@
                 <span class="pill err"><span aria-hidden="true">@FailedMcp</span><span class="vh">@Strings.Plural(FailedMcp, "Rail.FailedMcp")</span></span>
             }
         </NavLink>
-        <NavLink tabindex="0" class="btn block ghost" href="settings/appearance" ActiveClass="cur" aria-current="@Cur("settings/appearance")"><Icon Name="palette" Sm />@L["Nav.Appearance"]</NavLink>
+        <NavLink tabindex="0" class="btn block ghost" href="settings/appearance" ActiveClass="cur" aria-current="@Cur("settings/appearance")"><Icon Name="palette" Sm />@L["Settings.Title"]</NavLink>
     </div>
     <div class="scroll">
     @{ var active = Sessions.Active; }

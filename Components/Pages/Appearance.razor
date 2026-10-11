@@ -1,99 +1,110 @@
 @page "/settings/appearance"
+@implements IDisposable
 @inject IJSRuntime JS
 
-<PageTitle>@L["Nav.Appearance"] · Claude Code</PageTitle>
+<PageTitle>@L["Settings.Title"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1><span class="sub">@L["Nav.Appearance"]</span></div>
+    <div class="ph"><h1 class="ttl">@L["Settings.Title"]</h1></div>
     <div class="settings">
-        <div><h2>@L["Nav.Appearance"]</h2><p class="lead">@((MarkupString)Strings.Kbd(L["Appearance.Lead"]))</p></div>
-        <div class="set-row">
-            <div><label for="lang"><b>@L["Appearance.Language"]</b></label><span>@L["Appearance.LanguageHint"]</span></div>
-            @* A plain POST form: choosing an option changes nothing until Apply, then /culture sets the cookie and reloads. *@
-            <form class="lang" method="post" action="culture">
-                <AntiforgeryToken />
-                <select id="lang" name="c">
-                    @foreach (var (c, name) in Languages)
-                    {
-                        <option value="@c" lang="@c" selected="@(c == culture)">@name</option>
-                    }
-                </select>
-                <button class="btn" type="submit">@L["Appearance.Apply"]</button>
-            </form>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.Theme"]</b><span>@L["Appearance.ThemeHint"]</span></div>
-            <div class="themes">
-                @foreach (var k in Themes)
-                {
-                    var n = L["Theme." + k].Value;
-                    @* data-theme scopes the preview to the card's own tokens *@
-                    <button class="tc @(k == theme ? "on" : null)" data-theme="@k" aria-pressed="@(k == theme ? "true" : "false")" aria-label="@L["Appearance.ThemeLabel", n]" @onclick="() => SetTheme(k)">
-                        <div class="pv">
-                            <div class="rl"><i></i><i></i><i></i><i></i></div>
-                            <div class="bd">
-                                <div class="ln"><span style="color:var(--read)">Read</span> <span style="color:var(--fg-2)">Store.cs</span></div>
-                                <div class="ln"><span style="color:var(--edit)">Edit</span> <span style="color:var(--fg-2)">Home.razor</span></div>
-                                <div class="ln"><span style="color:var(--syn-kw)">new</span> <span style="color:var(--syn-type)">Store</span><span style="color:var(--fg-3)">(</span><span style="color:var(--syn-str)">"cwd"</span><span style="color:var(--fg-3)">)</span></div>
-                                <div class="ln" style="color:var(--syn-com);font-style:italic">// @n.ToLowerInvariant()</div>
-                                <span class="btnp">@L["Perm.Allow"]</span>
-                            </div>
-                        </div>
-                        <div class="nm"><b>@n</b><span class="sw"><i style="background:var(--syn-kw)"></i><i style="background:var(--syn-str)"></i><i style="background:var(--syn-fn)"></i><i style="background:var(--syn-type)"></i></span></div>
-                    </button>
-                }
+        <section class="set-grp" aria-labelledby="g-look">
+            <h2 id="g-look">@L["Settings.Look"]</h2>
+            <div class="set-row">
+                <div><label for="lang"><b>@L["Appearance.Language"]</b></label><span id="h-lang">@L["Appearance.LanguageHint"]</span></div>
+                @* A plain POST form: choosing an option changes nothing until Apply, then /culture sets the cookie and reloads. *@
+                <form class="lang" method="post" action="culture">
+                    <AntiforgeryToken />
+                    <select id="lang" name="c" aria-describedby="h-lang" @onchange="e => pending = e.Value as string">
+                        @foreach (var (c, name) in Languages)
+                        {
+                            <option value="@c" lang="@c" selected="@(c == culture)">@name</option>
+                        }
+                    </select>
+                    <button class="btn @(pending != culture ? "primary" : null)" type="submit" tabindex="0" disabled="@(pending == culture)">@L["Appearance.Apply"]</button>
+                </form>
             </div>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.CodeSize"]</b><span>@L["Appearance.CodeSizeHint"]</span></div>
-            <div>
-                <div class="seg" role="group" aria-label="@L["Appearance.CodeSize"]">
-                    @foreach (var px in Sizes)
+            <div class="set-row">
+                <div><b id="l-theme">@L["Appearance.Theme"]</b><span id="h-theme">@((MarkupString)Strings.Kbd(L["Appearance.ThemeHint"]))</span></div>
+                @* One Tab stop, arrows move and choose (app.js radiogroup keys). *@
+                <div class="themes" role="radiogroup" aria-labelledby="l-theme" aria-describedby="h-theme">
+                    @foreach (var k in Themes)
                     {
-                        var v = px + "px";
-                        <button class="@(v == size ? "on" : null)" aria-pressed="@(v == size ? "true" : "false")" aria-label="@($"{px} px")" @onclick="() => SetSize(v)">@px</button>
+                        var n = L["Theme." + k].Value;
+                        var on = k == Theme;
+                        @* data-theme scopes the preview to the card's own tokens *@
+                        <button class="tc @(on ? "on" : null)" data-theme="@k" role="radio" aria-checked="@(on ? "true" : "false")" tabindex="@(on ? 0 : -1)" aria-label="@L["Appearance.ThemeLabel", n]" @onclick="() => SetTheme(k)">
+                            <div class="pv">
+                                <div class="rl"><i></i><i></i><i></i><i></i></div>
+                                <div class="bd">
+                                    <div class="ln"><span style="color:var(--read)">Read</span> <span style="color:var(--fg-2)">Store.cs</span></div>
+                                    <div class="ln"><span style="color:var(--edit)">Edit</span> <span style="color:var(--fg-2)">Home.razor</span></div>
+                                    <div class="ln"><span style="color:var(--syn-kw)">new</span> <span style="color:var(--syn-type)">Store</span><span style="color:var(--fg-3)">(</span><span style="color:var(--syn-str)">"cwd"</span><span style="color:var(--fg-3)">)</span></div>
+                                    <div class="ln" style="color:var(--syn-com);font-style:italic">// @n.ToLowerInvariant()</div>
+                                    <span class="btnp">@L["Perm.Allow"]</span>
+                                </div>
+                            </div>
+                            <div class="nm"><b>@n</b><span class="sw"><i style="background:var(--syn-kw)"></i><i style="background:var(--syn-str)"></i><i style="background:var(--syn-fn)"></i><i style="background:var(--syn-type)"></i></span></div>
+                        </button>
                     }
                 </div>
             </div>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.Notify"]</b><span>@L[NotifyHint]</span></div>
-            <div>
-                @* id="notify": app.js asks the browser's permission on this very click (it needs the user gesture). *@
-                <button id="notify" class="toggle @(notify == "on" ? "on" : null)" role="switch" aria-checked="@(notify == "on" ? "true" : "false")"
-                        disabled="@(notify is null or "denied" or "unsupported")" aria-describedby="@(Blocked is null ? null : "notify-why")"
-                        @onclick="ToggleNotify"><span class="sw"></span>@L["Appearance.NotifyLabel"]</button>
-                @if (Blocked is { } why)
-                {
-                    <p id="notify-why" class="hint why">@why</p>
-                }
+            <div class="set-row">
+                <div><b id="l-size">@L["Appearance.CodeSize"]</b><span id="h-size">@L["Appearance.CodeSizeHint"]</span></div>
+                <div class="size">
+                    <div class="seg" role="radiogroup" aria-labelledby="l-size" aria-describedby="h-size">
+                        @foreach (var px in Sizes)
+                        {
+                            var v = px + "px";
+                            var on = v == Size;
+                            <button class="@(on ? "on" : null)" role="radio" aria-checked="@(on ? "true" : "false")" tabindex="@(on ? 0 : -1)" aria-label="@($"{px} px")" @onclick="() => SetSize(v)">@px</button>
+                        }
+                    </div>
+                    <span class="unit" aria-hidden="true">px</span>
+                    @* Right under its control: code size is judged by looking. A picture, not a control: no Copy or scroller in the Tab order. *@
+                    <div class="sample md" inert>@((MarkupString)Sample)</div>
+                </div>
             </div>
-        </div>
-        @* Server-side flags (AppFlag): claude's launch arguments read one, and the desktop page's storage resets per launch. *@
-        <div class="set-row">
-            <div><b>@L["Appearance.Thinking"]</b><span>@L["Appearance.ThinkingHint"]</span></div>
-            <div><button class="toggle @(thinking ? "on" : null)" role="switch" aria-checked="@(thinking ? "true" : "false")"
-                         @onclick="() => { AppFlag.Thinking.On = !thinking; thinking = AppFlag.Thinking.On; }"><span class="sw"></span>@L["Appearance.ThinkingLabel"]</button></div>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.Stamps"]</b><span>@L["Appearance.StampsHint"]</span></div>
-            <div><button class="toggle @(stamps ? "on" : null)" role="switch" aria-checked="@(stamps ? "true" : "false")"
-                         @onclick="() => { AppFlag.Timestamps.On = !stamps; stamps = AppFlag.Timestamps.On; }"><span class="sw"></span>@L["Appearance.StampsLabel"]</button></div>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.Preview"]</b><span>@L["Appearance.PreviewHint"]</span></div>
-            <div class="sample md">@((MarkupString)Sample)</div>
-        </div>
-        <div class="set-row">
-            <div><b>@L["Appearance.Version"]</b><span>@(Shell.Desktop ? L["Appearance.VersionHintDesktop"] : L["Appearance.VersionHintWeb"])</span></div>
-            @* Desktop: the shell runs the check and answers in a native dialog. *@
-            <div class="lang"><code>Claude Code UI @Shell.Version</code>@if (Shell.Desktop) { <button class="btn" type="button" @onclick="Shell.CheckForUpdates">@L["Appearance.UpdateCheck"]</button> }</div>
-        </div>
+        </section>
+        <section class="set-grp" aria-labelledby="g-sessions">
+            <h2 id="g-sessions">@L["Settings.Sessions"]</h2>
+            <div class="set-row">
+                <div><b>@L["Appearance.Notify"]</b><span id="h-notify">@L[NotifyHint]</span></div>
+                <div>
+                    @* id="notify": app.js asks the browser's permission on this very click (it needs the user gesture). *@
+                    <button id="notify" class="toggle @(notify == "on" ? "on" : null)" role="switch" tabindex="0" aria-checked="@(notify == "on" ? "true" : "false")"
+                            disabled="@(notify is null or "denied" or "unsupported")" aria-describedby="@(Blocked is null ? "h-notify" : "h-notify notify-why")"
+                            @onclick="ToggleNotify"><span class="sw"></span>@L["Appearance.NotifyLabel"]</button>
+                    @if (Blocked is { } why)
+                    {
+                        <p id="notify-why" class="hint why">@why</p>
+                    }
+                </div>
+            </div>
+            @* Server-side flags (AppFlag): claude's launch arguments read one, and the desktop page's storage resets per launch. *@
+            <div class="set-row">
+                <div><b>@L["Appearance.Thinking"]</b><span id="h-thinking">@L["Appearance.ThinkingHint"]</span></div>
+                <div><button class="toggle @(thinking ? "on" : null)" role="switch" tabindex="0" aria-checked="@(thinking ? "true" : "false")" aria-describedby="h-thinking"
+                             @onclick="() => { AppFlag.Thinking.On = !thinking; thinking = AppFlag.Thinking.On; }"><span class="sw"></span>@L["Appearance.ThinkingLabel"]</button></div>
+            </div>
+            <div class="set-row">
+                <div><b>@L["Appearance.Stamps"]</b><span id="h-stamps">@L["Appearance.StampsHint"]</span></div>
+                <div><button class="toggle @(stamps ? "on" : null)" role="switch" tabindex="0" aria-checked="@(stamps ? "true" : "false")" aria-describedby="h-stamps"
+                             @onclick="() => { AppFlag.Timestamps.On = !stamps; stamps = AppFlag.Timestamps.On; }"><span class="sw"></span>@L["Appearance.StampsLabel"]</button></div>
+            </div>
+        </section>
+        <section class="set-grp" aria-labelledby="g-about">
+            <h2 id="g-about">@L["Settings.About"]</h2>
+            <div class="set-row">
+                <div><b>@L["Appearance.Version"]</b><span>@(Shell.Desktop ? L["Appearance.VersionHintDesktop"] : L["Appearance.VersionHintWeb"])</span></div>
+                @* Desktop: the shell runs the check and answers in a native dialog. *@
+                <div class="lang"><code>Claude Code UI @Shell.Version</code>@if (Shell.Desktop) { <button class="btn" type="button" tabindex="0" @onclick="Shell.CheckForUpdates">@L["Appearance.UpdateCheck"]</button> }</div>
+            </div>
+        </section>
     </div>
 </div>
 
 @code {
-    static readonly string[] Themes = ["graphite", "encre", "ristretto", "mousse", "contraste"];
+    static readonly string[] Themes = AppPref.Theme.Values;
     // Each language is named in itself.
     static readonly (string Code, string Name)[] Languages = [("en", "English"), ("fr", "Français")];
     readonly string culture = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
@@ -111,7 +122,12 @@
         ```
         """);
 
-    string? theme, size;
+    // Known on the server from the first render (AppPref): no card flashes unselected. null only until a choice made
+    // before AppPref existed is read back from the browser, once.
+    string? theme = AppPref.Theme.Value, size = AppPref.CodeSize.Value;
+    string Theme => theme ?? "graphite";
+    string Size => size ?? "13px";
+    string? pending;   // the language picked but not applied yet
     bool thinking = AppFlag.Thinking.On, stamps = AppFlag.Timestamps.On;
     string? notify;   // on | off | denied | unsupported (app.js notifyState in a browser)
 
@@ -124,15 +140,22 @@
 
     protected override void OnInitialized()
     {
+        pending = culture;
         if (Shell.Desktop) notify = ShellState();
+        AppPref.Changed += Follow;
     }
+
+    // The palette's theme command, or another window: the cards follow.
+    void Follow() => _ = InvokeAsync(() => { theme = AppPref.Theme.Value ?? theme; size = AppPref.CodeSize.Value ?? size; StateHasChanged(); });
+
+    public void Dispose() => AppPref.Changed -= Follow;
 
     // localStorage is only reachable once the circuit is up.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        theme = await JS.InvokeAsync<string>("claudeUi.getTheme");
-        size = await JS.InvokeAsync<string>("claudeUi.getCodeSize");
+        if (theme is null) AppPref.Theme.Value = theme = await JS.InvokeAsync<string>("claudeUi.getTheme");
+        if (size is null) AppPref.CodeSize.Value = size = await JS.InvokeAsync<string>("claudeUi.getCodeSize");
         if (!Shell.Desktop) notify = await JS.InvokeAsync<string>("claudeUi.notifyState");
         StateHasChanged();
     }
@@ -153,12 +176,14 @@
     async Task SetTheme(string k)
     {
         theme = k;
+        AppPref.Theme.Value = k;
         await JS.InvokeVoidAsync("claudeUi.setTheme", k);
     }
 
     async Task SetSize(string v)
     {
         size = v;
+        AppPref.CodeSize.Value = v;
         await JS.InvokeVoidAsync("claudeUi.setCodeSize", v);
     }
 }
