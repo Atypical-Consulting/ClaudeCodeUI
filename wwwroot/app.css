@@ -111,12 +111,13 @@ code{font-family:var(--mono)}
 
 /* thread */
 .thread{flex:1;min-height:0;overflow:auto;padding:28px 32px 12px;display:flex;flex-direction:column;gap:16px}
-.thread>*,.thread>[role=log]>*{max-width:760px;width:100%;flex-shrink:0}
+/* The reading column (760px) is centred in the thread pane: hiding the inspector widens the pane, not a blank strip on the right. */
+.thread>*,.thread>[role=log]>*{max-width:760px;width:100%;flex-shrink:0;margin-inline:auto}
 .thread>[role=log]{display:flex;flex-direction:column;gap:16px}
 .status-live:not(:has(.status)){position:absolute}
 /* Off-screen blocks skip layout and paint. That also clips paint at the box, so a reply (.md, or .said when it carries "Fork from here") gets 4px of room (net zero) for focus rings. */
 .thread>[role=log]>:is(.you,.ledger,.wf,.md,.said){content-visibility:auto;contain-intrinsic-size:auto 120px}
-.thread>[role=log]>:is(.md,.said){padding:4px;margin:-4px;width:calc(100% + 8px);max-width:768px}
+.thread>[role=log]>:is(.md,.said){padding:4px;margin:-4px auto;width:calc(100% + 8px);max-width:768px}
 .you{background:var(--raise);border:1px solid var(--seam);border-radius:var(--r-lg);padding:12px 14px;color:var(--fg);line-height:1.55}
 .you .tx{white-space:pre-wrap;overflow-wrap:anywhere}
 .you .w{font:500 12px var(--mono);color:var(--fg-4);margin-bottom:4px;display:flex;gap:8px}
@@ -205,7 +206,7 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .status.custom small{white-space:pre-line;font-family:var(--mono)}   /* the statusLine command's lines, as printed */
 .status.wait{color:var(--accent)}
 .dock{flex:none;position:relative;padding:0 32px}
-.dock .status{max-width:760px;padding:0 0 12px}
+.dock .status{max-width:760px;margin-inline:auto;padding:0 0 12px}
 .dock .jump{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-10px);z-index:1;background:var(--raise);box-shadow:var(--shadow-pop)}
 .dock .jump[hidden]{display:none}
 .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--seam-2);border-top-color:var(--ok);animation:sp 0.9s linear infinite}
@@ -215,11 +216,11 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 
 /* composer */
 .composer{flex:none;border-top:1px solid var(--seam);padding:14px 32px 14px}
-.box{max-width:760px;border:1px solid var(--fg-5);border-radius:var(--r-lg);background:var(--field);padding:12px 12px 10px 14px}
+.box{max-width:760px;margin-inline:auto;border:1px solid var(--fg-5);border-radius:var(--r-lg);background:var(--field);padding:12px 12px 10px 14px}
 .box .row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .chip{display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--fg-3);border:1px solid var(--seam);border-radius:var(--r-full);padding:2px 9px}
 .box .row .go{margin-left:auto}
-.meta{max-width:760px;display:flex;gap:18px;margin-top:8px;font:12px var(--mono);color:var(--fg-4)}
+.meta{max-width:760px;display:flex;gap:18px;margin:8px auto 0;font:12px var(--mono);color:var(--fg-4)}
 .meta b{color:var(--fg-3);font-weight:500}
 .meta .r{margin-left:auto}
 /* /artifacts (Composer): a pill whose list opens above it */
@@ -572,7 +573,7 @@ textarea,input{caret-color:var(--accent)}
 
 /* ---------- 9. composer ---------- */
 .composer.rich .box{padding:12px 12px 10px 14px}
-.queued{display:flex;flex-direction:column;gap:6px;margin:0 0 8px;padding:0;list-style:none}
+.queued{display:flex;flex-direction:column;gap:6px;max-width:760px;margin:0 auto 8px;padding:0;list-style:none}
 .qchip{display:flex;align-items:center;gap:8px;min-width:0;border:1px dashed var(--seam-2);border-radius:var(--r);padding:3px 4px 3px 10px;color:var(--fg-2);font-size:13px}
 .qchip .qt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qchip .btn{padding:4px 6px}
@@ -833,10 +834,10 @@ dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font
 
 /* Task list pinned between the thread and the composer (TodoPanel). */
 .todos{flex:none;border-top:1px solid var(--seam);padding:6px 32px 8px;max-height:32vh;overflow:auto}
-.todos .th{display:flex;align-items:center;gap:8px;width:100%;max-width:760px;padding:4px 0;border:0;background:none;color:var(--fg-4);font:12px var(--sans);text-align:left;cursor:pointer}
+.todos .th{display:flex;align-items:center;gap:8px;width:100%;max-width:760px;margin-inline:auto;padding:4px 0;border:0;background:none;color:var(--fg-4);font:12px var(--sans);text-align:left;cursor:pointer}
 .todos .th .n{font:12px var(--mono)}
 .todos .th .now{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)}
-.todos ul{list-style:none;margin:2px 0 0;padding:0;max-width:760px;display:flex;flex-direction:column;gap:4px}
+.todos ul{list-style:none;margin:2px auto 0;padding:0;max-width:760px;display:flex;flex-direction:column;gap:4px}
 .todos li{display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.45;color:var(--fg-2)}
 .todos .mk{width:14px;height:14px;flex:none;display:grid;place-items:center;border:1.5px solid var(--seam-3);border-radius:50%}
 .todos .mk .i{width:10px;height:10px}
