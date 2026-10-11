@@ -551,15 +551,16 @@ public sealed class LiveSession : IAsyncDisposable
 
     // /cd's headless twin, set_cwd (claude 2.1.296): refused while a turn runs. A folder never trusted answers needs_trust
     // with its canonical path: re-sent with trust_accepted once the user said yes, trusted pinning the exact folder shown.
-    // Returns that folder still to trust, else null; a refusal throws with the CLI's message.
-    public async Task<string?> SetCwd(string path, string? trusted = null)
+    // Returns that folder still to trust, with trust_root when it sits inside another git root (accepting then trusts that
+    // whole repository, so the prompt must name it), else null; a refusal throws with the CLI's message.
+    public async Task<(string Directory, string? Root)?> SetCwd(string path, string? trusted = null)
     {
         var f = new JsonObject { ["path"] = path };
         if (trusted is not null) { f["trust_accepted"] = true; f["trusted_directory"] = trusted; }
         var r = await Request("set_cwd", f);
         switch (Events.Str(r, "status"))
         {
-            case "needs_trust": return Events.Str(r, "directory") ?? path;
+            case "needs_trust": return (Events.Str(r, "directory") ?? path, Events.Str(r, "trust_root"));
             case "ok":
                 if (Events.Str(r, "cwd") is { Length: > 0 } c && c != Cwd) { Cwd = c; Worktree = null; }
                 _ = RefreshGit();
@@ -825,6 +826,7 @@ public sealed class LiveSession : IAsyncDisposable
             crashedMidTurn = s is not null && Status is SessionStatus.Running or SessionStatus.Waiting;
             Status = SessionStatus.Crashed;
             RemoteUrl = null;   // the bridge lived in that process
+            StatusRows = null;   // so did the version, login and model it reported
             ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
             Queued = []; draining = false;

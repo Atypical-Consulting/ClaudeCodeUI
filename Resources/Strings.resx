@@ -934,6 +934,7 @@
   <data name="Bg.RemoveHint" xml:space="preserve"><value>Delete the session and its worktree</value></data>
   <data name="Bg.Done" xml:space="preserve"><value>Done.</value></data>
   <data name="Cwd.Label" xml:space="preserve"><value>Working folder</value></data>
+  <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code has never worked in {0}. It sits in the git repository {1}: trusting it trusts that whole repository, every subfolder and linked worktree, and their settings, hooks and CLAUDE.md would load. Trust it?</value></data>
   <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code has never worked in {0}: its settings, hooks and CLAUDE.md would load. Trust it?</value></data>
   <data name="Cwd.Moved" xml:space="preserve"><value>Claude now works in {0}.</value></data>
 </root>

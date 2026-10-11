@@ -934,6 +934,7 @@
   <data name="Bg.RemoveHint" xml:space="preserve"><value>Supprimer la session et son worktree</value></data>
   <data name="Bg.Done" xml:space="preserve"><value>Fait.</value></data>
   <data name="Cwd.Label" xml:space="preserve"><value>Dossier de travail</value></data>
+  <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0}. Ce dossier appartient au dépôt git {1} : lui faire confiance, c’est faire confiance à tout ce dépôt, chaque sous-dossier et worktree lié, dont les réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
   <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0} : ses réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
   <data name="Cwd.Moved" xml:space="preserve"><value>Claude travaille désormais dans {0}.</value></data>
 </root>

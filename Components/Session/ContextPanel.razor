@@ -83,9 +83,9 @@
                        Disabled="@(moving || Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting)" /> @TranscriptStore.Short(Session.Cwd)</p>
         @if (trust is { } t)
         {
-            <p role="alert">@L["Cwd.Trust", t]</p>
+            <p role="alert">@(t.Root is { } root ? L["Cwd.TrustRoot", t.Directory, root] : L["Cwd.Trust", t.Directory])</p>
             <div class="acts">
-                <button type="button" class="btn primary" disabled="@moving" @onclick="() => MoveTo(t, t)">@L["New.Trust"]</button>
+                <button type="button" class="btn primary" disabled="@moving" @onclick="() => MoveTo(t.Directory, t.Directory)">@L["New.Trust"]</button>
                 <button type="button" class="btn ghost" @onclick="() => trust = null">@L["Action.Cancel"]</button>
             </div>
         }
@@ -127,7 +127,8 @@
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => Bookmarks.Changed -= Refresh;
     DateTimeOffset? refreshedFor;
-    string? trust, cwdNote;
+    (string Directory, string? Root)? trust;
+    string? cwdNote;
     bool moving;
 
     async Task MoveTo(string path) => await MoveTo(path, null);
