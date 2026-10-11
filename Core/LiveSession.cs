@@ -240,9 +240,10 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (!CanRewind(u)) throw new ClaudeRequestException(Strings.Get("Rewind.Unavailable"));
         string? cut = null, prefill = null;
+        var steps = RewindSteps(u.Uuid!);
         try
         {
-            foreach (var id in RewindSteps(u.Uuid!))
+            foreach (var id in steps)
             {
                 var r = await Request("rewind_conversation", new() { ["target_message_uuid"] = id });
                 if (Events.Prop(r, "rewound") is not { ValueKind: JsonValueKind.True })
@@ -254,7 +255,7 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (cut is not null)
             {
-                lock (gate) CutBack(cut, prefill);
+                lock (gate) CutBack(cut, prefill, steps);
                 Notify();
             }
         }
@@ -266,13 +267,15 @@ public sealed class LiveSession : IAsyncDisposable
     // Cuts the thread at `uuid` and puts that message back in the Composer, ahead of anything not sent yet. The text is
     // the UI's own (what was typed): prefillText is the CLI's stored form, internal XML for a slash command
     // (<command-name>/compact</command-name>…), so it only serves, normalised, when the message is not in the thread.
-    internal void CutBack(string uuid, string? prefill)
+    // `rewound`: a message sent meanwhile (the automatic restore runs after the result, the Composer is open) stays.
+    internal void CutBack(string uuid, string? prefill, IReadOnlyCollection<string>? rewound = null)
     {
+        Suggestion = null;   // predicted after the turn that leaves
         var item = Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid);
         if ((item?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
             Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
         if (item?.Images is { Count: > 0 } im && DraftImages.Count == 0) DraftImages = [.. im.Where(i => i.Url is not null)];
-        Truncate(uuid);
+        Truncate(uuid, rewound);
     }
 
     // Esc before Claude answered: as in the terminal, the prompt goes back to the Composer and leaves the conversation
@@ -808,11 +811,14 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- reducer ----------
 
-    // The message with this uuid and everything after it (its tools, answers, later turns) leave the thread.
-    internal void Truncate(string uuid)
+    // The message with this uuid and everything after it (its tools, answers, later turns) leave the thread; with
+    // `rewound`, only up to the first later message not in it.
+    internal void Truncate(string uuid, IReadOnlyCollection<string>? rewound = null)
     {
         var i = Items.FindIndex(x => x is UserItem u && u.Uuid == uuid);
-        if (i >= 0) Items = Items.RemoveRange(i, Items.Count - i);
+        if (i < 0) return;
+        var end = rewound is null ? -1 : Items.FindIndex(i + 1, x => x is UserItem u && !rewound.Contains(u.Uuid ?? ""));
+        Items = Items.RemoveRange(i, (end < 0 ? Items.Count : end) - i);
     }
 
     internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
@@ -1106,6 +1112,7 @@ public sealed class LiveSession : IAsyncDisposable
 
             case ResetEvt:
                 Items = Items.Add(new ResetItem());
+                Suggestion = null;
                 break;
 
             case NoticeEvt n:
@@ -1383,6 +1390,11 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(ir.Unanswered() is null, "an answered turn stays in the thread");
         ir.Apply(new SuggestionEvt("run the tests"));
         Ok(ir.Suggestion == "run the tests", "prompt suggestion kept");
+        ir.Apply(new ResetEvt());
+        Ok(ir.Suggestion is null, "prompt suggestion dropped on /clear");
+        ir.Apply(new SuggestionEvt("run the tests"));
+        ir.CutBack("u10", null);
+        Ok(ir.Suggestion is null, "prompt suggestion dropped on rewind");
 
         // Messages sent mid-turn, replayed as the command_lifecycle frames --probe-cli queue captured.
         void Enqueue(string uuid, string text) { s.Queued = s.Queued.Add(new(uuid, text, DateTimeOffset.Now)); s.Apply(new QueueEvt(uuid, "queued")); }
@@ -1465,6 +1477,11 @@ public sealed class LiveSession : IAsyncDisposable
         var cx = new LiveSession("c", "c", @"C:\w", "default");
         cx.CutBack("gone", compactXml);
         Ok(cx.Draft == "/compact keep tests", "rewind draft normalises prefillText when the message is not in the thread");
+        // Sent while the automatic restore awaited its reply: the CLI holds it, so it stays.
+        var rs = new LiveSession("r", "r", "/w", "default");
+        rs.BeginTurn("stop", uuid: "s1"); rs.BeginTurn("new", uuid: "s2"); rs.Apply(new AssistantTextEvt("m", "ok", null, false));
+        rs.CutBack("s1", null, ["s1"]);
+        Ok(rs.Draft == "stop" && rs.Items is [UserItem { Uuid: "s2" }, TextItem], "rewind keeps a message sent meanwhile");
         Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
         Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
             "rewind preview drops empty paths");

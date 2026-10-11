@@ -80,18 +80,22 @@
         Refilter();
     }
 
+    // A query ranks agents with the files: a long agent name loosely matches many queries and must not take Tab from a real hit.
     void Refilter()
     {
-        var found = FileIndex.Filter(agents.Keys, Query, 3);
-        matches = [.. found, .. index is null ? [] : FileIndex.Filter(index.Paths, Query, FileIndex.MaxResults - found.Count)];
+        var paths = index?.Paths ?? [];
+        var found = Query.Length == 0 ? FileIndex.Filter(agents.Keys, "", 3) : [];
+        matches = [.. found, .. FileIndex.Filter(Query.Length == 0 ? paths : agents.Keys.Concat(paths), Query, FileIndex.MaxResults - found.Count)];
         if (sel >= matches.Count) sel = 0;
     }
 
     // initialize's agents carry a description; init's are names only (a session resumed before its first answer has neither).
+    // The CLI only reads @agent-[\w:.@-]+ (bundle a_n): a name with a space ("stripe:Company Researcher") cannot be mentioned.
     static Dictionary<string, string> Agents(LiveSession s) =>
-        s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: System.Text.Json.JsonValueKind.Array } a
+        (s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: System.Text.Json.JsonValueKind.Array } a
             ? a.EnumerateArray().Where(x => Events.Str(x, "name") is not null).DistinctBy(x => Events.Str(x, "name")).ToDictionary(x => "agent-" + Events.Str(x, "name"), x => Events.Str(x, "description") ?? "")
-            : (s.Init?.Agents ?? []).Distinct().ToDictionary(n => "agent-" + n, _ => "");
+            : (s.Init?.Agents ?? []).Distinct().ToDictionary(n => "agent-" + n, _ => ""))
+        .Where(kv => System.Text.RegularExpressions.Regex.IsMatch(kv.Key, @"^agent-[\w:.@-]+$")).ToDictionary();
 
     public void Dispose()
     {

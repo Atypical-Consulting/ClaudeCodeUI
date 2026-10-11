@@ -71,10 +71,10 @@ public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
-public record QueueEvt(string Uuid, string State) : ClaudeEvent;
+public record QueueEvt(string Uuid, string State) : ClaudeEvent;                  // command_lifecycle: queued|started|completed|cancelled|discarded|refused
 // prompt_suggestion (--prompt-suggestions): the CLI's guess at the next prompt, after a result. It holds it back while
 // the rate limit is anything but "allowed" (allowed_warning included), and before the second assistant message.
-public record SuggestionEvt(string Text) : ClaudeEvent;   // command_lifecycle: queued|started|completed|cancelled|discarded|refused
+public record SuggestionEvt(string Text) : ClaudeEvent;
 // system/hook_response, streamed with --include-hook-events. Output = stdout + stderr; exit 2 is the CLI's blocking error.
 // Id: hook_id, shared with the hook_started that announced it.
 public record HookEvt(string Name, string Outcome, int? ExitCode, string Output, string? Id = null) : ClaudeEvent;
