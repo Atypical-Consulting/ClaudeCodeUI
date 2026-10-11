@@ -91,7 +91,13 @@
   <data name="Composer.ThinkingMid" xml:space="preserve"><value>Changing thinking mid-conversation adds latency and may reduce quality.</value></data>
   <data name="Copy.Done" xml:space="preserve"><value>Copied</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Couldn't apply that: {0}</value></data>
-  <data name="Composer.Attach" xml:space="preserve"><value>Attach images (or paste or drop them here)</value></data>
+  <data name="Composer.Attach" xml:space="preserve"><value>Attach images or documents (or paste or drop them here)</value></data>
+  <data name="Composer.Document" xml:space="preserve"><value>Document {0}</value></data>
+  <data name="Composer.Invisible" xml:space="preserve"><value>Removed {0} invisible character(s) from the message: review it, then send again</value></data>
+  <data name="Composer.SendNow" xml:space="preserve"><value>Send now</value></data>
+  <data name="Composer.SendNowHint" xml:space="preserve"><value>Interrupt the turn and send this message right away</value></data>
+  <data name="Composer.SendNowQueued" xml:space="preserve"><value>Send now: {0}</value></data>
+  <data name="Composer.Suggestion" xml:space="preserve"><value>{0} (Tab to use)</value></data>
   <data name="Composer.CancelQueued" xml:space="preserve"><value>Cancel the queued message: {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort</value></data>
@@ -103,10 +109,10 @@
   <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Fast mode unavailable: {0}</value></data>
   <data name="Composer.History" xml:space="preserve"><value>history {0} of {1}</value></data>
   <data name="Composer.ImageAlt" xml:space="preserve"><value>Image {0}</value></data>
-  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} is {1}: images are limited to {2} each</value></data>
-  <data name="Composer.ImageTooMany" xml:space="preserve"><value>At most {0} images per message</value></data>
-  <data name="Composer.ImageType" xml:space="preserve"><value>{0} isn't a PNG, JPEG, GIF or WebP image</value></data>
-  <data name="Composer.Images" xml:space="preserve"><value>Attached images</value></data>
+  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} is {1}: attachments are limited to {2} each</value></data>
+  <data name="Composer.ImageTooMany" xml:space="preserve"><value>At most {0} attachments per message</value></data>
+  <data name="Composer.ImageType" xml:space="preserve"><value>{0} isn't an image (PNG, JPEG, GIF, WebP), a PDF or a text file</value></data>
+  <data name="Composer.Images" xml:space="preserve"><value>Attachments</value></data>
   <data name="Composer.Interrupt" xml:space="preserve"><value>Interrupt</value></data>
   <data name="Composer.Interrupted" xml:space="preserve"><value>interrupted</value></data>
   <data name="Composer.Label" xml:space="preserve"><value>Message to Claude</value></data>
@@ -119,7 +125,7 @@
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. What you send now is queued…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Deny {0} and send</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Pending permission requests are denied first, then your message is sent.</value></data>
-  <data name="Composer.RemoveImage" xml:space="preserve"><value>Remove image {0}</value></data>
+  <data name="Composer.RemoveImage" xml:space="preserve"><value>Remove attachment {0}</value></data>
   <data name="Composer.Queue" xml:space="preserve"><value>Queue</value></data>
   <data name="Composer.QueueHint" xml:space="preserve"><value>Claude reads it at the next tool result, or right after this turn</value></data>
   <data name="Composer.Queued" xml:space="preserve"><value>queued</value></data>
@@ -309,8 +315,8 @@
   <data name="Mem.Type.Project" xml:space="preserve"><value>project</value></data>
   <data name="Mem.Type.User" xml:space="preserve"><value>user</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Scanning…</value></data>
-  <data name="Mention.Title" xml:space="preserve"><value>Files and folders</value></data>
-  <data name="Mention.NoMatch" xml:space="preserve"><value>No file matches</value></data>
+  <data name="Mention.Title" xml:space="preserve"><value>Agents, files and folders</value></data>
+  <data name="Mention.NoMatch" xml:space="preserve"><value>Nothing matches</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>first {0:N0} entries</value></data>
   <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accept edits</value></data>
   <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>

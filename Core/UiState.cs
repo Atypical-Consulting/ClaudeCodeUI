@@ -16,4 +16,8 @@ public sealed class UiState
     public event Action<string>? Key;   // "Escape", "Enter", "Shift+Enter", "Delete"
 
     public void RaiseKey(string key) => Key?.Invoke(key);
+
+    // Typed /rewind (Composer): the Thread, which holds the dialog, opens it on that message.
+    public event Action<UserItem>? Rewind;
+    public void AskRewind(UserItem u) => Rewind?.Invoke(u);
 }

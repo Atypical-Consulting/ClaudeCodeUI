@@ -3,6 +3,8 @@
 @inject IJSRuntime JS
 @inject SessionManager Sessions
 @inject NavigationManager Nav
+@inject UiState Ui
+@implements IDisposable
 
 @* role=log wraps the blocks only: finished blocks are announced as they are added; the token-by-token stream is hidden
    until it lands as a TextItem. StatusLine and CrashBanner are their own live regions, so they sit outside the log. *@
@@ -34,7 +36,11 @@
                         <ul class="thumbs" aria-label="@L["Composer.Images"]">
                             @for (var i = 0; i < imgs.Count; i++)
                             {
-                                <li>@if (imgs[i].Url is { } url)
+                                <li>@if (imgs[i].Document)
+                                    {
+                                        <span class="miss" title="@imgs[i].Name"><Icon Name="paperclip" Sm />@(imgs[i].Name ?? L["Composer.Document", i + 1])</span>
+                                    }
+                                    else if (imgs[i].Url is { } url)
                                     {
                                         <img src="@url" alt="@L["Composer.ImageAlt", i + 1]" loading="lazy" />
                                     }
@@ -145,7 +151,15 @@
 
     // Bookmarked replies of this session (Bookmarks.cs); the context panel lists them.
     HashSet<string> marked = [];
-    protected override void OnInitialized() => marked = [.. Bookmarks.Of(Session.Id).Select(b => b.Uuid)];
+    protected override void OnInitialized()
+    {
+        marked = [.. Bookmarks.Of(Session.Id).Select(b => b.Uuid)];
+        Ui.Rewind += AskedRewind;
+    }
+
+    void AskedRewind(UserItem u) => _ = InvokeAsync(() => rewind!.Open(u));
+
+    public void Dispose() => Ui.Rewind -= AskedRewind;
 
     void Mark(string uuid, string md)
     {

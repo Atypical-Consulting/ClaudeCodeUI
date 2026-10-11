@@ -91,7 +91,13 @@
   <data name="Composer.ThinkingMid" xml:space="preserve"><value>Changer la réflexion en cours de conversation ajoute de la latence et peut réduire la qualité.</value></data>
   <data name="Copy.Done" xml:space="preserve"><value>Copié</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Action impossible : {0}</value></data>
-  <data name="Composer.Attach" xml:space="preserve"><value>Joindre des images (ou les coller ou les déposer ici)</value></data>
+  <data name="Composer.Attach" xml:space="preserve"><value>Joindre des images ou des documents (ou les coller ou les déposer ici)</value></data>
+  <data name="Composer.Document" xml:space="preserve"><value>Document {0}</value></data>
+  <data name="Composer.Invisible" xml:space="preserve"><value>{0} caractère(s) invisible(s) retiré(s) du message : relis-le, puis envoie à nouveau</value></data>
+  <data name="Composer.SendNow" xml:space="preserve"><value>Envoyer maintenant</value></data>
+  <data name="Composer.SendNowHint" xml:space="preserve"><value>Interrompre le tour et envoyer ce message tout de suite</value></data>
+  <data name="Composer.SendNowQueued" xml:space="preserve"><value>Envoyer maintenant : {0}</value></data>
+  <data name="Composer.Suggestion" xml:space="preserve"><value>{0} (Tab pour l’utiliser)</value></data>
   <data name="Composer.CancelQueued" xml:space="preserve"><value>Annuler le message en file : {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>contexte</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort de réflexion</value></data>
@@ -103,10 +109,10 @@
   <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Mode rapide indisponible : {0}</value></data>
   <data name="Composer.History" xml:space="preserve"><value>historique {0} sur {1}</value></data>
   <data name="Composer.ImageAlt" xml:space="preserve"><value>Image {0}</value></data>
-  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} fait {1} : les images sont limitées à {2} chacune</value></data>
-  <data name="Composer.ImageTooMany" xml:space="preserve"><value>{0} images au maximum par message</value></data>
-  <data name="Composer.ImageType" xml:space="preserve"><value>{0} n’est pas une image PNG, JPEG, GIF ou WebP</value></data>
-  <data name="Composer.Images" xml:space="preserve"><value>Images jointes</value></data>
+  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} fait {1} : les pièces jointes sont limitées à {2} chacune</value></data>
+  <data name="Composer.ImageTooMany" xml:space="preserve"><value>{0} pièces jointes au maximum par message</value></data>
+  <data name="Composer.ImageType" xml:space="preserve"><value>{0} n’est ni une image (PNG, JPEG, GIF, WebP), ni un PDF, ni un fichier texte</value></data>
+  <data name="Composer.Images" xml:space="preserve"><value>Pièces jointes</value></data>
   <data name="Composer.Interrupt" xml:space="preserve"><value>Interrompre</value></data>
   <data name="Composer.Interrupted" xml:space="preserve"><value>interrompu</value></data>
   <data name="Composer.Label" xml:space="preserve"><value>Message pour Claude</value></data>
@@ -119,7 +125,7 @@
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>Le workflow tourne. Ce que tu envoies maintenant part en file…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Refuser {0} et envoyer</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Les demandes d’autorisation en attente sont d’abord refusées, puis ton message est envoyé.</value></data>
-  <data name="Composer.RemoveImage" xml:space="preserve"><value>Retirer l’image {0}</value></data>
+  <data name="Composer.RemoveImage" xml:space="preserve"><value>Retirer la pièce jointe {0}</value></data>
   <data name="Composer.Queue" xml:space="preserve"><value>Mettre en file</value></data>
   <data name="Composer.QueueHint" xml:space="preserve"><value>Claude le lit au prochain résultat d’outil, ou juste après ce tour</value></data>
   <data name="Composer.Queued" xml:space="preserve"><value>en file</value></data>
@@ -309,8 +315,8 @@
   <data name="Mem.Type.Project" xml:space="preserve"><value>projet</value></data>
   <data name="Mem.Type.User" xml:space="preserve"><value>utilisateur</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Analyse…</value></data>
-  <data name="Mention.Title" xml:space="preserve"><value>Fichiers et dossiers</value></data>
-  <data name="Mention.NoMatch" xml:space="preserve"><value>Aucun fichier ne correspond</value></data>
+  <data name="Mention.Title" xml:space="preserve"><value>Agents, fichiers et dossiers</value></data>
+  <data name="Mention.NoMatch" xml:space="preserve"><value>Aucun résultat</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>{0:N0} premières entrées</value></data>
   <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accepter les éditions</value></data>
   <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>

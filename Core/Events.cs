@@ -71,7 +71,10 @@ public record TaskProgressEvt(string TaskId, long TotalTokens, int ToolUses, int
 public record TaskDoneEvt(string TaskId, string ToolUseId, string Status, string? Result = null, long Tokens = 0, int ToolUses = 0, int DurationMs = 0) : ClaudeEvent;
 public record TitleEvt(string Title) : ClaudeEvent;
 public record ResetEvt : ClaudeEvent;                                                // /clear: the CLI starts a new conversation (and session id)
-public record QueueEvt(string Uuid, string State) : ClaudeEvent;   // command_lifecycle: queued|started|completed|cancelled|discarded|refused
+public record QueueEvt(string Uuid, string State) : ClaudeEvent;
+// prompt_suggestion (--prompt-suggestions): the CLI's guess at the next prompt, after a result. It holds it back while
+// the rate limit is anything but "allowed" (allowed_warning included), and before the second assistant message.
+public record SuggestionEvt(string Text) : ClaudeEvent;   // command_lifecycle: queued|started|completed|cancelled|discarded|refused
 // system/hook_response, streamed with --include-hook-events. Output = stdout + stderr; exit 2 is the CLI's blocking error.
 // Id: hook_id, shared with the hook_started that announced it.
 public record HookEvt(string Name, string Outcome, int? ExitCode, string Output, string? Id = null) : ClaudeEvent;
@@ -155,8 +158,8 @@ public static class Events
                     }
                     if (content.ValueKind != JsonValueKind.Array) break;
                     JsonElement? structured = e.TryGetProperty("tool_use_result", out var tur) && tur.ValueKind == JsonValueKind.Object ? Slim(tur) : null;
-                    // Image blocks ride on the message's first text, or stand alone in an image-only message.
-                    UserImage[] images = parent is null ? [.. content.EnumerateArray().Where(c => Str(c, "type") == "image").Select(Images.Parse)] : [];
+                    // Image and document blocks ride on the message's first text, or stand alone in an attachment-only message.
+                    UserImage[] images = parent is null ? [.. content.EnumerateArray().Where(c => Str(c, "type") is "image" or "document").Select(Images.Parse)] : [];
                     var texts = 0;
                     foreach (var c in content.EnumerateArray())
                         switch (Str(c, "type"))
@@ -214,6 +217,10 @@ public static class Events
 
             case "command_lifecycle":
                 if (Str(e, "command_uuid") is { } cu && Str(e, "state") is { } st) yield return new QueueEvt(cu, st);
+                break;
+
+            case "prompt_suggestion":
+                if (Str(e, "suggestion") is { Length: > 0 } sug) yield return new SuggestionEvt(sug);
                 break;
 
             case "rate_limit_event":
@@ -557,6 +564,8 @@ public static class Events
         Ok(P("""{"type":"system","subtype":"session_title_changed","title":"probe-session"}""") is TitleEvt { Title: "probe-session" }, "title");
         Ok(P("""{"type":"conversation_reset","new_conversation_id":"c7d8","uuid":"c7d8","trigger":"clear","user_message_uuid":"a8d3","timestamp":"2026-10-09T21:32:36.965Z","session_id":"cf56"}""") is ResetEvt, "conversation_reset");
         Ok(P("""{"type":"command_lifecycle","command_uuid":"64bc9ab2-94bb-49c2-8486-8978e4f94126","state":"cancelled","uuid":"e26f0eba-0e60-45ce-87e3-7fb748c98d6c","session_id":"f076ad9a"}""") is QueueEvt { Uuid: "64bc9ab2-94bb-49c2-8486-8978e4f94126", State: "cancelled" }, "command_lifecycle");
+
+        Ok(P("""{"type":"prompt_suggestion","suggestion":"write the function","uuid":"4965ab55-46c7-4edc-8391-e478a7290066","session_id":"51318cf7"}""") is SuggestionEvt { Text: "write the function" }, "prompt_suggestion");
 
         static McpAuthStart A(string json) => McpAuthStart.Parse(JsonDocument.Parse(json).RootElement.Clone());
         Ok(A("""{"authUrl":"http://127.0.0.1:5/authorize?response_type=code&state=s","requiresUserAction":true,"callbackExpected":true,"redirectScheme":"localhost","state":"s","callbackPort":61234}""")

@@ -1,6 +1,7 @@
 @* Prompt box with the per-turn settings: permission mode (set_permission_mode), model (set_model), effort / fast / ultracode (apply_flag_settings), "/" commands,
    "@" file mentions (the CLI reads the mentioned file itself), ↑ ↓ prompt history (this session, then past sessions of the same folder).
-   Sent during a turn, a message waits as a chip until the CLI starts it (command_lifecycle), or is cancelled (cancel_async_message). *@
+   Sent during a turn, a message waits as a chip until the CLI starts it (command_lifecycle), is sent now (interrupt send_now),
+   or is cancelled (cancel_async_message). *@
 @inject IJSRuntime JS
 @inject UiState Ui
 @inject NavigationManager Nav
@@ -41,6 +42,7 @@
                     <li @key="q.Uuid" class="qchip">
                         <span class="tag" title="@L["Composer.QueueHint"]">@L["Composer.Queued"]</span>
                         <span class="qt" title="@q.Text">@q.Text</span>
+                        <button type="button" class="btn ghost" aria-label="@L["Composer.SendNowQueued", q.Text]" title="@L["Composer.SendNowHint"]" @onclick="() => Run(() => Session.SendNow(q.Uuid))"><Icon Name="right" Sm /></button>
                         <button type="button" class="btn ghost" aria-label="@L["Composer.CancelQueued", q.Text]" title="@L["Composer.CancelQueued", q.Text]" @onclick="() => Cancel(q)"><Icon Name="x" Sm /></button>
                     </li>
                 }
@@ -55,14 +57,21 @@
                 {
                     var n = i;
                     <li>
-                        <img src="@images[n].Url" alt="@L["Composer.ImageAlt", n + 1]" />
+                        @if (images[n].Document)
+                        {
+                            <span class="miss" title="@images[n].Name"><Icon Name="paperclip" Sm />@(images[n].Name ?? L["Composer.Document", n + 1])</span>
+                        }
+                        else
+                        {
+                            <img src="@images[n].Url" alt="@L["Composer.ImageAlt", n + 1]" />
+                        }
                         <button type="button" class="x" title="@L["Composer.RemoveImage", n + 1]" aria-label="@L["Composer.RemoveImage", n + 1]" @onclick="() => Remove(n)"><Icon Name="x" Sm /></button>
                     </li>
                 }
             </ul>
         }
         <textarea @ref="area" @bind="text" @bind:event="oninput" @bind:after="history.Reset" @onkeydown="Key" placeholder="@Placeholder" disabled="@crashed"
-                  aria-label="@L["Composer.Label"]" aria-keyshortcuts="ArrowUp ArrowDown" aria-describedby="composer-history"
+                  aria-label="@L["Composer.Label"]" aria-keyshortcuts="@(SuggestionShown ? "ArrowUp ArrowDown Tab" : "ArrowUp ArrowDown")" aria-describedby="composer-history"
                   aria-autocomplete="@(SlashOpen || MentionOpen ? "list" : null)" aria-controls="@(SlashOpen ? "slash-list" : MentionOpen ? "mention-list" : null)" aria-activedescendant="@(SlashOpen ? slash!.ActiveId : MentionOpen ? mention!.ActiveId : null)"></textarea>
         <div class="tools-row">
             <span class="tools">
@@ -78,7 +87,7 @@
             @* Paste and drop (app.js claudeUi.images) hand files to this InputFile, which streams them in chunks: images never
                ride in one hub message, so they do not depend on MaximumReceiveMessageSize (Program.cs). *@
             <button type="button" class="pick" @ref="attachBtn" disabled="@crashed" title="@L["Composer.Attach"]" aria-label="@L["Composer.Attach"]"><Icon Name="paperclip" /></button>
-            <InputFile @ref="picker" OnChange="AddImages" multiple accept="image/png,image/jpeg,image/gif,image/webp" hidden tabindex="-1" />
+            <InputFile @ref="picker" OnChange="AddImages" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,.md,.txt,.csv,.json,.log" hidden tabindex="-1" />
             @if (models.Count > 0 && !crashed)
             {
                 <button class="pick model" @ref="pickBtn" title="@L["Model"]" aria-label="@($"{L["Model"]}: {ModelLabel}")" aria-haspopup="listbox" aria-expanded="@(menuOpen ? "true" : "false")" @onclick="() => { menuOpen = !menuOpen; modeOpen = false; }">
@@ -134,7 +143,8 @@
                     @if (ultraTurn) { <span class="tag acc">ultracode</span> }
                     @if (!string.IsNullOrWhiteSpace(text))
                     {
-                        <button class="btn go primary" title="@L["Composer.QueueHint"]" @onclick="Send">@L["Composer.Queue"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                        <button class="btn go primary" title="@L["Composer.QueueHint"]" @onclick="() => Send()">@L["Composer.Queue"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                        <button class="btn go" title="@L["Composer.SendNowHint"]" @onclick="() => Send(true)">@L["Composer.SendNow"] <kbd>@Strings.Kbd("Ctrl ⇧ ⏎")</kbd></button>
                     }
                     <button class="btn go" @onclick="() => Run(Session.Interrupt)"><Icon Name="stop" Sm />@(ultraTurn ? L["Composer.StopWorkflow"] : L["Composer.Interrupt"]) <kbd>@L["Key.Esc"]</kbd></button>
                 }
@@ -145,11 +155,11 @@
                 else if (Session.Pending.Count is var n and > 0)
                 {
                     @* Sending answers the pending requests with a denial first: say so on the button itself. *@
-                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="Send">@L["Composer.DenyAndSend", n] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    <button class="btn go danger" title="@L["Composer.DenyAndSendHint"]" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="() => Send()">@L["Composer.DenyAndSend", n] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
                 else
                 {
-                    <button class="btn go @(string.IsNullOrWhiteSpace(text) && images.Count == 0 ? null : "primary")" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="Send">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
+                    <button class="btn go @(string.IsNullOrWhiteSpace(text) && images.Count == 0 ? null : "primary")" disabled="@(string.IsNullOrWhiteSpace(text) && images.Count == 0)" @onclick="() => Send()">@L["Composer.Send"] <kbd>@Strings.Kbd("Ctrl ⏎")</kbd></button>
                 }
             </span>
         </div>
@@ -244,8 +254,12 @@
         SessionStatus.Exited => L["Composer.PhHistory"],
         SessionStatus.Running when ultraTurn => L["Composer.PhWorkflow"],
         SessionStatus.Running => L["Composer.PhRunning"],
+        _ when SuggestionShown => L["Composer.Suggestion", Session.Suggestion!],
         _ => L["Composer.PhIdle"],
     };
+
+    // The CLI's predicted next prompt, as the terminal's ghost text: in the empty box between turns, Tab takes it.
+    bool SuggestionShown => Session.Suggestion is not null && Session.Status == SessionStatus.Idle && text.Length == 0 && images.Count == 0;
 
     protected override void OnParametersSet()
     {
@@ -321,10 +335,18 @@
         await JS.InvokeVoidAsync("claudeUi.focus", pickBtn);
     }
 
-    async Task Send()
+    // now: the CLI's "send now", the message interrupts the turn instead of waiting for it.
+    async Task Send(bool now = false)
     {
         var t = text.Trim();
         if (t.Length == 0 && images.Count == 0 || reading || crashed) return;
+        // Invisible characters (Invisible.Strip) are taken out and shown first: the next Send sends what was reviewed.
+        if (Invisible.Strip(t) is (var clean, > 0 and var hidden))
+        {
+            text = clean;
+            error = L["Composer.Invisible", hidden];
+            return;
+        }
         var imgs = images;
         text = "";
         images = [];
@@ -336,7 +358,8 @@
         await Run(async () =>
         {
             foreach (var p in Session.Pending) await Session.Answer(p, Decision.Deny);
-            await Session.Send(t, imgs);
+            var uuid = await Session.Send(t, imgs);
+            if (now && Session.Queued.Any(q => q.Uuid == uuid)) await Session.SendNow(uuid);
         });
         if (error is not null)   // never lose the prompt to a failed send
         {
@@ -356,6 +379,11 @@
             case "/allowed-tools": Nav.NavigateTo("extensions?tab=permissions"); break;
             case "/plugin" or "/plugins": Nav.NavigateTo("extensions?tab=plugins"); break;
             case "/memory" or "/add-dir": Ui.SelectedToolId = null; Ui.DiffOpen = false; Ui.InspectorOpen = true; break;   // the context panel holds both
+            // The terminal's message picker: the latest message that can go back; the Thread's own buttons reach the others.
+            case "/rewind" or "/checkpoint" or "/undo":
+                if (Session.Items.LastOrDefault(i => i is UserItem u && Session.CanRewind(u)) is UserItem last) Ui.AskRewind(last);
+                else error = L["Rewind.Unavailable"];
+                break;
             case "/diff" when Session.Cwd.Length > 0: Ui.SelectedToolId = null; Ui.DiffOpen = true; Ui.InspectorOpen = true; break;   // terminal-only in the CLI
             default: return false;
         }
@@ -388,7 +416,7 @@
                     await s.CopyToAsync(bytes);
                 }
                 catch (Exception ex) when (ex is IOException or JSException or TaskCanceledException) { error = L["Composer.ActionFailed", ex.Message]; continue; }
-                if (Images.From(bytes.ToArray()) is { } img) images = [.. images, img];
+                if (Images.From(bytes.ToArray(), f.Name) is { } img) images = [.. images, img];
                 else error = L["Composer.ImageType", f.Name];
             }
         }
@@ -445,7 +473,13 @@
 
     async Task Key(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(); return; }
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) { await Send(e.ShiftKey && Session.Status == SessionStatus.Running); return; }
+        if (e.Key == "Tab" && !e.ShiftKey && SuggestionShown)   // the browser moved the focus: put it back
+        {
+            text = Session.Suggestion!;
+            await JS.InvokeVoidAsync("claudeUi.focus", area);
+            return;
+        }
         if (e.Key == "Escape") { slashDismissed = SlashQuery is not null; mentionDismissed = MentionQuery is not null; return; }   // the menu closes on .composer
         if (!text.StartsWith('/')) slashDismissed = false;
         if (FileIndex.Query(text) is null) mentionDismissed = false;

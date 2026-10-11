@@ -1,4 +1,5 @@
-@* "@" mentions: files and folders of the session cwd (FileIndex), filtered by Query. Same shell as SlashPopover;
+@* "@" mentions: the session's subagents ("@agent-<name>", which the CLI runs as that agent: verified on claude 2.1.296),
+   then files and folders of the session cwd (FileIndex), filtered by Query. Same shell as SlashPopover;
    the Composer relays ↑ ↓ Tab via Key / Pick. The cwd is scanned once per opening, off the circuit's thread. *@
 @implements IDisposable
 
@@ -13,11 +14,19 @@
         @for (var i = 0; i < matches.Count; i++)
         {
             var (p, n) = (matches[i], i);
+            var agent = agents.GetValueOrDefault(p);
             var name = FileIndex.Name(p);
             var hit = Query.Length > 0 ? name.IndexOf(Query, StringComparison.OrdinalIgnoreCase) : -1;
             <div id="mention-opt-@n" class="si @(n == sel ? "on" : null)" role="option" aria-selected="@((n == sel) ? "true" : "false")" @onmousedown:preventDefault @onclick="() => OnPick.InvokeAsync(p)">
                 <b title="@p">@if (hit >= 0) {@name[..hit]<mark>@name.Substring(hit, Query.Length)</mark>@name[(hit + Query.Length)..]} else {@name}</b>
-                <span title="@p">@p[..^name.Length]</span>
+                @if (agent is not null)
+                {
+                    <span title="@agent">@agent</span>
+                }
+                else
+                {
+                    <span title="@p">@p[..^name.Length]</span>
+                }
                 <span></span>
             </div>
         }
@@ -36,6 +45,7 @@
     [Parameter] public EventCallback OnReady { get; set; }   // the scan finished: the Composer re-renders its aria-activedescendant
 
     readonly CancellationTokenSource cts = new();
+    Dictionary<string, string> agents = [];   // "agent-<name>" → its description
     FileIndex.Index? index;
     List<string> matches = [];
     string? q;
@@ -48,6 +58,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        agents = Agents(Session);
+        Refilter();
         try { index = await FileIndex.Scan(Session.Cwd, cts.Token); }
         catch (OperationCanceledException) { return; }
         catch (Exception ex)
@@ -70,9 +82,16 @@
 
     void Refilter()
     {
-        matches = index is null ? [] : FileIndex.Filter(index.Paths, Query);
+        var found = FileIndex.Filter(agents.Keys, Query, 3);
+        matches = [.. found, .. index is null ? [] : FileIndex.Filter(index.Paths, Query, FileIndex.MaxResults - found.Count)];
         if (sel >= matches.Count) sel = 0;
     }
+
+    // initialize's agents carry a description; init's are names only (a session resumed before its first answer has neither).
+    static Dictionary<string, string> Agents(LiveSession s) =>
+        s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: System.Text.Json.JsonValueKind.Array } a
+            ? a.EnumerateArray().Where(x => Events.Str(x, "name") is not null).DistinctBy(x => Events.Str(x, "name")).ToDictionary(x => "agent-" + Events.Str(x, "name"), x => Events.Str(x, "description") ?? "")
+            : (s.Init?.Agents ?? []).Distinct().ToDictionary(n => "agent-" + n, _ => "");
 
     public void Dispose()
     {

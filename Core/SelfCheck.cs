@@ -27,6 +27,7 @@ public static class SelfCheck
             Elicit.Check();
             Mcp.Check();
             FileIndex.Check();
+            Invisible.Check();
             PromptHistory.Check();
             Notifications.Check();
             MemoryFiles.Check();

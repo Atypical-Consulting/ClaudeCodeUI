@@ -172,6 +172,7 @@ public sealed class LiveSession : IAsyncDisposable
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
+    public string? Suggestion { get; private set; }   // the CLI's predicted next prompt (prompt_suggestion), until something is sent
     public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
     public MemoryEdit Memory { get; } = new();       // the memory panel's open file and unsaved edit, same reason
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
@@ -185,10 +186,12 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- commands ----------
 
-    public async Task Send(string text, IReadOnlyList<UserImage>? images = null)
+    // Returns the message's uuid (SendNow presses a queued one by it).
+    public async Task<string> Send(string text, IReadOnlyList<UserImage>? images = null)
     {
         var p = EnsureProcess();
         var uuid = Guid.NewGuid().ToString();
+        Suggestion = null;
         // During a turn the CLI queues the message: it folds it into the turn at the next tool result, or runs it as the
         // next turn (also after an interrupt). It joins the thread on command_lifecycle `started` (--probe-cli queue).
         // A queued message never arms ultracode (the flag would land on the running turn; the toggle stays armed for the next
@@ -214,7 +217,12 @@ public sealed class LiveSession : IAsyncDisposable
             Notify();
             throw;
         }
+        return uuid;
     }
+
+    // The CLI's "send now": interrupt {send_now, message_uuid} stops the turn and starts that queued message at once
+    // (answers send_now:"stopped"; the message then starts on command_lifecycle, verified on claude 2.1.296).
+    public Task SendNow(string uuid) => Request("interrupt", new() { ["send_now"] = true, ["message_uuid"] = uuid });
 
     // "Rewind to here": only between turns with no background agent still writing files, and only to a message this very
     // process received (its uuid dies with it).
@@ -260,10 +268,21 @@ public sealed class LiveSession : IAsyncDisposable
     // (<command-name>/compact</command-name>…), so it only serves, normalised, when the message is not in the thread.
     internal void CutBack(string uuid, string? prefill)
     {
-        if ((Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid)?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
+        var item = Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid);
+        if ((item?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
             Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
+        if (item?.Images is { Count: > 0 } im && DraftImages.Count == 0) DraftImages = [.. im.Where(i => i.Url is not null)];
         Truncate(uuid);
     }
+
+    // Esc before Claude answered: as in the terminal, the prompt goes back to the Composer and leaves the conversation
+    // (rewind_conversation to it answers rewound after an interrupt, verified on claude 2.1.296). Not when a queued
+    // message runs next, nor once the turn produced anything.
+    internal UserItem? Unanswered() =>
+        LastResultSubtype == Interrupted && Queued.IsEmpty && Items.FindLastIndex(i => i is UserItem) is >= 0 and var at
+        && !Items.Skip(at + 1).Any(i => i is TextItem or ToolItem or ThoughtItem or ApiErrorItem or CompactItem or FallbackItem)
+        && Items[at] is UserItem { Uuid: not null } u ? u : null;
+
 
     // The rewind_conversation targets for a rewind to `uuid`: it and every message sent after it, newest first.
     internal IReadOnlyList<string> RewindSteps(string uuid) =>
@@ -568,7 +587,8 @@ public sealed class LiveSession : IAsyncDisposable
     // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
     internal List<string> Args(bool resume)
     {
-        var args = new List<string> { "--include-partial-messages", "--forward-subagent-text", TodoList.AllowedToolsArg, "--include-hook-events" };
+        // --prompt-suggestions: a prompt_suggestion after each result, as the terminal's ghost text.
+        var args = new List<string> { "--include-partial-messages", "--forward-subagent-text", TodoList.AllowedToolsArg, "--include-hook-events", "--prompt-suggestions", "true" };
         // No mode chosen (""): the CLI applies permissions.defaultMode, as in the terminal; initialize says which.
         if (Mode.Length > 0) args.InsertRange(0, ["--permission-mode", Mode == "default" ? "manual" : Mode]);
         if (resume) args.AddRange(["--resume", Id]);
@@ -678,6 +698,8 @@ public sealed class LiveSession : IAsyncDisposable
             // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
             if (e is ElicitDoneEvt ed && Pending.FirstOrDefault(p => Elicit.Matches(p, ed.Server, ed.ElicitationId)) is { } ep)
                 _ = Answer(ep, Decision.Allow).ContinueWith(t => Console.Error.WriteLine($"[{Id}] elicitation accept: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+            if (e is ResultEvt && Unanswered() is { } back && CanRewind(back))
+                _ = Rewind(back, false).ContinueWith(t => Console.Error.WriteLine($"[{Id}] restore prompt: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
             if (e is ResultEvt && turnUltra)
             {
                 turnUltra = false;
@@ -1094,6 +1116,10 @@ public sealed class LiveSession : IAsyncDisposable
                 PluginStatus = ps.Text is { } line ? PluginStatus.SetItem(ps.Plugin, line) : PluginStatus.Remove(ps.Plugin);
                 break;
 
+            case SuggestionEvt sg:
+                Suggestion = sg.Text;
+                break;
+
             case CommandsEvt c when InitializeInfo is { } info:
                 InitializeInfo = With(info, "commands", c.Commands);
                 break;
@@ -1153,13 +1179,13 @@ public sealed class LiveSession : IAsyncDisposable
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--prompt-suggestions", "true", "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };
-        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
-        Ok(fork.Args(true) is [_, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
-        Ok(new LiveSession("c", "c", @"C:\w", "").Args(false) is [_, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "c", ..], "no mode chosen: no --permission-mode");
+        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", _, _, "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
+        Ok(fork.Args(true) is [_, _, _, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
+        Ok(new LiveSession("c", "c", @"C:\w", "").Args(false) is [_, _, TodoList.AllowedToolsArg, "--include-hook-events", _, _, "--session-id", "c", ..], "no mode chosen: no --permission-mode");
         var sg = JsonDocument.Parse("""[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"npm test:*"}],"behavior":"allow","destination":"localSettings"},{"type":"addDirectories","directories":["/x"],"destination":"localSettings"}]""").RootElement;
         Ok(Destined(sg, "session").ToJsonString() is var so && so.Contains("\"destination\":\"session\"") && !so.Contains("localSettings") && so.Contains("npm test:*"), "whole-session allow stays in the session");
         Ok(Destined(sg, "userSettings").ToJsonString() is var su && su.Split("\"destination\":\"userSettings\"").Length == 3, "always-allow goes where the user picked");
@@ -1341,6 +1367,22 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Status == SessionStatus.Idle && s.Pending.IsEmpty, "late resolve is a no-op");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
+
+        // Esc before any answer: the prompt (and its images) go back to the Composer; once something came back, it stays.
+        var ir = new LiveSession("ir", "ir", "/w", "default");
+        var shot = Images.From(CliProbe.DigitsPng("7"))!;
+        ir.BeginTurn("fix it", [shot], "u9");
+        ir.Apply(new HookEvt("UserPromptSubmit", "success", 0, ""));
+        ir.Apply(new ResultEvt("error_during_execution", true, 0, 10, 0, 0, null, null, null, "aborted_streaming"));
+        Ok(ir.Unanswered() is { Uuid: "u9" }, "interrupted before an answer: restorable");
+        ir.CutBack("u9", "fix it");
+        Ok(ir.Draft == "fix it" && ir.DraftImages is [{ MediaType: "image/png" }] && ir.Items.IsEmpty, "prompt and images back in the Composer");
+        ir.BeginTurn("go", null, "u10");
+        ir.Apply(new AssistantTextEvt("m", "partial", null, false));
+        ir.Apply(new ResultEvt("error_during_execution", true, 0, 10, 0, 0, null, null, null, "aborted_streaming"));
+        Ok(ir.Unanswered() is null, "an answered turn stays in the thread");
+        ir.Apply(new SuggestionEvt("run the tests"));
+        Ok(ir.Suggestion == "run the tests", "prompt suggestion kept");
 
         // Messages sent mid-turn, replayed as the command_lifecycle frames --probe-cli queue captured.
         void Enqueue(string uuid, string text) { s.Queued = s.Queued.Add(new(uuid, text, DateTimeOffset.Now)); s.Apply(new QueueEvt(uuid, "queued")); }
