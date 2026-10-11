@@ -392,6 +392,9 @@
   <data name="Notify.Plan" xml:space="preserve"><value>Plan prêt à valider</value></data>
   <data name="Notify.Question" xml:space="preserve"><value>A une question pour toi</value></data>
   <data name="OfN" xml:space="preserve"><value>{0} sur {1}</value></data>
+  <data name="Ov.AgeH" xml:space="preserve"><value>il y a {0} h</value></data>
+  <data name="Ov.AgeMin" xml:space="preserve"><value>il y a {0} min</value></data>
+  <data name="Ov.AgeNow" xml:space="preserve"><value>à l’instant</value></data>
   <data name="Ov.AsOf" xml:space="preserve"><value>relevé {0}</value></data>
   <data name="Ov.Asked" xml:space="preserve"><value>attend ta réponse</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Coût</value></data>
@@ -406,7 +409,6 @@
   <data name="Ov.NoReply" xml:space="preserve"><value>Interrompue avant de répondre</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>en attente</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>File des décisions</value></data>
-  <data name="Ov.QuotaHot" xml:space="preserve"><value>La fenêtre {0} est à {1}, réinitialisation {2}.</value></data>
   <data name="Ov.Recent" xml:space="preserve"><value>Sessions récentes</value></data>
   <data name="Ov.Resume" xml:space="preserve"><value>Reprendre là où tu t’es arrêté</value></data>
   <data name="Ov.ResumeAction" xml:space="preserve"><value>Reprendre</value></data>

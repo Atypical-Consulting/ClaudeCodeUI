@@ -392,7 +392,10 @@
   <data name="Notify.Plan" xml:space="preserve"><value>Plan ready for review</value></data>
   <data name="Notify.Question" xml:space="preserve"><value>Has a question for you</value></data>
   <data name="OfN" xml:space="preserve"><value>{0} of {1}</value></data>
-  <data name="Ov.AsOf" xml:space="preserve"><value>as of {0}</value></data>
+  <data name="Ov.AgeH" xml:space="preserve"><value>{0} h ago</value></data>
+  <data name="Ov.AgeMin" xml:space="preserve"><value>{0} min ago</value></data>
+  <data name="Ov.AgeNow" xml:space="preserve"><value>just now</value></data>
+  <data name="Ov.AsOf" xml:space="preserve"><value>read {0}</value></data>
   <data name="Ov.Asked" xml:space="preserve"><value>waiting on your answer</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Cost</value></data>
   <data name="Ov.Col.Duration" xml:space="preserve"><value>Duration</value></data>
@@ -406,7 +409,6 @@
   <data name="Ov.NoReply" xml:space="preserve"><value>Interrupted before replying</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>waiting</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>Decision queue</value></data>
-  <data name="Ov.QuotaHot" xml:space="preserve"><value>The {0} window is at {1}; it resets {2}.</value></data>
   <data name="Ov.Recent" xml:space="preserve"><value>Recent sessions</value></data>
   <data name="Ov.Resume" xml:space="preserve"><value>Pick up where you left off</value></data>
   <data name="Ov.ResumeAction" xml:space="preserve"><value>Resume</value></data>
