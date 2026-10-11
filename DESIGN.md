@@ -272,7 +272,7 @@ Quiet outlines; only the primary action is filled.
 - **Focus:** stroke shifts to 50% accent with a 3px 10% accent halo (composer `:focus-within`).
 
 ### Navigation
-- **Rail items:** 8px 10px, 6px radius, `fg-3`; hover `raise` + `fg`; current item `raise-2` with a 1px `seam-2` inset ring. Session rows lead with a status dot: idle ring, running green pulse, waiting Ember with halo, error red.
+- **Rail items:** 7px 10px, 6px radius, 13px regular (session titles `fg-2`, branch and cost 11px mono `fg-4`; nav links 400 13px `fg-3`); hover `raise` + `fg`; current item `raise-2` with a 1px `seam-2` inset ring. Session rows lead with a status dot: idle ring, running green pulse, waiting Ember with halo, error red.
 - **Tabs:** 500 13px, `fg-4`; active `fg` with a 2px accent underline.
 - **Mobile (site):** rail becomes a sticky top bar, nav scrolls horizontally, the table of contents opens from a button.
 
