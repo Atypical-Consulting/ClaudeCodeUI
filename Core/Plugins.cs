@@ -127,6 +127,10 @@ public static class Plugins
             WorkingDirectory = cwd, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8, StandardInputEncoding = new UTF8Encoding(false), CreateNoWindow = true,
         };
+        // A person accepts here, not an agent: inherited from a Claude Code shell (dotnet run in one), these make the CLI
+        // ignore --accept-command and ask again for the same command forever.
+        psi.Environment.Remove("CLAUDECODE");
+        psi.Environment.Remove("CLAUDE_CODE_CHILD_SESSION");
         psi.ArgumentList.Add("plugin");
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;

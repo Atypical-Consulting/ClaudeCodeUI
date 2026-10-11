@@ -317,7 +317,8 @@ public sealed class LiveSession : IAsyncDisposable
     // Relaunch after a crash or open a past session: --resume when a transcript exists, else a fresh start with the same id.
     public async Task Restart()
     {
-        if (proc is { } old) { proc = null; await old.DisposeAsync(); }
+        if (proc is { } old) { proc = null; await old.DisposeAsync(); }   // proc is null first, so OnExit ignores old
+        lock (gate) PluginStatus = PluginStatus.Clear();
         EnsureProcess();
     }
 
@@ -595,6 +596,7 @@ public sealed class LiveSession : IAsyncDisposable
             TurnStartedAt = null;
             ClearStream();
             EndTools(DateTimeOffset.Now, false);
+            PluginStatus = PluginStatus.Clear();   // the next process never sends text:null for the old plugins' lines
         }
         Notify();
         return true;
@@ -1226,6 +1228,10 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(el.PluginStatus is { Count: 1 } && el.PluginStatus["demo"] == "synced", "plugin status replaced");
         el.Apply(new PluginStatusEvt("demo", null));
         Ok(el.PluginStatus.IsEmpty, "plugin status cleared");
+        var gone = new LiveSession("g", "g", "/w", "default");
+        gone.Apply(new PluginStatusEvt("demo", "syncing"));
+        gone.OnExit(null, 1, "x");
+        Ok(gone.PluginStatus.IsEmpty, "plugin status dropped when the process ends");
         el.InitializeInfo = JsonDocument.Parse("""{"commands":[{"name":"old"}],"agents":[],"models":[{"value":"haiku"}]}""").RootElement;
         el.Apply(new CommandsEvt(JsonDocument.Parse("""[{"name":"demo:hello","description":"say hi"}]""").RootElement));
         Ok(Events.Prop(el.InitializeInfo.Value, "commands")?[0].GetProperty("name").GetString() == "demo:hello" && Events.Prop(el.InitializeInfo.Value, "models") is not null, "commands_changed");
