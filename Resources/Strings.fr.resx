@@ -721,4 +721,33 @@
   <data name="Mcp.AuthFailed" xml:space="preserve"><value>{0} a refusé les identifiants de cet appel.</value></data>
   <data name="Mcp.AuthWaiting" xml:space="preserve"><value>Termine la connexion dans ton navigateur, puis demande à Claude de réessayer.</value></data>
   <data name="Mcp.SignedIn" xml:space="preserve"><value>{0} est connecté. Demande à Claude de réessayer.</value></data>
+  <data name="Ext.Col.Scope" xml:space="preserve"><value>Portée</value></data>
+  <data name="Ext.Plugins.Reload" xml:space="preserve"><value>Recharger les plugins</value></data>
+  <data name="Ext.Plugins.Reloaded" xml:space="preserve"><value>Rechargé : {0} plugins, {1} skills, {2} agents.</value></data>
+  <data name="Ext.Plugins.ReloadErrors" xml:space="preserve"><value>{0} erreurs au chargement, voir les lignes ci-dessous.</value></data>
+  <data name="Ext.Plugins.LoadError" xml:space="preserve"><value>{0} ne s’est pas chargé : {1}</value></data>
+  <data name="Ext.Plugins.Failed" xml:space="preserve"><value>claude plugin a échoué : {0}</value></data>
+  <data name="Ext.Plugins.Loading" xml:space="preserve"><value>Lecture des plugins installés…</value></data>
+  <data name="Ext.Plugins.None" xml:space="preserve"><value>Aucun plugin installé.</value></data>
+  <data name="Ext.Plugins.Enable" xml:space="preserve"><value>Activé</value></data>
+  <data name="Ext.Plugins.Options" xml:space="preserve"><value>Options</value></data>
+  <data name="Ext.Plugins.Update" xml:space="preserve"><value>Mettre à jour</value></data>
+  <data name="Ext.Plugins.Uninstall" xml:space="preserve"><value>Désinstaller</value></data>
+  <data name="Ext.Plugins.ConfirmUninstall" xml:space="preserve"><value>Confirmer la désinstallation</value></data>
+  <data name="Ext.Plugins.Install" xml:space="preserve"><value>Installer un plugin</value></data>
+  <data name="Ext.Plugins.InstallButton" xml:space="preserve"><value>Installer</value></data>
+  <data name="Ext.Plugins.Command" xml:space="preserve"><value>Installer {0} exécute cette commande venue de sa marketplace. Ne l’exécute que si tu fais confiance à cette marketplace :</value></data>
+  <data name="Ext.Plugins.Accept" xml:space="preserve"><value>Exécuter et installer</value></data>
+  <data name="Ext.Plugins.Markets" xml:space="preserve"><value>Marketplaces</value></data>
+  <data name="Ext.Plugins.Market" xml:space="preserve"><value>Marketplace</value></data>
+  <data name="Ext.Plugins.Remove" xml:space="preserve"><value>Retirer</value></data>
+  <data name="Ext.Plugins.ConfirmRemove" xml:space="preserve"><value>Confirmer le retrait</value></data>
+  <data name="Ext.Plugins.AddMarket" xml:space="preserve"><value>Ajouter une marketplace (owner/repo, URL git ou chemin)</value></data>
+  <data name="Ext.Plugins.AddMarketButton" xml:space="preserve"><value>Ajouter</value></data>
+  <data name="Ext.Plugins.OptionsTitle" xml:space="preserve"><value>Options de {0}</value></data>
+  <data name="Ext.Plugins.Required" xml:space="preserve"><value>obligatoire</value></data>
+  <data name="Ext.Plugins.Unset" xml:space="preserve"><value>non défini</value></data>
+  <data name="Ext.Plugins.SecretKept" xml:space="preserve"><value>Enregistré. Laisser vide pour le garder</value></data>
+  <data name="Ext.Plugins.Save" xml:space="preserve"><value>Enregistrer</value></data>
+  <data name="Ext.Plugins.Saved" xml:space="preserve"><value>Options enregistrées.</value></data>
 </root>

@@ -32,6 +32,7 @@ public static class SelfCheck
             MemoryFiles.Check();
             FolderPicker.Check();
             PermissionRules.Check();
+            Plugins.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

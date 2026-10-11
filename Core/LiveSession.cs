@@ -135,7 +135,7 @@ public sealed class LiveSession : IAsyncDisposable
     public bool StartFailed { get; private set; }   // the claude process never spawned: no turn ran
     public string ExitLabel => StartFailed ? Strings.Get("Session.NotStarted") : Strings.Get("Session.ExitShort", ExitCode);
     public InitEvt? Init { get; private set; }
-    public JsonElement? InitializeInfo { get; private set; }  // "initialize" response: models, commands, agents, account
+    public JsonElement? InitializeInfo { get; internal set; }  // "initialize" response: models, commands, agents, account
     public string? Model { get; private set; }
     public string? Effort { get; private set; }
     public bool Ultracode { get; private set; }               // toggle "for this turn"
@@ -143,6 +143,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
     public JsonElement? McpStatus { get; private set; }       // raw mcp_status
+    public ImmutableDictionary<string, string> PluginStatus { get; private set; } = ImmutableDictionary<string, string>.Empty;   // plugin → its ui_status line
     public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
     public RetryEvt? Retry { get; private set; }               // the API call being retried; cleared by the next sign of progress
@@ -397,6 +398,34 @@ public sealed class LiveSession : IAsyncDisposable
 
     public async Task RefreshContext() { Context = await Request("get_context_usage"); Notify(); }
     public async Task RefreshMcp() { McpStatus = await Request("mcp_status"); Notify(); }
+
+    // reload_plugins (/reload-plugins) reads the plugins from disk again and answers the plugins, agents and MCP servers
+    // as they now are; the commands follow in its commands_changed push. reload_skills (/reload-skills) gives the skills,
+    // which init.skills lists and reload_plugins does not. Counted from the answers: before the first message there is no
+    // init to update. Errors: the load failures (details: `claude plugin list`).
+    public async Task<(int Plugins, int Skills, int Agents, int Errors)> ReloadPlugins()
+    {
+        var r = await Request("reload_plugins");
+        var k = await Request("reload_skills");
+        lock (gate) Reloaded(r, k);
+        Notify();
+        return (Events.Names(r, "plugins").Length, Events.Names(k, "skills").Length, Events.Names(r, "agents").Length, (int)Events.Long(r, "error_count"));
+    }
+
+    internal void Reloaded(JsonElement r, JsonElement skills)
+    {
+        if (Init is { } i) Init = i with { Plugins = Events.Names(r, "plugins"), Agents = Events.Names(r, "agents"), Skills = Events.Names(skills, "skills") };
+        if (InitializeInfo is { } info && Events.Prop(r, "agents") is { ValueKind: JsonValueKind.Array } a) InitializeInfo = With(info, "agents", a);
+        if (Events.Prop(r, "mcpServers") is { ValueKind: JsonValueKind.Array } m) McpStatus = With(JsonDocument.Parse("{}").RootElement, "mcpServers", m);
+    }
+
+    // o with key set to v: InitializeInfo stays an immutable element, replaced whole.
+    static JsonElement With(JsonElement o, string key, JsonElement v)
+    {
+        var n = JsonNode.Parse(o.GetRawText())!.AsObject();
+        n[key] = JsonNode.Parse(v.GetRawText());
+        return JsonSerializer.SerializeToElement(n);
+    }
 
     // "Sign in again" after an MCP call refused for its credential: mcp_clear_auth drops the stored token (the server
     // turns needs-auth), then mcp_authenticate hands out a fresh sign-in page. Both verified by --probe-cli mcp-auth.
@@ -891,6 +920,14 @@ public sealed class LiveSession : IAsyncDisposable
             case NoticeEvt n:
                 Items = Items.Add(new NoticeItem(n));
                 break;
+
+            case PluginStatusEvt ps:
+                PluginStatus = ps.Text is { } line ? PluginStatus.SetItem(ps.Plugin, line) : PluginStatus.Remove(ps.Plugin);
+                break;
+
+            case CommandsEvt c when InitializeInfo is { } info:
+                InitializeInfo = With(info, "commands", c.Commands);
+                break;
         }
     }
 
@@ -1182,6 +1219,21 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(ThrowsMsg(() => el.Answer(el.Pending[0], Decision.Allow)) == Strings.Get("Ask.NeedsAnswers"), "form elicitation never accepted bare");
         el.Apply(new CancelRequestEvt("e1"));
         Ok(el.Pending.IsEmpty && el.Status == SessionStatus.Running, "elicitation withdrawn by the CLI");
+        // A plugin's status line is replaced, then cleared; commands_changed replaces initialize's commands; a reload
+        // (reload_plugins + reload_skills, 2.1.296 shapes trimmed) refreshes the plugin, agent, skill and MCP lists.
+        el.Apply(new PluginStatusEvt("demo", "syncing"));
+        el.Apply(new PluginStatusEvt("demo", "synced"));
+        Ok(el.PluginStatus is { Count: 1 } && el.PluginStatus["demo"] == "synced", "plugin status replaced");
+        el.Apply(new PluginStatusEvt("demo", null));
+        Ok(el.PluginStatus.IsEmpty, "plugin status cleared");
+        el.InitializeInfo = JsonDocument.Parse("""{"commands":[{"name":"old"}],"agents":[],"models":[{"value":"haiku"}]}""").RootElement;
+        el.Apply(new CommandsEvt(JsonDocument.Parse("""[{"name":"demo:hello","description":"say hi"}]""").RootElement));
+        Ok(Events.Prop(el.InitializeInfo.Value, "commands")?[0].GetProperty("name").GetString() == "demo:hello" && Events.Prop(el.InitializeInfo.Value, "models") is not null, "commands_changed");
+        el.Apply(new InitEvt("s", "", "", "", [], [], [], ["old"], [], ["gone"], "off", null));
+        el.Reloaded(JsonDocument.Parse("""{"commands":[],"agents":[{"name":"claude","description":"Catch-all"}],"plugins":[{"name":"context7","path":"/p","source":"context7@claude-plugins-official"}],"mcpServers":[{"name":"plugin:context7:context7","status":"needs-auth","config":{"type":"http","url":"https://mcp.context7.com/mcp"},"scope":"dynamic","source":"plugin"}],"error_count":1}""").RootElement,
+            JsonDocument.Parse("""{"skills":[{"name":"demo:hello","description":"say hi","argumentHint":""}]}""").RootElement);
+        Ok(el.Init is { Plugins: ["context7"], Agents: ["claude"], Skills: ["demo:hello"] } && Mcp.Names(el).SequenceEqual(["plugin:context7:context7"])
+           && Events.Prop(el.InitializeInfo.Value, "agents")?.GetArrayLength() == 1, "reload refreshes the lists");
         el.Apply(new NoticeEvt("Error compacting conversation", "error"));
         Ok(el.Items[^1] is NoticeItem { Notice.Color: "error" }, "notification joins the thread");
         Ok(ThrowsMsg(() => s.Answer(bare, Decision.Allow)) == Strings.Get("Ask.NeedsAnswers")

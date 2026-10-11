@@ -48,6 +48,11 @@
         <span class="sr-only">@L["Status.TurnDone"]</span>
         break;
 }
+@* Plugins' $.ui.status lines (system/ui_status): the REPL's status row, one per plugin until it clears its own. *@
+@if (!Session.PluginStatus.IsEmpty)
+{
+    <div class="status"><small>@string.Join(" · ", Session.PluginStatus.OrderBy(x => x.Key).Select(x => $"{x.Key}: {x.Value}"))</small></div>
+}
 </div>
 
 @code {

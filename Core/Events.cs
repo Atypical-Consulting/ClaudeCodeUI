@@ -6,10 +6,17 @@ namespace ClaudeCodeUI;
 public abstract record ClaudeEvent;
 public record InitEvt(string SessionId, string Cwd, string Model, string PermissionMode, string[] Tools,
                       McpBrief[] Mcp, string[] SlashCommands, string[] Skills, string[] Agents, string[] Plugins,
-                      string FastModeState, string? FastModeReason, McpSkipped[]? McpErrors = null) : ClaudeEvent;
+                      string FastModeState, string? FastModeReason, McpSkipped[]? McpErrors = null, PluginError[]? PluginErrors = null) : ClaudeEvent;
 public record McpBrief(string Name, string Status);                                   // connected|failed|needs-auth|pending
 // init.mcp_server_errors: a --mcp-config entry that failed validation and was skipped (absent from mcp_servers).
 public record McpSkipped(string Name, string Type, string Message);
+// init.plugin_errors: a plugin that did not load, or loaded demoted (type: path-not-found, manifest-validation-error,
+// dependency-unsatisfied, hook-load-failed… an open set). Plugin is inline[N] for a --plugin-dir that never got a name.
+public record PluginError(string Plugin, string Type, string Message, string? Path);
+// system/commands_changed: the slash commands and skills after a reload or a plugin change, as initialize lists them.
+public record CommandsEvt(JsonElement Commands) : ClaudeEvent;
+// system/ui_status: a plugin's line on the REPL's status row ($.ui.status); Text null clears it.
+public record PluginStatusEvt(string Plugin, string? Text) : ClaudeEvent;
 // system/elicitation_complete: the MCP server says the URL-mode elicitation it asked for is done.
 public record ElicitDoneEvt(string Server, string ElicitationId) : ClaudeEvent;
 // system/notification (the REPL's notification bar: fast mode credits, a failed compaction, the stop-hook cap…) and a
@@ -188,7 +195,9 @@ public static class Events
             Names(e, "slash_commands"), Names(e, "skills"), Names(e, "agents"), Names(e, "plugins"),
             Str(e, "fast_mode_state") ?? "off", Str(e, "fast_mode_disabled_reason"),
             Prop(e, "mcp_server_errors") is { ValueKind: JsonValueKind.Array } me
-                ? [.. me.EnumerateArray().Select(x => new McpSkipped(Str(x, "name") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? ""))] : null),
+                ? [.. me.EnumerateArray().Select(x => new McpSkipped(Str(x, "name") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? ""))] : null,
+            Prop(e, "plugin_errors") is { ValueKind: JsonValueKind.Array } pe
+                ? [.. pe.EnumerateArray().Select(x => new PluginError(Str(x, "plugin") ?? "", Str(x, "type") ?? "", Str(x, "message") ?? "", Str(x, "path")))] : null),
         "status" => new StatusEvt(Str(e, "status"), Str(e, "permissionMode")),
         "thinking_tokens" => new ThinkingEvt((int)Long(e, "estimated_tokens")),
         "task_started" => new TaskStartedEvt(Str(e, "task_id") ?? "", Str(e, "tool_use_id") ?? "", Str(e, "description") ?? "", Str(e, "subagent_type") ?? "",
@@ -209,7 +218,10 @@ public static class Events
             Prop(e, "exit_code") is { ValueKind: JsonValueKind.Number } x ? (int)x.GetDouble() : null, (Str(e, "output") ?? "").TrimEnd()),
         "elicitation_complete" => new ElicitDoneEvt(Str(e, "mcp_server_name") ?? "", Str(e, "elicitation_id") ?? ""),
         "notification" when Str(e, "text") is { Length: > 0 } nt => new NoticeEvt(nt, Str(e, "color")),
-        "ui_toast" when Str(e, "text") is { Length: > 0 } tt => new NoticeEvt(Str(e, "plugin") is { } pl ? $"{pl}: {tt}" : tt, null),
+        // ui_log is a plugin's $.ui.log line: the REPL appends it to the transcript as a notice under the plugin's name.
+        "ui_toast" or "ui_log" when Str(e, "text") is { Length: > 0 } tt => new NoticeEvt(Str(e, "plugin") is { } pl ? $"{pl}: {tt}" : tt, null),
+        "ui_status" when Str(e, "plugin") is { Length: > 0 } sp => new PluginStatusEvt(sp, Str(e, "text") is { Length: > 0 } st ? st : null),
+        "commands_changed" when Prop(e, "commands") is { ValueKind: JsonValueKind.Array } cc => new CommandsEvt(cc.Clone()),
         _ => null,   // hook_started included: only the response says what the hook did
     };
 
@@ -293,7 +305,7 @@ public static class Events
     }
 
     // String arrays, or arrays of objects with a "name" (plugins).
-    static string[] Names(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Array } a
+    internal static string[] Names(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Array } a
         ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString()! : Str(x, "name") ?? "").ToArray()
         : [];
 
@@ -303,8 +315,8 @@ public static class Events
     public static JsonElement? Prop(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v : null;
 
-    static bool Bool(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.True };
-    static long Long(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? (long)n.GetDouble() : 0;
+    internal static bool Bool(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.True };
+    internal static long Long(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? (long)n.GetDouble() : 0;
     static double Double(JsonElement e, string name) => Prop(e, name) is { ValueKind: JsonValueKind.Number } n ? n.GetDouble() : 0;
 
     // Trimmed real lines from the protocol captures (s2/s3.jsonl).
@@ -329,6 +341,15 @@ public static class Events
         Ok(P("""{"type":"system","subtype":"notification","key":"error-compacting-conversation","text":"Error compacting conversation","priority":"immediate","color":"error","uuid":"u","session_id":"s"}""") is NoticeEvt { Text: "Error compacting conversation", Color: "error" }
            && P("""{"type":"system","subtype":"ui_toast","plugin":"impeccable","text":"Saved","timeout_ms":4000,"uuid":"u","session_id":"s"}""") is NoticeEvt { Text: "impeccable: Saved", Color: null }
            && P("""{"type":"system","subtype":"notification","key":"k","text":"","priority":"low"}""") is null, "notification and ui_toast");
+        // The SDK schemas of a plugin's ui_log and ui_status pushes (2.1.296), and commands_changed after reload_plugins.
+        Ok(P("""{"type":"system","subtype":"ui_log","plugin":"demo","text":"indexed 12 files","uuid":"u","session_id":"s"}""") is NoticeEvt { Text: "demo: indexed 12 files" }
+           && P("""{"type":"system","subtype":"ui_status","plugin":"demo","text":"syncing","uuid":"u","session_id":"s"}""") is PluginStatusEvt { Plugin: "demo", Text: "syncing" }
+           && P("""{"type":"system","subtype":"ui_status","plugin":"demo","text":null,"uuid":"u","session_id":"s"}""") is PluginStatusEvt { Text: null }, "ui_log and ui_status");
+        Ok(P("""{"type":"system","subtype":"commands_changed","commands":[{"name":"cua-driver-rs","description":"Drive a GUI app (user)","argumentHint":"","aliases":["cua-driver"]}],"uuid":"u","session_id":"s"}""")
+           is CommandsEvt { Commands: var cmds } && cmds.GetArrayLength() == 1, "commands_changed");
+        // claude 2.1.296 with --plugin-dir ./badplug (absent): the entry never loaded, so it has the positional name and a path.
+        Ok(P("""{"type":"system","subtype":"init","session_id":"s","plugins":[],"plugin_errors":[{"plugin":"inline[0]","type":"path-not-found","message":"Path not found: /w/badplug (commands)","path":"/w/badplug"}]}""")
+           is InitEvt { PluginErrors: [{ Plugin: "inline[0]", Type: "path-not-found", Path: "/w/badplug" }] } && init.PluginErrors is null, "init plugin_errors");
 
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}},"parent_tool_use_id":null}""") is TextDeltaEvt { Text: "done", ParentToolUseId: null }, "text_delta");
         Ok(P("""{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"","estimated_tokens":50}}}""") is null, "thinking_delta ignored");
