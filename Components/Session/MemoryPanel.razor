@@ -1,7 +1,9 @@
 @* Memory (CLAUDE.md) files of the session, the /memory equivalent: the CLI's list (get_context_usage.memoryFiles) plus
    the standard locations it did not load. A row opens the file rendered; Edit swaps in a textarea, Save writes it back
    unless it changed on disk since it was read. Only a listed path is ever written (MemoryFiles.Save checks).
-   The open file and the draft live on the session (Session.Memory): a permission request unmounts this panel. *@
+   The open file and the draft live on the session (Session.Memory): a permission request unmounts this panel.
+   Then auto-memory, from get_memory_dialog: its switch (`claude edit-memory-settings`) and the saved memories, which open
+   in the same viewer and can be deleted. *@
 
 <div class="section last">
     <span class="cap" id="mem-cap">@L["Mem.Title"]</span>
@@ -20,6 +22,43 @@
         }
     </ul>
     <p class="why">@L["Mem.Hint"]</p>
+    @if (Session.MemoryDialog is { } md && Events.Prop(md, "auto_memory") is { } am)
+    {
+        var on = Events.Bool(am, "enabled");
+        <div class="acts">
+            <button type="button" class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" title="@Events.Str(am, "status")"
+                    disabled="@(busy || !Events.Bool(am, "toggleable"))" @onclick="() => SetAuto(!on)"><span class="sw"></span>@L["Mem.Auto"]</button>
+        </div>
+        @if (error is not null && M.Open is null)
+        {
+            <div class="errbox" role="alert">@error</div>
+        }
+        @if (MemoryFiles.AutoFolder(md) is { } folder)
+        {
+            <p class="why" title="@folder">@L["Mem.AutoFolder", Fmt.Home(folder)]</p>
+        }
+        @if (memories.Count > 0)
+        {
+            <span class="cap" id="automem-cap">@L["Mem.AutoList", memories.Count]</span>
+            <ul class="mem" aria-labelledby="automem-cap">
+                @foreach (var m in memories)
+                {
+                    var mon = m.Path == M.Open;
+                    <li>
+                        <button type="button" class="@(mon ? "on" : null)" title="@(m.Description ?? m.Path)" aria-expanded="@(mon ? "true" : "false")" aria-controls="@(mon ? "mem-file" : null)" @onclick="() => Open(m.Path)">
+                            <span class="n">@m.Name</span>
+                            @if (m.Type is { } mt) { <span class="tag">@mt</span> }
+                            <span class="c">@m.Description</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+        else if (on)
+        {
+            <p class="why">@L["Mem.AutoNone"]</p>
+        }
+    }
     @if (M.Open is { } open)
     {
         var name = MemoryFiles.Display(open, Session.Cwd, Home);
@@ -56,7 +95,13 @@
                 {
                     <Markdown Text="@M.Loaded" />
                 }
-                <div class="acts"><button type="button" class="btn" @onclick="Edit">@(M.Loaded is null ? L["Mem.Create"] : L["Mem.Edit"])</button></div>
+                <div class="acts"><button type="button" class="btn" @onclick="Edit">@(M.Loaded is null ? L["Mem.Create"] : L["Mem.Edit"])</button>
+                    @if (M.Loaded is not null && memories.Any(m => m.Path == open))
+                    {
+                        @* Two clicks: the first arms the button, which then says what it will do. *@
+                        <button type="button" class="btn danger" disabled="@busy" @onclick="() => Delete(open)">@(deleteArmed == open ? L["Mem.DeleteConfirm", Path.GetFileName(open)] : L["Mem.Delete"])</button>
+                    }
+                </div>
             }
             @if (error is not null)
             {
@@ -75,7 +120,10 @@
 
     MemoryEdit M => Session.Memory;
     IReadOnlyList<MemoryFile> files = [];
-    string? error;
+    IReadOnlyList<AutoMemory> memories = [];
+    string? error, deleteArmed;
+    DateTimeOffset? memoryFor;
+    bool memoryAsked;
     bool busy, saved, focus;
     ElementReference area;
 
@@ -86,7 +134,40 @@
     }
 
     // A handful of File.Exists per render: cheap, and a file created outside the app shows up without a refresh.
-    protected override void OnParametersSet() => files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
+    // get_memory_dialog again after each turn, as ContextPanel does get_context_usage: the model saves memories during one.
+    protected override void OnParametersSet()
+    {
+        files = MemoryFiles.List(Session.Context, Session.Cwd, UserDir, File.Exists);
+        memories = MemoryFiles.Memories(Session.MemoryDialog);
+        if (!Session.HasProcess || Session.Status != SessionStatus.Idle || memoryAsked && memoryFor == Session.LastResultAt) return;
+        (memoryAsked, memoryFor) = (true, Session.LastResultAt);
+        _ = Session.RefreshMemory().ContinueWith(t => Console.Error.WriteLine($"[{Session.Id}] get_memory_dialog : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    // Every file Save may write: the memory files and the saved memories.
+    IReadOnlyList<MemoryFile> Known => [.. files, .. memories.Select(m => new MemoryFile(m.Path, "Auto", null, true))];
+
+    async Task SetAuto(bool on)
+    {
+        busy = true;
+        error = null;
+        try { await Session.SetAutoMemory(on); }
+        catch (Exception ex) { error = L["Mem.AutoFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+
+    async Task Delete(string path)
+    {
+        if (deleteArmed != path) { deleteArmed = path; return; }
+        deleteArmed = null;
+        try
+        {
+            if (!MemoryFiles.Delete(memories, path)) { error = L["Mem.NotAllowed"]; return; }
+            (M.Open, M.Editing, M.Loaded) = (null, false, null);
+            await Session.RefreshMemory();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ClaudeRequestException) { error = L["Mem.DeleteFailed", ex.Message]; }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -98,7 +179,7 @@
     void Open(string path)
     {
         // Re-clicking the open row closes it; an unsaved draft goes with it, as with Cancel.
-        (M.Open, M.Editing, M.Conflict, saved) = (M.Open == path ? null : path, false, false, false);
+        (M.Open, M.Editing, M.Conflict, saved, deleteArmed) = (M.Open == path ? null : path, false, false, false, null);
         if (M.Open is not null) Load();
     }
 
@@ -134,7 +215,7 @@
         try
         {
             if (overwrite) M.Loaded = MemoryFiles.Read(open);
-            switch (MemoryFiles.Save(files, open, M.Loaded, M.Draft ?? ""))
+            switch (MemoryFiles.Save(Known, open, M.Loaded, M.Draft ?? ""))
             {
                 case MemorySave.Saved:
                     Load();

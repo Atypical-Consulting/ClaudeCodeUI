@@ -1,0 +1,81 @@
+@* The CLI's /diff: the repository's uncommitted changes (git diff HEAD, untracked files shown as new), re-read when a
+   file-changing tool finishes and on Refresh. Read-only: nothing is staged or written. *@
+@inject UiState Ui
+
+<div class="ph"><h2 class="ttl">@L["Diff.Title"]</h2>
+    @if (files is { Count: > 0 })
+    {
+        <span class="sub">@Strings.Plural(files.Count, "Diff.Files") · +@files.Sum(f => f.Lines.Count(l => l.Kind == DiffKind.Add)) −@files.Sum(f => f.Lines.Count(l => l.Kind == DiffKind.Del))</span>
+    }
+    <span class="end">
+        <button class="btn ghost" title="@L["Diff.Refresh"]" aria-label="@L["Diff.Refresh"]" disabled="@busy" @onclick="Load"><Icon Name="refresh" Sm /></button>
+        <button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.DiffOpen = false"><Icon Name="x" Sm /></button>
+    </span>
+</div>
+<div class="scroll diffs" aria-busy="@(busy ? "true" : "false")">
+    <p role="status" style="margin:0;color:var(--fg-4);font-size:13px">@(files is null ? L["Diff.Loading"] : root is null ? L["Diff.NotRepo"] : files.Count == 0 ? L["Diff.None"] : "")</p>
+    @foreach (var f in (files ?? []).Take(MaxFiles))
+    {
+        <DiffView @key="f.Path" Path="@f.Path" Lines="f.Lines" />
+    }
+    @if (files?.Count > MaxFiles)
+    {
+        <p style="margin:0;color:var(--fg-4);font-size:13px">@L["Diff.MoreFiles", files.Count - MaxFiles]</p>
+    }
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+
+    const int MaxFiles = 100;            // ponytail: a fixed cap, page them if a working tree that large is ever common
+    const int MaxUntracked = 256 * 1024; // bytes: a bigger new file is listed, not shown
+    List<FileDiff>? files;
+    string? root;
+    bool busy;
+    (int, string)? seen;
+
+    // Finished tools that may have changed files (Edit/Write/MultiEdit/NotebookEdit, shell commands) and the folder.
+    (int, string) Key() => (Session.Items.Count(i => i is ToolItem { State: ToolState.Done } t && (ToolKinds.IsEdit(t.Name) || ToolKinds.IsShell(t.Name) || t.Name == "NotebookEdit")), Session.Cwd);
+
+    protected override void OnParametersSet()
+    {
+        if (busy || seen == Key()) return;
+        seen = Key();
+        _ = Load();
+    }
+
+    async Task Load()
+    {
+        busy = true;
+        try
+        {
+            // Whole repository, paths from its root, as git status gives them; HEAD is missing before the first commit.
+            root = (await LiveSession.Git(Session.Cwd, "rev-parse", "--show-toplevel"))?.Trim() is { Length: > 0 } r ? r : null;
+            if (root is null) { files = []; return; }
+            // Plain a/ b/ paths whatever the user's config: core.quotePath C-quotes non-ASCII names, mnemonicPrefix/noprefix change the prefixes.
+            string[] opts = ["--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/"];
+            var diff = await LiveSession.Git(root, ["-c", "core.quotePath=false", "diff", "HEAD", .. opts]) ?? await LiveSession.Git(root, ["-c", "core.quotePath=false", "diff", .. opts]) ?? "";
+            var added = await LiveSession.Git(root, "ls-files", "--others", "--exclude-standard", "-z") ?? "";
+            files = [.. EditDiff.FromGit(diff), .. added.Split('\0', StringSplitOptions.RemoveEmptyEntries).Select(p => Untracked(root, p))];
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+        if (seen != Key()) OnParametersSet();   // a tool finished while git ran
+    }
+
+    // A new file: all of it added, unless it is binary, too large or a link (never followed: it could point at a device).
+    static FileDiff Untracked(string root, string rel)
+    {
+        try
+        {
+            var info = new FileInfo(Path.Combine(root, rel));
+            if (info.LinkTarget is null && info.Length <= MaxUntracked && File.ReadAllText(info.FullName) is var text && !text.Contains('\0'))
+                return new(rel, EditDiff.Created(text));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        return new(rel, [new(DiffKind.Hunk, null, Strings.Get("Diff.Binary"))]);
+    }
+}

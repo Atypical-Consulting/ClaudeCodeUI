@@ -1,0 +1,109 @@
+@page "/background"
+@inject NavigationManager Nav
+
+<PageTitle>@L["Nav.Background"] · Claude Code</PageTitle>
+
+@* `claude --bg` sessions (and the interactive ones running), from `claude agents --json --all`: logs, stop, respawn and
+   remove go through the CLI's own subcommands; Open shows the transcript here (BackgroundAgents). *@
+<div class="pane">
+    <div class="ph wrap">
+        <h1 class="ttl">@L["Nav.Background"]</h1>
+        @if (rows is not null)
+        {
+            <span class="sub">@Strings.Plural(rows.Count(r => r.Background), "Bg.Count")</span>
+        }
+        <span class="end"><button class="btn" disabled="@loading" @onclick="Load"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
+    </div>
+    <div class="wt">
+        <div class="wt-head"><div><h2>@L["Bg.Title"]</h2><p>@((MarkupString)L["Bg.Text"].Value)</p></div></div>
+        @if (error is not null)
+        {
+            <div class="errbox" role="alert">@error</div>
+        }
+        @if (rows is null)
+        {
+            <p role="status">@L["Bg.Loading"]</p>
+        }
+        else if (rows.Count == 0)
+        {
+            <p>@L["Bg.None"]</p>
+        }
+        else
+        {
+            <table class="wtt bgt">
+                <thead><tr><th>@L["Bg.Col.Session"]</th><th>@L["Col.State"]</th><th>@L["Bg.Col.Kind"]</th><th class="num">@L["Bg.Col.Started"]</th><th><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
+                <tbody>
+                    @foreach (var a in rows)
+                    {
+                        <tr @key="a.Id" class="@(a.Id == shown ? "sel" : null)">
+                            <td><div class="n">@(a.Name.Length > 0 ? a.Name : a.Id)</div><div class="branch" title="@a.Cwd">@TranscriptStore.Short(a.Cwd)</div></td>
+                            <td><span class="state @(a.State is "done" or "idle" or "stopped" ? "st-active" : a.State is "blocked" or "waiting" ? "st-check" : "st-safe")"><i></i>@a.State</span>@if (a.WaitingFor is { } wf) { <div class="branch">@wf</div> }</td>
+                            <td class="why">@L[a.Background ? "Bg.Kind.Background" : "Bg.Kind.Interactive"] · <code>@a.Id</code></td>
+                            <td class="num" title="@(a.StartedAt == default ? null : a.StartedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture))">@(a.StartedAt == default ? "—" : a.StartedAt.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture))</td>
+                            <td><div class="rowacts">
+                                @if (a.SessionId is { } sid && TranscriptStore.ById(sid) is not null)
+                                {
+                                    <button class="btn" aria-label="@($"{L["Action.Open"]} {a.Name}")" @onclick='() => Nav.NavigateTo($"session/{sid}")'>@L["Action.Open"]</button>
+                                }
+                                @if (a.Background)
+                                {
+                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Logs"]} {a.Name}")" @onclick='() => Act("logs", a)'>@L["Bg.Logs"]</button>
+                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Respawn"]} {a.Name}")" title="@L["Bg.RespawnHint"]" @onclick='() => Act("respawn", a)'>@L["Bg.Respawn"]</button>
+                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Stop"]} {a.Name}")" title="@L["Bg.StopHint"]" @onclick='() => Act("stop", a)'>@L["Bg.Stop"]</button>
+                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L[confirmRm == a.Id ? "Bg.RemoveConfirm" : "Bg.Remove"]} {a.Name}")" title="@L["Bg.RemoveHint"]" @onclick="() => Remove(a)">@L[confirmRm == a.Id ? "Bg.RemoveConfirm" : "Bg.Remove"]</button>
+                                }
+                            </div></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (output is not null)
+            {
+                <div class="cmdlog wfres" role="status" aria-label="@L["Bg.Output", shown ?? ""]">@output</div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    List<BackgroundAgents.Agent>? rows;
+    string? error, output, shown, confirmRm;
+    bool loading, busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive) await Load();
+    }
+
+    async Task Load()
+    {
+        loading = true;
+        error = null;
+        try { rows = await BackgroundAgents.List(); }
+        catch (Exception ex) { error = L["Session.ActionFailed", ex.Message.TrimEnd()]; rows ??= []; }
+        finally { loading = false; }
+    }
+
+    // rm deletes the session's worktree too: a second click confirms.
+    async Task Remove(BackgroundAgents.Agent a)
+    {
+        if (confirmRm != a.Id) { confirmRm = a.Id; return; }
+        await Act("rm", a);
+    }
+
+    async Task Act(string command, BackgroundAgents.Agent a)
+    {
+        busy = true;
+        confirmRm = null;
+        shown = a.Id;
+        try
+        {
+            var (ok, text) = await BackgroundAgents.Run(command, a.Id);
+            // logs is terminal output: escapes stripped, \r-overwritten lines kept in their last state.
+            output = command == "logs" ? BgTask.Tail(text, 200) : text.Length > 0 ? text : L[ok ? "Bg.Done" : "Bg.Failed"];
+        }
+        catch (Exception ex) { output = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+        if (command != "logs") await Load();
+    }
+}

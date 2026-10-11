@@ -4,6 +4,7 @@ namespace ClaudeCodeUI;
 
 public enum DiffKind { Ctx, Add, Del, Hunk, More }
 public record DiffLine(DiffKind Kind, int? N, string Text);   // N: old number for Del, new number otherwise; More: occurrences not shown
+public record FileDiff(string Path, IReadOnlyList<DiffLine> Lines);
 
 // Diff lines for Edit/Write/MultiEdit: before approval (from the tool input) or after (structuredPatch).
 // No LCS: the edited block is cut to whole lines, common leading/trailing lines become context.
@@ -55,6 +56,51 @@ public static class EditDiff
                 }
         }
         return res;
+    }
+
+    // Bash's tool_use_result.bashEditDiff (claude 2.1.296 schema; on by default in auto mode, else bashEditDiffEnabled):
+    // the files the command changed, each with structuredPatch-shaped hunks. A file without hunks (binary, mode only, empty or
+    // too large) still changed: it gets a note as its only hunk, as the CLI prints "Updated <path> (+0 -0)" for it.
+    public static List<FileDiff> FromBash(JsonElement? structured) =>
+        structured is { } s && Events.Prop(s, "bashEditDiff") is { } b && Events.Prop(b, "files") is { ValueKind: JsonValueKind.Array } fs
+            ? [.. fs.EnumerateArray().Select(f => new FileDiff(Events.Str(f, "filePath") ?? "",
+                FromPatch(Events.Prop(f, "hunks") ?? default) is { Count: > 0 } h ? h : [new(DiffKind.Hunk, null, Strings.Get("Diff.NoHunks"))]))]
+            : [];
+
+    // `git diff` output, one FileDiff per file (the /diff panel). Path: the +++ side, the --- side for a deletion. A binary
+    // change keeps git's "Binary files … differ" line as its only hunk.
+    public static List<FileDiff> FromGit(string unified)
+    {
+        var files = new List<FileDiff>();
+        List<DiffLine>? cur = null;
+        bool hunk = false;
+        int o = 0, n = 0;
+        foreach (var raw in unified.Split('\n'))
+        {
+            var l = raw.TrimEnd('\r');
+            if (l.StartsWith("diff --git "))
+            {
+                files.Add(new(l.LastIndexOf(" b/", StringComparison.Ordinal) is var bi and > 0 ? l[(bi + 3)..] : l[11..], cur = []));
+                hunk = false;
+            }
+            else if (cur is null) continue;
+            else if (!hunk && l.StartsWith("+++ ") && l != "+++ /dev/null") files[^1] = files[^1] with { Path = l.StartsWith("+++ b/") ? l[6..] : l[4..] };
+            else if (!hunk && l.StartsWith("--- a/") && files[^1].Path.Length == 0) files[^1] = files[^1] with { Path = l[6..] };
+            else if (!hunk && l.StartsWith("Binary files ")) cur.Add(new(DiffKind.Hunk, null, l));
+            else if (System.Text.RegularExpressions.Regex.Match(l, @"^@@ -(\d+)(?:,\d+)? \+(\d+)") is { Success: true } m)
+            {
+                (o, n, hunk) = (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value), true);
+                cur.Add(new(DiffKind.Hunk, null, l));
+            }
+            else if (hunk && l.Length > 0)
+                switch (l[0])
+                {
+                    case '-': cur.Add(new(DiffKind.Del, o++, l[1..])); break;
+                    case '+': cur.Add(new(DiffKind.Add, n++, l[1..])); break;
+                    case ' ': cur.Add(new(DiffKind.Ctx, n++, l[1..])); o++; break;
+                }
+        }
+        return files;
     }
 
     // A new file: every line added.
@@ -230,6 +276,22 @@ public static class EditDiff
             Ok(Show(before) == Show(patch), "FromInput matches structuredPatch: " + Show(before));
             File.WriteAllText(Path.Combine(dir, "h.txt"), "bye\n");   // replay after the edit was applied
             Ok(Show(FromInput("Edit", J($$"""{"file_path":"{{h}}","old_string":"hello","new_string":"bye"}"""))) == Show(patch), "FromInput after the fact");
+
+            // bashEditDiff as the 2.1.296 schema describes it: one file, structuredPatch hunks.
+            Ok(FromBash(J("""{"stdout":"","stderr":"","interrupted":false,"bashEditDiff":{"files":[{"filePath":"/w/a.txt","hunks":[{"oldStart":1,"oldLines":1,"newStart":1,"newLines":1,"lines":["-hello","+bye"]}]}],"moreFiles":0}}"""))
+               is [{ Path: "/w/a.txt", Lines: var bl }] && Show(bl) == Show(patch) && FromBash(J("""{"stdout":"x"}""")).Count == 0 && FromBash(null).Count == 0, "FromBash");
+            Ok(FromBash(J("""{"bashEditDiff":{"files":[{"filePath":"/w/a.png","hunks":[],"created":true}],"moreFiles":0}}""")) is [{ Lines: [{ Kind: DiffKind.Hunk }] }],
+               "FromBash: a file without hunks keeps a note");
+            // `git diff HEAD` (git 2.x): an edit, a deletion, a binary file, a new file with no trailing newline.
+            var git = FromGit(string.Join("\n",
+                "diff --git a/src/a.cs b/src/a.cs", "index 1111111..2222222 100644", "--- a/src/a.cs", "+++ b/src/a.cs",
+                "@@ -3,3 +3,3 @@ class A", " a", "-b", "+B", " c",
+                "diff --git a/old.txt b/old.txt", "deleted file mode 100644", "index 3333333..0000000", "--- a/old.txt", "+++ /dev/null", "@@ -1 +0,0 @@", "-gone",
+                "diff --git a/logo.png b/logo.png", "index 4444444..5555555 100644", "Binary files a/logo.png and b/logo.png differ",
+                "diff --git a/n.md b/n.md", "new file mode 100644", "--- /dev/null", "+++ b/n.md", "@@ -0,0 +1 @@", "+hi", "\\ No newline at end of file", ""));
+            Ok(git is [{ Path: "src/a.cs" } a, { Path: "old.txt" } d, { Path: "logo.png", Lines: [{ Kind: DiffKind.Hunk }] }, { Path: "n.md" } nw]
+               && Show(a.Lines) == "Hunk:@@ -3,3 +3,3 @@ class A|Ctx3:a|Del4:b|Add4:B|Ctx5:c" && Show(d.Lines) == "Hunk:@@ -1 +0,0 @@|Del1:gone"
+               && Show(nw.Lines) == "Hunk:@@ -0,0 +1 @@|Add1:hi" && FromGit("").Count == 0, "FromGit: " + string.Join(" / ", git.Select(x => x.Path + "=" + Show(x.Lines))));
 
             var ctxPatch = FromPatch(J("""[{"oldStart":3,"oldLines":3,"newStart":3,"newLines":4,"lines":[" a","-b","+B","+C"," d","\\ No newline at end of file"]}]"""));
             Ok(Show(ctxPatch) == "Hunk:@@ -3,3 +3,4 @@|Ctx3:a|Del4:b|Add4:B|Add5:C|Ctx6:d", "FromPatch with context: " + Show(ctxPatch));

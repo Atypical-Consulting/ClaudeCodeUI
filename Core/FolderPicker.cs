@@ -36,6 +36,24 @@ public static class FolderPicker
         throw new PlatformNotSupportedException("no folder dialog");
     }
 
+    // "Show in folder": the OS file manager with the file selected (its folder on Linux). Never opens the file: one Claude
+    // sends could be a script. Throws FileNotFoundException for a file that is gone, Win32Exception without the tool.
+    public static void Reveal(string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path)) throw new FileNotFoundException(Strings.Get("File.Gone", path));
+        var (exe, args) = RevealCommand(OperatingSystem.IsMacOS() ? "mac" : OperatingSystem.IsWindows() ? "win" : "linux", path);
+        var psi = new ProcessStartInfo(exe) { CreateNoWindow = true };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        Process.Start(psi)?.Dispose();
+    }
+
+    internal static (string Exe, string[] Args) RevealCommand(string os, string path) => os switch
+    {
+        "mac" => ("open", ["-R", path]),
+        "win" => ("explorer", ["/select," + path]),
+        _ => ("xdg-open", [Path.GetDirectoryName(path) ?? path]),
+    };
+
     // Candidate tools, in order; pure so the self-check sees the exact arguments.
     internal static (string Exe, string[] Args)[] Commands(string os, string start, string title) => os switch
     {
@@ -65,5 +83,7 @@ public static class FolderPicker
         Ok(!Commands("win", "C:\\x", "T")[0].Args[3].Contains("C:\\x"), "PowerShell gets the path from the environment");
         Ok(Parse(0, "/Users/a/repo/\n") == "/Users/a/repo" && Parse(0, "/\n") == "/", "Parse trims, keeps root");
         Ok(Parse(1, "") is null && Parse(0, "\n") is null, "cancel is null");
+        Ok(RevealCommand("mac", "/w/a b.md") is ("open", ["-R", "/w/a b.md"]) && RevealCommand("win", @"C:\w\a.md") is ("explorer", [@"/select,C:\w\a.md"])
+           && RevealCommand("linux", "/w/r/a.md") is ("xdg-open", [var d]) && d == Path.GetDirectoryName("/w/r/a.md"), "reveal selects the file, never opens it");   // \w\r when the check runs on Windows
     }
 }

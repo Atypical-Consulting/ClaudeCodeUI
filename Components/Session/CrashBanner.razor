@@ -7,7 +7,7 @@
             <p>@L[Session.StartFailed ? "Crash.StartFailed.Text" : "Crash.Text"]</p>
             <pre>@Session.ExitText</pre>
             <div class="acts">
-                <button class="btn primary" disabled="@restarting" aria-busy="@(restarting ? "true" : null)" @onclick="Restart">@if (restarting) { <span class="spin" aria-hidden="true"></span> } else { <Icon Name="refresh" Sm /> }@L["Crash.Restart"]</button>
+                <button class="btn primary" disabled="@restarting" aria-busy="@(restarting ? "true" : null)" @onclick="Restart">@if (restarting) { <span class="spin" aria-hidden="true"></span> } else { <Icon Name="refresh" Sm /> }@L[Session.CrashedMidTurn ? "Crash.RestartContinue" : "Crash.Restart"]</button>
                 <button class="btn" data-copy="@Session.ExitText">@L["Error.Copy"]</button>
             </div>
         </div>

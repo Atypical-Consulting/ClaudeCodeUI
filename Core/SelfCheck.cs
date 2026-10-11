@@ -24,11 +24,22 @@ public static class SelfCheck
             TranscriptStore.Check();
             ListNav.Check();
             AskUser.Check();
+            Elicit.Check();
+            Mcp.Check();
             FileIndex.Check();
+            Invisible.Check();
             PromptHistory.Check();
             Notifications.Check();
             MemoryFiles.Check();
             FolderPicker.Check();
+            PermissionRules.Check();
+            Plugins.Check();
+            BackgroundAgents.Check();
+            CliEdit.Check();
+            StatusCommand.Check();
+            Bookmarks.Check();
+            Usage.Check();
+            UserSettings.Check();
             Console.WriteLine("self-check OK");
             return 0;
         }

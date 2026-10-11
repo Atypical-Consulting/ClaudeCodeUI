@@ -7,24 +7,9 @@ public static class Notifications
 {
     public enum Kind { None, Decision, Done }
 
-    // Desktop: the server binds port 0, so the page's origin, and the localStorage that goes with it, changes with every
-    // launch. The toggle lives in a file instead, next to the app's other state (WorktreeService's repos.json).
-    internal static string OnFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeCodeUI", "notify-on");
-
-    public static bool ShellOn
-    {
-        get => File.Exists(OnFile);
-        set
-        {
-            try
-            {
-                if (!value) { if (File.Exists(OnFile)) File.Delete(OnFile); return; }
-                Directory.CreateDirectory(Path.GetDirectoryName(OnFile)!);
-                File.WriteAllText(OnFile, "");
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // the getter shows what stuck
-        }
-    }
+    // Desktop: the toggle lives in a file (AppFlag), the page's localStorage changes with every launch.
+    internal static readonly AppFlag Shell = new("notify-on");
+    public static bool ShellOn { get => Shell.On; set => Shell.On = value; }
 
     // Between two observations of a session (before = null: first seen). A decision is a can_use_tool, whatever the tool
     // (permission, AskUserQuestion, ExitPlanMode: --probe-cli notify); a turn is done when a new result leaves it Idle
@@ -85,8 +70,8 @@ public static class Notifications
            && Body(Kind.Done, null, TimeSpan.FromSeconds(2.4), "error_max_turns") == "Tour arrêté sur une erreur après 2,4 s", "body text");
         Ok(ShellLine("s-1", "a\tb", "x\r\ny\nz") == "ccui-notify\ts-1\ta b\tx y z", "shell line is one line, four fields");
 
-        var saved = OnFile;
-        OnFile = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"), "notify-on");
+        var saved = Shell.Path;
+        Shell.Path = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"), "notify-on");
         try
         {
             Ok(!ShellOn, "desktop toggle off by default");
@@ -98,8 +83,8 @@ public static class Notifications
         }
         finally
         {
-            if (Directory.Exists(Path.GetDirectoryName(OnFile))) Directory.Delete(Path.GetDirectoryName(OnFile)!, true);
-            OnFile = saved;
+            if (Directory.Exists(Path.GetDirectoryName(Shell.Path))) Directory.Delete(Path.GetDirectoryName(Shell.Path)!, true);
+            Shell.Path = saved;
         }
     }
 }

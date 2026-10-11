@@ -7,15 +7,15 @@ namespace ClaudeCodeUI;
 
 public record TranscriptHit(PastSession Session, string Snippet, DateTimeOffset At);
 
-public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath, string? Mode = null);
+public record PastSession(string Id, string Cwd, string? Branch, string Title, decimal? CostUsd, DateTimeOffset LastWrite, string? WorktreePath, string? Mode = null, string? PrUrl = null);
 
 // Past sessions read from ~/.claude/projects/<slug>/<id>.jsonl (top-level files only; <id>/subagents are excluded).
 public static class TranscriptStore
 {
     // The CLI honours CLAUDE_CONFIG_DIR (default ~/.claude); claude inherits this process's environment, so read the same one.
-    internal static readonly string Root = Path.Combine(
-        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"), "projects");
+    internal static readonly string ConfigDir = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+    internal static readonly string Root = Path.Combine(ConfigDir, "projects");
     const int Chunk = 64 * 1024;
     static (DateTimeOffset At, int Take, IReadOnlyList<PastSession> List) cache;
 
@@ -57,7 +57,7 @@ public static class TranscriptStore
         var s = new LiveSession("", "", "", "default");
         foreach (var line in lines)
         {
-            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"") && !line.Contains("\"queued_command\"")) continue;
+            if (!line.Contains("\"type\":\"user\"") && !line.Contains("\"type\":\"assistant\"") && !line.Contains("\"queued_command\"") && !line.Contains("\"type\":\"system\"")) continue;
             JsonElement e;
             // The file names the diff field toolUseResult; the stream (and Events) say tool_use_result.
             try { e = JsonDocument.Parse(line.Replace("\"toolUseResult\":", "\"tool_use_result\":")).RootElement; }
@@ -75,7 +75,9 @@ public static class TranscriptStore
                 Step(s, Events.Notification(qp) ?? (ClaudeEvent)new UserTextEvt(qp, at), at);
                 continue;
             }
-            if (Events.Str(e, "type") is not ("user" or "assistant") || Hidden(e)) continue;
+            // The compaction summary is hidden from search and history, not from the thread: it fills its "Compacted chat" card.
+            // A scheduled task's prompt (isMeta) shows as its marker.
+            if (!Shown(e) || Hidden(e) && Events.Prop(e, "isCompactSummary") is not { ValueKind: JsonValueKind.True } && Events.Str(e, "turnOrigin") != "scheduled") continue;
             try { Apply(s, e, at); }
             catch (Exception ex) { Console.Error.WriteLine($"transcript: line skipped ({ex.Message})"); }   // one bad line must not lose the session
         }
@@ -99,6 +101,10 @@ public static class TranscriptStore
         if (ev is TaskDoneEvt { DurationMs: 0 } td && (s.Tool(td.ToolUseId) ?? s.Items.OfType<ToolItem>().LastOrDefault(x => x.TaskId == td.TaskId)) is { } tt)
             s.Set(tt, tt with { EndedAt = at.Value });
     }
+
+    // The lines Replay reads: messages, and the system lines the thread shows (compaction boundary, model fallback notices).
+    static bool Shown(JsonElement e) => Events.Str(e, "type") is "user" or "assistant"
+        || Events.Str(e, "type") == "system" && Events.Str(e, "subtype") is "compact_boundary" or "model_fallback" or "model_refusal_fallback" or "model_refusal_no_fallback" or "model_consent_fallback";
 
     // Lines the terminal does not show as a conversation turn: sub-agent, injected context, compaction summary.
     static bool Hidden(JsonElement e) => Events.Prop(e, "isSidechain") is { ValueKind: JsonValueKind.True }
@@ -339,6 +345,28 @@ public static class TranscriptStore
     public static PastSession? ById(string id) =>
         id.Length > 0 && id.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') && Find(id) is { } path ? Read(new FileInfo(path)) : null;
 
+    // --from-pr's lookup: the newest transcript of the folder's repository (its worktrees included) linked to that PR, given
+    // as a URL or a number. --from-pr itself resumes under the CLI's own id, which a session here could not follow.
+    public static PastSession? LinkedTo(string pr, string cwd)
+    {
+        pr = pr.Trim().TrimEnd('/');
+        var n = PrNumber(pr);
+        if (n is null) return null;
+        var slug = Slug(Path.TrimEndingDirectorySeparator(RootOf(cwd)));
+        try
+        {
+            return new DirectoryInfo(Root).EnumerateDirectories().Where(d => d.Name == slug || d.Name.StartsWith(slug + "--claude-worktrees-"))
+                .SelectMany(d => d.EnumerateFiles("*.jsonl")).OrderByDescending(f => f.LastWriteTimeUtc)
+                .Select(f => Read(f, false))
+                .FirstOrDefault(p => p?.PrUrl is { } u && (pr.Contains('/') ? string.Equals(u.TrimEnd('/'), pr, StringComparison.OrdinalIgnoreCase) : PrNumber(u) == n));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    // 42, #42, …/pull/42, …/merge_requests/42 → "42"; null for anything else.
+    internal static string? PrNumber(string s) =>
+        Regex.Match(s.Trim(), @"(?:^#?|/(?:pull|pulls|merge_requests|pull-requests)/)(\d+)/?$") is { Success: true } m ? m.Groups[1].Value : null;
+
     internal static string? Find(string id)
     {
         try { return Directory.EnumerateDirectories(Root).Select(d => Path.Combine(d, id + ".jsonl")).FirstOrDefault(File.Exists); }
@@ -358,7 +386,7 @@ public static class TranscriptStore
 
         string? cwd = Field(text, "cwd"), branch = Field(text, "gitBranch");
         if (cwd is null) return null;   // no message yet
-        string? custom = null, agent = null, ai = null, last = null, firstUser = null, worktree = null;
+        string? custom = null, agent = null, ai = null, last = null, firstUser = null, worktree = null, pr = null;
         decimal? cost = null;
         foreach (var line in text.Split('\n'))
         {
@@ -372,6 +400,7 @@ public static class TranscriptStore
                 case "last-prompt": last = Events.Str(e, "lastPrompt") ?? last; break;
                 case "cost-state" when Events.Prop(e, "totalCostUSD") is { ValueKind: JsonValueKind.Number } n: cost = n.GetDecimal(); break;
                 case "worktree-state" when Events.Prop(e, "worktreeSession") is { } w: worktree = Events.Str(w, "worktreePath") ?? worktree; break;
+                case "pr-link" when Events.Str(e, "prUrl") is { } u && Uri.TryCreate(u, UriKind.Absolute, out var pu) && pu.Scheme is "http" or "https": pr = u; break;
                 case "user" when firstUser is null && Events.Prop(e, "isMeta") is not { ValueKind: JsonValueKind.True } && Events.Prop(e, "message") is { } m
                                  && Events.Str(m, "content") is { Length: > 0 } c && !c.StartsWith('<'):
                     firstUser = c;
@@ -383,7 +412,7 @@ public static class TranscriptStore
         if (ledger && RecordedCost(id) is { } rec) cost = Math.Max(cost ?? 0, rec);
         // Latest permissionMode of the file (permission-mode records and user lines both carry it).
         var modes = Regex.Matches(text, "\"permissionMode\":\"([A-Za-z]+)\"");
-        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree, modes.Count > 0 ? modes[^1].Groups[1].Value : null);
+        return new(id, cwd, branch, title, cost, f.LastWriteTime, worktree, modes.Count > 0 ? modes[^1].Groups[1].Value : null, pr);
     }
 
     static string ReadAt(FileStream fs, long at, int count)
@@ -483,6 +512,8 @@ public static class TranscriptStore
         Ok(Enumerable.Range(0, 50).Select(_ => RandomName()).All(n => n.Split('-').Length == 3 && WorktreeName(n) == n), "RandomName is a branch-safe three-word slug");
         Ok(WorktreeName(" Fix Auth! ") == "fix-auth" && WorktreeName(" -!- ") is null, "WorktreeName");
         Ok(RepoName(@"C:\repo\api\.claude\worktrees\x") == "api" && RepoName(@"C:\repo\api") == "api", "RepoName");
+        Ok(PrNumber("42") == "42" && PrNumber(" #42 ") == "42" && PrNumber("https://github.com/o/r/pull/42/") == "42" && PrNumber("https://gitlab.com/g/s/r/-/merge_requests/7") == "7"
+           && PrNumber("https://github.com/o/r/issues/42") is null && PrNumber("v42") is null, "PR number");
 
         var path = Path.Combine(Path.GetTempPath(), $"cc-ui-check-{Guid.NewGuid()}.jsonl");
         File.WriteAllLines(path, [
@@ -503,6 +534,8 @@ public static class TranscriptStore
             Ok(Read(new FileInfo(path)) is { Mode: "plan" }, "latest permission mode");
             File.AppendAllLines(path, ["""{"type":"custom-title","customTitle":"auth-fix","sessionId":"s"}"""]);
             Ok(Read(new FileInfo(path)) is { Title: "auth-fix" }, "custom-title wins");
+            File.AppendAllLines(path, ["""{"type":"pr-link","sessionId":"s","prNumber":42,"prUrl":"https://github.com/o/api/pull/42","prRepository":"o/api","timestamp":"2026-10-09T12:00:09Z"}"""]);
+            Ok(Read(new FileInfo(path)) is { PrUrl: "https://github.com/o/api/pull/42" }, "pr-link");
             File.WriteAllLines(path, File.ReadAllLines(path).Where(l => !l.Contains("-title") && !l.Contains("last-prompt")));
             Ok(Read(new FileInfo(path)) is { Title: "corrige le test d'auth" }, "first user text, tags skipped");
 
@@ -511,6 +544,15 @@ public static class TranscriptStore
                && t1.EndedAt - t1.StartedAt == TimeSpan.FromSeconds(2) && t2.EndedAt == t2.StartedAt, "replay");
         }
         finally { File.Delete(path); }
+
+        // A /compact in a 2.1.296 transcript (trimmed): stop-hook summary, boundary, summary; a stray system line stays out.
+        Ok(Replay([
+            """{"parentUuid":"b","isSidechain":false,"type":"system","subtype":"stop_hook_summary","hookCount":2,"level":"suggestion","uuid":"e464"}""",
+            """{"parentUuid":null,"logicalParentUuid":"e464","isSidechain":false,"type":"system","subtype":"compact_boundary","content":"Conversation compacted","isMeta":false,"timestamp":"2026-10-11T00:26:19.756Z","uuid":"9b6e","level":"info","compactMetadata":{"trigger":"manual","preTokens":37317,"durationMs":3207,"postTokens":8995}}""",
+            """{"parentUuid":"9b6e","isSidechain":false,"type":"user","message":{"role":"user","content":"This session is being continued from a previous conversation that ran out of context. Summary: hi"},"isVisibleInTranscriptOnly":true,"isCompactSummary":true,"uuid":"ec30","timestamp":"2026-10-11T00:26:19.754Z"}""",
+            """{"parentUuid":"ec30","isSidechain":false,"type":"user","message":{"role":"user","content":"<command-name>/compact</command-name>\n            <command-message>compact</command-message>\n            <command-args></command-args>"},"uuid":"c0c1","timestamp":"2026-10-11T00:26:19.990Z"}""",
+            """{"parentUuid":"c0c1","isSidechain":false,"type":"user","message":{"role":"user","content":"<local-command-stdout>Compacted </local-command-stdout>"},"uuid":"aed4","timestamp":"2026-10-11T00:26:19.997Z"}""",
+        ]) is [UserItem { Text: "/compact" }, CompactItem { PreTokens: 37317, PostTokens: 8995, Summary: var sum }] && sum!.EndsWith("Summary: hi"), "replay compaction card with its summary, under its /compact");
 
         // The cost-state is stale (clean exits only); the UI ledger carries the real spend.
         var cid = Guid.NewGuid().ToString();

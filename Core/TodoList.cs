@@ -27,7 +27,7 @@ public static class TodoList
         var list = new List<TodoEntry>();
         foreach (var i in items)
             if (i is ResetItem) list.Clear();   // /clear: the CLI starts a new, empty list whose ids restart at 1
-            else if (i is ToolItem { ParentToolUseId: null, State: not (ToolState.Error or ToolState.Denied) } t) Apply(list, t);
+            else if (i is ToolItem { ParentToolUseId: null, State: not (ToolState.Error or ToolState.Denied or ToolState.NotRun) } t) Apply(list, t);
         return list;
     }
 

@@ -1,5 +1,6 @@
-@* Selected Workflow call: the run, its phases, the selected phase's agents, and the selected agent's last text and tool
-   calls (agent-<id>.jsonl through WorkflowRuns.AgentLog, new lines only). Refreshed once a second while the run is live. *@
+@* Selected Workflow call: the run, its phases, the selected phase's agents, and the selected agent's last text, result,
+   task list and tool calls, each opening onto its input and output (agent-<id>.jsonl through WorkflowRuns.AgentLog, new
+   lines only). Refreshed once a second while the run is live. *@
 @inject UiState Ui
 
 <Ticker Active="WorkflowRuns.Of(Tool).Live">
@@ -95,7 +96,17 @@
                 @if (agent.Result is { Length: > 0 } res)
                 {
                     <span class="cap">@L["Wf.Result"]</span>
-                    <pre class="cmdlog out wfres" role="region" tabindex="0" aria-label="@L["Wf.Result"]">@res</pre>
+                    <pre class="cmdlog out wfres" role="region" tabindex="0" aria-label="@L["Wf.Result"]">@(WorkflowRuns.JsonResult(res) is { } json ? ToolDetail.Pretty(json) : res)</pre>
+                }
+                @if (TodoList.From(tools) is { Count: > 0 } todos)
+                {
+                    <span class="cap">@L["Todo.Title"] · @TodoList.Progress(todos)</span>
+                    <ul class="wf-todos">
+                        @foreach (var td in todos)
+                        {
+                            <li @key="td.Key" class="@(td.Status switch { TodoStatus.InProgress => "now", TodoStatus.Completed => "done", _ => null })"><span class="sr-only">@TodoList.StatusLabel(td.Status) · </span>@td.Label</li>
+                        }
+                    </ul>
                 }
                 @if (tools.Count > 0)
                 {
@@ -107,7 +118,14 @@
                         }
                         @foreach (var x in tools.TakeLast(MaxTools))
                         {
-                            <div @key="x.Id" class="sl"><span class="k" style="color:@ToolKinds.Color(x.Name)" title="@x.Name">@ToolKinds.Label(x.Name)</span><span class="p">@ToolKinds.Target(x.Name, x.Input, Session.Cwd)</span>@ToolRow.Meta(x)</div>
+                            <details @key="x.Id" class="sl-d">
+                                <summary class="sl"><span class="k" style="color:@ToolKinds.Color(x.Name)" title="@x.Name">@ToolKinds.Label(x.Name)</span><span class="p">@ToolKinds.Target(x.Name, x.Input, Session.Cwd)</span>@ToolRow.Meta(x)</summary>
+                                <pre class="cmdlog wfres" aria-label="@L["Tool.Input"]">@ToolDetail.Pretty(x.Input)</pre>
+                                @if (x.ResultText is { Length: > 0 } xr)
+                                {
+                                    <pre class="cmdlog out wfres" aria-label="@L["Tool.Output"]">@xr</pre>
+                                }
+                            </details>
                         }
                     </div>
                 }

@@ -69,6 +69,17 @@
                 }
             </div>
         </div>
+        @* Server-side flags (AppFlag): claude's launch arguments read one, and the desktop page's storage resets per launch. *@
+        <div class="set-row">
+            <div><b>@L["Appearance.Thinking"]</b><span>@L["Appearance.ThinkingHint"]</span></div>
+            <div><button class="toggle @(thinking ? "on" : null)" role="switch" aria-checked="@(thinking ? "true" : "false")"
+                         @onclick="() => { AppFlag.Thinking.On = !thinking; thinking = AppFlag.Thinking.On; }"><span class="sw"></span>@L["Appearance.ThinkingLabel"]</button></div>
+        </div>
+        <div class="set-row">
+            <div><b>@L["Appearance.Stamps"]</b><span>@L["Appearance.StampsHint"]</span></div>
+            <div><button class="toggle @(stamps ? "on" : null)" role="switch" aria-checked="@(stamps ? "true" : "false")"
+                         @onclick="() => { AppFlag.Timestamps.On = !stamps; stamps = AppFlag.Timestamps.On; }"><span class="sw"></span>@L["Appearance.StampsLabel"]</button></div>
+        </div>
         <div class="set-row">
             <div><b>@L["Appearance.Preview"]</b><span>@L["Appearance.PreviewHint"]</span></div>
             <div class="sample md">@((MarkupString)Sample)</div>
@@ -101,6 +112,7 @@
         """);
 
     string? theme, size;
+    bool thinking = AppFlag.Thinking.On, stamps = AppFlag.Timestamps.On;
     string? notify;   // on | off | denied | unsupported (app.js notifyState in a browser)
 
     string? Blocked => notify switch

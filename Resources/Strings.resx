@@ -71,23 +71,33 @@
   <data name="Bg.Command" xml:space="preserve"><value>Command</value></data>
   <data name="Bg.Completed" xml:space="preserve"><value>completed</value></data>
   <data name="Bg.Ended" xml:space="preserve"><value>ended</value></data>
-  <data name="Bg.Failed" xml:space="preserve"><value>failed</value></data>
+  <data name="Bg.Failed" xml:space="preserve"><value>Claude Code refused.</value></data>
   <data name="Bg.NoOutput" xml:space="preserve"><value>No output yet.</value></data>
-  <data name="Bg.Output" xml:space="preserve"><value>Last output lines</value></data>
+  <data name="Bg.Output" xml:space="preserve"><value>Output of {0}</value></data>
   <data name="Bg.Paused" xml:space="preserve"><value>paused</value></data>
   <data name="Bg.Running" xml:space="preserve"><value>running</value></data>
   <data name="Bg.RunningN" xml:space="preserve"><value>{0} running</value></data>
   <data name="Bg.Stop" xml:space="preserve"><value>Stop</value></data>
   <data name="Bg.StopLabel" xml:space="preserve"><value>Stop the background task: {0}</value></data>
   <data name="Bg.Stopped" xml:space="preserve"><value>stopped</value></data>
-  <data name="Bg.Title" xml:space="preserve"><value>Background tasks</value></data>
+  <data name="Bg.Title" xml:space="preserve"><value>Sessions running without a window</value></data>
   <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Col.Tools" xml:space="preserve"><value>Tools</value></data>
+  <data name="Composer.Advisor" xml:space="preserve"><value>advisor · {0}</value></data>
+  <data name="Composer.Thinking" xml:space="preserve"><value>Thinking</value></data>
+  <data name="Composer.ThinkingHint" xml:space="preserve"><value>Extended thinking for this session</value></data>
+  <data name="Composer.ThinkingMid" xml:space="preserve"><value>Changing thinking mid-conversation adds latency and may reduce quality.</value></data>
   <data name="Copy.Done" xml:space="preserve"><value>Copied</value></data>
   <data name="Composer.ActionFailed" xml:space="preserve"><value>Couldn't apply that: {0}</value></data>
-  <data name="Composer.Attach" xml:space="preserve"><value>Attach images (or paste or drop them here)</value></data>
+  <data name="Composer.Attach" xml:space="preserve"><value>Attach images or documents (or paste or drop them here)</value></data>
+  <data name="Composer.Document" xml:space="preserve"><value>Document {0}</value></data>
+  <data name="Composer.Invisible" xml:space="preserve"><value>Removed {0} invisible character(s) from the message: review it, then send again</value></data>
+  <data name="Composer.SendNow" xml:space="preserve"><value>Send now</value></data>
+  <data name="Composer.SendNowHint" xml:space="preserve"><value>Interrupt the turn and send this message right away</value></data>
+  <data name="Composer.SendNowQueued" xml:space="preserve"><value>Send now: {0}</value></data>
+  <data name="Composer.Suggestion" xml:space="preserve"><value>{0} (Tab to use)</value></data>
   <data name="Composer.CancelQueued" xml:space="preserve"><value>Cancel the queued message: {0}</value></data>
   <data name="Composer.Context" xml:space="preserve"><value>context</value></data>
   <data name="Composer.Effort" xml:space="preserve"><value>Effort</value></data>
@@ -99,10 +109,10 @@
   <data name="Composer.FastUnavailableWhy" xml:space="preserve"><value>Fast mode unavailable: {0}</value></data>
   <data name="Composer.History" xml:space="preserve"><value>history {0} of {1}</value></data>
   <data name="Composer.ImageAlt" xml:space="preserve"><value>Image {0}</value></data>
-  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} is {1}: images are limited to {2} each</value></data>
-  <data name="Composer.ImageTooMany" xml:space="preserve"><value>At most {0} images per message</value></data>
-  <data name="Composer.ImageType" xml:space="preserve"><value>{0} isn't a PNG, JPEG, GIF or WebP image</value></data>
-  <data name="Composer.Images" xml:space="preserve"><value>Attached images</value></data>
+  <data name="Composer.ImageTooBig" xml:space="preserve"><value>{0} is {1}: attachments are limited to {2} each</value></data>
+  <data name="Composer.ImageTooMany" xml:space="preserve"><value>At most {0} attachments per message</value></data>
+  <data name="Composer.ImageType" xml:space="preserve"><value>{0} isn't an image (PNG, JPEG, GIF, WebP), a PDF or a text file</value></data>
+  <data name="Composer.Images" xml:space="preserve"><value>Attachments</value></data>
   <data name="Composer.Interrupt" xml:space="preserve"><value>Interrupt</value></data>
   <data name="Composer.Interrupted" xml:space="preserve"><value>interrupted</value></data>
   <data name="Composer.Label" xml:space="preserve"><value>Message to Claude</value></data>
@@ -115,7 +125,7 @@
   <data name="Composer.PhWorkflow" xml:space="preserve"><value>The workflow is running. What you send now is queued…</value></data>
   <data name="Composer.DenyAndSend" xml:space="preserve"><value>Deny {0} and send</value></data>
   <data name="Composer.DenyAndSendHint" xml:space="preserve"><value>Pending permission requests are denied first, then your message is sent.</value></data>
-  <data name="Composer.RemoveImage" xml:space="preserve"><value>Remove image {0}</value></data>
+  <data name="Composer.RemoveImage" xml:space="preserve"><value>Remove attachment {0}</value></data>
   <data name="Composer.Queue" xml:space="preserve"><value>Queue</value></data>
   <data name="Composer.QueueHint" xml:space="preserve"><value>Claude reads it at the next tool result, or right after this turn</value></data>
   <data name="Composer.Queued" xml:space="preserve"><value>queued</value></data>
@@ -135,6 +145,9 @@
   <data name="Crash.Title" xml:space="preserve"><value>The Claude process stopped</value></data>
   <data name="Ctx.Auto" xml:space="preserve"><value>Auto at {0}</value></data>
   <data name="Ctx.AutoTitle" xml:space="preserve"><value>The CLI's auto-compact threshold</value></data>
+  <data name="Ctx.Cache" xml:space="preserve"><value>Prompt cache</value></data>
+  <data name="Ctx.CacheHint" xml:space="preserve"><value>A low share after a pause, a model switch or a compaction: the cache had expired or no longer matched, and the prompt was written again.</value></data>
+  <data name="Ctx.CacheLine" xml:space="preserve"><value>Last request: {0} read from the cache, {1} tokens written.</value></data>
   <data name="Ctx.Cat.Agents" xml:space="preserve"><value>custom agents</value></data>
   <data name="Ctx.Cat.Mcp" xml:space="preserve"><value>MCP tools</value></data>
   <data name="Ctx.Cat.McpN" xml:space="preserve"><value>MCP tools · {0}</value></data>
@@ -209,7 +222,7 @@
   <data name="Ext.Col.Event" xml:space="preserve"><value>Event</value></data>
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>A policy or setting turns hooks off: none of these run.</value></data>
-  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Read-only: they live in the settings files named under Source.</value></data>
+  <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Those kept in a settings file can be changed here: the CLI writes the file itself.</value></data>
   <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>disabled</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>No hooks configured for this folder.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Couldn't read the hooks: {0}</value></data>
@@ -302,8 +315,8 @@
   <data name="Mem.Type.Project" xml:space="preserve"><value>project</value></data>
   <data name="Mem.Type.User" xml:space="preserve"><value>user</value></data>
   <data name="Mention.Scanning" xml:space="preserve"><value>Scanning…</value></data>
-  <data name="Mention.Title" xml:space="preserve"><value>Files and folders</value></data>
-  <data name="Mention.NoMatch" xml:space="preserve"><value>No file matches</value></data>
+  <data name="Mention.Title" xml:space="preserve"><value>Agents, files and folders</value></data>
+  <data name="Mention.NoMatch" xml:space="preserve"><value>Nothing matches</value></data>
   <data name="Mention.Truncated" xml:space="preserve"><value>first {0:N0} entries</value></data>
   <data name="Mode.Name.acceptEdits" xml:space="preserve"><value>Accept edits</value></data>
   <data name="Mode.Name.auto" xml:space="preserve"><value>Auto</value></data>
@@ -316,7 +329,16 @@
   <data name="Mode.Name." xml:space="preserve"><value>Settings</value></data>
   <data name="Mode.plan" xml:space="preserve"><value>Read-only, proposes a plan</value></data>
   <data name="Model" xml:space="preserve"><value>Model</value></data>
+  <data name="Model.Advisor" xml:space="preserve"><value>Advisor</value></data>
+  <data name="Model.AdvisorHint" xml:space="preserve"><value>A stronger model Claude consults at key moments (/advisor).</value></data>
+  <data name="Model.AdvisorOff" xml:space="preserve"><value>Off</value></data>
+  <data name="Model.AdvisorRefused" xml:space="preserve"><value>{0} can't advise this model: an advisor must be at least as capable.</value></data>
+  <data name="Model.CacheHint" xml:space="preserve"><value>Switching models mid-conversation starts without the prompt cache: the next turn re-reads the whole conversation at full price.</value></data>
   <data name="Model.Current" xml:space="preserve"><value>current</value></data>
+  <data name="Model.DefaultFailed" xml:space="preserve"><value>Couldn't save the default: {0}</value></data>
+  <data name="Model.DefaultSet" xml:space="preserve"><value>Saved as the default.</value></data>
+  <data name="Model.DefaultSetNoMax" xml:space="preserve"><value>Model saved as the default; max effort stays for this session only.</value></data>
+  <data name="Model.SetDefault" xml:space="preserve"><value>Set as default for new sessions</value></data>
   <data name="Model.SetFailed" xml:space="preserve"><value>Couldn't switch model: {0}</value></data>
   <data name="Nav.Appearance" xml:space="preserve"><value>Appearance</value></data>
   <data name="Nav.Extensions" xml:space="preserve"><value>Extensions</value></data>
@@ -326,6 +348,8 @@
   <data name="New.DefaultModel" xml:space="preserve"><value>Default model</value></data>
   <data name="New.Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="New.Effort" xml:space="preserve"><value>Effort</value></data>
+  <data name="New.Fallback" xml:space="preserve"><value>Fallback model</value></data>
+  <data name="New.FallbackHint" xml:space="preserve"><value>Used when the model is overloaded (--fallback-model).</value></data>
   <data name="New.Folder" xml:space="preserve"><value>Working folder</value></data>
   <data name="New.Guide" xml:space="preserve"><value>Full guide:</value></data>
   <data name="New.GuideUrl" xml:space="preserve"><value>https://docs.claude.com/en/docs/claude-code/setup</value></data>
@@ -336,6 +360,7 @@
   <data name="New.HintSwitch" xml:space="preserve"><value>switch session</value></data>
   <data name="New.Isolation" xml:space="preserve"><value>Isolation</value></data>
   <data name="New.HomeFolder" xml:space="preserve"><value>This is your home folder: Claude can read and edit everything in it, and there's no worktree to isolate it. Prefer a project folder.</value></data>
+  <data name="New.NoFallback" xml:space="preserve"><value>None</value></data>
   <data name="New.NoFolder" xml:space="preserve"><value>This folder doesn't exist.</value></data>
   <data name="New.Trust" xml:space="preserve"><value>Trust this folder</value></data>
   <data name="New.Untrusted" xml:space="preserve"><value>This folder came from a link and you haven't used it before. Claude will load its .claude settings and hooks.</value></data>
@@ -408,11 +433,11 @@
   <data name="Perm.HintAllow" xml:space="preserve"><value>allow</value></data>
   <data name="Perm.HintDeny" xml:space="preserve"><value>deny</value></data>
   <data name="Perm.HintFocus" xml:space="preserve"><value>click the card to use these keys</value></data>
-  <data name="Perm.HintSession" xml:space="preserve"><value>whole session</value></data>
+  <data name="Perm.HintSession" xml:space="preserve"><value>always allow</value></data>
   <data name="Perm.Overwrite" xml:space="preserve"><value>Overwrite {0}?</value></data>
   <data name="Perm.Run" xml:space="preserve"><value>Run this command?</value></data>
   <data name="Perm.Title" xml:space="preserve"><value>Permission</value></data>
-  <data name="Perm.WholeSession" xml:space="preserve"><value>Whole session</value></data>
+  <data name="Perm.WholeSession" xml:space="preserve"><value>Always allow</value></data>
   <data name="Plan.ApproveAuto" xml:space="preserve"><value>Approve and auto-accept edits</value></data>
   <data name="Plan.ApproveReview" xml:space="preserve"><value>Approve and review each edit</value></data>
   <data name="Plan.Feedback" xml:space="preserve"><value>What should change in the plan?</value></data>
@@ -422,11 +447,41 @@
   <data name="Plan.HintReview" xml:space="preserve"><value>review each edit</value></data>
   <data name="Plan.Keep" xml:space="preserve"><value>Keep planning</value></data>
   <data name="Plan.Title" xml:space="preserve"><value>Approve this plan?</value></data>
+  <data name="Quota.Beh.cache_miss" xml:space="preserve"><value>Cache misses</value></data>
+  <data name="Quota.Beh.cron" xml:space="preserve"><value>Scheduled</value></data>
+  <data name="Quota.Beh.high_parallel" xml:space="preserve"><value>High parallelism</value></data>
+  <data name="Quota.Beh.long_context" xml:space="preserve"><value>Long context</value></data>
+  <data name="Quota.Beh.subagent_heavy" xml:space="preserve"><value>Subagent-heavy</value></data>
+  <data name="Quota.Blocked" xml:space="preserve"><value>You've reached your {0} limit.</value></data>
+  <data name="Quota.Breakdown" xml:space="preserve"><value>Breakdown</value></data>
+  <data name="Quota.Credits" xml:space="preserve"><value>Credits</value></data>
+  <data name="Quota.ExtraInUse" xml:space="preserve"><value>Extra usage is covering it.</value></data>
+  <data name="Quota.ExtraOff" xml:space="preserve"><value>Extra usage is off.</value></data>
+  <data name="Quota.ExtraOn" xml:space="preserve"><value>Extra usage is on.</value></data>
   <data name="Quota.FiveHours" xml:space="preserve"><value>5h</value></data>
   <data name="Quota.Hint" xml:space="preserve"><value>Plan usage reported by Claude. The 7-day window resets {0}.</value></data>
+  <data name="Quota.Kind.agents" xml:space="preserve"><value>Agents</value></data>
+  <data name="Quota.Kind.behaviors" xml:space="preserve"><value>Behaviors</value></data>
+  <data name="Quota.Kind.mcp_servers" xml:space="preserve"><value>MCP servers</value></data>
+  <data name="Quota.Kind.plugins" xml:space="preserve"><value>Plugins</value></data>
+  <data name="Quota.Kind.skills" xml:space="preserve"><value>Skills</value></data>
+  <data name="Quota.ModelWeek" xml:space="preserve"><value>{0} weekly window</value></data>
+  <data name="Quota.NoBreakdown" xml:space="preserve"><value>No breakdown for this account.</value></data>
+  <data name="Quota.ReadFailed" xml:space="preserve"><value>Couldn't read usage: {0}</value></data>
+  <data name="Quota.Reading" xml:space="preserve"><value>Reading this week’s transcripts…</value></data>
   <data name="Quota.Resets" xml:space="preserve"><value>resets {0}</value></data>
+  <data name="Quota.Settings" xml:space="preserve"><value>Usage settings</value></data>
   <data name="Quota.SevenDays" xml:space="preserve"><value>7d</value></data>
+  <data name="Quota.Surfaces" xml:space="preserve"><value>This week by product</value></data>
   <data name="Quota.Usage" xml:space="preserve"><value>Usage</value></data>
+  <data name="Quota.Used" xml:space="preserve"><value>{0} used</value></data>
+  <data name="Quota.Warn" xml:space="preserve"><value>Approaching your {0} limit.</value></data>
+  <data name="Quota.Window.five_hour" xml:space="preserve"><value>5-hour</value></data>
+  <data name="Quota.Window.overage" xml:space="preserve"><value>extra usage</value></data>
+  <data name="Quota.Window.seven_day" xml:space="preserve"><value>weekly</value></data>
+  <data name="Quota.Window.seven_day_opus" xml:space="preserve"><value>Opus weekly</value></data>
+  <data name="Quota.Window.seven_day_overage_included" xml:space="preserve"><value>model weekly</value></data>
+  <data name="Quota.Window.seven_day_sonnet" xml:space="preserve"><value>Sonnet weekly</value></data>
   <data name="Rail.Active" xml:space="preserve"><value>Active</value></data>
   <data name="Rail.FailedMcp1" xml:space="preserve"><value>1 MCP server failed</value></data>
   <data name="Rail.FailedMcpN" xml:space="preserve"><value>{0} MCP servers failed</value></data>
@@ -665,4 +720,233 @@
   <data name="Task.BackgroundHint" xml:space="preserve"><value>Lets it run in the background: the turn goes on without waiting (Ctrl B in the terminal)</value></data>
   <data name="Thread.CopyOf" xml:space="preserve"><value>Copy the reply: {0}</value></data>
   <data name="Wf.Result" xml:space="preserve"><value>Result</value></data>
+  <data name="Ext.Tab.Permissions" xml:space="preserve"><value>Permissions</value></data>
+  <data name="Ext.Perm.Lead" xml:space="preserve"><value>Permission rules the CLI applies to sessions in {0}: settings files, session grants and --allowedTools. Rules in user, project and local settings can be added and removed here; the others are read-only.</value></data>
+  <data name="Ext.Perm.ManagedOnly" xml:space="preserve"><value>Managed settings allow policy rules only: rules from other files are listed but not applied.</value></data>
+  <data name="Ext.Perm.FileError" xml:space="preserve"><value>Settings file skipped, its rules don't apply: {0}</value></data>
+  <data name="Ext.Perm.allow" xml:space="preserve"><value>Allow</value></data>
+  <data name="Ext.Perm.ask" xml:space="preserve"><value>Ask</value></data>
+  <data name="Ext.Perm.deny" xml:space="preserve"><value>Deny</value></data>
+  <data name="Ext.Perm.None" xml:space="preserve"><value>No permission rules for this folder.</value></data>
+  <data name="Ext.Col.Rule" xml:space="preserve"><value>Rule</value></data>
+  <data name="Ext.Col.Behavior" xml:space="preserve"><value>Behavior</value></data>
+  <data name="Ext.Col.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Ext.Perm.NotInEffect" xml:space="preserve"><value>not in effect</value></data>
+  <data name="Ext.Perm.RemoveRule" xml:space="preserve"><value>Remove {0}</value></data>
+  <data name="Ext.Perm.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Ext.Perm.Add" xml:space="preserve"><value>Add a rule</value></data>
+  <data name="Ext.Perm.AddButton" xml:space="preserve"><value>Add</value></data>
+  <data name="Ext.Perm.Failed" xml:space="preserve"><value>Couldn't read the permission rules: {0}</value></data>
+  <data name="Ext.Perm.Invalid" xml:space="preserve"><value>{0} isn't a rule: write a tool name, optionally followed by its content in parentheses, like Bash(npm run test:*).</value></data>
+  <data name="Ext.Perm.WriteFailed" xml:space="preserve"><value>Couldn't save the rule: {0}</value></data>
+  <data name="Ext.Scope.Session" xml:space="preserve"><value>session</value></data>
+  <data name="Ext.Scope.Policy" xml:space="preserve"><value>policy</value></data>
+  <data name="Perm.AskedBy" xml:space="preserve"><value>Asked by the agent {0}</value></data>
+  <data name="Perm.BlockedPath" xml:space="preserve"><value>Blocked path:</value></data>
+  <data name="Perm.WhyAskRule" xml:space="preserve"><value>Asks because of the rule {0} in {1}.</value></data>
+  <data name="Perm.WhyRule" xml:space="preserve"><value>A permission rule asks before this call.</value></data>
+  <data name="Perm.WhyWorkingDir" xml:space="preserve"><value>The path is outside the session's folders.</value></data>
+  <data name="Perm.SaveIn" xml:space="preserve"><value>Save in</value></data>
+  <data name="Perm.Dest.session" xml:space="preserve"><value>this session only</value></data>
+  <data name="Perm.Dest.localSettings" xml:space="preserve"><value>local settings (.claude/settings.local.json)</value></data>
+  <data name="Perm.Dest.projectSettings" xml:space="preserve"><value>project settings (.claude/settings.json)</value></data>
+  <data name="Perm.Dest.userSettings" xml:space="preserve"><value>user settings (~/.claude/settings.json)</value></data>
+  <data name="Tool.Label.Elicit" xml:space="preserve"><value>MCP input</value></data>
+  <data name="Elicit.Title" xml:space="preserve"><value>Input requested</value></data>
+  <data name="Elicit.Asks" xml:space="preserve"><value>{0} needs your input</value></data>
+  <data name="Elicit.Open" xml:space="preserve"><value>Open in browser</value></data>
+  <data name="Elicit.OpenAgain" xml:space="preserve"><value>Open again</value></data>
+  <data name="Elicit.Waiting" xml:space="preserve"><value>Finish in your browser, then continue here.</value></data>
+  <data name="Elicit.BadUrl" xml:space="preserve"><value>This URL can't be opened from here. Decline to continue.</value></data>
+  <data name="Elicit.Done" xml:space="preserve"><value>I'm done, continue</value></data>
+  <data name="Elicit.Accept" xml:space="preserve"><value>Accept</value></data>
+  <data name="Elicit.Decline" xml:space="preserve"><value>Decline</value></data>
+  <data name="Elicit.HintAccept" xml:space="preserve"><value>continue</value></data>
+  <data name="Elicit.HintDecline" xml:space="preserve"><value>decline</value></data>
+  <data name="Elicit.Invalid" xml:space="preserve"><value>Check “{0}”: it is required, or its value is not valid.</value></data>
+  <data name="Ext.RetryAll" xml:space="preserve"><value>Retry all failed</value></data>
+  <data name="Ext.StillFailing" xml:space="preserve"><value>Still failing: {0}</value></data>
+  <data name="Ext.Skipped" xml:space="preserve"><value>{0} skipped, invalid configuration: {1}</value></data>
+  <data name="Ext.SignOut" xml:space="preserve"><value>Sign out</value></data>
+  <data name="Ext.Tool.ReadOnly" xml:space="preserve"><value>read-only</value></data>
+  <data name="Ext.Tool.Destructive" xml:space="preserve"><value>destructive</value></data>
+  <data name="Ext.Tool.OpenWorld" xml:space="preserve"><value>open world</value></data>
+  <data name="Mcp.SignInAgain" xml:space="preserve"><value>Sign in again</value></data>
+  <data name="Mcp.Servers" xml:space="preserve"><value>MCP servers</value></data>
+  <data name="Mcp.AuthFailed" xml:space="preserve"><value>{0} refused this call's credentials.</value></data>
+  <data name="Mcp.AuthWaiting" xml:space="preserve"><value>Finish signing in in your browser, then ask Claude to try again.</value></data>
+  <data name="Mcp.SignedIn" xml:space="preserve"><value>{0} is signed in. Ask Claude to try again.</value></data>
+  <data name="Ext.Col.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="Ext.Plugins.Reload" xml:space="preserve"><value>Reload plugins</value></data>
+  <data name="Ext.Plugins.Reloaded" xml:space="preserve"><value>Reloaded: {0} plugins, {1} skills, {2} agents.</value></data>
+  <data name="Ext.Plugins.ReloadErrors" xml:space="preserve"><value>{0} errors while loading, see the rows below.</value></data>
+  <data name="Ext.Plugins.LoadError" xml:space="preserve"><value>{0} did not load: {1}</value></data>
+  <data name="Ext.Plugins.Failed" xml:space="preserve"><value>claude plugin failed: {0}</value></data>
+  <data name="Ext.Plugins.Loading" xml:space="preserve"><value>Reading the installed plugins…</value></data>
+  <data name="Ext.Plugins.None" xml:space="preserve"><value>No plugin installed.</value></data>
+  <data name="Ext.Plugins.Enable" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Ext.Plugins.Options" xml:space="preserve"><value>Options</value></data>
+  <data name="Ext.Plugins.Update" xml:space="preserve"><value>Update</value></data>
+  <data name="Ext.Plugins.Uninstall" xml:space="preserve"><value>Uninstall</value></data>
+  <data name="Ext.Plugins.ConfirmUninstall" xml:space="preserve"><value>Confirm uninstall</value></data>
+  <data name="Ext.Plugins.Install" xml:space="preserve"><value>Install a plugin</value></data>
+  <data name="Ext.Plugins.InstallButton" xml:space="preserve"><value>Install</value></data>
+  <data name="Ext.Plugins.Command" xml:space="preserve"><value>Installing {0} runs this command from its marketplace. Run it only if you trust that marketplace:</value></data>
+  <data name="Ext.Plugins.Accept" xml:space="preserve"><value>Run and install</value></data>
+  <data name="Ext.Plugins.Markets" xml:space="preserve"><value>Marketplaces</value></data>
+  <data name="Ext.Plugins.Market" xml:space="preserve"><value>Marketplace</value></data>
+  <data name="Ext.Plugins.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Ext.Plugins.ConfirmRemove" xml:space="preserve"><value>Confirm removal</value></data>
+  <data name="Ext.Plugins.AddMarket" xml:space="preserve"><value>Add a marketplace (owner/repo, git URL or path)</value></data>
+  <data name="Ext.Plugins.AddMarketButton" xml:space="preserve"><value>Add</value></data>
+  <data name="Ext.Plugins.OptionsTitle" xml:space="preserve"><value>{0} options</value></data>
+  <data name="Ext.Plugins.Required" xml:space="preserve"><value>required</value></data>
+  <data name="Ext.Plugins.Unset" xml:space="preserve"><value>not set</value></data>
+  <data name="Ext.Plugins.SecretKept" xml:space="preserve"><value>Saved. Leave empty to keep it</value></data>
+  <data name="Ext.Plugins.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Ext.Plugins.Saved" xml:space="preserve"><value>Options saved.</value></data>
+  <data name="Status.Compacting" xml:space="preserve"><value>Compacting the conversation</value></data>
+  <data name="Thread.Compacted" xml:space="preserve"><value>Compacted chat</value></data>
+  <data name="Thread.Compact.manual" xml:space="preserve"><value>/compact</value></data>
+  <data name="Thread.Compact.auto" xml:space="preserve"><value>automatic</value></data>
+  <data name="Thread.CompactTokens" xml:space="preserve"><value>{0} → {1} tokens</value></data>
+  <data name="Thread.CompactNoSummary" xml:space="preserve"><value>The summary is not available.</value></data>
+  <data name="Thread.Thinking" xml:space="preserve"><value>Thinking</value></data>
+  <data name="Thread.EditRetry" xml:space="preserve"><value>Edit and retry</value></data>
+  <data name="Tool.NotRun" xml:space="preserve"><value>Not run</value></data>
+  <data name="Tool.NotRunWhy" xml:space="preserve"><value>Auto mode’s check had no usable answer, so this call was held back. It was not refused: asking again is fine.</value></data>
+  <data name="Diff.NoHunks" xml:space="preserve"><value>No line changes to show: binary, empty, mode only or too large</value></data>
+  <data name="Diff.MoreFiles" xml:space="preserve"><value>{0} more changed files not shown</value></data>
+  <data name="Diff.Title" xml:space="preserve"><value>Uncommitted changes</value></data>
+  <data name="Diff.Open" xml:space="preserve"><value>Changes</value></data>
+  <data name="Diff.OpenHint" xml:space="preserve"><value>Uncommitted changes in this repository (/diff)</value></data>
+  <data name="Diff.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Diff.Loading" xml:space="preserve"><value>Reading the changes…</value></data>
+  <data name="Diff.None" xml:space="preserve"><value>No uncommitted changes.</value></data>
+  <data name="Diff.NotRepo" xml:space="preserve"><value>This folder is not in a git repository.</value></data>
+  <data name="Diff.Binary" xml:space="preserve"><value>New file: binary, a link or too large to show</value></data>
+  <data name="Diff.Files1" xml:space="preserve"><value>1 file</value></data>
+  <data name="Diff.FilesN" xml:space="preserve"><value>{0} files</value></data>
+  <data name="File.Sent" xml:space="preserve"><value>Files from Claude</value></data>
+  <data name="File.Reveal" xml:space="preserve"><value>Show in folder</value></data>
+  <data name="File.RevealOf" xml:space="preserve"><value>Show {0} in its folder</value></data>
+  <data name="File.Gone" xml:space="preserve"><value>{0} no longer exists.</value></data>
+  <data name="File.RevealFailed" xml:space="preserve"><value>Could not show the file: {0}</value></data>
+  <data name="Artifacts.Count1" xml:space="preserve"><value>1 artifact</value></data>
+  <data name="Artifacts.CountN" xml:space="preserve"><value>{0} artifacts</value></data>
+  <data name="Artifacts.List" xml:space="preserve"><value>Artifacts published in this session</value></data>
+  <data name="Notify.Push" xml:space="preserve"><value>Claude sent you a notification</value></data>
+  <data name="Appearance.Thinking" xml:space="preserve"><value>Thinking summaries</value></data>
+  <data name="Appearance.ThinkingHint" xml:space="preserve"><value>Asks Claude for a summary of its thinking and shows it in the thread. Applies to sessions started or resumed afterwards.</value></data>
+  <data name="Appearance.ThinkingLabel" xml:space="preserve"><value>Show thinking</value></data>
+  <data name="Appearance.Stamps" xml:space="preserve"><value>Message times</value></data>
+  <data name="Appearance.StampsHint" xml:space="preserve"><value>Shows the time above each reply, and a divider when the day changes.</value></data>
+  <data name="Appearance.StampsLabel" xml:space="preserve"><value>Show times</value></data>
+  <data name="Bookmark.Add" xml:space="preserve"><value>Bookmark</value></data>
+  <data name="Bookmark.Of" xml:space="preserve"><value>Bookmark the reply: {0}</value></data>
+  <data name="Bookmark.Title" xml:space="preserve"><value>Bookmarks</value></data>
+  <data name="Ext.Hooks.Locked" xml:space="preserve"><value>Your organization’s managed settings lock hooks: none can be added, changed or removed here.</value></data>
+  <data name="Ext.Hooks.Blocks" xml:space="preserve"><value>blocks on failure</value></data>
+  <data name="Ext.Hooks.BlocksHint" xml:space="preserve"><value>onFailure: block. When this hook fails, the action it guards does not go ahead.</value></data>
+  <data name="Ext.Hooks.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Ext.Hooks.EditRow" xml:space="preserve"><value>Edit the {0} hook: {1}</value></data>
+  <data name="Ext.Hooks.RemoveRow" xml:space="preserve"><value>Remove the {0} hook: {1}</value></data>
+  <data name="Ext.Hooks.AddTitle" xml:space="preserve"><value>Add a command hook</value></data>
+  <data name="Ext.Hooks.EditTitle" xml:space="preserve"><value>Edit the hook</value></data>
+  <data name="Ext.Hooks.NoMatcher" xml:space="preserve"><value>no matcher for this event</value></data>
+  <data name="Ext.Hooks.Timeout" xml:space="preserve"><value>Timeout (s)</value></data>
+  <data name="Ext.Hooks.Block" xml:space="preserve"><value>Block when it fails</value></data>
+  <data name="Ext.Hooks.AddButton" xml:space="preserve"><value>Add the hook</value></data>
+  <data name="Ext.Hooks.SaveButton" xml:space="preserve"><value>Save the hook</value></data>
+  <data name="Ext.Hooks.EditFailed" xml:space="preserve"><value>The hook was not saved: {0}</value></data>
+  <data name="Status.HookRunning" xml:space="preserve"><value>Hook {0} running…</value></data>
+  <data name="Status.HooksMore" xml:space="preserve"><value>{0} more</value></data>
+  <data name="Mem.Auto" xml:space="preserve"><value>Auto-memory</value></data>
+  <data name="Mem.AutoFolder" xml:space="preserve"><value>Claude saves what it learns about you and this project in {0}, for every session in this folder.</value></data>
+  <data name="Mem.AutoList" xml:space="preserve"><value>Saved memories ({0})</value></data>
+  <data name="Mem.AutoNone" xml:space="preserve"><value>No memory saved yet.</value></data>
+  <data name="Mem.AutoFailed" xml:space="preserve"><value>Auto-memory was not changed: {0}</value></data>
+  <data name="Mem.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Mem.DeleteConfirm" xml:space="preserve"><value>Delete {0} for good</value></data>
+  <data name="Mem.DeleteFailed" xml:space="preserve"><value>Not deleted: {0}</value></data>
+  <data name="Model.Style" xml:space="preserve"><value>Output style</value></data>
+  <data name="Model.StyleHint" xml:space="preserve"><value>How Claude writes its replies (/output-style). Saved for this project, in .claude/settings.local.json.</value></data>
+  <data name="Composer.Style" xml:space="preserve"><value>style · {0}</value></data>
+  <data name="Ctx.Window" xml:space="preserve"><value>Auto-compact window</value></data>
+  <data name="Ctx.WindowHint" xml:space="preserve"><value>How full the context gets before Claude Code summarizes it (/autocompact), saved for this model. Auto is the window tuned for the model.</value></data>
+  <data name="Ctx.WindowAuto" xml:space="preserve"><value>auto (recommended)</value></data>
+  <data name="Ctx.WindowFailed" xml:space="preserve"><value>The window was not changed: {0}</value></data>
+  <data name="Config.Title" xml:space="preserve"><value>Settings (/config)</value></data>
+  <data name="Config.Loading" xml:space="preserve"><value>Asking Claude Code for its settings…</value></data>
+  <data name="Config.Value" xml:space="preserve"><value>value</value></data>
+  <data name="Config.Hint" xml:space="preserve"><value>Each choice is sent as /config key=value: Claude Code checks it, saves it and answers in the thread.</value></data>
+  <data name="Config.Sent" xml:space="preserve"><value>{0} sent</value></data>
+  <data name="Session.Rename" xml:space="preserve"><value>Rename</value></data>
+  <data name="Session.RenameLabel" xml:space="preserve"><value>Rename the session</value></data>
+  <data name="Session.RenameHint" xml:space="preserve"><value>Rename the session, as /rename does</value></data>
+  <data name="Session.PrOf" xml:space="preserve"><value>Pull request {0}</value></data>
+  <data name="Session.Export" xml:space="preserve"><value>Export</value></data>
+  <data name="Session.ExportHint" xml:space="preserve"><value>Save the conversation as text in Downloads, as /export does</value></data>
+  <data name="Session.Exported" xml:space="preserve"><value>Saved to {0}</value></data>
+  <data name="Session.ActionFailed" xml:space="preserve"><value>Failed: {0}</value></data>
+  <data name="Remote.Label" xml:space="preserve"><value>Remote Control</value></data>
+  <data name="Remote.Hint" xml:space="preserve"><value>Continue this session from claude.ai/code or the Claude app, as /remote-control does</value></data>
+  <data name="Remote.Open" xml:space="preserve"><value>Open on claude.ai</value></data>
+  <data name="Crash.RestartContinue" xml:space="preserve"><value>Restart and continue the turn</value></data>
+  <data name="Thread.Resumed" xml:space="preserve"><value>Claude Code restarted: the interrupted turn continues.</value></data>
+  <data name="Status.Title" xml:space="preserve"><value>Status</value></data>
+  <data name="Status.Loading" xml:space="preserve"><value>Reading the status…</value></data>
+  <data name="Status.NoProcess" xml:space="preserve"><value>No process running: send a message to read the status.</value></data>
+  <data name="Account.SignIn" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Account.SignOut" xml:space="preserve"><value>Sign out</value></data>
+  <data name="Account.SignOutConfirm" xml:space="preserve"><value>Sign out of Claude Code?</value></data>
+  <data name="Account.SignedOut" xml:space="preserve"><value>Signed out of Claude Code on this computer.</value></data>
+  <data name="Account.SignedIn" xml:space="preserve"><value>Signed in.</value></data>
+  <data name="Account.Waiting" xml:space="preserve"><value>Finish signing in in your browser.</value></data>
+  <data name="Account.NoUrl" xml:space="preserve"><value>Claude Code gave no sign-in page.</value></data>
+  <data name="New.Launch" xml:space="preserve"><value>Launch options</value></data>
+  <data name="New.Restricted" xml:space="preserve"><value>Restricted</value></data>
+  <data name="New.RestrictedHint" xml:space="preserve"><value>--restricted: no Bash or other code-running tools nor WebFetch, file tools kept to the working folders, user, project and local settings ignored</value></data>
+  <data name="New.SafeMode" xml:space="preserve"><value>Safe mode</value></data>
+  <data name="New.SafeModeHint" xml:space="preserve"><value>--safe-mode: CLAUDE.md, skills, plugins, hooks, MCP servers, custom commands and agents off, to troubleshoot a broken configuration</value></data>
+  <data name="New.FromPr" xml:space="preserve"><value>Resume from a pull request</value></data>
+  <data name="New.FromPrHint" xml:space="preserve"><value>PR number or URL</value></data>
+  <data name="New.FromPrGo" xml:space="preserve"><value>Resume</value></data>
+  <data name="New.FromPrNone" xml:space="preserve"><value>No session of this folder is linked to {0}.</value></data>
+  <data name="Nav.Background" xml:space="preserve"><value>Background</value></data>
+  <data name="Bg.Count1" xml:space="preserve"><value>{0} background session</value></data>
+  <data name="Bg.CountN" xml:space="preserve"><value>{0} background sessions</value></data>
+  <data name="Bg.Count0" xml:space="preserve"><value>{0} background sessions</value></data>
+  <data name="Bg.Text" xml:space="preserve"><value>Started with &lt;code&gt;claude --bg&lt;/code&gt; or from the agent view, they keep working after the terminal closes. The sessions open in a terminal are listed too.</value></data>
+  <data name="Bg.Loading" xml:space="preserve"><value>Asking Claude Code…</value></data>
+  <data name="Bg.None" xml:space="preserve"><value>No session is running.</value></data>
+  <data name="Bg.Col.Session" xml:space="preserve"><value>Session</value></data>
+  <data name="Bg.Col.Kind" xml:space="preserve"><value>Kind</value></data>
+  <data name="Bg.Col.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Bg.Kind.Background" xml:space="preserve"><value>background</value></data>
+  <data name="Bg.Kind.Interactive" xml:space="preserve"><value>terminal</value></data>
+  <data name="Bg.Logs" xml:space="preserve"><value>Logs</value></data>
+  <data name="Bg.Respawn" xml:space="preserve"><value>Respawn</value></data>
+  <data name="Bg.RespawnHint" xml:space="preserve"><value>Restart it on the current Claude Code version</value></data>
+  <data name="Bg.StopHint" xml:space="preserve"><value>Stop it; its conversation is kept</value></data>
+  <data name="Bg.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Bg.RemoveConfirm" xml:space="preserve"><value>Remove for good?</value></data>
+  <data name="Bg.RemoveHint" xml:space="preserve"><value>Delete the session and its worktree</value></data>
+  <data name="Bg.Done" xml:space="preserve"><value>Done.</value></data>
+  <data name="Cwd.Label" xml:space="preserve"><value>Working folder</value></data>
+  <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code has never worked in {0}. It sits in the git repository {1}: trusting it trusts that whole repository, every subfolder and linked worktree, and their settings, hooks and CLAUDE.md would load. Trust it?</value></data>
+  <data name="Cwd.Trust" xml:space="preserve"><value>Claude Code has never worked in {0}: its settings, hooks and CLAUDE.md would load. Trust it?</value></data>
+  <data name="Cwd.Moved" xml:space="preserve"><value>Claude now works in {0}.</value></data>
+  <data name="Agent.Transcript" xml:space="preserve"><value>Full transcript</value></data>
+  <data name="Agent.Map" xml:space="preserve"><value>All subagents</value></data>
+  <data name="Kv.Effort" xml:space="preserve"><value>effort</value></data>
+  <data name="Bg.Tasks" xml:space="preserve"><value>Background tasks</value></data>
+  <data name="Bg.Type.mcp_task" xml:space="preserve"><value>MCP call</value></data>
+  <data name="Bg.Type.monitor_mcp" xml:space="preserve"><value>MCP monitor</value></data>
+  <data name="Bg.Type.monitor_ws" xml:space="preserve"><value>WebSocket monitor</value></data>
+  <data name="Bg.Type.in_process_teammate" xml:space="preserve"><value>Teammate</value></data>
+  <data name="Bg.Type.remote_agent" xml:space="preserve"><value>Remote agent</value></data>
+  <data name="Thread.Scheduled" xml:space="preserve"><value>Scheduled task ran at {0}:</value></data>
+  <data name="New.Agent" xml:space="preserve"><value>Agent</value></data>
+  <data name="New.AgentHint" xml:space="preserve"><value>None: Claude Code’s default</value></data>
 </root>

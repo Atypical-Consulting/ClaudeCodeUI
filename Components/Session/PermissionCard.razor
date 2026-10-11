@@ -5,7 +5,7 @@
 @inject UiState Ui
 @inject IJSRuntime JS
 
-<div class="ph"><h2 class="ttl">@(question ? L["Ask.Title"] : L["Perm.Title"])</h2><span class="sub">@Permission.Tool</span>
+<div class="ph"><h2 class="ttl">@(question ? L["Ask.Title"] : elicit ? L["Elicit.Title"] : L["Perm.Title"])</h2><span class="sub">@(elicit ? Events.Str(Permission.Input, "mcp_server_name") : Permission.Tool)</span>
     <span class="end"><span class="pill wait">@L["OfN", queue.FindIndex(x => x.P == Permission) + 1, queue.Count]</span></span>
 </div>
 <div class="scroll">
@@ -37,17 +37,33 @@
     }
     else
     {
-        <div class="section" data-permission tabindex="-1" role="group" aria-label="@(question ? L["Ask.Title"] : Title)" @ref="card">
+        <div class="section" data-permission tabindex="-1" role="group" aria-label="@(question ? L["Ask.Title"] : elicit ? L["Elicit.Title"] : Title)" @ref="card">
         @if (question)
         {
             <QuestionForm @ref="form" Session="Session" Permission="Permission" />
         }
+        else if (elicit)
+        {
+            <ElicitForm @ref="elicitForm" Session="Session" Permission="Permission" />
+        }
         else
         {
             <h3>@Title</h3>
+            @if (Session.AskingAgent(Permission) is { } agent)
+            {
+                <p>@L["Perm.AskedBy", AgentLabel(agent)]</p>
+            }
             @if (Events.Str(Permission.Input, "description") is { Length: > 0 } d)
             {
                 <p>@d</p>
+            }
+            @if (Why is { } why)
+            {
+                <p class="why">@why</p>
+            }
+            @if (Permission.Info?.BlockedPath is { } blocked)
+            {
+                <p class="why">@L["Perm.BlockedPath"] <code>@blocked</code></p>
             }
             @if (diff is not null)
             {
@@ -69,6 +85,19 @@
                 }
                 <button class="btn danger" disabled="@answered" @onclick="() => Answer(Decision.Deny)">@L["Perm.Deny"]</button>
             </div>
+            @if (CanAllowSession && !SetsMode)
+            {
+                @* Where an "always" rule is kept: the session by default, a settings file if the user picks one. *@
+                <div class="picks">
+                    <label for="perm-dest-@Permission.RequestId" style="font-size:12px">@L["Perm.SaveIn"]</label>
+                    <select id="perm-dest-@Permission.RequestId" @bind="destination" disabled="@answered">
+                        @foreach (var dst in Destinations)
+                        {
+                            <option value="@dst">@L["Perm.Dest." + dst]</option>
+                        }
+                    </select>
+                </div>
+            }
             @if (CanAllowSession)
             {
                 <p style="font-size:12px">@SessionGrant</p>
@@ -90,7 +119,7 @@
                 <a class="q" href="session/@s.Id" style="grid-template-columns:auto 84px minmax(0,1fr);padding:0;border:0">
                     <span class="dot wait"></span>
                     <span class="k" style="color:@ToolKinds.Color(p.Tool)" title="@p.Tool">@ToolKinds.Label(p.Tool)</span>
-                    <span class="p" style="color:var(--fg-2)">@s.Name · <span style="color:var(--fg)">@ToolKinds.Target(p.Tool, p.Input, s.Cwd)</span></span>
+                    <span class="p" style="color:var(--fg-2)">@s.Name@(s.AskingAgent(p) is { } a ? " · " + AgentLabel(a) : "") · <span style="color:var(--fg)">@ToolKinds.Target(p.Tool, p.Input, s.Cwd)</span></span>
                 </a>
             }
         </div>
@@ -114,12 +143,31 @@
     bool IsPlan => Permission.Tool == "ExitPlanMode";
     bool question;           // AskUserQuestion: answered through QuestionForm, never allowed with its bare input
     QuestionForm? form;
+    bool elicit => Permission.Tool == Elicit.Tool;   // an MCP elicitation: ElicitForm answers it
+    ElicitForm? elicitForm;
 
-    // "Toute la session": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions.
-    bool CanAllowSession => Permission.Suggestions is { ValueKind: JsonValueKind.Array } s && s.GetArrayLength() > 0;
+    // "Toujours autoriser": a setMode suggestion goes through set_permission_mode; others are echoed as updatedPermissions,
+    // with the destination picked. suppress_always_allow_rule: the CLI itself offers no "always" for this call.
+    bool CanAllowSession => Permission.Suggestions is { ValueKind: JsonValueKind.Array } s && s.GetArrayLength() > 0 && Permission.Info?.NoAlwaysAllow != true;
+    bool SetsMode => Permission.Suggestions!.Value.EnumerateArray().Any(x => Events.Str(x, "type") == "setMode");
+    static readonly string[] Destinations = ["session", "localSettings", "projectSettings", "userSettings"];
+    string destination = "session";
+
+    // Asked by a subagent: its description, else its type.
+    public static string AgentLabel(ToolItem a) => Events.Str(a.Input, "description") ?? Events.Str(a.Input, "subagent_type") ?? a.Name;
+
+    // Why the CLI asks: its own reason, else the ask rule that matched, else what the reason type says.
+    string? Why => Permission.Info switch
+    {
+        { Reason: { Length: > 0 } r } => PermissionRules.Plain(r),
+        { AskRule: { } rule } i => L["Perm.WhyAskRule", PermissionRules.Plain(rule), Strings.Name("Perm.Dest.", i.AskRuleSource)],
+        { ReasonType: "rule" } => L["Perm.WhyRule"],
+        { ReasonType: "workingDir" } => L["Perm.WhyWorkingDir"],
+        _ => null,
+    };
 
     string File => Path.GetFileName(Events.Str(Permission.Input, "file_path") ?? "");
-    string Title => Permission.Tool switch
+    string Title => Permission.Info?.Title is { Length: > 0 } title ? title : Permission.Tool switch
     {
         "Edit" or "MultiEdit" => L["Perm.Edit", File],
         "Write" => exists ? L["Perm.Overwrite", File] : L["Perm.Create", File],
@@ -142,6 +190,7 @@
         arm = true;
         error = null;
         feedback = "";
+        destination = "session";
         exists = Permission.Tool == "Write" && System.IO.File.Exists(Events.Str(Permission.Input, "file_path"));   // once, not per render
         diff = ToolKinds.IsEdit(Permission.Tool) ? EditDiff.FromInput(Permission.Tool, Permission.Input) : null;
         question = Permission.Tool == AskUser.Tool && AskUser.Parse(Permission.Input).Length > 0;
@@ -174,7 +223,7 @@
     {
         if (answered || (d == Decision.AllowSession && !CanAllowSession)) return;
         answered = true;
-        try { await Session.Answer(Permission, d, mode, message); }
+        try { await Session.Answer(Permission, d, mode, message, destination: destination); }
         catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
     }
 
@@ -192,6 +241,12 @@
             case "Enter" when IsPlan: await Answer(Decision.Allow, "acceptEdits"); break;
             case "Shift+Enter" when IsPlan: await Answer(Decision.Allow, "default"); break;
             case "Delete" when IsPlan: await feedbackBox.FocusAsync(); return;   // the feedback is typed, then sent with Ctrl ⏎
+            case "Enter" when elicit:
+                if (elicitForm is not null) await elicitForm.Submit();
+                return;
+            case "Delete" when elicit:
+                if (elicitForm is not null) await elicitForm.Decline();
+                return;
             case "Enter" when question:
                 if (form is not null) await form.FocusFirst();
                 return;

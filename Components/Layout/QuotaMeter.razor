@@ -1,18 +1,82 @@
-@* Quota from the latest rate_limit_event or get_usage; nothing until one arrived. *@
+@* Quota from the latest rate_limit_event or get_usage; nothing until one arrived. Per-model weekly windows, usage credits
+   and, on demand, the week's breakdown (/usage) come from get_usage. *@
 @implements IDisposable
 @inject SessionManager Sessions
 
 @if (Sessions.Limits is { } l)
 {
+    var src = Sessions.UsageSource;
+    var u = src?.Usage;
     <div class="quota" title="@L["Quota.Hint", l.SevenDayReset.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)]">
         <div class="qh"><span class="cap">@L["Quota.Usage"]</span><span>@L["Quota.Resets", Fmt.Time(l.FiveHourReset)]</span></div>
         <div class="qrow"><span>@L["Quota.FiveHours"]</span><span class="bar"><i style="width:@W(l.FiveHour)"></i></span><span>@Fmt.Pct(l.FiveHour)</span></div>
         <div class="qrow"><span>@L["Quota.SevenDays"]</span><span class="bar"><i style="width:@W(l.SevenDay)"></i></span><span>@Fmt.Pct(l.SevenDay)</span></div>
+        @foreach (var m in u?.Models ?? [])
+        {
+            <div class="qrow"><span title="@L["Quota.ModelWeek", m.Name]">@m.Name</span><span class="bar"><i style="width:@W(m.Pct)"></i></span><span>@Fmt.Pct(m.Pct)</span></div>
+        }
+        @if (u is { Spent: { } spent })
+        {
+            <div class="qrow kv"><span>@L["Quota.Credits"]</span><span>@(u.SpendLimit is { } lim ? $"{u.Money(spent)} / {u.Money(lim)}" : L["Quota.Used", u.Money(spent)])</span></div>
+        }
+        @* The CLI's limit banner: the limiting window, and whether extra usage takes over. *@
+        <div role="status">
+            @if (l.Status is "allowed_warning" or "rejected")
+            {
+                <p class="qwarn @(l.Status == "rejected" ? "c-err-fg" : null)">
+                    @L[l.Status == "rejected" ? "Quota.Blocked" : "Quota.Warn", Strings.Name("Quota.Window.", l.Type ?? "seven_day")]
+                    @L[l.ExtraInUse ? "Quota.ExtraInUse" : l.ExtraOn || u?.ExtraOn == true ? "Quota.ExtraOn" : "Quota.ExtraOff"]
+                    <a href="https://claude.ai/settings/usage" target="_blank" rel="noopener noreferrer">@L["Quota.Settings"]</a>
+                </p>
+            }
+        </div>
+        @if (src is { HasProcess: true })
+        {
+            <button type="button" class="btn ghost qmore" aria-expanded="@(open ? "true" : "false")" aria-controls="quota-week" @onclick="Toggle">@L["Quota.Breakdown"]<Icon Name="down" Sm /></button>
+        }
+        @if (open)
+        {
+            <div id="quota-week" class="qweek" aria-busy="@(loading ? "true" : "false")">
+                @if (error is not null) { <p class="c-err-fg" role="alert">@error</p> }
+                else if (loading) { <p role="status">@L["Quota.Reading"]</p> }
+                else if (u is not null)
+                {
+                    @if (u.Surfaces.Count > 0)
+                    {
+                        <span class="cap">@L["Quota.Surfaces"]</span>
+                        @foreach (var r in u.Surfaces) { @RowView(r) }
+                    }
+                    @foreach (var g in u.Week)
+                    {
+                        <span class="cap">@Strings.Name("Quota.Kind.", g.Kind)</span>
+                        @foreach (var r in g.Rows) { @RowView(g.Kind == "behaviors" ? r with { Name = Strings.Name("Quota.Beh.", r.Name) } : r) }
+                    }
+                    @if (u.Surfaces.Count == 0 && u.Week.Count == 0) { <p>@L["Quota.NoBreakdown"]</p> }
+                }
+            </div>
+        }
     </div>
 }
 
 @code {
     static string W(double f) => $"{Math.Round(Math.Clamp(f, 0, 1) * 100)}%";
+
+    static RenderFragment RowView(UsageRow r) => @<div class="qrow wide"><span title="@r.Name">@r.Name</span><span class="bar"><i style="width:@W(r.Pct)"></i></span><span>@Fmt.Pct(r.Pct)</span></div>;
+
+    bool open, loading;
+    string? error;
+
+    // The breakdown scans every local transcript of the week: read when opened, not at each session start.
+    async Task Toggle()
+    {
+        open = !open;
+        if (!open || Sessions.UsageSource is not { HasProcess: true } s) return;
+        loading = true;
+        error = null;
+        try { await s.RefreshUsage(true); }
+        catch (Exception ex) { error = L["Quota.ReadFailed", ex.Message]; }
+        finally { loading = false; }
+    }
 
     protected override void OnInitialized() => Sessions.Changed += Refresh;
     void Refresh() => InvokeAsync(StateHasChanged);

@@ -1,5 +1,5 @@
 @* The .pane.insp column: the pending permission (shown even when Ctrl I hid the pane: it blocks the turn), then the
-   background tasks if any, then the selected agent or tool, else the context. *@
+   background tasks if any, then the selected agent or tool, else the uncommitted changes (/diff) or the context. *@
 @implements IDisposable
 @inject UiState Ui
 
@@ -29,6 +29,10 @@
             {
                 <ToolDetail @key="t.Id" Session="Session" Tool="t" />
             }
+        }
+        else if (p is null && Ui.DiffOpen)
+        {
+            <DiffPanel @key="Session" Session="Session" />
         }
         else if (p is null)
         {

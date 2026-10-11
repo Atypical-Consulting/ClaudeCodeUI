@@ -1,3 +1,4 @@
+@implements IDisposable
 @* get_context_usage, refreshed when the session goes idle after a turn, then the session's memory files. *@
 
 @{
@@ -38,6 +39,14 @@
                 @if (Events.Prop(ctx, "isAutoCompactEnabled") is { ValueKind: JsonValueKind.True } && Long(ctx, "autoCompactThreshold") is > 0 and var th)
                 {
                     <span class="why" title="@L["Ctx.AutoTitle"]">@L["Ctx.Auto", Fmt.Pct(th / (double)max)]</span>
+                    @* /autocompact <tokens|auto>: the CLI saves the window for the model (modelSettings) and answers in the thread. *@
+                    <span class="picks"><select aria-label="@L["Ctx.Window"]" title="@L["Ctx.WindowHint"]" disabled="@(compacting || Session.Status is not (SessionStatus.Idle or SessionStatus.Exited))" @bind:get="string.Empty" @bind:set="SetWindow">
+                        <option value="">@L["Ctx.Window"]</option>
+                        @foreach (var w in Windows)
+                        {
+                            <option value="@w">@(w == "auto" ? L["Ctx.WindowAuto"] : Fmt.Tokens(long.Parse(w)))</option>
+                        }
+                    </select></span>
                 }
             </div>
             @if (error is not null)
@@ -59,6 +68,32 @@
     {
         <div class="section"><p>@L[Session.HasProcess ? "Ctx.Unknown" : "Ctx.NoProcess"]</p></div>
     }
+    @if (Session.ContextTokens > 0 && Session.CacheRead + Session.CacheWrite > 0)
+    {
+        @* The last API call's usage: what of its prompt came from the prompt cache, and what it (re)wrote there. *@
+        <div class="section">
+            <span class="cap">@L["Ctx.Cache"]</span>
+            <p title="@L["Ctx.CacheHint"]">@L["Ctx.CacheLine", Fmt.Pct(Session.CacheRead / (double)Session.ContextTokens), Fmt.Tokens(Session.CacheWrite)]</p>
+        </div>
+    }
+    <div class="section">
+        @* /cd: LiveSession.SetCwd. A folder the CLI never trusted asks first, as the terminal does. *@
+        <span class="cap" id="cwd-cap">@L["Cwd.Label"]</span>
+        <p class="cwd-now" title="@Session.Cwd"><PickFolder Start="@Session.Cwd" OnPick="MoveTo" OnError="m => cwdNote = m"
+                       Disabled="@(moving || Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting)" /> @TranscriptStore.Short(Session.Cwd)</p>
+        @if (trust is { } t)
+        {
+            <p role="alert">@(t.Root is { } root ? L["Cwd.TrustRoot", t.Directory, root] : L["Cwd.Trust", t.Directory])</p>
+            <div class="acts">
+                <button type="button" class="btn primary" disabled="@moving" @onclick="() => MoveTo(t.Directory, t.Directory)">@L["New.Trust"]</button>
+                <button type="button" class="btn ghost" @onclick="() => trust = null">@L["Action.Cancel"]</button>
+            </div>
+        }
+        @if (cwdNote is not null)
+        {
+            <p role="status">@cwdNote</p>
+        }
+    </div>
     <div class="section">
         <label class="cap" for="ctx-add-dir">@L["Dirs.Label"]</label>
         <p>@L["Dirs.LiveHint"]</p>
@@ -67,12 +102,49 @@
                    Confirm="@(LiveSession.Risky(Session.Mode) ? L["Dirs.ConfirmRisky", Strings.Name("Mode.Name.", Session.Mode)].Value : null)"
                    Disabled="Session.Status is SessionStatus.Starting or SessionStatus.Running or SessionStatus.Waiting" />
     </div>
+    @if (Bookmarks.Of(Session.Id) is { Count: > 0 } marks)
+    {
+        @* Bookmarked replies (Thread): a link scrolls the thread to the reply (its id is m-<uuid>). *@
+        <div class="section">
+            <span class="cap" id="bm-cap">@L["Bookmark.Title"]</span>
+            <ul class="bms" aria-labelledby="bm-cap">
+                @foreach (var b in marks)
+                {
+                    <li><a href="@($"session/{Session.Id}#m-{b.Uuid}")">@b.Gist</a></li>
+                }
+            </ul>
+        </div>
+    }
     <MemoryPanel Session="Session" />
+    <StatusPanel Session="Session" />
 </div>
 
 @code {
     [Parameter] public LiveSession Session { get; set; } = null!;
+
+    // A reply bookmarked in the thread shows up here at once.
+    protected override void OnInitialized() => Bookmarks.Changed += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Bookmarks.Changed -= Refresh;
     DateTimeOffset? refreshedFor;
+    (string Directory, string? Root)? trust;
+    string? cwdNote;
+    bool moving;
+
+    async Task MoveTo(string path) => await MoveTo(path, null);
+
+    async Task MoveTo(string path, string? trusted)
+    {
+        moving = true;
+        cwdNote = null;
+        try
+        {
+            trust = await Session.SetCwd(path, trusted);
+            if (trust is null) cwdNote = L["Cwd.Moved", TranscriptStore.Short(Session.Cwd)];
+        }
+        catch (Exception ex) { trust = null; cwdNote = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { moving = false; }
+    }
     bool refreshed;
     string? error;
 
@@ -105,6 +177,19 @@
         refreshed = true;
         refreshedFor = Session.LastResultAt;
         _ = Session.RefreshContext().ContinueWith(t => Console.Error.WriteLine($"[{Session.Id}] get_context_usage : {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    static readonly string[] Windows = ["auto", "200000", "400000", "600000", "1000000"];   // the CLI takes 100k to 1M
+
+    // Bound to "" rather than @onchange: @bind makes Blazor record the picked value, so the "" re-render resets the select.
+    async Task SetWindow(string? w)
+    {
+        if (w is not { Length: > 0 } || compacting) return;
+        compacting = true;
+        error = null;
+        try { await Session.Send($"/autocompact {w}"); }
+        catch (Exception ex) { error = L["Ctx.WindowFailed", ex.Message]; }
+        finally { compacting = false; }
     }
 
     // Plain user text: slash commands run locally in the CLI.

@@ -108,6 +108,24 @@
                 </div>
             </div>
             <div class="field">
+                <label for="fallback">@L["New.Fallback"]</label>
+                <div class="picks">
+                    @* --fallback-model: used when the model is overloaded. A fallback equal to the model is pointless. *@
+                    <select id="fallback" @bind="fallback" title="@L["New.FallbackHint"]">
+                        <option value="">@L["New.NoFallback"]</option>
+                        @foreach (var m in Models.Where(m => m != model)) { <option value="@m">@m</option> }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label for="agent">@L["New.Agent"]</label>
+                @* --agent: the main thread runs as that agent (its prompt, tools and model). Free text: any agent the CLI knows. *@
+                <div class="input"><input id="agent" list="agent-names" @bind="agent" placeholder="@L["New.AgentHint"]" spellcheck="false" autocomplete="off" /></div>
+                <datalist id="agent-names">
+                    @foreach (var a in agentNames) { <option value="@a"></option> }
+                </datalist>
+            </div>
+            <div class="field">
                 <label for="effort">@L["New.Effort"]</label>
                 <EffortSlider Id="effort" Levels="Efforts" @bind-Value="effort" Name='e => Strings.Name("Effort.", e is "" ? "default" : e)' />
             </div>
@@ -120,6 +138,27 @@
                         <button class="mode @(mode == m ? "on" : null)" role="radio" aria-checked="@(mode == m ? "true" : "false")" tabindex="@(mode == m ? 0 : -1)" @onclick="() => { mode = m; confirmRisk = false; }"><b class="@(LiveSession.Risky(m) ? "risk" : null)">@Strings.Name("Mode.Name.", m)</b><span>@L["Mode." + m]</span></button>
                     }
                 </div>
+            </div>
+            <div class="field">
+                <span class="lbl" id="launch-lbl">@L["New.Launch"]</span>
+                @* --restricted / --safe-mode: kept by the session, so a restart relaunches it the same way. *@
+                <div class="input iso" role="group" aria-labelledby="launch-lbl">
+                    <button class="toggle @(restricted ? "on" : null)" role="switch" aria-checked="@(restricted ? "true" : "false")" title="@L["New.RestrictedHint"]"
+                            @onclick="() => restricted = !restricted"><span class="sw"></span>@L["New.Restricted"]</button>
+                    <button class="toggle @(safeMode ? "on" : null)" role="switch" aria-checked="@(safeMode ? "true" : "false")" title="@L["New.SafeModeHint"]"
+                            @onclick="() => safeMode = !safeMode"><span class="sw"></span>@L["New.SafeMode"]</button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="from-pr">@L["New.FromPr"]</label>
+                @* --from-pr: the folder's session linked to that PR, resumed under its own id (TranscriptStore.LinkedTo). *@
+                <div class="input"><input id="from-pr" @bind="fromPr" @bind:event="oninput" @onkeydown="PrKeys" placeholder="@L["New.FromPrHint"]"
+                                          aria-invalid="@(prMissing ? "true" : null)" aria-describedby="@(prMissing ? "pr-err" : null)" spellcheck="false" autocomplete="off" />
+                    <button class="btn ghost" disabled="@(busy || string.IsNullOrWhiteSpace(fromPr) || !exists)" @onclick="ResumePr">@L["New.FromPrGo"]</button></div>
+                @if (prMissing)
+                {
+                    <div id="pr-err" role="alert" class="fmsg">@L["New.FromPrNone", fromPr.Trim()]</div>
+                }
             </div>
             @* As in the terminal: the session opens first, the prompt is written in its composer (slash commands load meanwhile). *@
             <div class="row">
@@ -138,12 +177,13 @@
 
     [SupplyParameterFromQuery(Name = "cwd")] public string? Query { get; set; }
 
-    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "";
+    string cwd = Directory.GetCurrentDirectory(), mode = "", model = "", effort = "", fallback = "", fromPr = "", agent = "";
+    List<string> agentNames = [];
     string? branch, wtName, lastQuery, shownCwd, pickError;
     ElementReference cwdInput, nameInput, editBtn;
     string draft = "", editFrom = "";   // the name as typed: committed by OK / Enter / Start, dropped by Escape
     bool? focusName;   // keyboard-first: Edit hands focus to the input (true), OK / Escape back to Edit (false); refs exist only after the render
-    bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk;
+    bool exists = true, worktree = true, editing, busy, untrusted, confirmRisk, restricted, safeMode, prMissing;
     List<string> recents = [];
     System.Collections.Immutable.ImmutableList<string> addDirs = [];
     ExtraDirs? extraDirs;
@@ -196,6 +236,21 @@
         confirmRisk = false;
         exists = Local(cwd);
         branch = exists && RendererInfo.IsInteractive ? await Branch(cwd) : null;   // no git process for the prerender
+        agentNames = exists && RendererInfo.IsInteractive ? AgentNames(cwd) : [];
+    }
+
+    // --agent suggestions: what a running session's initialize listed (built-in and plugin agents), and the agent files of
+    // the folder and of ~ by file name (ponytail: the CLI keys on the frontmatter name, which nearly always matches).
+    List<string> AgentNames(string dir)
+    {
+        var files = new[] { dir, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) }.Select(d => Path.Combine(d, ".claude", "agents"));
+        try
+        {
+            return [.. Sessions.All.SelectMany(s => Extensions.Agents(s).Select(a => a.Name))
+                .Concat(files.Where(Directory.Exists).SelectMany(d => Directory.EnumerateFiles(d, "*.md")).Select(f => Path.GetFileNameWithoutExtension(f)))
+                .Where(n => n.Length > 0).Distinct().Order()];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
     }
 
     // Local absolute folders only: ?cwd= can come from any web page (prerender included), and a UNC path makes Windows authenticate to its host.
@@ -247,6 +302,20 @@
         else if (e.Key == "Escape") { editing = false; focusName = false; }
     }
 
+    // Enter here resumes the PR's session, not Ctrl Enter's new one.
+    void PrKeys(KeyboardEventArgs e)
+    {
+        prMissing = false;
+        if (e.Key == "Enter" && !e.CtrlKey && !e.MetaKey) ResumePr();
+    }
+
+    void ResumePr()
+    {
+        if (busy || !exists || string.IsNullOrWhiteSpace(fromPr)) return;
+        if (TranscriptStore.LinkedTo(fromPr, cwd) is { } p) Nav.NavigateTo($"session/{p.Id}");
+        else prMissing = true;
+    }
+
     async Task Keys(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) await Start();
@@ -265,7 +334,8 @@
         var wt = Isolated ? wtName ?? await Free(WtName) : null;
         // The CLI retitles the session after the first prompt (session_title_changed).
         var name = wt ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(cwd));
-        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs);
+        var s = Sessions.Start(cwd, mode, name, wt, model is { Length: > 0 } ? model : null, effort is { Length: > 0 } ? effort : null, addDirs,
+            fallback is { Length: > 0 } && fallback != model ? fallback : null, restricted, safeMode, agent.Trim() is { Length: > 0 } ag ? ag : null);
         Nav.NavigateTo($"session/{s.Id}");
     }
 }

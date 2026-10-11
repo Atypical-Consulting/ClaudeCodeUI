@@ -8,8 +8,16 @@
     case SessionStatus.Starting:
         <div class="status"><span class="spin"></span>@L["Status.StartingClaude"]</div>
         break;
+    @* A /compact or an automatic compaction mid-turn (system/status "compacting"), timed from its start. *@
+    case SessionStatus.Running or SessionStatus.Waiting when Session.CompactingSince is { } cs:
+        <div class="status"><span class="spin"></span>@L["Status.Compacting"] <small aria-hidden="true">@Fmt.Dur(DateTimeOffset.Now - cs)</small></div>
+        break;
     case SessionStatus.Running when Session.Retry is { } r:
         <div class="status wait"><span class="spin"></span>@L["Status.Retry", r.Attempt, r.MaxRetries] <small>@Retry(r)</small></div>
+        break;
+    @* A hook the CLI waits on (hook_started, not answered yet): SessionStart plugins can hold the first turn for seconds. Esc interrupts. *@
+    case SessionStatus.Running when Session.RunningHooks.Values.OrderBy(h => h.At).FirstOrDefault() is { Name: { } hook, At: var hat }:
+        <div class="status"><span class="spin"></span>@L["Status.HookRunning", hook] <small aria-hidden="true">@Fmt.Dur(DateTimeOffset.Now - hat)@(Session.RunningHooks.Count > 1 ? " · " + L["Status.HooksMore", Session.RunningHooks.Count - 1] : "")</small></div>
         break;
     case SessionStatus.Running when TurnAgents() is { Count: > 0 } agents && agents.Any(a => a.State == ToolState.Running):
         <div class="status"><span class="spin"></span>@L["Status.AgentsWorking"] <small>@L["OfN", agents.Count(a => a.State == ToolState.Done), agents.Count]</small></div>
@@ -20,7 +28,7 @@
     case SessionStatus.Running:
         <div class="status"><span class="spin"></span>@L["Status.Writing"] <small aria-hidden="true">@Elapsed@(Session.ThinkingTokens > 0 ? " · " + L["Status.Thinking", Fmt.Tokens(Session.ThinkingTokens)] : "")</small></div>
         break;
-    case SessionStatus.Waiting when Session.Pending.FirstOrDefault()?.Tool == AskUser.Tool:
+    case SessionStatus.Waiting when Session.Pending.FirstOrDefault()?.Tool is AskUser.Tool or Elicit.Tool:
         <div class="status wait"><span class="dot wait"></span>@L["Status.PausedQuestion"]</div>
         break;
     case SessionStatus.Waiting:
@@ -47,6 +55,16 @@
     case SessionStatus.Idle when Session.LastTurn is not null:
         <span class="sr-only">@L["Status.TurnDone"]</span>
         break;
+}
+@* The settings' statusLine command, run by the app (StatusCommand): what it printed, as the terminal's footer shows it. *@
+@if (Session.StatusText is { } custom)
+{
+    <div class="status custom" aria-hidden="true"><small>@custom</small></div>
+}
+@* Plugins' $.ui.status lines (system/ui_status): the REPL's status row, one per plugin until it clears its own. *@
+@if (!Session.PluginStatus.IsEmpty)
+{
+    <div class="status"><small>@string.Join(" · ", Session.PluginStatus.OrderBy(x => x.Key).Select(x => $"{x.Key}: {x.Value}"))</small></div>
 }
 </div>
 

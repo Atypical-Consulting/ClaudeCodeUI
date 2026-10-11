@@ -34,7 +34,7 @@
     string? Class => Tool.State switch
     {
         ToolState.Waiting => "wait",
-        ToolState.Denied => "void",
+        ToolState.Denied or ToolState.NotRun => "void",
         _ => Selected ? "sel" : null,
     };
 
@@ -44,6 +44,7 @@
         ToolState.Waiting => @<span class="m">@Strings.Get("Tool.Waiting")</span>,
         ToolState.Denied => @<span class="badge no">@Strings.Get("Tool.Denied")</span>,
         ToolState.Error => @<span class="badge no">@Strings.Get("Tool.Error")</span>,
+        ToolState.NotRun => @<span class="badge dim" title="@Strings.Get("Tool.NotRunWhy")">@Strings.Get("Tool.NotRun")</span>,
         ToolState.Running => @<span class="m">…</span>,
         _ when t.Name == "Write" && Events.Str(t.Structured ?? default, "type") == "create" => @<span class="badge ok">@Strings.Get("Tool.Created")</span>,
         _ => Done(t) is { Length: > 0 } m ? @<span class="m">@m</span> : _ => { },

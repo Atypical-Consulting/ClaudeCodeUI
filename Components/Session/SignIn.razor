@@ -1,0 +1,38 @@
+@* /login over stream-json: claude_authenticate hands out the sign-in page and the CLI receives its callback; FinishSignIn
+   returns once the browser is done (LiveSession.StartSignIn / FinishSignIn, claude 2.1.296). *@
+@if (url is { } u)
+{
+    <p role="status">@L["Account.Waiting"]</p>
+    <div class="acts"><a class="btn primary" href="@u" target="_blank" rel="noopener noreferrer">@L["Ext.OpenSignIn"]</a></div>
+}
+else
+{
+    <div class="acts"><button type="button" class="btn @(Primary ? "primary" : null)" disabled="@busy" aria-busy="@(busy ? "true" : null)" @onclick="Start">@L["Account.SignIn"]</button></div>
+}
+@if (note is not null)
+{
+    <p role="status">@note</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public LiveSession Session { get; set; } = null!;
+    [Parameter] public bool Primary { get; set; }
+
+    bool busy;
+    string? url, note;
+
+    async Task Start()
+    {
+        busy = true;
+        note = null;
+        try
+        {
+            url = await Session.StartSignIn() ?? throw new InvalidOperationException(L["Account.NoUrl"]);
+            StateHasChanged();
+            await Session.FinishSignIn();
+            note = L["Account.SignedIn"];
+        }
+        catch (Exception ex) { note = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { url = null; busy = false; }
+    }
+}

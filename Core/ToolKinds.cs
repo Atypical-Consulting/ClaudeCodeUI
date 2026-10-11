@@ -16,12 +16,15 @@ public static class ToolKinds
         _ => "var(--fg-3)",
     };
 
+    public const string SendFile = "SendUserFile";   // input: files (paths, absolute or relative to the cwd), caption
+
     public static bool IsShell(string name) => name is "Bash" or "PowerShell";
     public static bool IsAgent(string name) => name is "Agent" or "Task";
     public static bool IsEdit(string name) => name is "Edit" or "MultiEdit" or "Write";
 
     public static string Target(string name, JsonElement input, string cwd)
     {
+        if (name == Elicit.Tool) return $"{Events.Str(input, "mcp_server_name")} · {Events.Str(input, "message")}".ReplaceLineEndings(" ");
         if (Events.Str(input, "file_path") is { } f) return Relative(f, cwd);
         if (Events.Str(input, "command") is { } c) return c.ReplaceLineEndings(" ");   // one line: WebKit drops the ellipsis on a newline
         if (Events.Str(input, "pattern") is { } p)
@@ -33,6 +36,7 @@ public static class ToolKinds
     // "mcp__server__tool" -> "tool"; the full name stays in the title. Other names are returned as is.
     public static string Label(string name) =>
         name == AskUser.Tool ? Strings.Get("Tool.Label.Question") :
+        name == Elicit.Tool ? Strings.Get("Tool.Label.Elicit") :
         name.StartsWith("mcp__", StringComparison.Ordinal) && name.LastIndexOf("__", StringComparison.Ordinal) is var i && i > 3 ? name[(i + 2)..] : name;
 
     // MCP and other unknown tools: the first string argument is the best one-line target there is.
@@ -40,6 +44,6 @@ public static class ToolKinds
         input.ValueKind == JsonValueKind.Object && input.EnumerateObject().Select(p => p.Value).FirstOrDefault(v => v.ValueKind == JsonValueKind.String) is { ValueKind: JsonValueKind.String } v
             ? v.GetString() : null;
 
-    static string Relative(string path, string cwd) =>
+    internal static string Relative(string path, string cwd) =>
         (cwd.Length > 0 && path.StartsWith(cwd, StringComparison.OrdinalIgnoreCase) ? Path.GetRelativePath(cwd, path) : path).Replace('\\', '/');
 }

@@ -71,6 +71,8 @@ code{font-family:var(--mono)}
 .ph .ttl{margin:0;font:600 13px var(--sans);color:var(--fg);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:45%}
 .ph .sub{font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0}
 .ph .end{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.ph:has(>.end){flex-wrap:wrap;height:auto;min-height:48px;padding-top:6px;padding-bottom:6px;row-gap:6px}   /* a session's buttons wrap under its title instead of squeezing it to nothing */
+.ph:has(>.end) .end{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
 .cap{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-4)}
 
 /* rail */
@@ -145,6 +147,34 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 /* hook activity: one folded line, opened when a hook failed */
 .hooks{border:1px solid var(--seam);border-radius:var(--r);font:12px var(--mono);color:var(--fg-4)}
 .hooks.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
+.notice{margin:0;border:1px solid var(--seam);border-radius:var(--r);padding:6px 12px;font-size:12px;color:var(--fg-2)}
+.notice.bad{border-color:color-mix(in srgb,var(--err) 33%,transparent)}
+.notice.warn{border-color:color-mix(in srgb,var(--accent) 40%,transparent);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* thread folds (Thread): a thinking summary, a "Compacted chat" card */
+.fold{border:1px solid var(--seam);border-radius:var(--r);padding:6px 12px;color:var(--fg-2)}
+.fold summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font:500 12px var(--sans);color:var(--fg-3)}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary small{color:var(--fg-4);font:12px var(--mono)}
+.fold .chev{color:var(--fg-5);transition:transform .15s}
+.fold[open] .chev{transform:rotate(90deg)}
+.fold>:not(summary){margin-top:8px}
+.thought>.md{color:var(--fg-3)}
+.bms{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.bms a{color:var(--fg-2);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stamp{display:block;font:500 12px var(--mono);color:var(--fg-4);margin-bottom:4px}
+.day{display:flex;align-items:center;gap:12px;font:500 12px var(--sans);color:var(--fg-4)}
+.day::before,.day::after{content:"";flex:1;border-top:1px solid var(--seam)}
+/* SendUserFile (FileCard) */
+.filecard{border:1px solid var(--seam);border-radius:var(--r);padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+.filecard .fh{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;color:var(--fg-2);font:500 13px var(--sans);cursor:pointer;text-align:left}
+.filecard .fh.sel b{color:var(--accent)}
+.filecard .fh .m{color:var(--fg-4);font:12px var(--mono);margin-left:auto}
+.filecard ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.filecard li{display:flex;align-items:center;gap:8px}
+.filecard code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcp-tools{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mcp-tools li{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.mcp-tools .d{flex-basis:100%;font-size:12px;color:var(--fg-3)}
 .hooks>summary{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer}
 .hooks>summary:focus-visible{outline-offset:-2px}
 .hooks .hn{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3)}
@@ -170,7 +200,9 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .badge{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;border-radius:var(--r-xs);padding:1px 6px}
 .badge.no{color:var(--err);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--err) 33%,transparent)}
 .badge.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 27%,transparent)}
+.badge.dim{color:var(--fg-4);box-shadow:inset 0 0 0 1px var(--seam-2)}
 .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3)}
+.status.custom small{white-space:pre-line;font-family:var(--mono)}   /* the statusLine command's lines, as printed */
 .status.wait{color:var(--accent)}
 .dock{flex:none;position:relative;padding:0 32px}
 .dock .status{max-width:760px;padding:0 0 12px}
@@ -190,6 +222,12 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .meta{max-width:760px;display:flex;gap:18px;margin-top:8px;font:12px var(--mono);color:var(--fg-4)}
 .meta b{color:var(--fg-3);font-weight:500}
 .meta .r{margin-left:auto}
+/* /artifacts (Composer): a pill whose list opens above it */
+.arts{position:relative}
+.arts summary{cursor:pointer;list-style:none;color:var(--fg-3)}
+.arts summary::-webkit-details-marker{display:none}
+.arts ul{position:absolute;bottom:100%;left:0;margin:0 0 6px;padding:6px 0;list-style:none;background:var(--raise);border:1px solid var(--seam-2);border-radius:var(--r-pop);box-shadow:var(--shadow-pop);min-width:220px;max-width:360px;z-index:6}
+.arts li a{display:block;padding:4px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)}
 #composer-history:empty{position:absolute}  /* live region kept in the tree, out of the flex gap */
 
 /* inspector */
@@ -218,6 +256,9 @@ dialog.modal::backdrop{background:color-mix(in srgb,var(--sunk) 60%,transparent)
 .ask fieldset{margin:0;padding:0;border:0;min-width:0;display:flex;flex-direction:column;gap:6px}
 .ask legend{padding:0;margin-bottom:6px;display:flex;flex-direction:column;gap:4px}
 .ask .qt{font:600 15px/1.35 var(--sans);color:var(--fg)}
+.ask-preview{border:1px solid var(--seam);border-radius:var(--r);padding:8px 12px;background:var(--field);max-height:16em;overflow:auto}
+.diffs{display:flex;flex-direction:column;gap:12px}
+.scroll.diffs{padding:16px}
 .ask .opt{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;border:1px solid var(--seam-2);border-radius:var(--r);padding:9px 12px;background:var(--field)}
 .ask .opt.on{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-soft)}
 .ask .opt input[type=radio],.ask .opt input[type=checkbox]{margin:3px 0 0;accent-color:var(--accent)}
@@ -479,7 +520,7 @@ textarea,input{caret-color:var(--accent)}
 .branch{display:block;font:12px var(--mono);color:var(--fg-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .branch .i{width:12px;height:12px;display:inline-block;vertical-align:-1px;margin-right:4px}
 .quota{padding:12px 16px 4px;display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--seam)}
-.quota .qrow{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center;font:12px var(--mono);color:var(--fg-4)}
+.quota .qrow{display:grid;grid-template-columns:44px 1fr 34px;gap:8px;align-items:center;font:12px var(--mono);color:var(--fg-4)}
 .quota .qrow span:last-child{text-align:right;color:var(--fg-3)}
 .bar{height:4px;border-radius:var(--r-full);background:var(--seam-2);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:var(--r-full);background:var(--fg-3)}
@@ -570,7 +611,7 @@ textarea,input{caret-color:var(--accent)}
 .slash .si span{font-size:12px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Menus and @ mentions: one column grid shared by the rows (subgrid), the name column as wide as the longest name.
    Menu descriptions wrap: the Auto warning must never be cut. */
-.pop.menu [role=listbox]{display:grid;grid-template-columns:max-content minmax(0,1fr) auto}
+.pop.menu [role=listbox],.pop.menu .cfg{display:grid;grid-template-columns:max-content minmax(0,1fr) auto}
 #mention-list{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr) auto}
 .pop.menu .si,#mention-list .si{grid-column:1/-1;grid-template-columns:subgrid}
 .pop.menu .si span{white-space:normal}
@@ -614,16 +655,33 @@ textarea,input{caret-color:var(--accent)}
 .cmdlog.wfres{max-height:240px;overflow:auto}
 .section h3.cap{font:600 11px var(--sans);letter-spacing:.08em;color:var(--fg-4)}
 .subrun .sl.more{display:block;color:var(--fg-4)}
+/* A subagent spawned by a subagent (Workflow, AgentPanel's transcript): a row that opens one level deeper. */
+button.sl{width:100%;text-align:left}
+.subrun .sl.sub.sel{color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.subrun .sl .p small{color:var(--fg-4);margin-left:6px}
+.subrun .sl .k .i{vertical-align:-2px;margin-right:4px}
+.subrun .subrun{padding:0 0 4px 16px}
+/* An agent's tool call that opens onto its input and result (AgentPanel transcript, WorkflowPanel), and a folded section. */
+.sl-d>summary,.fold-sec>summary{cursor:pointer;list-style:none}
+.sl-d>summary::-webkit-details-marker,.fold-sec>summary::-webkit-details-marker{display:none}
+.sl-d>pre{margin:4px 0 8px}
+.wf-todos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--fg-2)}
+.wf-todos li.now{color:var(--fg)}
+.wf-todos li.done{color:var(--fg-4);text-decoration:line-through}
+.fold-sec>summary{display:flex;align-items:center;gap:6px}
+.fold-sec .chev{transition:transform .15s}
+.fold-sec[open]>summary .chev{transform:rotate(90deg)}
 
 /* ---------- 11. extensions ---------- */
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
 .ext>[role=tabpanel]{display:flex;flex-direction:column;gap:18px}
 .ext .lead+.acts{margin-top:14px}
-.subtabs{display:flex;gap:2px;box-shadow:inset 0 -1px var(--seam);overflow-x:auto}   /* the seam under the tabs, not a border: it scrolls with them when narrow */
+.subtabs{flex:none;display:flex;gap:2px;box-shadow:inset 0 -1px var(--seam);overflow-x:auto}   /* the seam under the tabs, not a border: it scrolls with them when narrow */
 .subtabs>*{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;white-space:nowrap}
 .subtabs>* b{font:500 12px var(--mono);color:var(--fg-4);margin-left:2px}
 .subtabs>*.on{color:var(--fg);border-color:var(--accent)}
 .mcp td{padding:10px 12px}
+.mcp td.num{white-space:nowrap}.mcp td.num>.btn+.btn{margin-left:6px}   /* a row's Edit and Remove stay side by side */
 .mcp tr.sel td{background:var(--raise)}
 .mcp tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .ms{display:inline-flex;align-items:center;gap:7px;font:500 12px var(--sans);white-space:nowrap}
@@ -654,6 +712,13 @@ textarea,input{caret-color:var(--accent)}
 .hint.why{margin-top:8px}
 .quota .qh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
 .quota .qh span:last-child{font:12px var(--mono);color:var(--fg-4)}
+.quota .qrow span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quota .qrow.wide{grid-template-columns:minmax(0,1fr) 56px 34px}
+.quota .qrow.kv{grid-template-columns:auto 1fr}
+.quota .qwarn{margin:0;font-size:12px;line-height:1.45;color:var(--fg-2)}
+.quota .qmore{align-self:flex-start;font-size:12px}
+.quota .qweek{display:flex;flex-direction:column;gap:5px;max-height:40vh;overflow:auto}
+.quota .qweek p{margin:0;font-size:12px;color:var(--fg-3)}
 
 /* ---------- app glue (not in mockup) ---------- */
 html,body{height:100%}
@@ -683,7 +748,7 @@ button.mode{text-align:left}
 .thumbs{display:flex;flex-wrap:wrap;gap:10px;list-style:none;margin:0 0 10px;padding:0}
 .thumbs li{position:relative}
 .thumbs img,.thumbs .miss{display:block;height:64px;max-width:160px;object-fit:cover;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--sunk)}
-.thumbs .miss{display:flex;align-items:center;gap:6px;padding:0 10px;font:12px var(--mono);color:var(--fg-4)}
+.thumbs .miss{display:flex;align-items:center;gap:6px;padding:0 10px;overflow:hidden;white-space:nowrap;font:12px var(--mono);color:var(--fg-4)}
 .thumbs .x{position:absolute;top:-8px;right:-8px;display:grid;place-items:center;width:24px;height:24px;border-radius:var(--r-full);border:1px solid var(--seam-3);background:var(--raise-2);color:var(--fg-2);cursor:pointer}
 .thumbs .x:hover{color:var(--fg);border-color:var(--fg-4)}
 .you .thumbs{margin:8px 0 0}
@@ -738,9 +803,17 @@ button.mode{text-align:left}
 /* State colours: they override contextual meta colours (.s .c, td .last, .kv span), as the inline styles did. */
 .c-ok{color:var(--ok)!important}.c-err{color:var(--err)!important}.c-err-fg{color:var(--err-fg)!important}.c-wait{color:var(--accent)!important}.c-mute{color:var(--fg-3)!important}
 .ph .ttl:focus{outline:none}
+.ph .ttl-edit{font:600 13px var(--sans);color:var(--fg);background:var(--field);border:1px solid var(--fg-5);border-radius:var(--r-xs);padding:3px 6px;min-width:16ch;max-width:45%;flex:0 1 auto}
+dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font-size:12px}dl.kv dt{color:var(--fg-4)}dl.kv dd{margin:0;color:var(--fg-2);overflow-wrap:anywhere}
+.bgt th:nth-child(5){width:330px}.bgt .rowacts{flex-wrap:wrap}
+.cwd-now{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--fg-2);overflow-wrap:anywhere}
 .pop.menu{max-height:60vh;overflow:auto}
 .pop.menu [role=listbox]:focus-visible{outline-offset:-2px}
+.pop.menu [role=group]{display:contents}
+.pop.menu .gh{grid-column:1/-1;padding:8px 12px 4px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
+.pop.menu .mm-cache{margin:0;padding:8px 12px;border-top:1px solid var(--seam);font-size:12px;color:var(--fg-4)}
 .lang,.picks{display:flex;gap:8px;align-items:center}
+.picks{flex-wrap:wrap}.picks select{max-width:100%}   /* the hook and rule forms wrap on a phone instead of widening the page */
 .lang select,.picks select{border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg);padding:7px 10px;font:13px var(--sans)}
 .said{position:relative}.said>.md{display:flow-root}
 /* Out of the flow, bottom right: a spacer as wide as the buttons (FR labels) ends a closing paragraph, so its last line
@@ -752,6 +825,8 @@ button.mode{text-align:left}
 .said>.md:not(:has(>:is(p,h1,h2,h3,h4,h5,h6):last-child))::after{content:"";display:block;height:26px}
 .said:hover .fork-here:enabled,.said .fork-here:focus-visible{opacity:1}
 @media (hover:none){.said .fork-here:enabled{opacity:1}}
+/* Bookmarked: the label stays "Bookmark" (label in name), aria-pressed and the colour carry the state. */
+.said .fork-here[aria-pressed="true"]{opacity:1;color:var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
   .effort-slider input::-webkit-slider-thumb{transition:none}.effort-slider input::-moz-range-thumb{transition:none}}
@@ -793,6 +868,8 @@ button.mode{text-align:left}
   .ph.wrap .sub{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
   .thread,.composer,.dock,.todos{padding-left:16px;padding-right:16px}
   .pop.slash{left:16px;width:calc(100% - 32px)}
+  .pop.menu [role=listbox]{grid-template-columns:minmax(0,40%) minmax(0,1fr) auto}   /* a long model name ellipsizes instead of crushing the descriptions to a letter per line */
+  .ext table.mcp{display:block;overflow-x:auto;position:relative}   /* a wide table scrolls on its own; relative, or its .vh header escapes the clip and scrolls the page */
   .effort-slider button{white-space:normal;text-align:center;line-height:1.2}  /* "extra high" breaks in its column instead of touching "high" */
   .agent{grid-template-columns:16px 10px minmax(0,1fr);row-gap:2px}.agent .m{grid-column:3}  /* the name keeps the line, its state goes under it */
   .t{grid-template-columns:16px 84px minmax(0,1fr) auto}.subrun .sl{grid-template-columns:84px minmax(0,1fr) auto}  /* the target wins on a phone */

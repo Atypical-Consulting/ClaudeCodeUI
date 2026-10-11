@@ -1,11 +1,12 @@
-@* Selected subagent (Agent tool): its latest text and a .kv. No per-agent cost from the CLI, so no cost row. *@
+@* Selected subagent (Agent tool): its latest text, a .kv, its full transcript (read-only) and the map of every subagent of
+   the session. No per-agent cost from the CLI, so no cost row. *@
 @inject UiState Ui
 
 <div class="ph"><h2 class="ttl">@L["Agent.Title"]</h2><span class="sub">@(Events.Str(Agent.Input, "description") ?? "")</span>
     <span class="end"><TaskActions Session="Session" Tool="Agent" /><button class="btn ghost" title="@L["Action.Close"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.SelectedToolId = null"><Icon Name="x" Sm /></button></span>
 </div>
 <div class="scroll">
-    <div class="section last">
+    <div class="section">
         <span class="cap">@L["Agent.Writes"]</span>
         @if (LastText is { Length: > 0 } t)
         {
@@ -17,10 +18,66 @@
         }
         <div class="kv">
             <span>@L["Kv.Type"]</span><span>@(Events.Str(Agent.Input, "subagent_type") ?? "—")</span>
+            @* The Agent call's own model / effort override, else the model its messages came from. *@
+            <span>@L["Kv.Model"]</span><span>@(Events.Str(Agent.Input, "model") ?? Agent.Model ?? "—")</span>
+            @if (Events.Str(Agent.Input, "effort") is { } effort)
+            {
+                <span>@L["Kv.Effort"]</span><span>@Strings.Name("Effort.", effort)</span>
+            }
             <span>@L["Kv.Tools"]</span><span>@Math.Max(Agent.SubToolUses, Session.Children[Agent.Id].OfType<ToolItem>().Count())</span>
             <span>@L["Kv.Tokens"]</span><span>@(Agent.Tokens > 0 ? Fmt.Tokens(Agent.Tokens) : "—")</span>
         </div>
     </div>
+    @if (Session.Children[Agent.Id].Any())
+    {
+        <details class="section fold-sec">
+            <summary class="cap"><Icon Name="right" Sm Class="chev" />@L["Agent.Transcript"] · @Session.Children[Agent.Id].Count()</summary>
+            <div class="subrun wfa">
+                @foreach (var i in Session.Children[Agent.Id])
+                {
+                    switch (i)
+                    {
+                        case TextItem x:
+                            <Markdown Text="@x.Markdown" />
+                            break;
+                        case ToolItem { Name: "SubagentHandback" }:
+                            break;
+                        case ToolItem x when ToolKinds.IsAgent(x.Name):
+                            <button type="button" class="sl" @onclick="() => Ui.SelectedToolId = x.Id"><span class="k" style="color:@ToolKinds.Color(x.Name)">@ToolKinds.Label(x.Name)</span><span class="p">@(Events.Str(x.Input, "description") ?? "")</span>@ToolRow.Meta(x)</button>
+                            break;
+                        case ToolItem x:
+                            <details class="sl-d">
+                                <summary class="sl"><span class="k" style="color:@ToolKinds.Color(x.Name)" title="@x.Name">@ToolKinds.Label(x.Name)</span><span class="p">@ToolKinds.Target(x.Name, x.Input, Session.Cwd)</span>@ToolRow.Meta(x)</summary>
+                                <pre class="cmdlog wfres" aria-label="@L["Tool.Input"]">@ToolDetail.Pretty(x.Input)</pre>
+                                @if (x.ResultText is { Length: > 0 } r)
+                                {
+                                    <pre class="cmdlog out wfres" aria-label="@L["Tool.Output"]">@r</pre>
+                                }
+                            </details>
+                            break;
+                    }
+                }
+            </div>
+        </details>
+    }
+    @{ var map = Map(); }
+    @if (map.Count > 1)
+    {
+        @* The agent map: every subagent of the session, nested under the one that spawned it. *@
+        <nav class="section last" aria-labelledby="agent-map-h">
+            <h3 id="agent-map-h" class="cap">@L["Agent.Map"] · @map.Count</h3>
+            <div class="wf">
+                @foreach (var (a, depth) in map)
+                {
+                    <button type="button" @key="a.Id" class="agent @(a.Id == Agent.Id ? "sel" : null)" style="padding-left:@(14 + 16 * depth)px" aria-current="@(a.Id == Agent.Id ? "true" : null)" @onclick="() => Ui.SelectedToolId = a.Id">
+                        <span></span><span class="dot @Workflow.Dot(a)" aria-hidden="true"></span>
+                        <span class="nm">@(Events.Str(a.Input, "description") ?? L["Agent.Title"]) <small>@Events.Str(a.Input, "subagent_type")</small></span>
+                        <span class="m">@Workflow.State(a)</span>
+                    </button>
+                }
+            </div>
+        </nav>
+    }
 </div>
 
 @code {
@@ -31,4 +88,21 @@
     string? LastText => Session.Children[Agent.Id].OfType<TextItem>().LastOrDefault()?.Markdown
         ?? (Agent.Structured is { } s && Events.Prop(s, "handbackReport") is { } h ? Events.Str(h, "text") : null)
         ?? Agent.ResultText;
+
+    // Depth-first from the top-level Agent calls; Workflow.MaxDepth bounds a malformed parent chain.
+    List<(ToolItem Agent, int Depth)> Map()
+    {
+        var list = new List<(ToolItem, int)>();
+        void Walk(IEnumerable<Item> items, int depth)
+        {
+            if (depth > Workflow.MaxDepth) return;
+            foreach (var a in items.OfType<ToolItem>().Where(t => ToolKinds.IsAgent(t.Name)))
+            {
+                list.Add((a, depth));
+                Walk(Session.Children[a.Id], depth + 1);
+            }
+        }
+        Walk(Session.Items.Where(i => i is ToolItem { ParentToolUseId: null }), 0);
+        return list;
+    }
 }

@@ -24,8 +24,9 @@
                 @Tab("mcp", "MCP", servers.Count)
                 @Tab("skills", L["Ext.Tab.Skills"], skills.Length)
                 @Tab("agents", L["Ext.Tab.Agents"], agents.Count)
-                @Tab("plugins", L["Ext.Tab.Plugins"], plugins.Length)
+                @Tab("plugins", L["Ext.Tab.Plugins"], installed?.Count ?? plugins.Length)
                 @Tab("hooks", L["Ext.Tab.Hooks"], hooks?.Rows.Count ?? 0)
+                @Tab("permissions", L["Ext.Tab.Permissions"], perms?.Rules.Count ?? 0)
             </div>
             <div id="ext-panel" role="tabpanel" aria-labelledby="ext-tab-@tab">
             @if (tab == "mcp")
@@ -39,7 +40,15 @@
                     @Filter("connected", L["Ext.Filter.Connected"], servers.Count(x => x.Status == "connected"))
                     @Filter("needs-auth", L["Ext.Filter.Auth"], servers.Count(x => x.Status == "needs-auth"))
                     @Filter("failed", L["Ext.Filter.Failed"], servers.Count(x => x.Status == "failed"))
+                    @if (servers.Count(x => x.Status == "failed") > 1)
+                    {
+                        <button class="btn" disabled="@busy" @onclick="() => ReconnectAll(s, servers)"><Icon Name="refresh" Sm />@L["Ext.RetryAll"]</button>
+                    }
                 </div>
+                @foreach (var skipped in s.Init?.McpErrors ?? [])
+                {
+                    <div class="errbox" role="status">@L["Ext.Skipped", skipped.Name, skipped.Message]</div>
+                }
                 <table class="mcp">
                     <thead><tr><th>@L["Ext.Col.Server"]</th><th>@L["Ext.Col.Source"]</th><th>@L["Col.State"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ext.Col.ThisFolder"]</th></tr></thead>
                     <tbody>
@@ -49,7 +58,7 @@
                                 <td><div class="n">@m.Short</div><div class="d">@m.Origin</div></td>
                                 <td><span class="tag">@m.Tag</span></td>
                                 <td>@State(m.Status)</td>
-                                <td class="num">@(m.Status == "failed" ? m.Tools ?? 0 : m.Status == "connected" ? m.Tools?.ToString() ?? "—" : "—")</td>
+                                <td class="num">@(m.Status == "failed" ? m.Tools?.Length ?? 0 : m.Status == "connected" ? m.Tools?.Length.ToString() ?? "—" : "—")</td>
                                 <td class="num" @onclick:stopPropagation>
                                     @switch (m.Status)
                                     {
@@ -82,6 +91,10 @@
                 {
                     <div class="errbox" role="status">@L["Ext.Hooks.Disabled"]</div>
                 }
+                @if (hooks is { Locked: true })
+                {
+                    <div class="errbox" role="status">@L["Ext.Hooks.Locked"]</div>
+                }
                 @if (hooks is { Rows.Count: 0 })
                 {
                     <p class="lead">@L["Ext.Hooks.None"]</p>
@@ -89,24 +102,163 @@
                 else if (hooks is { } hl)
                 {
                     <table class="mcp">
-                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th></tr></thead>
+                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                         <tbody>
                             @foreach (var h in hl.Rows)
                             {
                                 var meta = string.Join(" · ", new[] { h.Type, h.Timeout is { } t ? $"{t} s" : null, h.Display }.Where(x => !string.IsNullOrEmpty(x)));
-                                <tr>
+                                <tr class="@(h == hookEditing ? "sel" : null)">
                                     <td><div class="n">@h.Event</div>@if (h.Disabled)
                                         {
                                             <span class="tag">@L["Ext.Hooks.RowDisabled"]</span>
                                         }</td>
                                     <td><code>@(h.Matcher.Length > 0 ? h.Matcher : "—")</code></td>
-                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div></td>
+                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div>@if (h.BlocksOnFailure)
+                                        {
+                                            <span class="tag" title="@L["Ext.Hooks.BlocksHint"]">@L["Ext.Hooks.Blocks"]</span>
+                                        }</td>
                                     <td><span class="tag">@SourceTag(h.Source)</span><div class="d">@(h.Plugin ?? h.SourceLabel)</div></td>
+                                    <td class="num">@if (h.Edit is not null && !hl.Locked && PermissionRules.Files.Contains(h.Source))
+                                        {
+                                            @if (h.Type == "command")
+                                            {
+                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.EditRow", h.Event, h.Command]" @onclick="() => EditHook(h)">@L["Ext.Hooks.Edit"]</button>
+                                            }
+                                            <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.RemoveRow", h.Event, h.Command]" @onclick="() => SaveHook(s, h, true)">@L["Ext.Perm.Remove"]</button>
+                                        }</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 }
+                @if (hooks is { Locked: false, Catalog.Count: > 0 } hf)
+                {
+                    var ev = hf.Catalog.FirstOrDefault(x => x.Name == hookEvent) ?? hf.Catalog[0];
+                    <div class="field">
+                        <span class="lbl" id="hook-form-cap">@(hookEditing is null ? L["Ext.Hooks.AddTitle"] : L["Ext.Hooks.EditTitle"])</span>
+                        <div class="picks" role="group" aria-labelledby="hook-form-cap">
+                            <select aria-label="@L["Ext.Col.Event"]" @bind="hookEvent" disabled="@busy" title="@ev.Summary">
+                                @foreach (var c in hf.Catalog)
+                                {
+                                    <option value="@c.Name">@c.Name</option>
+                                }
+                            </select>
+                            <div class="input"><input aria-label="@L["Ext.Col.Matcher"]" @bind="hookMatcher" @bind:event="oninput" placeholder="@(ev.Matcher ? "Bash|Write" : L["Ext.Hooks.NoMatcher"])"
+                                                      disabled="@(busy || !ev.Matcher)" spellcheck="false" autocomplete="off" /></div>
+                            @if (hookEditing is null)
+                            {
+                                <select aria-label="@L["Perm.SaveIn"]" @bind="hookFile" disabled="@busy">
+                                    @foreach (var src in PermissionRules.Files)
+                                    {
+                                        <option value="@src">@L["Perm.Dest." + src]</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                        <div class="input"><input aria-label="@L["Ext.Col.Command"]" @bind="hookCommand" @bind:event="oninput" placeholder="npm run lint" spellcheck="false" autocomplete="off" disabled="@busy"
+                                                  @onkeydown='async e => { if (e.Key == "Enter") await SaveHook(s, hookEditing, false); }' /></div>
+                        <div class="picks">
+                            <div class="input"><input type="number" min="1" aria-label="@L["Ext.Hooks.Timeout"]" placeholder="@L["Ext.Hooks.Timeout"]" @bind="hookTimeout" disabled="@busy" /></div>
+                            <label class="toggle"><input type="checkbox" @bind="hookBlock" disabled="@busy" />@L["Ext.Hooks.Block"]</label>
+                            <button class="btn primary" disabled="@(busy || hookCommand.Trim().Length == 0)" @onclick="() => SaveHook(s, hookEditing, false)"><Icon Name="@(hookEditing is null ? "plus" : "check")" Sm />@(hookEditing is null ? L["Ext.Hooks.AddButton"] : L["Ext.Hooks.SaveButton"])</button>
+                            @if (hookEditing is not null)
+                            {
+                                <button class="btn" @onclick="ResetHookForm">@L["Action.Cancel"]</button>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else if (tab == "permissions")
+            {
+                <p class="lead">@((MarkupString)L["Ext.Perm.Lead", $"<code title=\"{Fmt.Enc(s.Cwd)}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
+                @if (permsNote is not null)
+                {
+                    <div class="errbox" role="alert">@permsNote</div>
+                }
+                @if (perms is { ManagedOnly: true })
+                {
+                    <div class="errbox" role="status">@L["Ext.Perm.ManagedOnly"]</div>
+                }
+                @foreach (var err in perms?.Errors ?? [])
+                {
+                    <div class="errbox" role="status">@L["Ext.Perm.FileError", err]</div>
+                }
+                @if (perms is { } ps)
+                {
+                    <div class="filters">
+                        @Filter("", L["Filter.All"], ps.Rules.Count)
+                        @foreach (var b in PermissionRules.Behaviors)
+                        {
+                            @Filter(b, L["Ext.Perm." + b], ps.Rules.Count(r => r.Behavior == b))
+                        }
+                    </div>
+                    @if (ps.Rules.Count == 0)
+                    {
+                        <p class="lead">@L["Ext.Perm.None"]</p>
+                    }
+                    else
+                    {
+                        <table class="mcp">
+                            <thead><tr><th>@L["Ext.Col.Rule"]</th><th>@L["Ext.Col.Behavior"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+                            <tbody>
+                                @foreach (var r in ps.Rules.Where(x => filter == "" || x.Behavior == filter))
+                                {
+                                    <tr>
+                                        <td><div class="n"><code>@PermissionRules.Visible(r.Rule)</code></div>@if (r.Text is var (pre, emph, suf))
+                                            {
+                                                <div class="d">@pre<b>@PermissionRules.Visible(emph)</b>@suf</div>
+                                            }</td>
+                                        <td><span class="tag">@L["Ext.Perm." + r.Behavior]</span></td>
+                                        <td><span class="tag">@SourceTag(r.Source)</span>@if (r.NotInEffect)
+                                            {
+                                                <div class="d">@L["Ext.Perm.NotInEffect"]</div>
+                                            }</td>
+                                        <td class="num">@if (r.Editable)
+                                            {
+                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Perm.RemoveRule", r.Rule]" @onclick="() => EditRule(s, r.Source, r.Behavior, r.Rule, false)">@L["Ext.Perm.Remove"]</button>
+                                            }</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <div class="field">
+                        <label for="perm-rule">@L["Ext.Perm.Add"]</label>
+                        <div class="input"><input id="perm-rule" @bind="ruleDraft" @bind:event="oninput" @onkeydown='async e => { if (e.Key == "Enter") await EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true); }'
+                                                  placeholder="Bash(npm run test:*)" spellcheck="false" autocomplete="off" disabled="@busy" /></div>
+                    </div>
+                    <div class="picks">
+                        <select aria-label="@L["Ext.Col.Behavior"]" @bind="ruleBehavior" disabled="@busy">
+                            @foreach (var b in PermissionRules.Behaviors)
+                            {
+                                <option value="@b">@L["Ext.Perm." + b]</option>
+                            }
+                        </select>
+                        <select aria-label="@L["Perm.SaveIn"]" @bind="ruleFile" disabled="@busy">
+                            @foreach (var src in PermissionRules.Files)
+                            {
+                                <option value="@src">@L["Perm.Dest." + src]</option>
+                            }
+                        </select>
+                        <button class="btn primary" disabled="@(busy || ruleDraft.Trim().Length == 0)" @onclick="() => EditRule(s, ruleFile, ruleBehavior, ruleDraft.Trim(), true)"><Icon Name="plus" Sm />@L["Ext.Perm.AddButton"]</button>
+                    </div>
+                    @if (ps.Dirs.Count > 0)
+                    {
+                        <div><span class="cap">@L["Dirs.Label"]</span>
+                            <ul class="dirs">
+                                @foreach (var (path, src) in ps.Dirs)
+                                {
+                                    <li class="chip" title="@path"><Icon Name="folder" Sm />@Fmt.Home(path) <span class="tag">@SourceTag(src)</span></li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                }
+            }
+            else if (tab == "plugins")
+            {
+                @PluginsTab(s, servers, skills)
             }
             else if (s.Init is null && tab != "agents")
             {
@@ -133,22 +285,6 @@
                         @foreach (var (name, desc, model) in agents)
                         {
                             <tr><td><div class="n">@name</div></td><td><span class="last prose" title="@desc">@(desc ?? "—")</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
-                        }
-                    </tbody>
-                </table>
-            }
-            else
-            {
-                <table class="mcp">
-                    <thead><tr><th>@L["Ext.Col.Plugin"]</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">@L["Ext.Tab.Skills"]</th></tr></thead>
-                    <tbody>
-                        @foreach (var p in plugins)
-                        {
-                            <tr>
-                                <td><div class="n">@p</div></td>
-                                <td class="num">@servers.Count(x => x.Origin == "plugin:" + p)</td>
-                                <td class="num">@skills.Count(k => k.StartsWith(p + ":"))</td>
-                            </tr>
                         }
                     </tbody>
                 </table>
@@ -209,24 +345,105 @@
                 {
                     <span>@L["Ext.Kv.Target"]</span><span>@t</span>
                 }
-                <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
+                <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.Length.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
                 <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope ?? "—")</span>
                 @if (sel.Version is { } v)
                 {
                     <span>@L["Ext.Kv.Version"]</span><span>@v</span>
                 }
             </div>
+            @if (sel.Status == "connected" && sel.Transport is "http" or "sse")
+            {
+                @* mcp_clear_auth drops the token the CLI stored (--probe-cli mcp-auth): the next call signs in again. *@
+                <div class="acts"><button class="btn" disabled="@busy" @onclick="() => SignOut(ls, sel.Name)">@L["Ext.SignOut"]</button></div>
+            }
+        </div>
+        @if (sel.Tools is { Length: > 0 } tools)
+        {
+            <div class="section last">
+                <h3>@L["Col.Tools"]</h3>
+                <ul class="mcp-tools">
+                    @foreach (var tl in tools)
+                    {
+                        <li><code>@tl.Name</code>@if (tl.ReadOnly)
+                            {
+                                <span class="tag">@L["Ext.Tool.ReadOnly"]</span>
+                            }@if (tl.Destructive)
+                            {
+                                <span class="tag">@L["Ext.Tool.Destructive"]</span>
+                            }@if (tl.OpenWorld)
+                            {
+                                <span class="tag">@L["Ext.Tool.OpenWorld"]</span>
+                            }@if (tl.Description is { Length: > 0 } td)
+                            {
+                                <div class="d">@td</div>
+                            }</li>
+                    }
+                </ul>
+            </div>
+        }
+    </aside>
+}
+
+@if (Ui.InspectorOpen && tab == "plugins" && Live is { } po && options is { } opts && configuring is { } cid)
+{
+    <aside class="pane insp" aria-label="@L["Inspector"]">
+        <div class="ph"><h2 class="ttl" title="@cid">@L["Ext.Plugins.OptionsTitle", cid.Split('@')[0]]</h2><span class="sub">@cid</span></div>
+        <div class="section last">
+            @foreach (var o in opts)
+            {
+                var id = "opt-" + o.Key;
+                <div class="field">
+                    <label for="@id">@o.Title@if (o.Required)
+                        {
+                            <span class="tag">@L["Ext.Plugins.Required"]</span>
+                        }@if (!o.Set)
+                        {
+                            <span class="tag">@L["Ext.Plugins.Unset"]</span>
+                        }</label>
+                    @if (o.Choices.Length > 0)
+                    {
+                        <div class="picks"><select id="@id" value="@Draft(o)" @onchange='e => optionDraft[o.Key] = e.Value?.ToString() ?? ""' disabled="@busy">
+                            <option value=""></option>
+                            @foreach (var c in o.Choices)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select></div>
+                    }
+                    else
+                    {
+                        <div class="input"><input id="@id" type="@(o.Sensitive ? "password" : o.Type == "number" ? "number" : "text")" value="@Draft(o)" @oninput='e => optionDraft[o.Key] = e.Value?.ToString() ?? ""'
+                                                  placeholder="@(o.Sensitive && o.Set ? L["Ext.Plugins.SecretKept"].Value : null)" spellcheck="false" autocomplete="off" disabled="@busy" /></div>
+                    }
+                    @if (o.Description is { Length: > 0 } od)
+                    {
+                        <div class="d">@od</div>
+                    }
+                </div>
+            }
+            <div class="acts">
+                <button class="btn primary" disabled="@(busy || optionDraft.Count == 0)" @onclick="() => SaveOptions(po, cid)">@L["Ext.Plugins.Save"]</button>
+                <button class="btn" @onclick="() => { configuring = null; options = null; }">@L["Action.Close"]</button>
+            </div>
         </div>
     </aside>
 }
 
 @code {
-    record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, int? Tools, string? Scope, string? Version);
+    record Srv(string Name, string Status, string Short, string Origin, string Tag, string? Error, string? Transport, string? Target, Mcp.ToolInfo[]? Tools, string? Scope, string? Version);
 
     string tab = "mcp", filter = "";
     string? selected, note, refreshedFor, hooksNote;
     bool busy, focusAuth;
-    (List<HookRow> Rows, bool Disabled)? hooks;
+    HookListing? hooks;
+    HookRow? hookEditing;   // the row the form replaces; null = the form adds
+    string hookEvent = "PreToolUse", hookMatcher = "", hookCommand = "", hookFile = "localSettings";
+    int? hookTimeout;
+    bool hookBlock;
+    PermissionState? perms;
+    string? permsNote;
+    string ruleDraft = "", ruleBehavior = "allow", ruleFile = "localSettings";
     (string Server, string Url)? auth;   // sign-in in progress: its page stays one click away until the server connects
     CancellationTokenSource? authPoll;
     ElementReference authLink;
@@ -235,10 +452,12 @@
     LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
 
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }   // /mcp, /hooks typed in a Composer
+    [SupplyParameterFromQuery(Name = "server")] public string? ServerQuery { get; set; }   // a failed MCP call's link in the thread
 
     protected override void OnInitialized()
     {
-        if (TabQuery is "mcp" or "hooks") tab = TabQuery;
+        if (TabQuery is "mcp" or "hooks" or "permissions" or "plugins") tab = TabQuery;
+        if (ServerQuery is { Length: > 0 }) Select(ServerQuery);
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
         if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
@@ -254,12 +473,18 @@
     async Task Refresh()
     {
         if (Live is not { } s) return;
-        if (refreshedFor != s.Id) (hooks, hooksNote) = (null, null);   // the previous session's hooks (another folder) must not show meanwhile
+        if (refreshedFor != s.Id)
+        {
+            (hooks, hooksNote, perms, permsNote, installed, markets) = (null, null, null, null, null, null);   // the previous session's (another folder) must not show meanwhile
+            ResetHookForm();   // nor its hook stay the edit target
+        }
         refreshedFor = s.Id;
         await Run(s.RefreshMcp);
         if (selected is null && Servers(s) is { Count: > 0 } all)
             selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
         await LoadHooks(s);
+        await LoadPerms(s);
+        if (tab == "plugins") await LoadPlugins(s);
     }
 
     // get_hooks_listing reads the settings files on every call: asked again whenever the tab is opened.
@@ -267,7 +492,7 @@
     async Task LoadHooks(LiveSession s)
     {
         if (!s.HasProcess) return;
-        (List<HookRow>, bool)? got = null;
+        HookListing? got = null;
         string? failed = null;
         try { got = Events.Hooks(await s.Request("get_hooks_listing")); }
         catch (Exception ex) { failed = L["Ext.Hooks.Failed", ex.Message.TrimEnd()]; }   // fire-and-forget from Show: nothing may escape
@@ -276,10 +501,307 @@
         try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
     }
 
+    void EditHook(HookRow h) =>
+        (hookEditing, hookEvent, hookMatcher, hookCommand, hookTimeout, hookBlock) = (h, h.Event, h.Edit!.Matcher, Events.Str(h.Edit.Config, "command") ?? h.Command, h.Timeout, h.BlocksOnFailure);
+
+    void ResetHookForm() => (hookEditing, hookMatcher, hookCommand, hookTimeout, hookBlock) = (null, "", "", null, false);
+
+    // `claude edit-hook` writes the settings file (the CLI's own writer and checks); a replace or remove names the row's
+    // stored entry, so a hook changed on disk meanwhile is refused rather than overwritten. The session's listing follows
+    // once its file watcher reloads the settings: listed again until it changed.
+    async Task SaveHook(LiveSession s, HookRow? target, bool remove)
+    {
+        if (busy || !remove && hookCommand.Trim().Length == 0) return;
+        busy = true;
+        hooksNote = null;
+        try
+        {
+            var matcher = hooks?.Catalog.FirstOrDefault(x => x.Name == hookEvent) is { Matcher: false } ? "" : hookMatcher.Trim();
+            var edit = remove ? CliEdit.Hook("remove", target!.Source, target.Event, target.Edit!.Matcher, null, target)
+                : CliEdit.Hook(target is null ? "add" : "replace", target?.Source ?? hookFile, hookEvent, matcher,
+                    CliEdit.CommandHook(target?.Edit?.Config, hookCommand.Trim(), hookTimeout, hookBlock), target);
+            var before = HookRows(hooks);
+            if (await CliEdit.Run(perms?.Cwd ?? s.Cwd, "edit-hook", edit) is { } err) { hooksNote = L["Ext.Hooks.EditFailed", err]; return; }
+            if (!remove || target == hookEditing) ResetHookForm();
+            for (var i = 0; i < 20; i++)   // 10 s at most
+            {
+                await Task.Delay(500);
+                await LoadHooks(s);
+                if (hooks is null || HookRows(hooks) != before) break;
+            }
+        }
+        catch (Exception ex) { hooksNote = L["Ext.Hooks.EditFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+
+    static string HookRows(HookListing? l) => string.Join("\n", l?.Rows.Select(r => $"{r.Event}|{r.Source}|{r.Matcher}|{r.Command}|{r.Timeout}|{r.BlocksOnFailure}") ?? []);
+
+    // list_permission_rules: rules from every settings file plus session grants and --allowedTools, each with its source.
+    async Task LoadPerms(LiveSession s)
+    {
+        if (!s.HasProcess) return;
+        PermissionState? got = null;
+        string? failed = null;
+        try { got = PermissionRules.Parse(await s.Request("list_permission_rules")); }
+        catch (Exception ex) { failed = L["Ext.Perm.Failed", ex.Message.TrimEnd()]; }
+        if (s.Id != refreshedFor) return;
+        (perms, permsNote) = (got, failed);
+        try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
+    }
+
+    // Writes the settings file the CLI reads for that source, then lists again until its file watcher shows the change.
+    async Task EditRule(LiveSession s, string source, string behavior, string rule, bool add)
+    {
+        if (busy || rule.Length == 0) return;
+        if (!PermissionRules.Valid(rule)) { permsNote = L["Ext.Perm.Invalid", rule]; return; }
+        busy = true;
+        permsNote = null;
+        try
+        {
+            var cwd = perms?.Cwd ?? s.Cwd;
+            var path = PermissionRules.FileOf(source, cwd, source == "localSettings" ? await LiveSession.GitRoot(cwd) : null, TranscriptStore.ConfigDir)
+                       ?? throw new InvalidOperationException(source);
+            PermissionRules.Save(path, behavior, rule, add);
+            if (add) ruleDraft = "";
+            for (var i = 0; i < 20; i++)   // 3 s on 2.1.296; 10 s at most
+            {
+                await Task.Delay(500);
+                await LoadPerms(s);
+                if (perms is null || perms.Rules.Any(r => r.Source == source && r.Behavior == behavior && r.Rule == rule) == add) break;
+            }
+        }
+        catch (Exception ex) { permsNote = L["Ext.Perm.WriteFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+    }
+
+    // ---------- plugins: `claude plugin … --json` in the session's folder, then reload_plugins ----------
+
+    List<Plugins.Row>? installed;
+    List<Plugins.Listed> available = [];
+    List<Plugins.Market>? markets;
+    string? pluginsNote, pluginsDone, confirm;   // confirm: the uninstall/remove awaiting its second click
+    string installDraft = "", installScope = "user", marketDraft = "";
+    (Plugins.Outcome Outcome, string[] Args)? toAccept;   // an install whose marketplace command waits for a person
+    string? configuring;
+    List<Plugins.Option>? options;
+    Dictionary<string, string> optionDraft = [];
+
+    async Task LoadPlugins(LiveSession s)
+    {
+        string? failed = null;
+        try
+        {
+            var (rows, avail) = await Plugins.List(s.Cwd);
+            var mk = await Plugins.Markets(s.Cwd);
+            if (s.Id != refreshedFor) return;
+            (installed, available, markets) = (rows, avail, mk);
+            if (configuring is { } cid && !rows.Any(r => r.Id == cid)) (configuring, options) = (null, null);   // uninstalled meanwhile
+        }
+        catch (Exception ex) { failed = L["Ext.Plugins.Failed", ex.Message.TrimEnd()]; }
+        pluginsNote = failed ?? pluginsNote;
+        try { await InvokeAsync(StateHasChanged); } catch (ObjectDisposedException) { }
+    }
+
+    // The CLI writes the settings and caches; the running session only sees it after reload_plugins (a process that
+    // exited is not respawned for it: the next one reads the disk anyway).
+    async Task PluginAct(LiveSession s, params string[] args)
+    {
+        if (busy) return;
+        busy = true;
+        (pluginsNote, pluginsDone, confirm, toAccept) = (null, null, null, null);
+        try
+        {
+            var r = await Plugins.Act(s.Cwd, args);
+            if (r.Ok) pluginsDone = r.Message + (s.HasProcess ? " " + await Reload(s) : "");
+            else if (r is { Command: not null, CommandSha: not null }) toAccept = (r, args);
+            else pluginsNote = r.Message;
+            if (r.Ok && args[0] == "install") installDraft = "";
+        }
+        catch (Exception ex) { pluginsNote = L["Ext.Plugins.Failed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+        await LoadPlugins(s);
+    }
+
+    // The person read the command: the same install again, bound to that command's sha (a changed one is refused again).
+    Task Accept(LiveSession s) => toAccept is { } a ? PluginAct(s, [.. a.Args, "--accept-command", a.Outcome.CommandSha!]) : Task.CompletedTask;
+
+    async Task<string> Reload(LiveSession s)
+    {
+        var (plugins, skills, agents, errors) = await s.ReloadPlugins();
+        var text = L["Ext.Plugins.Reloaded", plugins, skills, agents].Value;
+        return errors > 0 ? text + " " + L["Ext.Plugins.ReloadErrors", errors] : text;
+    }
+
+    Task ReloadNow(LiveSession s) => Run(async () => { pluginsDone = await Reload(s); });
+
+    // Uninstall and remove ask for a second click on the same button: the row and its data go.
+    async Task Confirmed(LiveSession s, string key, params string[] args)
+    {
+        if (confirm != key) { confirm = key; return; }
+        await PluginAct(s, args);
+    }
+
+    async Task Configure(LiveSession s, string id)
+    {
+        (configuring, options, pluginsNote) = (id, null, null);
+        optionDraft = [];
+        Ui.InspectorOpen = true;
+        try { options = await Plugins.Options(s.Cwd, id); }
+        catch (Exception ex) { (configuring, pluginsNote) = (null, L["Ext.Plugins.Failed", ex.Message.TrimEnd()]); }
+    }
+
+    // Only what was edited is sent: a sensitive option left empty keeps its saved value.
+    async Task SaveOptions(LiveSession s, string id)
+    {
+        busy = true;
+        (pluginsNote, pluginsDone) = (null, null);
+        try
+        {
+            if (await Plugins.Save(s.Cwd, id, optionDraft) is { } refused) { pluginsNote = refused; return; }
+            optionDraft = [];
+            options = await Plugins.Options(s.Cwd, id);
+            pluginsDone = L["Ext.Plugins.Saved"] + (s.HasProcess ? " " + await Reload(s) : "");
+        }
+        catch (Exception ex) { pluginsNote = L["Ext.Plugins.Failed", ex.Message.TrimEnd()]; }
+        finally { busy = false; }
+    }
+
+    string Draft(Plugins.Option o) => optionDraft.TryGetValue(o.Key, out var v) ? v : o.Value;
+
+    // The catalogue holds thousands of entries: the datalist offers the 30 most installed that match what is typed.
+    IEnumerable<Plugins.Listed> Matches() =>
+        available.Where(a => installDraft.Length == 0 || a.Id.Contains(installDraft, StringComparison.OrdinalIgnoreCase)).OrderByDescending(a => a.Installs).Take(30);
+
+    RenderFragment PluginsTab(LiveSession s, List<Srv> servers, string[] skills) => __builder =>
+    {
+        <div class="filters">
+            <button class="btn" disabled="@(busy || !s.HasProcess)" @onclick="() => ReloadNow(s)"><Icon Name="refresh" Sm />@L["Ext.Plugins.Reload"]</button>
+        </div>
+        <div role="status">@if (pluginsDone is not null)
+            {
+                <p class="lead">@pluginsDone</p>
+            }</div>
+        @if (pluginsNote is not null)
+        {
+            <div class="errbox" role="alert">@pluginsNote</div>
+        }
+        @foreach (var pe in s.Init?.PluginErrors ?? [])
+        {
+            <div class="errbox" role="status" title="@pe.Path">@L["Ext.Plugins.LoadError", pe.Plugin, pe.Message]</div>
+        }
+        @if (toAccept is { } ta)
+        {
+            <div class="errbox" role="alert">@L["Ext.Plugins.Command", ta.Args[1]]<br /><code>@ta.Outcome.Command</code></div>
+            <div class="acts">
+                <button class="btn primary" disabled="@busy" @onclick="() => Accept(s)">@L["Ext.Plugins.Accept"]</button>
+                <button class="btn" @onclick="() => toAccept = null">@L["Action.Cancel"]</button>
+            </div>
+        }
+        @if (installed is null)
+        {
+            <p class="lead" role="status">@L["Ext.Plugins.Loading"]</p>
+        }
+        else if (installed.Count == 0)
+        {
+            <p class="lead">@L["Ext.Plugins.None"]</p>
+        }
+        else
+        {
+            <table class="mcp">
+                <thead><tr><th>@L["Ext.Col.Plugin"]</th><th>@L["Ext.Col.Scope"]</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">@L["Ext.Tab.Skills"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+                <tbody>
+                    @foreach (var p in installed)
+                    {
+                        var key = p.Id + "|" + p.Scope;
+                        var editable = p.Scope is "user" or "project" or "local";
+                        <tr>
+                            <td><div class="n">@p.Name</div><div class="d">@p.Id · @p.Version</div>
+                                @foreach (var e in p.Errors)
+                                {
+                                    <div class="errbox">@e</div>
+                                }
+                                @foreach (var n in p.Notes)
+                                {
+                                    <div class="d">@n</div>
+                                }</td>
+                            <td><span class="tag">@SourceTag(p.Scope switch { "user" => "userSettings", "project" => "projectSettings", "local" => "localSettings", _ => p.Scope })</span></td>
+                            <td class="num">@servers.Count(x => x.Origin == "plugin:" + p.Name)</td>
+                            <td class="num">@skills.Count(k => k.StartsWith(p.Name + ":"))</td>
+                            <td class="num">
+                                @if (editable)
+                                {
+                                    <button class="toggle @(p.Enabled ? "on" : null)" role="switch" aria-checked="@(p.Enabled ? "true" : "false")" aria-label="@($"{L["Ext.Plugins.Enable"]}: {p.Name}")"
+                                            disabled="@busy" @onclick='() => PluginAct(s, p.Enabled ? "disable" : "enable", p.Id, "--scope", p.Scope)'><span class="sw"></span></button>
+                                    @if (p.HasOptions)
+                                    {
+                                        <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Options"]}: {p.Name}")" @onclick="() => Configure(s, p.Id)">@L["Ext.Plugins.Options"]</button>
+                                    }
+                                    <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {p.Name}")" @onclick='() => PluginAct(s, "update", p.Id, "--scope", p.Scope)'>@L["Ext.Plugins.Update"]</button>
+                                    <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Uninstall"]}: {p.Name}")" @onclick='() => Confirmed(s, "u:" + key, "uninstall", p.Id, "--scope", p.Scope)'>@(confirm == "u:" + key ? L["Ext.Plugins.ConfirmUninstall"] : L["Ext.Plugins.Uninstall"])</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <div class="field">
+            <label for="plugin-install">@L["Ext.Plugins.Install"]</label>
+            <div class="input"><input id="plugin-install" list="plugin-catalog" @bind="installDraft" @bind:event="oninput" placeholder="name@marketplace" spellcheck="false" autocomplete="off" disabled="@busy"
+                                      @onkeydown='async e => { if (e.Key == "Enter" && installDraft.Trim().Length > 0) await PluginAct(s, "install", installDraft.Trim(), "--scope", installScope); }' /></div>
+            <datalist id="plugin-catalog">
+                @foreach (var a in Matches())
+                {
+                    <option value="@a.Id">@a.Description</option>
+                }
+            </datalist>
+        </div>
+        <div class="picks">
+            <select aria-label="@L["Ext.Col.Scope"]" @bind="installScope" disabled="@busy">
+                @foreach (var sc in Plugins.Scopes)
+                {
+                    <option value="@sc">@SourceTag(sc + "Settings")</option>
+                }
+            </select>
+            <button class="btn primary" disabled="@(busy || installDraft.Trim().Length == 0)" @onclick='() => PluginAct(s, "install", installDraft.Trim(), "--scope", installScope)'><Icon Name="plus" Sm />@L["Ext.Plugins.InstallButton"]</button>
+        </div>
+        <h3>@L["Ext.Plugins.Markets"]</h3>
+        @if (markets is { Count: > 0 } ms)
+        {
+            <table class="mcp">
+                <thead><tr><th>@L["Ext.Plugins.Market"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+                <tbody>
+                    @foreach (var m in ms)
+                    {
+                        <tr>
+                            <td><div class="n">@m.Name</div></td>
+                            <td><code>@m.Where</code></td>
+                            <td class="num">
+                                <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {m.Name}")" @onclick='() => PluginAct(s, "marketplace", "update", m.Name)'>@L["Ext.Plugins.Update"]</button>
+                                <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Remove"]}: {m.Name}")" @onclick='() => Confirmed(s, "m:" + m.Name, "marketplace", "remove", m.Name)'>@(confirm == "m:" + m.Name ? L["Ext.Plugins.ConfirmRemove"] : L["Ext.Plugins.Remove"])</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <div class="field">
+            <label for="market-add">@L["Ext.Plugins.AddMarket"]</label>
+            <div class="input"><input id="market-add" @bind="marketDraft" @bind:event="oninput" placeholder="owner/repo" spellcheck="false" autocomplete="off" disabled="@busy"
+                                      @onkeydown='async e => { if (e.Key == "Enter" && marketDraft.Trim().Length > 0) { await PluginAct(s, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; } }' /></div>
+        </div>
+        <div class="picks">
+            <button class="btn primary" disabled="@(busy || marketDraft.Trim().Length == 0)" @onclick='async () => { await PluginAct(s, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; }'><Icon Name="plus" Sm />@L["Ext.Plugins.AddMarketButton"]</button>
+        </div>
+    };
+
     void Show(string key)
     {
         tab = key;
+        filter = "";   // the filters are per tab: an MCP state means nothing to the rules
         if (key == "hooks" && Live is { } s) _ = LoadHooks(s);
+        if (key == "permissions" && Live is { } p) _ = LoadPerms(p);
+        if (key == "plugins" && Live is { } pl) _ = LoadPlugins(pl);
     }
 
     // userSettings / projectSettings / localSettings / pluginHook; anything else (policy…) as the CLI names it.
@@ -289,6 +811,8 @@
         "projectSettings" => Strings.Get("Ext.Scope.Project"),
         "localSettings" => Strings.Get("Ext.Scope.Local"),
         "pluginHook" => Strings.Get("Ext.Scope.Plugin"),
+        "session" => Strings.Get("Ext.Scope.Session"),
+        "policySettings" => Strings.Get("Ext.Scope.Policy"),
         _ => source,
     };
 
@@ -298,6 +822,21 @@
     // A server that still fails answers with its error: shown as the note.
     Task Reconnect(LiveSession s, string name) =>
         Run(async () => { try { await s.Request("mcp_reconnect", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
+
+    // The CLI has no bulk reconnect ("/mcp reconnect all" is terminal-only): one mcp_reconnect per failed server, then
+    // one mcp_status. A server that still fails is named in the note, the others carry on.
+    Task ReconnectAll(LiveSession s, List<Srv> servers) => Run(async () =>
+    {
+        List<string> still = [];
+        foreach (var m in servers.Where(x => x.Status == "failed"))
+            try { await s.Request("mcp_reconnect", new() { ["serverName"] = m.Name }); }
+            catch (ClaudeRequestException) { still.Add(m.Short); }
+        await s.RefreshMcp();
+        if (still.Count > 0) note = L["Ext.StillFailing", string.Join(", ", still)];
+    });
+
+    Task SignOut(LiveSession s, string name) =>
+        Run(async () => { try { await s.Request("mcp_clear_auth", new() { ["serverName"] = name }); } finally { await s.RefreshMcp(); } });
 
     // mcp_authenticate answers at once with the sign-in page; the CLI then waits for the browser's redirect on its own
     // localhost port and reconnects the server itself (`--probe-cli mcp-auth`). The page is opened by a link, not
@@ -374,7 +913,7 @@
                 var (shortName, origin, tag) = Split(name, Events.Str(m, "source"), scope);
                 return new Srv(name, Events.Str(m, "status") ?? "", shortName, origin, tag, Events.Str(m, "error"),
                     Events.Str(cfg, "type"), Target(cfg),
-                    Events.Prop(m, "tools") is { ValueKind: JsonValueKind.Array } t ? t.GetArrayLength() : null,
+                    Events.Prop(m, "tools") is { ValueKind: JsonValueKind.Array } ? Mcp.Tools(m) : null,
                     scope, Events.Prop(m, "serverInfo") is { } si ? Events.Str(si, "version") : null);
             }).ToList();
         return (s.Init?.Mcp ?? []).Select(m =>
@@ -402,7 +941,7 @@
         return (name, origin, source switch { null or "user" => Strings.Get("Ext.Scope.User"), "claudeai" => "claude.ai", _ => source });
     }
 
-    static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>
+    internal static List<(string Name, string? Desc, string? Model)> Agents(LiveSession s) =>
         s.InitializeInfo is { } info && Events.Prop(info, "agents") is { ValueKind: JsonValueKind.Array } a
             ? a.EnumerateArray().Select(x => (Events.Str(x, "name") ?? "", Events.Str(x, "description"), Events.Str(x, "model"))).ToList()
             : (s.Init?.Agents ?? []).Select(n => (n, (string?)null, (string?)null)).ToList();

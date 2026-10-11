@@ -334,9 +334,19 @@ public static class WorkflowRuns
         }
     }
 
+    // An agent result that is a JSON object or array (a structured outcome), to show indented; null for plain text.
+    public static JsonElement? JsonResult(string s)
+    {
+        if (s.TrimStart() is not ['{' or '[', ..]) return null;
+        try { return JsonDocument.Parse(s).RootElement.Clone(); }
+        catch (JsonException) { return null; }
+    }
+
     internal static void Check()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "WorkflowRuns: " + what);
+        Ok(JsonResult(" {\"ok\":true}") is { ValueKind: JsonValueKind.Object } && JsonResult("[1]") is not null
+           && JsonResult("pong") is null && JsonResult("{not json") is null && JsonResult("") is null, "JSON result");
         var now = DateTimeOffset.FromUnixTimeMilliseconds(1791626222733);
 
         // claude 2.1.296 live snapshot (task_progress.workflow_progress), trimmed: pong:a done, pong:b queued.

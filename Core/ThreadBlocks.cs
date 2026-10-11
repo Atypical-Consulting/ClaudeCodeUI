@@ -4,7 +4,7 @@ namespace ClaudeCodeUI;
 
 // The thread's top-level blocks (Components/Session/Thread.razor). Subagent items (ParentToolUseId set) live under their
 // Workflow row. Consecutive tools form a Run shown as a Ledger, consecutive Agent calls a Run shown as a Workflow,
-// consecutive hooks one Hooks row. A Workflow call is a block of its own (WorkflowCard).
+// consecutive hooks one Hooks row. A Workflow call is a block of its own (WorkflowCard), and so is a file Claude sends (FileCard).
 public static class ThreadBlocks
 {
     public sealed record Run(List<ToolItem> Tools, bool Agents);
@@ -17,7 +17,7 @@ public static class ThreadBlocks
         {
             switch (item)
             {
-                case ToolItem { ParentToolUseId: null, Name: WorkflowRuns.Tool } w:
+                case ToolItem { ParentToolUseId: null, Name: WorkflowRuns.Tool or ToolKinds.SendFile } w:
                     blocks.Add(w);
                     break;
                 case ToolItem { ParentToolUseId: null } t:
@@ -29,7 +29,7 @@ public static class ThreadBlocks
                     if (blocks.LastOrDefault() is Hooks hs) hs.Items.Add(h);
                     else blocks.Add(new Hooks([h]));
                     break;
-                case UserItem or ApiErrorItem or TextItem { ParentToolUseId: null }:
+                case UserItem or ApiErrorItem or NoticeItem or ScheduledItem or ResumedItem or TextItem { ParentToolUseId: null } or ThoughtItem or CompactItem or FallbackItem:
                     blocks.Add(item);
                     break;
             }
@@ -61,6 +61,8 @@ public static class ThreadBlocks
         Ok(Of([T("a1", "Agent"), H("SubagentStart:general-purpose", "error", "boom"), T("a2", "Agent"), T("b", "Bash")])
                is [Run { Agents: true, Tools.Count: 2 }, Hooks, Run { Agents: false }], "agent fan-out keeps one workflow");
         Ok(Of([T("b1", "Bash"), new TextItem("t", null), T("b2", "Bash")]) is [Run, TextItem, Run], "text ends a run");
+        Ok(Of([new UserItem("u", default, false), new ResumedItem(), T("b", "Bash")]) is [UserItem, ResumedItem, Run], "the re-run turn's label is shown");
         Ok(Of([T("b1", "Bash"), T("w", WorkflowRuns.Tool), T("b2", "Bash")]) is [Run, ToolItem { Id: "w" }, Run], "a workflow is its own block");
+        Ok(Of([T("b1", "Bash"), T("f", ToolKinds.SendFile), new ThoughtItem("t"), T("b2", "Bash")]) is [Run, ToolItem { Id: "f" }, ThoughtItem, Run], "a sent file and a thought are blocks");
     }
 }

@@ -25,7 +25,8 @@ public sealed class ClaudeSession : IAsyncDisposable
     volatile bool disposing;
 
     // trace (optional): timestamped boot timeline — spawn, writes, first stdout line, live stderr, late answers.
-    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit, Action<string>? trace = null)
+    // resumeTurn: a --resume re-runs the turn the last process was cut off in (CLAUDE_CODE_RESUME_INTERRUPTED_TURN).
+    public ClaudeSession(string cwd, IReadOnlyList<string> args, Func<JsonElement, Task> onEvent, Action<int, string> onExit, Action<string>? trace = null, bool resumeTurn = false)
     {
         this.trace = trace;
         var psi = new ProcessStartInfo("claude")
@@ -43,6 +44,7 @@ public sealed class ClaudeSession : IAsyncDisposable
         // A non-interactive CLI only snapshots files before edits (what rewind_files restores) when asked to, like the
         // Agent SDK's enableFileCheckpointing; without it rewind_files answers "File rewinding is not enabled."
         psi.Environment["CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"] = "1";
+        if (resumeTurn) psi.Environment["CLAUDE_CODE_RESUME_INTERRUPTED_TURN"] = "1";
 
         var grouped = ProcessJob.Prepare(psi);
         clock.Start();
@@ -135,10 +137,14 @@ public sealed class ClaudeSession : IAsyncDisposable
     }
 
     // Answer a "can_use_tool" control_request. A deny's message reaches the model verbatim as the tool_result.
-    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) => Write(new JsonObject
+    public Task Respond(string requestId, bool allow, JsonElement input, JsonNode? updatedPermissions = null, string? message = null) =>
+        Answer(requestId, Reply(allow, input, updatedPermissions, message));
+
+    // Answer any control_request the CLI sent us (an elicitation's {action, content}).
+    public Task Answer(string requestId, JsonNode response) => Write(new JsonObject
     {
         ["type"] = "control_response",
-        ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = Reply(allow, input, updatedPermissions, message) },
+        ["response"] = new JsonObject { ["subtype"] = "success", ["request_id"] = requestId, ["response"] = response },
     });
 
     internal static JsonObject Reply(bool allow, JsonElement input, JsonNode? updatedPermissions, string? message)
@@ -182,6 +188,8 @@ public sealed class ClaudeSession : IAsyncDisposable
 
     static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    internal int Pid => proc.Id;   // --probe-cli resume-turn kills it the way a crash would
 
     public async ValueTask DisposeAsync()
     {

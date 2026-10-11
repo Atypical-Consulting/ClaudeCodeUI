@@ -6,15 +6,22 @@ using System.Text.Json.Nodes;
 namespace ClaudeCodeUI;
 
 public enum SessionStatus { Starting, Idle, Running, Waiting, Exited, Crashed }
-public enum ToolState { Running, Done, Error, Waiting, Denied }
+public enum ToolState { Running, Done, Error, Waiting, Denied, NotRun }   // NotRun: held back by auto mode (Events.NotRun)
 public enum Decision { Allow, AllowSession, Deny }
 
 public abstract record Item;
 public record UserItem(string Text, DateTimeOffset At, bool Ultracode, IReadOnlyList<UserImage>? Images = null, string? Uuid = null) : Item;   // Uuid: sent with the message (Send)
-public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null) : Item;   // Uuid: where "Fork from here" cuts
+public record TextItem(string Markdown, string? ParentToolUseId, string? Uuid = null, DateTimeOffset? At = null) : Item;   // Uuid: where "Fork from here" cuts
+public record ThoughtItem(string Text) : Item;   // a thinking summary (AppFlag.Thinking)
+// A compaction: "Compacted chat", its token counts and the summary the conversation goes on from (set when it arrives).
+public record CompactItem(string Trigger, long PreTokens, long PostTokens, int DurationMs, string? Summary = null) : Item;
+public record FallbackItem(string Text, string? Retry) : Item;   // a model fallback notice; Retry: the refused message's uuid
 public record ApiErrorItem(ApiError Error) : Item;
 public record ResetItem : Item;                                   // /clear went through: not rendered, it starts a new task list
+public record ResumedItem : Item;                                 // the turn a crash cut off, re-run by the relaunched CLI
 public record HookItem(HookEvt Hook) : Item;   // a hook that failed, blocked or printed something
+public record NoticeItem(NoticeEvt Notice) : Item;   // a CLI notification or plugin toast
+public record ScheduledItem(string Prompt, DateTimeOffset At) : Item;   // a scheduled task's prompt ran (transcript replay only, see ScheduledEvt)
 // Immutable like every item: an update replaces the instance in Items (LiveSession.Set), so a render never sees half of it.
 public sealed record ToolItem(string Id, string Name, JsonElement Input, string? ParentToolUseId) : Item
 {
@@ -29,6 +36,7 @@ public sealed record ToolItem(string Id, string Name, JsonElement Input, string?
     public long Tokens { get; init; }
     public int SubToolUses { get; init; }
     public bool Background { get; init; }         // Agent launched async: outlives its turn, ends on its task-notification
+    public string? Model { get; init; }           // Agent: the model of its subagent's first message (Input.model is often absent)
 }
 public record QueuedMessage(string Uuid, string Text, DateTimeOffset At);   // written to stdin mid-turn, not started yet
 // rewind_files {dry_run:true}: what rewinding the files to a message would change, or why it can't (CLI text).
@@ -45,9 +53,11 @@ public record RewindPreview(bool CanRewind, IReadOnlyList<string> Files, int Ins
     // rewind_files handler) while the line counts stay: count those too.
     public bool Changes => CanRewind && (Files.Count > 0 || Insertions + Deletions > 0);
 }
-// A background shell or Monitor command (task_type local_bash): outlives its turn, ends on task_updated or with the process.
+// A background shell or Monitor command (task_type local_bash), or another background task (an auto-backgrounded MCP call,
+// an MCP or WebSocket monitor, a teammate…): outlives its turn, ends on task_updated or with the process.
 public sealed record BgTask(string Id, string ToolUseId, string Description, DateTimeOffset StartedAt)
 {
+    public string? Type { get; init; }                 // task_type when not local_bash: get_task_output only reads shells and Monitors
     public string Status { get; init; } = "running";   // task_updated patch.status: completed, failed, killed…
     public DateTimeOffset? EndedAt { get; init; }
     public bool Running => Status is "running" or "pending" or "paused";
@@ -55,14 +65,14 @@ public sealed record BgTask(string Id, string ToolUseId, string Description, Dat
     // The last lines of a get_task_output tail as plain text: no ANSI escapes, a \r-overwritten line keeps its last state.
     public static string Tail(string output, int lines)
     {
-        var plain = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B(\[[0-?]*[ -/]*[@-~]|\][^\x07\x1B]*(\x07|\x1B\\)|[@-_])", "");
+        var plain = System.Text.RegularExpressions.Regex.Replace(output, PermissionRules.Ansi, "");
         var all = plain.Split('\n').Select(l => l.TrimEnd('\r')).Select(l => l[(l.LastIndexOf('\r') + 1)..]).ToList();
         while (all.Count > 0 && all[^1].Length == 0) all.RemoveAt(all.Count - 1);
         return string.Join('\n', all.TakeLast(lines));
     }
 }
 public record PendingPermission(string RequestId, string Tool, JsonElement Input, string? Description, string? ToolUseId,
-                                JsonElement? Suggestions, DateTimeOffset At = default);
+                                JsonElement? Suggestions, DateTimeOffset At = default, PermissionInfo? Info = null);
 
 // One claude process and its state. The reducer (Apply) runs on the process reader thread; lists and their items are
 // immutable snapshots replaced on write, so components read them without locking.
@@ -74,6 +84,9 @@ public sealed class LiveSession : IAsyncDisposable
     bool stopped;   // set by DisposeAsync (SessionManager.Stop): EnsureProcess refuses to spawn again
     readonly bool resumable; // opened from a transcript: always --resume
     bool turnUltra;
+    bool crashedMidTurn;                                       // the process died during a turn: Restart re-runs it
+    bool resumeTurn;                                           // ...and the relaunched CLI has not started it yet
+    public bool CrashedMidTurn => crashedMidTurn;
     bool draining;                                             // a result came with messages still queued: the CLI runs the next one
     bool ultraCarry;                                           // ...and that result ended an ultracode turn
     ImmutableHashSet<string> sent = [];                        // UserItem.Uuid the current process knows (rewind targets)
@@ -103,7 +116,7 @@ public sealed class LiveSession : IAsyncDisposable
     public string Mode { get; private set; }
     public string? Branch { get; private set; }
     public string? Repo { get; private set; }
-    public string? Worktree { get; }
+    public string? Worktree { get; private set; }   // -w name; dropped when ExitWorktree leaves it
     public ImmutableList<string> AddDirs { get; private set; }   // --add-dir folders: Claude works there as in Cwd
     public SessionStatus Status { get; private set; } = SessionStatus.Exited;
     public ImmutableList<Item> Items { get; internal set; } = [];
@@ -134,20 +147,48 @@ public sealed class LiveSession : IAsyncDisposable
     public bool StartFailed { get; private set; }   // the claude process never spawned: no turn ran
     public string ExitLabel => StartFailed ? Strings.Get("Session.NotStarted") : Strings.Get("Session.ExitShort", ExitCode);
     public InitEvt? Init { get; private set; }
-    public JsonElement? InitializeInfo { get; private set; }  // "initialize" response: models, commands, agents, account
+    public JsonElement? InitializeInfo { get; internal set; }  // "initialize" response: models, commands, agents, account
     public string? Model { get; private set; }
     public string? Effort { get; private set; }
     public bool Ultracode { get; private set; }               // toggle "for this turn"
+    public string? FallbackModel { get; init; }               // --fallback-model: the CLI switches to it when the model is overloaded
+    public bool Restricted { get; init; }                     // --restricted: no Bash/code-running tools nor WebFetch, user/project/local settings ignored
+    public bool SafeMode { get; init; }                       // --safe-mode: CLAUDE.md, skills, plugins, hooks, MCP… off, to troubleshoot a configuration
+    public string? Agent { get; init; }                       // --agent: the main thread runs as this agent (its prompt, tools and model)
+    public string? PrUrl { get; internal set; }               // the PR the session is linked to: its transcript's pr-link, then code_change_published
+    public string? RemoteUrl { get; private set; }            // the claude.ai/code page while Remote Control is on (this process only)
+    public IReadOnlyList<StatusSection>? StatusRows { get; private set; }   // get_status, asked when the panel shows
+    // initialize.remote_control_available: false where Remote Control can never work (policy, 3P provider); absent = available.
+    public bool RemoteAvailable => InitializeInfo is { } ri && Events.Prop(ri, "remote_control_available") is not { ValueKind: JsonValueKind.False };
+    public bool Thinking { get; private set; } = true;        // false: set_max_thinking_tokens 0, live and again at each launch
+    public string? Advisor { get; private set; }              // get_settings applied.advisor: the model actually attached, or null
+    public string? OutputStyle { get; private set; }          // initialize / init output_style (default, Concise…)
+    public JsonElement? MemoryDialog { get; private set; }
+    public string? StatusText { get; private set; }           // what the settings' statusLine command printed (StatusCommand)
+    string? statusCommand;
+    int statusRunning;    // raw get_memory_dialog: instruction files, auto-memory folder and memories
+    // Hooks announced by hook_started and not answered yet (hook_id → name, start), shown while they hold the turn.
+    public ImmutableDictionary<string, (string Name, DateTimeOffset At)> RunningHooks { get; private set; } = ImmutableDictionary<string, (string, DateTimeOffset)>.Empty;
     public string FastModeState { get; private set; } = "off";
     public string? FastModeReason { get; private set; }
     public JsonElement? Context { get; private set; }          // raw get_context_usage
     public JsonElement? McpStatus { get; private set; }       // raw mcp_status
+    public ImmutableDictionary<string, string> PluginStatus { get; private set; } = ImmutableDictionary<string, string>.Empty;   // plugin → its ui_status line
     public ImmutableList<BgTask> Tasks { get; private set; } = [];   // background shells and Monitors, in start order
     public RateLimitEvt? Limits { get; private set; }
+    public Usage? Usage { get; private set; }                  // get_usage past the two windows; Week only after RefreshUsage(true)
+    public long CacheRead { get; private set; }                // the last API call's prompt read from the cache, and written to it
+    public long CacheWrite { get; private set; }
     public RetryEvt? Retry { get; private set; }               // the API call being retried; cleared by the next sign of progress
+    public DateTimeOffset? CompactingSince { get; private set; }   // status "compacting" (manual or automatic), until the next status
+    public ImmutableList<Artifact> Artifacts { get; private set; } = [];   // the session's published artifacts (session_metadata)
+    public int Pushes { get; private set; }                    // PushNotification calls so far; MainLayout notifies on a new one
+    public string? LastPush { get; private set; }              // and the last one's message
+    public const string PushTool = "PushNotification";
     public DateTimeOffset LimitsAt { get; private set; }
     public bool HasProcess => proc is not null;
     public string Draft { get; set; } = "";          // the Composer's unsent text: survives navigation, reloads and reconnects
+    public string? Suggestion { get; private set; }   // the CLI's predicted next prompt (prompt_suggestion), until something is sent
     public IReadOnlyList<UserImage> DraftImages { get; set; } = [];   // and its attached images, likewise
     public MemoryEdit Memory { get; } = new();       // the memory panel's open file and unsaved edit, same reason
     public List<TodoEntry> Todos => TodoList.From(Items);   // recomputed per read: one pass over Items, cheaper than keeping a cache in sync
@@ -161,10 +202,12 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- commands ----------
 
-    public async Task Send(string text, IReadOnlyList<UserImage>? images = null)
+    // Returns the message's uuid (SendNow presses a queued one by it).
+    public async Task<string> Send(string text, IReadOnlyList<UserImage>? images = null)
     {
         var p = EnsureProcess();
         var uuid = Guid.NewGuid().ToString();
+        Suggestion = null;
         // During a turn the CLI queues the message: it folds it into the turn at the next tool result, or runs it as the
         // next turn (also after an interrupt). It joins the thread on command_lifecycle `started` (--probe-cli queue).
         // A queued message never arms ultracode (the flag would land on the running turn; the toggle stays armed for the next
@@ -190,7 +233,12 @@ public sealed class LiveSession : IAsyncDisposable
             Notify();
             throw;
         }
+        return uuid;
     }
+
+    // The CLI's "send now": interrupt {send_now, message_uuid} stops the turn and starts that queued message at once
+    // (answers send_now:"stopped"; the message then starts on command_lifecycle, verified on claude 2.1.296).
+    public Task SendNow(string uuid) => Request("interrupt", new() { ["send_now"] = true, ["message_uuid"] = uuid });
 
     // "Rewind to here": only between turns with no background agent still writing files, and only to a message this very
     // process received (its uuid dies with it).
@@ -208,9 +256,10 @@ public sealed class LiveSession : IAsyncDisposable
     {
         if (!CanRewind(u)) throw new ClaudeRequestException(Strings.Get("Rewind.Unavailable"));
         string? cut = null, prefill = null;
+        var steps = RewindSteps(u.Uuid!);
         try
         {
-            foreach (var id in RewindSteps(u.Uuid!))
+            foreach (var id in steps)
             {
                 var r = await Request("rewind_conversation", new() { ["target_message_uuid"] = id });
                 if (Events.Prop(r, "rewound") is not { ValueKind: JsonValueKind.True })
@@ -222,7 +271,7 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (cut is not null)
             {
-                lock (gate) CutBack(cut, prefill);
+                lock (gate) CutBack(cut, prefill, steps);
                 Notify();
             }
         }
@@ -234,12 +283,25 @@ public sealed class LiveSession : IAsyncDisposable
     // Cuts the thread at `uuid` and puts that message back in the Composer, ahead of anything not sent yet. The text is
     // the UI's own (what was typed): prefillText is the CLI's stored form, internal XML for a slash command
     // (<command-name>/compact</command-name>…), so it only serves, normalised, when the message is not in the thread.
-    internal void CutBack(string uuid, string? prefill)
+    // `rewound`: a message sent meanwhile (the automatic restore runs after the result, the Composer is open) stays.
+    internal void CutBack(string uuid, string? prefill, IReadOnlyCollection<string>? rewound = null)
     {
-        if ((Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid)?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
+        Suggestion = null;   // predicted after the turn that leaves
+        var item = Items.OfType<UserItem>().FirstOrDefault(x => x.Uuid == uuid);
+        if ((item?.Text ?? (prefill is null ? null : UserText(prefill))) is { } back)
             Draft = string.IsNullOrWhiteSpace(Draft) ? back : back + "\n\n" + Draft;
-        Truncate(uuid);
+        if (item?.Images is { Count: > 0 } im && DraftImages.Count == 0) DraftImages = [.. im.Where(i => i.Url is not null)];
+        Truncate(uuid, rewound);
     }
+
+    // Esc before Claude answered: as in the terminal, the prompt goes back to the Composer and leaves the conversation
+    // (rewind_conversation to it answers rewound after an interrupt, verified on claude 2.1.296). Not when a queued
+    // message runs next, nor once the turn produced anything.
+    internal UserItem? Unanswered() =>
+        LastResultSubtype == Interrupted && Queued.IsEmpty && Items.FindLastIndex(i => i is UserItem) is >= 0 and var at
+        && !Items.Skip(at + 1).Any(i => i is TextItem or ToolItem or ThoughtItem or ApiErrorItem or CompactItem or FallbackItem)
+        && Items[at] is UserItem { Uuid: not null } u ? u : null;
+
 
     // The rewind_conversation targets for a rewind to `uuid`: it and every message sent after it, newest first.
     internal IReadOnlyList<string> RewindSteps(string uuid) =>
@@ -251,16 +313,21 @@ public sealed class LiveSession : IAsyncDisposable
 
     // mode: set_permission_mode before an allow (ExitPlanMode's approvals). message: a deny's text for the model ("keep planning").
     // input: what to allow the tool with instead of its own input (AskUserQuestion's answers, see AskUser).
-    public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null, JsonElement? input = null)
+    // destination: where an AllowSession's rules are kept (session, localSettings, projectSettings, userSettings).
+    public async Task Answer(PendingPermission p, Decision d, string? mode = null, string? message = null, JsonElement? input = null,
+                             string destination = "session")
     {
         // A bare allow makes AskUserQuestion return "The user did not answer the questions." (see AskUser).
         if (p.Tool == AskUser.Tool && d != Decision.Deny && input is null) throw new InvalidOperationException(Strings.Get("Ask.NeedsAnswers"));
+        if (p.Tool == Elicit.Tool && d != Decision.Deny && input is null && !Elicit.IsUrl(p.Input)) throw new InvalidOperationException(Strings.Get("Ask.NeedsAnswers"));
         var c = proc ?? throw new InvalidOperationException(Strings.Get("Session.NoProcess"));
         // The request stays in Pending (its card stays up) until the CLI has its reply; a second answer meanwhile is a no-op.
         lock (gate) if (!answering.Add(p.RequestId)) return;
         try
         {
-            if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input, message: message);
+            // An elicitation: a deny declines, an allow accepts with the form's content (none in URL mode).
+            if (p.Tool == Elicit.Tool) await c.Answer(p.RequestId, Elicit.Reply(d == Decision.Deny ? "decline" : "accept", input));
+            else if (d == Decision.Deny) await c.Respond(p.RequestId, false, p.Input, message: message);
             else
             {
                 JsonNode? updated = null;
@@ -268,7 +335,7 @@ public sealed class LiveSession : IAsyncDisposable
                 {
                     var setMode = sg.EnumerateArray().FirstOrDefault(s => Events.Str(s, "type") == "setMode");
                     if (Events.Str(setMode, "mode") is { } m) mode = m;
-                    else updated = SessionOnly(sg);   // verified by --probe-cli permission-session
+                    else updated = Destined(sg, destination);   // session: verified by --probe-cli permission-session
                 }
                 // Answers {"mode":…}; the CLI then emits system/status with it once the allow lands (--probe-cli plan-*).
                 if (mode is not null)
@@ -284,14 +351,20 @@ public sealed class LiveSession : IAsyncDisposable
         finally { lock (gate) answering.Remove(p.RequestId); }
     }
 
-    // The CLI suggests rules for a settings file (localSettings: .claude/settings.local.json, kept for good). The card offers
-    // "for the whole session": every suggestion is sent back with destination session, which no file keeps.
-    internal static JsonNode SessionOnly(JsonElement suggestions)
+    // The CLI suggests rules for a settings file (localSettings: .claude/settings.local.json, kept for good). The card lets
+    // the user pick where they go, session by default (no file keeps it): every suggestion is sent back with that destination.
+    internal static JsonNode Destined(JsonElement suggestions, string destination)
     {
         var a = JsonNode.Parse(suggestions.GetRawText())!.AsArray();
-        foreach (var s in a.OfType<JsonObject>()) s["destination"] = "session";
+        foreach (var s in a.OfType<JsonObject>()) s["destination"] = destination;
         return a;
     }
+
+    // The subagent that asked (can_use_tool.agent_id = its task id), else the agent whose child the tool is.
+    public ToolItem? AskingAgent(PendingPermission p) =>
+        p.Info?.AgentId is not { } a ? null
+        : Items.LastOrDefault(i => i is ToolItem { TaskId: var id } && id == a) as ToolItem
+          ?? (Tool(p.ToolUseId)?.ParentToolUseId is { } parent ? Tool(parent) : null);
 
     // Ctrl B: the running Bash command or subagent moves to the background (the turn goes on without waiting for it).
     public Task Background(ToolItem t) => proc?.Request("background_tasks", new() { ["tool_use_id"] = t.Id }) ?? Task.CompletedTask;
@@ -304,8 +377,9 @@ public sealed class LiveSession : IAsyncDisposable
     // Relaunch after a crash or open a past session: --resume when a transcript exists, else a fresh start with the same id.
     public async Task Restart()
     {
-        if (proc is { } old) { proc = null; await old.DisposeAsync(); }
-        EnsureProcess();
+        if (proc is { } old) { proc = null; await old.DisposeAsync(); }   // proc is null first, so OnExit ignores old
+        lock (gate) PluginStatus = PluginStatus.Clear();
+        EnsureProcess(crashedMidTurn);
     }
 
     // Before the first send of a resumed session there is no process yet: the mode goes into --permission-mode.
@@ -328,6 +402,64 @@ public sealed class LiveSession : IAsyncDisposable
         await Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["effortLevel"] = e } });
         Effort = e;
         Notify();
+    }
+
+    // As the terminal's thinking toggle: 0 turns it off, null back to the session default (claude 2.1.296).
+    public async Task SetThinking(bool on)
+    {
+        await Request("set_max_thinking_tokens", new() { ["max_thinking_tokens"] = on ? null : 0 });
+        Thinking = on;
+        Notify();
+    }
+
+    // advisorModel in the flag layer, null to remove it (/advisor off). The CLI drops an advisor weaker than the model:
+    // applied.advisor says what stuck (verified on 2.1.296: "opus" → claude-opus-5-5, null → null).
+    public async Task SetAdvisor(string? model)
+    {
+        await Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["advisorModel"] = model } });
+        Advisor = Events.Prop(await Request("get_settings"), "applied") is { } a ? Events.Str(a, "advisor") : null;
+        Notify();
+    }
+
+    // update_settings localSettings takes outputStyle (its allowlist on 2.1.296): written where /config writes it, the
+    // project's .claude/settings.local.json, and live-applied; the next init reports it (verified by a probe).
+    public async Task SetOutputStyle(string style)
+    {
+        await Request("update_settings", new() { ["source"] = "localSettings", ["settings"] = new JsonObject { ["outputStyle"] = style } });
+        OutputStyle = style;
+        Notify();
+    }
+
+    // get_memory_dialog clears the CLI's memory-file cache first, as /memory does: asked when the panel shows.
+    public async Task RefreshMemory()
+    {
+        if (proc is not { } p) return;
+        MemoryDialog = await p.Request("get_memory_dialog");
+        Notify();
+    }
+
+    // autoMemoryEnabled in the user settings, through the CLI's writer (it also keeps an account-memory key in step).
+    public async Task SetAutoMemory(bool on)
+    {
+        if (await CliEdit.Run(Cwd, "edit-memory-settings", new JsonObject { ["autoMemoryEnabled"] = on }) is { } err) throw new ClaudeRequestException(err);
+        await RefreshMemory();
+    }
+
+    // The breakdown (behaviors) scans every local transcript of the week: asked only when shown.
+    public async Task RefreshUsage(bool behaviors)
+    {
+        if (proc is not { } p) return;
+        Usage = Usage.Parse(await p.Request("get_usage", behaviors ? null : new() { ["skip_behaviors"] = true }, 60));
+        Notify();
+    }
+
+    // The model goes into the user settings file (the CLI's update_settings takes effortLevel only); the effort through
+    // update_settings, saved for the session's model as /effort does ("max" is session-only: not written).
+    public async Task SetDefault(string model, string? effort)
+    {
+        UserSettings.SetModel(model);
+        if (effort is { } e and not "max")
+            await Request("update_settings", new() { ["source"] = "userSettings", ["settings"] = new JsonObject { ["effortLevel"] = e } });
     }
 
     public Task SetFast(bool on) => Request("apply_flag_settings", new() { ["settings"] = new JsonObject { ["fastMode"] = on } });
@@ -386,6 +518,127 @@ public sealed class LiveSession : IAsyncDisposable
     public async Task RefreshContext() { Context = await Request("get_context_usage"); Notify(); }
     public async Task RefreshMcp() { McpStatus = await Request("mcp_status"); Notify(); }
 
+    // reload_plugins (/reload-plugins) reads the plugins from disk again and answers the plugins, agents and MCP servers
+    // as they now are; the commands follow in its commands_changed push. reload_skills (/reload-skills) gives the skills,
+    // which init.skills lists and reload_plugins does not. Counted from the answers: before the first message there is no
+    // init to update. Errors: the load failures (details: `claude plugin list`).
+    public async Task<(int Plugins, int Skills, int Agents, int Errors)> ReloadPlugins()
+    {
+        var r = await Request("reload_plugins");
+        var k = await Request("reload_skills");
+        lock (gate) Reloaded(r, k);
+        Notify();
+        return (Events.Names(r, "plugins").Length, Events.Names(k, "skills").Length, Events.Names(r, "agents").Length, (int)Events.Long(r, "error_count"));
+    }
+
+    internal void Reloaded(JsonElement r, JsonElement skills)
+    {
+        if (Init is { } i) Init = i with { Plugins = Events.Names(r, "plugins"), Agents = Events.Names(r, "agents"), Skills = Events.Names(skills, "skills") };
+        if (InitializeInfo is { } info && Events.Prop(r, "agents") is { ValueKind: JsonValueKind.Array } a) InitializeInfo = With(info, "agents", a);
+        if (Events.Prop(r, "mcpServers") is { ValueKind: JsonValueKind.Array } m) McpStatus = With(JsonDocument.Parse("{}").RootElement, "mcpServers", m);
+    }
+
+    // o with key set to v: InitializeInfo stays an immutable element, replaced whole.
+    static JsonElement With(JsonElement o, string key, JsonElement v)
+    {
+        var n = JsonNode.Parse(o.GetRawText())!.AsObject();
+        n[key] = JsonNode.Parse(v.GetRawText());
+        return JsonSerializer.SerializeToElement(n);
+    }
+
+    // "Sign in again" after an MCP call refused for its credential: mcp_clear_auth drops the stored token (the server
+    // turns needs-auth), then mcp_authenticate hands out a fresh sign-in page. Both verified by --probe-cli mcp-auth.
+    public async Task<McpAuthStart> SignInAgain(string server)
+    {
+        await Request("mcp_clear_auth", new() { ["serverName"] = server });
+        return McpAuthStart.Parse(await Request("mcp_authenticate", new() { ["serverName"] = server }));
+    }
+
+    // /cd's headless twin, set_cwd (claude 2.1.296): refused while a turn runs. A folder never trusted answers needs_trust
+    // with its canonical path: re-sent with trust_accepted once the user said yes, trusted pinning the exact folder shown.
+    // Returns that folder still to trust, with trust_root when it sits inside another git root (accepting then trusts that
+    // whole repository, so the prompt must name it), else null; a refusal throws with the CLI's message.
+    public async Task<(string Directory, string? Root)?> SetCwd(string path, string? trusted = null)
+    {
+        var f = new JsonObject { ["path"] = path };
+        if (trusted is not null) { f["trust_accepted"] = true; f["trusted_directory"] = trusted; }
+        var r = await Request("set_cwd", f);
+        switch (Events.Str(r, "status"))
+        {
+            case "needs_trust": return (Events.Str(r, "directory") ?? path, Events.Str(r, "trust_root"));
+            case "ok":
+                if (Events.Str(r, "cwd") is { Length: > 0 } c && c != Cwd) { Cwd = c; Worktree = null; }
+                _ = RefreshGit();
+                return null;
+            default: throw new ClaudeRequestException(Events.Str(r, "message") ?? Events.Str(r, "reason") ?? r.GetRawText());
+        }
+    }
+
+    // A user rename, as /rename: rename_session from the host; session_title_changed then carries the name the CLI kept
+    // (cleaned, made unique). Verified on claude 2.1.296.
+    public Task Rename(string title) => Request("rename_session", new() { ["title"] = title.Trim(), ["source"] = "host" });
+
+    // export_conversation: the plain text and file name the terminal's /export writes (verified on claude 2.1.296). Saved
+    // in Downloads, beside a file of that name rather than over it; the path is returned for "Show in folder".
+    public async Task<string> Export()
+    {
+        var r = await Request("export_conversation");
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var dir = Path.Combine(home, "Downloads");
+        var path = FreeFile(Directory.Exists(dir) ? dir : home, Events.Str(r, "default_filename"));
+        await File.WriteAllTextAsync(path, Events.Str(r, "text") ?? "");
+        return path;
+    }
+
+    // A bare file name only (never a path out of dir), numbered -2, -3… while taken.
+    internal static string FreeFile(string dir, string? name)
+    {
+        name = Path.GetFileName(name ?? "");
+        if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) name = "conversation.txt";
+        var (stem, ext) = (Path.GetFileNameWithoutExtension(name), Path.GetExtension(name));
+        var path = Path.Combine(dir, name);
+        for (var i = 2; File.Exists(path); i++) path = Path.Combine(dir, $"{stem}-{i}{ext}");
+        return path;
+    }
+
+    // /status is not a stream-json command: get_status gives its rows (verified on claude 2.1.296).
+    public async Task RefreshStatus()
+    {
+        if (proc is not { } p) return;
+        StatusRows = StatusSection.Parse(await p.Request("get_status", null, 30));
+        Notify();
+    }
+
+    // Remote Control (/remote-control): remote_control {enabled} starts the claude.ai/code bridge and answers its session_url;
+    // {enabled:false} stops it. Both verified on claude 2.1.296. --remote-control itself is for interactive sessions only.
+    public async Task SetRemote(bool on)
+    {
+        var r = await Request("remote_control", new() { ["enabled"] = on });
+        RemoteUrl = on && Events.Str(r, "session_url") is { } u && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == "https" ? u : null;
+        Notify();
+    }
+
+    // Sign in to Claude (/login): claude_authenticate answers the sign-in pages (the CLI itself receives automaticUrl's
+    // callback), claude_oauth_wait_for_completion answers once the browser is done, with the account (claude 2.1.296).
+    public async Task<string?> StartSignIn() =>
+        Events.Str(await Request("claude_authenticate", new() { ["loginWithClaudeAi"] = true }), "automaticUrl") is { } u
+        && Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme == "https" ? u : null;
+
+    public async Task FinishSignIn()
+    {
+        var r = await EnsureProcess().Request("claude_oauth_wait_for_completion", null, 600);
+        if (InitializeInfo is { } info && Events.Prop(r, "account") is { ValueKind: JsonValueKind.Object } a) InitializeInfo = With(info, "account", a);
+        await RefreshStatus();
+    }
+
+    // EnterWorktree / ExitWorktree move the session mid-turn; their results say where (the next init confirms it).
+    internal static string? WorktreeMove(string tool, JsonElement? result) => result is not { ValueKind: JsonValueKind.Object } r ? null : tool switch
+    {
+        "EnterWorktree" => Events.Str(r, "worktreePath"),
+        "ExitWorktree" => Events.Str(r, "restoredCwd") ?? Events.Str(r, "originalCwd"),
+        _ => null,
+    };
+
     public Task<JsonElement> Request(string subtype, JsonObject? f = null) => EnsureProcess().Request(subtype, f);
 
     // Background tasks live in this process only: without one there is nothing to read or stop, and nothing to spawn.
@@ -403,7 +656,8 @@ public sealed class LiveSession : IAsyncDisposable
     // ---------- process ----------
 
     // Locked check-then-spawn: two circuits (or Boot and the reader thread) would otherwise start two claude with one --session-id.
-    internal ClaudeSession EnsureProcess()
+    // continueTurn (Restart after a crash mid-turn): the --resume CLI re-runs the cut-off turn by itself.
+    internal ClaudeSession EnsureProcess(bool continueTurn = false)
     {
         ClaudeSession s = null!;
         lock (gate)
@@ -417,8 +671,10 @@ public sealed class LiveSession : IAsyncDisposable
             {
                 // --resume restores the last persisted cost-state: total_cost_usd counts on from it (a fork's from its source's).
                 costBase = CostUsd - (resume ? TranscriptStore.PersistedCost(Id) : ForkOf is { } src ? TranscriptStore.PersistedCost(src) : 0);
+                resumeTurn = continueTurn && resume;
+                crashedMidTurn = false;
                 s = new ClaudeSession(Cwd, args, OnEvent, (code, text) => OnExit(s, code, text),
-                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); });
+                    l => { if (Status == SessionStatus.Starting) Console.Error.WriteLine($"[{Id}] boot {l}"); }, resumeTurn);
             }
             catch (Exception ex)
             {
@@ -438,7 +694,8 @@ public sealed class LiveSession : IAsyncDisposable
     // The exact list EnsureProcess launches claude with (also reused by --boot-probe).
     internal List<string> Args(bool resume)
     {
-        var args = new List<string> { "--include-partial-messages", "--forward-subagent-text", TodoList.AllowedToolsArg, "--include-hook-events" };
+        // --prompt-suggestions: a prompt_suggestion after each result, as the terminal's ghost text.
+        var args = new List<string> { "--include-partial-messages", "--forward-subagent-text", TodoList.AllowedToolsArg, "--include-hook-events", "--prompt-suggestions", "true" };
         // No mode chosen (""): the CLI applies permissions.defaultMode, as in the terminal; initialize says which.
         if (Mode.Length > 0) args.InsertRange(0, ["--permission-mode", Mode == "default" ? "manual" : Mode]);
         if (resume) args.AddRange(["--resume", Id]);
@@ -455,7 +712,14 @@ public sealed class LiveSession : IAsyncDisposable
         }
         if (Model is { } m) args.AddRange(["--model", m]);
         if (Effort is { } e) args.AddRange(["--effort", e]);
+        if (FallbackModel is { } fb) args.AddRange(["--fallback-model", fb]);
         foreach (var d in AddDirs) args.AddRange(["--add-dir", d]);   // one flag each: the form --probe-cli add-dir-resume checks
+        if (Restricted) args.Add("--restricted");
+        if (SafeMode) args.Add("--safe-mode");
+        // stream-json ignores an unknown name instead of exiting (claude 2.1.296): a wrong one starts a plain session.
+        if (Agent is { } ag) args.AddRange(["--agent", ag]);
+        // Without it stream-json sends every thinking block empty (verified on 2.1.296); read at each launch.
+        if (AppFlag.Thinking.On) args.AddRange(["--thinking-display", "summarized"]);
         return args;
     }
 
@@ -468,6 +732,9 @@ public sealed class LiveSession : IAsyncDisposable
             // request_id: re-sending under a new id dropped a late answer to the first one.
             const int initSeconds = 180;
             var init = p.Request("initialize", null, initSeconds);
+            // Thinking off survives a relaunch as a live 0, sent before any prompt: --thinking=disabled would anchor the CLI's
+            // reset, so the toggle's null could never turn it back on (r0r.resetAnchor, claude 2.1.296).
+            var off = Thinking ? null : p.Request("set_max_thinking_tokens", new() { ["max_thinking_tokens"] = 0 }, initSeconds);
             if (await Task.WhenAny(init, Task.Delay(60_000)) != init) Console.Error.WriteLine($"[{Id}] initialize: still waiting after 60 s");
             JsonElement info;
             try { info = await init; }
@@ -480,15 +747,23 @@ public sealed class LiveSession : IAsyncDisposable
                 return;
             }
             InitializeInfo = info;
+            OutputStyle ??= Events.Str(info, "output_style");
+            if (off is not null) await off;
             if (Mode.Length == 0) Mode = Events.Str(info, "current_permission_mode") ?? "default";
             Console.WriteLine($"[{Id}] initialize: {Count(info, "models")} models, {Count(info, "commands")} commands");
-            var applied = Events.Prop(await p.Request("get_settings"), "applied");
-            if (applied is { } a)
+            var settings = await p.Request("get_settings");
+            if (Events.Prop(settings, "applied") is { } a)
             {
                 Effort = Events.Str(a, "effort") ?? Effort;
                 Model ??= Events.Str(a, "model");
+                Advisor = Events.Str(a, "advisor");
             }
-            if (Events.Prop(await p.Request("get_usage"), "rate_limits") is { } rl
+            statusCommand = StatusCommand.Of(settings);
+            // alwaysThinkingEnabled: false starts the session with thinking off, as the terminal's toggle shows it.
+            if (Events.Prop(settings, "effective") is { } eff && Events.Prop(eff, "alwaysThinkingEnabled") is { ValueKind: JsonValueKind.False }) Thinking = false;
+            var usage = await p.Request("get_usage", new() { ["skip_behaviors"] = true });
+            Usage = Usage.Parse(usage);
+            if (Events.Prop(usage, "rate_limits") is { } rl
                 && Events.Prop(rl, "five_hour") is { } h5 && Events.Prop(rl, "seven_day") is { } d7 && Limits is null)
             {
                 Limits = new(Pct(h5), Reset(h5), Pct(d7), Reset(d7));   // get_usage is 0..100, normalised to 0..1
@@ -498,10 +773,23 @@ public sealed class LiveSession : IAsyncDisposable
         catch (Exception ex) { Console.Error.WriteLine($"[{Id}] startup: {ex.Message}"); }
         lock (gate) if (Status == SessionStatus.Starting) Status = SessionStatus.Idle;
         Notify();
+        _ = RunStatusLine();
 
         static int Count(JsonElement e, string n) => Events.Prop(e, n) is { ValueKind: JsonValueKind.Array } x ? x.GetArrayLength() : 0;
         static double Pct(JsonElement w) => Events.Prop(w, "utilization") is { ValueKind: JsonValueKind.Number } u ? u.GetDouble() / 100 : 0;
         static DateTimeOffset Reset(JsonElement w) => DateTimeOffset.TryParse(Events.Str(w, "resets_at"), out var t) ? t : default;
+    }
+
+    // One run at a time; a failing or silent command leaves the last line rather than flicker.
+    async Task RunStatusLine()
+    {
+        if (statusCommand is not { } cmd || Interlocked.Exchange(ref statusRunning, 1) == 1) return;
+        try
+        {
+            if (await StatusCommand.Run(cmd, Cwd, StatusCommand.Payload(this)) is { } text) { StatusText = text; Notify(); }
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"[{Id}] statusLine: {ex.Message}"); }
+        finally { Interlocked.Exchange(ref statusRunning, 0); }
     }
 
     // One notification per batch, coalesced to 50 ms; a permission or a result is shown at once.
@@ -516,7 +804,13 @@ public sealed class LiveSession : IAsyncDisposable
             if (e is PermissionEvt or ResultEvt) urgent = true;
             else if (e is not TextDeltaEvt) Interlocked.Increment(ref version);
             if (e is ResultEvt { TotalCostUsd: > 0 }) TranscriptStore.RecordCost(Id, CostUsd);
-            if (e is InitEvt && (Branch is null || cwd != Cwd)) _ = RefreshGit();
+            if (e is ResultEvt) _ = RunStatusLine();
+            if (e is InitEvt && Branch is null || cwd != Cwd) _ = RefreshGit();   // cwd: init, or a worktree move mid-turn
+            // The server confirmed a URL-mode elicitation: it is done, accept it for the user (the CLI's "I'm done").
+            if (e is ElicitDoneEvt ed && Pending.FirstOrDefault(p => Elicit.Matches(p, ed.Server, ed.ElicitationId)) is { } ep)
+                _ = Answer(ep, Decision.Allow).ContinueWith(t => Console.Error.WriteLine($"[{Id}] elicitation accept: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
+            if (e is ResultEvt && Unanswered() is { } back && CanRewind(back))
+                _ = Rewind(back, false).ContinueWith(t => Console.Error.WriteLine($"[{Id}] restore prompt: {t.Exception?.InnerException?.Message}"), TaskContinuationOptions.OnlyOnFaulted);
             if (e is ResultEvt && turnUltra)
             {
                 turnUltra = false;
@@ -536,13 +830,19 @@ public sealed class LiveSession : IAsyncDisposable
         {
             if (s is not null && proc != s) return false;
             proc = null;
+            crashedMidTurn = s is not null && Status is SessionStatus.Running or SessionStatus.Waiting;
             Status = SessionStatus.Crashed;
+            RemoteUrl = null;   // the bridge lived in that process
+            StatusRows = null;   // so did the version, login and model it reported
             ExitCode = code; ExitText = text; StartFailed = s is null;
             Pending = [];
             Queued = []; draining = false;
             TurnStartedAt = null;
+            CompactingSince = null;
+            RunningHooks = RunningHooks.Clear();
             ClearStream();
             EndTools(DateTimeOffset.Now, false);
+            PluginStatus = PluginStatus.Clear();   // the next process never sends text:null for the old plugins' lines
         }
         Notify();
         return true;
@@ -556,15 +856,23 @@ public sealed class LiveSession : IAsyncDisposable
         Notify();
     }
 
-    static async Task<string?> Git(string dir, params string[] args)
+    // The main checkout's root (the git common dir's parent), where the CLI keeps localSettings; null outside a repo.
+    public static async Task<string?> GitRoot(string dir) =>
+        (await Git(dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))?.Trim().TrimEnd('/', '\\') is { Length: > 0 } c
+        && Path.GetFileName(c) == ".git" ? Path.GetDirectoryName(c) : null;
+
+    internal static async Task<string?> Git(string dir, params string[] args)
     {
         try
         {
+            // stderr unread would fill its pipe on a chatty diff (one CRLF warning per file) and block git: drain it alongside stdout.
             var psi = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true };
             psi.ArgumentList.Add("-C"); psi.ArgumentList.Add(dir);
             foreach (var a in args) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
+            var err = p.StandardError.ReadToEndAsync();
             var output = await p.StandardOutput.ReadToEndAsync();
+            await err;
             await p.WaitForExitAsync();
             return p.ExitCode == 0 ? output : null;
         }
@@ -614,18 +922,33 @@ public sealed class LiveSession : IAsyncDisposable
 
     // ---------- reducer ----------
 
-    // The message with this uuid and everything after it (its tools, answers, later turns) leave the thread.
-    internal void Truncate(string uuid)
+    // The message with this uuid and everything after it (its tools, answers, later turns) leave the thread; with
+    // `rewound`, only up to the first later message not in it.
+    internal void Truncate(string uuid, IReadOnlyCollection<string>? rewound = null)
     {
         var i = Items.FindIndex(x => x is UserItem u && u.Uuid == uuid);
-        if (i >= 0) Items = Items.RemoveRange(i, Items.Count - i);
+        if (i < 0) return;
+        var end = rewound is null ? -1 : Items.FindIndex(i + 1, x => x is UserItem u && !rewound.Contains(u.Uuid ?? ""));
+        Items = Items.RemoveRange(i, (end < 0 ? Items.Count : end) - i);
     }
 
     internal void BeginTurn(string text, IReadOnlyList<UserImage>? images = null, string? uuid = null)
     {
         Items = Items.Add(new UserItem(text, DateTimeOffset.Now, Ultracode, images, uuid));
+        resumeTurn = false;
         Status = SessionStatus.Running;
         TurnStartedAt = DateTimeOffset.Now;
+        ClearStream();
+        ThinkingTokens = 0;
+    }
+
+    void ResumedTurn(DateTimeOffset now)
+    {
+        if (!resumeTurn || Status is not (SessionStatus.Idle or SessionStatus.Starting)) return;
+        resumeTurn = false;
+        Items = Items.Add(new ResumedItem());
+        Status = SessionStatus.Running;
+        TurnStartedAt = now;
         ClearStream();
         ThinkingTokens = 0;
     }
@@ -666,6 +989,12 @@ public sealed class LiveSession : IAsyncDisposable
         }
     }
 
+    // A subagent's messages name the model it runs on: kept from the first one on its Agent row.
+    void SubagentModel(string? parent, string? model)
+    {
+        if (parent is not null && model is not null && Tool(parent) is { Model: null } a && ToolKinds.IsAgent(a.Name)) Set(a, a with { Model = model });
+    }
+
     // Replaces one tool row (by reference: two rows never share an instance). Callers hold the gate, or own the session (replay).
     internal void Set(ToolItem old, ToolItem now) => Items = Items.Replace(old, now, ReferenceEqualityComparer.Instance);
 
@@ -678,9 +1007,14 @@ public sealed class LiveSession : IAsyncDisposable
     {
         var now = DateTimeOffset.Now;
         LastEventAt = now;
-        if (e is not (RetryEvt or RateLimitEvt or HookEvt)) Retry = null;
+        if (e is not (RetryEvt or RateLimitEvt or HookEvt or HookStartedEvt)) Retry = null;
+        if (e is HookEvt { Id: { } hid }) RunningHooks = RunningHooks.Remove(hid);
         switch (e)
         {
+            case HookStartedEvt hs:
+                RunningHooks = RunningHooks.SetItem(hs.Id, (hs.Name, now));
+                break;
+
             case RetryEvt rt:
                 Retry = rt;
                 break;
@@ -697,10 +1031,49 @@ public sealed class LiveSession : IAsyncDisposable
                 if (i.PermissionMode.Length > 0) Mode = i.PermissionMode;
                 FastModeState = i.FastModeState;
                 FastModeReason = i.FastModeReason;
+                if (i.OutputStyle is { } os) OutputStyle = os;
                 break;
 
-            case StatusEvt { PermissionMode: { } pm }:
-                Mode = pm;
+            case StatusEvt se:
+                if (se.PermissionMode is { } pm) Mode = pm;
+                // A compaction ends on the next status: {status:null, compact_result} or "requesting" (--probe-cli compact).
+                CompactingSince = se.Status == "compacting" ? CompactingSince ?? now : null;
+                if (se.Status == "requesting") ResumedTurn(now);
+                break;
+
+            // CLAUDE_CODE_RESUME_INTERRUPTED_TURN: the relaunched CLI re-runs the cut-off turn on its own, with no user frame:
+            // command_lifecycle started for the old prompt (before initialize even answers), then status "requesting"
+            // (--probe-cli resume-turn, claude 2.1.296).
+            case QueueEvt { State: "started" } when resumeTurn && Queued.IsEmpty:
+                ResumedTurn(now);
+                break;
+
+            case CompactEvt c:
+                Items = Items.Add(new CompactItem(c.Trigger, c.PreTokens, c.PostTokens, c.DurationMs));
+                break;
+
+            // The summary follows its boundary (SessionStart:compact hooks may come between, on the stream).
+            case SummaryEvt sm when Items.FindLastIndex(i => i is CompactItem) is >= 0 and var ci && Items[ci] is CompactItem { Summary: null } cc:
+                Items = Items.SetItem(ci, cc with { Summary = sm.Text });
+                break;
+
+            case ThoughtEvt { ParentToolUseId: null } th:
+                Items = Items.Add(new ThoughtItem(th.Text));
+                break;
+
+            // A refusal fallback retracts the refused partial (its uuids) before the retried answer comes.
+            case FallbackEvt fb:
+                if (fb.Retracted.Count > 0)
+                {
+                    Items = Items.RemoveAll(i => i is TextItem { Uuid: { } tu } && fb.Retracted.Contains(tu));
+                    ClearStream();
+                }
+                if (fb.Model is { } fm) Model = fm;
+                Items = Items.Add(new FallbackItem(fb.Text, fb.Retry));
+                break;
+
+            case ArtifactsEvt ar:
+                Artifacts = [.. ar.Artifacts];
                 break;
 
             case ThinkingEvt t:
@@ -719,13 +1092,20 @@ public sealed class LiveSession : IAsyncDisposable
 
             case AssistantTextEvt a:
                 if (a.ParentToolUseId is null) ClearStream();
-                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid));
+                SubagentModel(a.ParentToolUseId, a.Model);
+                Items = Items.Add(new TextItem(a.Text, a.ParentToolUseId, a.Uuid, a.At ?? now));
+                break;
+
+            case ScheduledEvt sc:
+                Items = Items.Add(new ScheduledItem(sc.Prompt, sc.At ?? now));
                 break;
 
             case ToolUseEvt u:
                 if (u.ParentToolUseId is null) ClearStream();
+                SubagentModel(u.ParentToolUseId, u.Model);
                 Items = Items.Add(new ToolItem(u.Id, u.Name, u.Input, u.ParentToolUseId) { State = ToolState.Running, StartedAt = now });
                 ToolCount++;
+                if (u.Name == PushTool) { Pushes++; LastPush = Events.Str(u.Input, "message"); }
                 break;
 
             case ToolResultEvt { Structured: { } rs } r when Tool(r.ToolUseId) is { State: ToolState.Running } t && (ToolKinds.IsAgent(t.Name) || t.Name == WorkflowRuns.Tool)
@@ -737,12 +1117,23 @@ public sealed class LiveSession : IAsyncDisposable
             case ToolResultEvt r when Tool(r.ToolUseId) is { } t:
                 Set(t, t with
                 {
-                    State = r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
+                    State = r.NotRun ? ToolState.NotRun : r.IsError ? (t.State == ToolState.Denied ? ToolState.Denied : ToolState.Error) : ToolState.Done,
                     ResultText = r.Text,
                     Structured = r.Structured,
                     EndedAt = now,
                     Tokens = r.Structured is { } st && Events.Prop(st, "totalTokens") is { ValueKind: JsonValueKind.Number } tok ? tok.GetInt64() : t.Tokens,
                 });
+                // A subagent's EnterWorktree moves only that agent: top-level calls move the session.
+                if (!r.IsError && t.ParentToolUseId is null && WorktreeMove(t.Name, r.Structured) is { Length: > 0 } moved)
+                {
+                    Cwd = moved;
+                    if (t.Name == "ExitWorktree") Worktree = null;
+                }
+                break;
+
+            // A transcript writes the /compact line after the boundary and summary it produced: it goes back above its card.
+            case UserTextEvt u when UserText(u.Text) is { } text && text.StartsWith("/compact") && Items.LastOrDefault() is CompactItem:
+                Items = Items.Insert(Items.Count - 1, new UserItem(text, u.At ?? now, false, u.Images));
                 break;
 
             case UserTextEvt u when UserText(u.Text) is { } text:
@@ -750,7 +1141,7 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case PermissionEvt p:
-                Pending = Pending.Add(new(p.RequestId, p.Tool, p.Input, p.Description, p.ToolUseId, p.Suggestions, now));
+                Pending = Pending.Add(new(p.RequestId, p.Tool, p.Input, p.Description, p.ToolUseId, p.Suggestions, now, p.Info));
                 if (Tool(p.ToolUseId) is { } wt) Set(wt, wt with { State = ToolState.Waiting });
                 Status = SessionStatus.Waiting;
                 break;
@@ -765,13 +1156,18 @@ public sealed class LiveSession : IAsyncDisposable
                 LastTurn = TimeSpan.FromMilliseconds(r.DurationMs);
                 LastResultSubtype = r.TerminalReason?.StartsWith("aborted") == true ? Interrupted : r.Subtype;
                 LastResultAt = now;
-                if (r.ContextTokens > 0) ContextTokens = r.ContextTokens;
+                if (r.ContextTokens > 0) (ContextTokens, CacheRead, CacheWrite) = (r.ContextTokens, r.CacheRead, r.CacheWrite);
                 if (r.ContextWindow is { } w) ContextWindow = w;
                 if (r.FastModeState is { } fs) { FastModeState = fs; FastModeReason = r.FastModeReason; }
+                // A call refused by a deny rule or the auto-mode classifier never asked: only its error result and this list say so.
+                foreach (var id in r.Denied ?? [])
+                    if (Tool(id) is { State: ToolState.Error } dt) Set(dt, dt with { State = ToolState.Denied });
                 EndTools(now);
                 Pending = [];
                 ClearStream();
                 ThinkingTokens = 0;
+                CompactingSince = null;
+                RunningHooks = RunningHooks.Clear();   // one that never answered (an interrupted turn) must not hold the line
                 if (!Queued.IsEmpty)   // a queued message runs next, even after an interrupt
                 {
                     draining = true;
@@ -785,14 +1181,27 @@ public sealed class LiveSession : IAsyncDisposable
                 break;
 
             case RateLimitEvt l:
-                Limits = l;
+                // unifiedWindows carries each window only once known: keep the other one, and show nothing before a first window.
+                if (Limits is not { } k)
+                {
+                    if (l.FiveHourReset == default && l.SevenDayReset == default) break;
+                    k = l;
+                }
+                Limits = l with
+                {
+                    FiveHour = l.FiveHourReset == default ? k.FiveHour : l.FiveHour, FiveHourReset = l.FiveHourReset == default ? k.FiveHourReset : l.FiveHourReset,
+                    SevenDay = l.SevenDayReset == default ? k.SevenDay : l.SevenDay, SevenDayReset = l.SevenDayReset == default ? k.SevenDayReset : l.SevenDayReset,
+                };
                 LimitsAt = now;
                 break;
 
             case TaskStartedEvt ts:
                 if (Tool(ts.ToolUseId) is { } launcher) Set(launcher, launcher with { TaskId = ts.TaskId });
-                if (ts is { TaskType: "local_bash", Backgrounded: true } && !Tasks.Any(x => x.Id == ts.TaskId))
-                    Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now));
+                // A shell only when backgrounded; agents and workflows have their own rows. Any other type (mcp_task,
+                // monitor_mcp, monitor_ws, in_process_teammate…) only exists in the background; housekeeping stays out.
+                if ((ts is { TaskType: "local_bash", Backgrounded: true } || ts.TaskType is not (null or "local_bash" or "local_agent" or "local_workflow") && !ts.Ambient)
+                    && !Tasks.Any(x => x.Id == ts.TaskId))
+                    Tasks = Tasks.Add(new(ts.TaskId, ts.ToolUseId, ts.Description, now) { Type = ts.TaskType == "local_bash" ? null : ts.TaskType });
                 break;
 
             // Moved to the background mid-run (background_tasks, verified by a probe on claude 2.1.296): a shell joins the
@@ -853,8 +1262,29 @@ public sealed class LiveSession : IAsyncDisposable
                 Name = ti.Title;
                 break;
 
+            case PrEvt pr:
+                PrUrl = pr.Url;
+                break;
+
             case ResetEvt:
                 Items = Items.Add(new ResetItem());
+                Suggestion = null;
+                break;
+
+            case NoticeEvt n:
+                Items = Items.Add(new NoticeItem(n));
+                break;
+
+            case PluginStatusEvt ps:
+                PluginStatus = ps.Text is { } line ? PluginStatus.SetItem(ps.Plugin, line) : PluginStatus.Remove(ps.Plugin);
+                break;
+
+            case SuggestionEvt sg:
+                Suggestion = sg.Text;
+                break;
+
+            case CommandsEvt c when InitializeInfo is { } info:
+                InitializeInfo = With(info, "commands", c.Commands);
                 break;
         }
     }
@@ -866,6 +1296,30 @@ public sealed class LiveSession : IAsyncDisposable
         return [.. i < 0 ? items : items.Take(i + 1)];
     }
 
+    // maxEffortLevel from get_settings.effective: modelSettings.<model> replaces the top-level one ("max" exempts the model),
+    // keyed by canonical name, which also matches the dated and [1m] spellings. Levels above it the CLI clamps: not offered.
+    internal static string? EffortCap(JsonElement effective, string? model)
+    {
+        var cap = Events.Str(effective, "maxEffortLevel");
+        if (model is { } m && Events.Prop(effective, "modelSettings") is { ValueKind: JsonValueKind.Object } ms)
+            foreach (var x in ms.EnumerateObject())
+                if (m.StartsWith(x.Name, StringComparison.OrdinalIgnoreCase) && Events.Str(x.Value, "maxEffortLevel") is { } own) cap = own;
+        return cap == "max" ? null : cap;
+    }
+
+    // The keys of the CLI's reply to a bare "/config" (2.1.296): "Usage: /config key=value…" then "  key=a|b|c" or
+    // "  key=<value>" (free text: no choices). null when the text is not that reply.
+    internal static IReadOnlyList<(string Key, string[] Choices)>? ConfigKeys(string text)
+    {
+        if (!text.StartsWith(ConfigUsage)) return null;
+        return [.. text.Split('\n').Skip(1).Select(l => l.Trim()).Where(l => l.IndexOf('=') > 0)
+            .Select(l => (l[..l.IndexOf('=')], l[(l.IndexOf('=') + 1)..] is var v && v.StartsWith('<') ? [] : v.Split('|')))];
+    }
+    internal const string ConfigUsage = "Usage: /config key=value";
+
+    internal static IReadOnlyList<string> Capped(IReadOnlyList<string> levels, string? cap) =>
+        cap is not null && levels.ToList().IndexOf(cap) is >= 0 and var i ? [.. levels.Take(i + 1)] : levels;
+
     // A silent success is the common case (and most of the stream's hook events): nothing to show. Context a hook injects
     // into the prompt is for the model, not to read: a successful SessionStart (plugins: ~11 KB per start) or SubagentStart
     // (~5 KB per Agent call, measured on 2.1.296), and any output that is only hookSpecificOutput.additionalContext.
@@ -873,21 +1327,31 @@ public sealed class LiveSession : IAsyncDisposable
         h.Outcome != "success"
         || h.Output.Length > 0 && !h.Name.StartsWith("SessionStart") && !h.Name.StartsWith("SubagentStart") && !Events.ContextOnly(h.Output);
 
-    // send → tool_use → permission → deny → result, replayed on the reducer only.
+    // The Args patterns below are for summaries off, whatever this machine's toggle says.
     internal static void Check()
+    {
+        var flag = AppFlag.Thinking.Path;
+        AppFlag.Thinking.Path = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"));
+        try { CheckReducer(); }
+        finally { if (File.Exists(AppFlag.Thinking.Path)) File.Delete(AppFlag.Thinking.Path); AppFlag.Thinking.Path = flag; }
+    }
+
+    // send → tool_use → permission → deny → result, replayed on the reducer only.
+    static void CheckReducer()
     {
         static void Ok(bool c, string what) => SelfCheck.Assert(c, "LiveSession: " + what);
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
-        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--prompt-suggestions", "true", "--session-id", "id", "--name", "n"], "fresh args");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
-        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
+        Ok(resumed is ["--permission-mode", "plan", _, _, _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };
-        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
-        Ok(fork.Args(true) is [_, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
-        Ok(new LiveSession("c", "c", @"C:\w", "").Args(false) is [_, _, TodoList.AllowedToolsArg, "--include-hook-events", "--session-id", "c", ..], "no mode chosen: no --permission-mode");
+        Ok(fork.Args(false) is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", _, _, "--resume", "o", "--fork-session", "--session-id", "f", "--name", "x (fork)", "--resume-session-at", "u1"], "fork args");
+        Ok(fork.Args(true) is [_, _, _, _, _, _, _, _, "--resume", "f"], "fork resumes its own transcript once written");
+        Ok(new LiveSession("c", "c", @"C:\w", "").Args(false) is [_, _, TodoList.AllowedToolsArg, "--include-hook-events", _, _, "--session-id", "c", ..], "no mode chosen: no --permission-mode");
         var sg = JsonDocument.Parse("""[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"npm test:*"}],"behavior":"allow","destination":"localSettings"},{"type":"addDirectories","directories":["/x"],"destination":"localSettings"}]""").RootElement;
-        Ok(SessionOnly(sg).ToJsonString() is var so && so.Contains("\"destination\":\"session\"") && !so.Contains("localSettings") && so.Contains("npm test:*"), "whole-session allow stays in the session");
+        Ok(Destined(sg, "session").ToJsonString() is var so && so.Contains("\"destination\":\"session\"") && !so.Contains("localSettings") && so.Contains("npm test:*"), "whole-session allow stays in the session");
+        Ok(Destined(sg, "userSettings").ToJsonString() is var su && su.Split("\"destination\":\"userSettings\"").Length == 3, "always-allow goes where the user picked");
         Item[] h = [new UserItem("a", default, false), new TextItem("b", null, "u1"), new UserItem("c", default, false), new TextItem("d", null, "u2")];
         Ok(Upto(h, "u1") is [UserItem, TextItem { Uuid: "u1" }] && Upto(h, null).Count == 4, "fork history cut");
         var dirs = new LiveSession("d", "d", "/w", "default", resumable: true, addDirs: ["/a", "/b c"]).Args(true);
@@ -899,6 +1363,71 @@ public sealed class LiveSession : IAsyncDisposable
            && !new LiveSession("i", "i", "/r/.claude/worktrees/x", "auto", addDirs: ["/o"]).Isolated
            && !new LiveSession("i", "i", "/r", "auto", worktree: "x", addDirs: ["/o"]).Isolated, "extra folders are never isolated");
         Ok(ClaudeSession.TraceLine(1234, "stderr x") == "+1234 ms stderr x", "trace line format");
+        AppFlag.Thinking.On = true;
+        Ok(new LiveSession("t", "t", "/w", "default").Args(false) is [.., "--name", "t", "--thinking-display", "summarized"], "thinking summaries asked when on");
+        AppFlag.Thinking.On = false;
+        var fb = new LiveSession("fb", "fb", "/w", "default", model: "opus") { FallbackModel = "sonnet" };
+        fb.Thinking = false;
+        Ok(fb.Args(false) is [.., "--model", "opus", "--fallback-model", "sonnet"], "fallback model, thinking off not anchored at launch");
+        // claude 2.1.296's answer to a bare /config (trimmed).
+        Ok(ConfigKeys("Usage: /config key=value [key=value ...]\n  autoCompact=true|false\n  language=<value>\n  switchModelsOnFlag=Switch automatically|Ask each time")
+           is [("autoCompact", ["true", "false"]), ("language", []), ("switchModelsOnFlag", ["Switch automatically", "Ask each time"])]
+           && ConfigKeys("Set Language to French") is null, "/config usage keys");
+        Ok(Capped(["low", "medium", "high", "xhigh", "max"], "high") is ["low", "medium", "high"] && Capped(["low", "high"], null).Count == 2 && Capped(["low", "high"], "auto").Count == 2, "effort cap");
+        var effS = JsonDocument.Parse("""{"maxEffortLevel":"high","modelSettings":{"claude-fable-5-1":{"maxEffortLevel":"max"},"claude-opus-5-5":{"maxEffortLevel":"medium"}}}""").RootElement;
+        Ok(EffortCap(effS, "claude-haiku-5-5") == "high" && EffortCap(effS, "claude-fable-5-1") is null && EffortCap(effS, "claude-opus-5-5[1m]") == "medium"
+           && EffortCap(JsonDocument.Parse("{}").RootElement, "x") is null, "maxEffortLevel, per model, max exempts");
+        var rlm = new LiveSession("rl", "rl", "/w", "default");
+        rlm.Apply(new RateLimitEvt(0, default, 0, default, "rejected", "five_hour"));
+        Ok(rlm.Limits is null, "no quota before a first window");
+        rlm.Apply(new RateLimitEvt(0.05, DateTimeOffset.FromUnixTimeSeconds(1), 0.91, DateTimeOffset.FromUnixTimeSeconds(2)));
+        rlm.Apply(new RateLimitEvt(0, default, 0, default, "rejected", "seven_day"));
+        Ok(rlm.Limits is { Status: "rejected", SevenDay: 0.91, FiveHour: 0.05 }, "rate limit status keeps the known windows");
+        rlm.Apply(new RateLimitEvt(0.4, DateTimeOffset.FromUnixTimeSeconds(3), 0, default));
+        Ok(rlm.Limits is { FiveHour: 0.4, SevenDay: 0.91, SevenDayReset: var r7 } && r7.ToUnixTimeSeconds() == 2, "a lone five_hour window keeps seven_day");
+        rlm.Apply(new ResultEvt("success", false, 0, 10, 1, 34232, null, null, null, CacheRead: 11204, CacheWrite: 23026));
+        Ok(rlm is { ContextTokens: 34232, CacheRead: 11204, CacheWrite: 23026 }, "prompt cache of the last call");
+
+        // /compact as probed on 2.1.296: compacting, hooks, status null, boundary, summary; then an auto compaction mid-turn.
+        var cp = new LiveSession("cp", "cp", "/w", "default");
+        cp.BeginTurn("/compact");
+        cp.Apply(new StatusEvt("compacting", null));
+        var since = cp.CompactingSince;
+        cp.Apply(new HookEvt("SessionStart:compact", "success", 0, "ctx"));
+        cp.Apply(new StatusEvt("compacting", null));
+        Ok(since is not null && cp.CompactingSince == since, "compacting since its first status");
+        cp.Apply(new StatusEvt(null, null));
+        Ok(cp.CompactingSince is null, "status null ends compacting");
+        cp.Apply(new CompactEvt("manual", 37317, 8995, 3207));
+        cp.Apply(new HookEvt("SessionStart:compact", "error", 1, "boom"));
+        cp.Apply(new SummaryEvt("This session is being continued… Summary: hi"));
+        Ok(cp.Items is [UserItem, CompactItem { Trigger: "manual", PreTokens: 37317, Summary: "This session is being continued… Summary: hi" }, HookItem], "compact card gets its summary");
+        cp.Apply(new SummaryEvt("again"));
+        Ok(cp.Items[1] is CompactItem { Summary: "This session is being continued… Summary: hi" }, "a summary never replaces another");
+        cp.Apply(new StatusEvt("compacting", null));
+        cp.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
+        Ok(cp.CompactingSince is null && ThreadBlocks.Of(cp.Items) is [UserItem, CompactItem, ThreadBlocks.Hooks], "result ends compacting; the card is a block");
+
+        // Thinking summary, fallback notice (retracts the refused partial, swaps the model), artifacts, push, not run.
+        var fx = new LiveSession("fx", "fx", "/w", "default", model: "claude-fable-5");
+        fx.BeginTurn("q", uuid: "u7");
+        fx.Apply(new ThoughtEvt("Checking.", null));
+        fx.Apply(new ThoughtEvt("sub", "toolu_A"));
+        fx.Apply(new AssistantTextEvt("m", "partial", null, false, "a1"));
+        fx.Apply(new FallbackEvt("Fable 5 declined; retried with Opus 5.5", "u7", ["a1"], "claude-opus-5-5"));
+        Ok(fx.Items is [UserItem, ThoughtItem { Text: "Checking." }, FallbackItem { Retry: "u7" }] && fx.Model == "claude-opus-5-5", "fallback retracts and swaps the model");
+        fx.Apply(new ArtifactsEvt([new("https://claude.ai/a/1", "Report")]));
+        Ok(fx.Artifacts is [{ Title: "Report" }], "artifacts listed");
+        fx.Apply(new ArtifactsEvt([]));
+        Ok(fx.Artifacts.IsEmpty, "artifacts cleared");
+        fx.Apply(new ToolUseEvt("toolu_P", PushTool, JsonDocument.Parse("""{"message":"Build ready","status":"proactive"}""").RootElement.Clone(), null));
+        Ok(fx.Pushes == 1 && fx.LastPush == "Build ready", "push notification counted");
+        fx.Apply(new ToolUseEvt("toolu_N", "Bash", input, null));
+        fx.Apply(new ToolResultEvt("toolu_N", "held back", true, null, NotRun: true));
+        fx.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null, Denied: ["toolu_N"]));
+        Ok(fx.Tool("toolu_N") is { State: ToolState.NotRun }, "held back by auto mode: not run, not denied");
+        fx.Apply(new AssistantTextEvt("m", "x", null, false, "u", DateTimeOffset.UnixEpoch));
+        Ok(fx.Items[^1] is TextItem { At: { } fxa } && fxa == DateTimeOffset.UnixEpoch, "text keeps the transcript time");
 
         var s = new LiveSession("id", "essai", @"C:\w", "default");
 
@@ -919,6 +1448,15 @@ public sealed class LiveSession : IAsyncDisposable
         hk.Apply(new HookEvt("SessionStart:resume", "error", 1, "boom"));
         Ok(hk.Items is [HookItem { Hook.Output: "context" }, HookItem { Hook.ExitCode: 2 }, HookItem { Hook.ExitCode: 1 }],
             "silent hooks and successful SessionStart hidden, output and errors kept");
+        // claude 2.1.296: hook_started per hook, answered by hook_id; one left unanswered ends with the turn.
+        hk.Apply(new HookStartedEvt("h1", "SessionStart:startup"));
+        hk.Apply(new HookStartedEvt("h2", "SessionStart:startup"));
+        hk.Apply(new HookEvt("SessionStart:startup", "success", 0, "", "h1"));
+        Ok(hk.RunningHooks.Count == 1 && hk.RunningHooks.ContainsKey("h2") && hk.Items.Count == 3, "running hooks: started until answered");
+        hk.Apply(new ResultEvt("success", false, 0, 1, 1, 0, null, null, null));
+        Ok(hk.RunningHooks.IsEmpty, "a result ends the hooks still listed");
+        hk.Apply(new InitEvt("s", "", "", "", [], [], [], [], [], [], "off", null, OutputStyle: "Concise"));
+        Ok(hk.OutputStyle == "Concise", "init output_style");
 
         // claude 2.1.296, two Agent calls in a row: each streams a successful SubagentStart (plugin context, plain or JSON)
         // between its tool_use and its result, then a silent PostToolBatch. None of it is shown, the agents share one Workflow.
@@ -971,11 +1509,15 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Retry is { Attempt: 1 }, "api_retry shown");
         s.Apply(new PermissionEvt("r1", "Write", input, "b.txt", "t1", null));
         Ok(s.Retry is null, "progress clears the retry");
+        Ok(s.AskingAgent(s.Pending[0]) is null, "main thread: no asking agent");
         s.Resolve(s.Pending[0], Decision.Deny);
         Ok(s.Status == SessionStatus.Running && s.Pending.IsEmpty && s.Items[^1] is ToolItem { State: ToolState.Denied }, "deny");
         s.Apply(new ToolResultEvt("t1", "The user denied this tool use.", true, null));
         Ok(s.Items[^1] is ToolItem { State: ToolState.Denied, ResultText: "The user denied this tool use." }, "denied stays denied");
-        s.Apply(new ResultEvt("success", false, 0.01m, 2400, 2, 41878, 1000000, "off", "sdk_opt_in_required"));
+        s.Apply(new ToolUseEvt("tr", "Read", input, null));
+        s.Apply(new ToolResultEvt("tr", "Permission to read b.txt has been denied.", true, null));
+        s.Apply(new ResultEvt("success", false, 0.01m, 2400, 2, 41878, 1000000, "off", "sdk_opt_in_required", Denied: ["tr", "gone"]));
+        Ok(s.Tool("tr") is { State: ToolState.Denied }, "a rule's denial marks the tool denied");
         Ok(s.Status == SessionStatus.Idle && s.CostUsd == 0.01m && s.LastTurn == TimeSpan.FromMilliseconds(2400) && s.ContextTokens == 41878, "result");
 
         s.BeginTurn("encore");
@@ -988,6 +1530,27 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(s.Status == SessionStatus.Idle && s.Pending.IsEmpty, "late resolve is a no-op");
         s.Apply(new ResultEvt("success", false, 0, 10, 0, 0, null, null, null));
         Ok(s.CostUsd == 0.03m, "slash command result keeps cost");
+
+        // Esc before any answer: the prompt (and its images) go back to the Composer; once something came back, it stays.
+        var ir = new LiveSession("ir", "ir", "/w", "default");
+        var shot = Images.From(CliProbe.DigitsPng("7"))!;
+        ir.BeginTurn("fix it", [shot], "u9");
+        ir.Apply(new HookEvt("UserPromptSubmit", "success", 0, ""));
+        ir.Apply(new ResultEvt("error_during_execution", true, 0, 10, 0, 0, null, null, null, "aborted_streaming"));
+        Ok(ir.Unanswered() is { Uuid: "u9" }, "interrupted before an answer: restorable");
+        ir.CutBack("u9", "fix it");
+        Ok(ir.Draft == "fix it" && ir.DraftImages is [{ MediaType: "image/png" }] && ir.Items.IsEmpty, "prompt and images back in the Composer");
+        ir.BeginTurn("go", null, "u10");
+        ir.Apply(new AssistantTextEvt("m", "partial", null, false));
+        ir.Apply(new ResultEvt("error_during_execution", true, 0, 10, 0, 0, null, null, null, "aborted_streaming"));
+        Ok(ir.Unanswered() is null, "an answered turn stays in the thread");
+        ir.Apply(new SuggestionEvt("run the tests"));
+        Ok(ir.Suggestion == "run the tests", "prompt suggestion kept");
+        ir.Apply(new ResetEvt());
+        Ok(ir.Suggestion is null, "prompt suggestion dropped on /clear");
+        ir.Apply(new SuggestionEvt("run the tests"));
+        ir.CutBack("u10", null);
+        Ok(ir.Suggestion is null, "prompt suggestion dropped on rewind");
 
         // Messages sent mid-turn, replayed as the command_lifecycle frames --probe-cli queue captured.
         void Enqueue(string uuid, string text) { s.Queued = s.Queued.Add(new(uuid, text, DateTimeOffset.Now)); s.Apply(new QueueEvt(uuid, "queued")); }
@@ -1070,6 +1633,11 @@ public sealed class LiveSession : IAsyncDisposable
         var cx = new LiveSession("c", "c", @"C:\w", "default");
         cx.CutBack("gone", compactXml);
         Ok(cx.Draft == "/compact keep tests", "rewind draft normalises prefillText when the message is not in the thread");
+        // Sent while the automatic restore awaited its reply: the CLI holds it, so it stays.
+        var rs = new LiveSession("r", "r", "/w", "default");
+        rs.BeginTurn("stop", uuid: "s1"); rs.BeginTurn("new", uuid: "s2"); rs.Apply(new AssistantTextEvt("m", "ok", null, false));
+        rs.CutBack("s1", null, ["s1"]);
+        Ok(rs.Draft == "stop" && rs.Items is [UserItem { Uuid: "s2" }, TextItem], "rewind keeps a message sent meanwhile");
         Ok(!rw.CanRewind((UserItem)rw.Items[0]), "no rewind without a process that knows the uuid");
         Ok(RewindPreview.Parse(JsonDocument.Parse("""{"canRewind":true,"filesChanged":[null,"","/w/a"]}""").RootElement).Files is ["/w/a"],
             "rewind preview drops empty paths");
@@ -1091,6 +1659,8 @@ public sealed class LiveSession : IAsyncDisposable
         Ok(ag.Items[^1] is ToolItem { State: ToolState.Running, EndedAt: null, Background: true, TaskId: "aa5" }, "async agent stays running");
         ag.Apply(new ResultEvt("success", false, 0, 10, 1, 0, null, null, null));
         Ok(ag.Items[^1] is ToolItem { State: ToolState.Running }, "background row survives the turn");
+        var info = new PermissionInfo("aa5", null, null, null, null, null, null, false);
+        Ok(ag.AskingAgent(new("rq", "Write", input, null, "toolu_X", null, default, info)) is { Id: "toolu_A" }, "background subagent's request names its agent");
         var n = ag.Items.Count;
         ag.Apply(new TaskDoneEvt("aa5", "toolu_A", "completed", "pong", 31599, 1, 5088));
         var at = (ToolItem)ag.Items[^1];
@@ -1131,6 +1701,36 @@ public sealed class LiveSession : IAsyncDisposable
         pm.Apply(new StatusEvt(null, "acceptEdits"));
         Ok(pm.Mode == "acceptEdits" && pm.Status == SessionStatus.Running && pm.Items[^1] is ToolItem { State: ToolState.Running }, "plan approved, mode follows status");
         var bare = new PendingPermission("r", AskUser.Tool, input, null, null, null);
+        // An MCP elicitation queues like a permission and pauses the turn; a form one is never accepted without content.
+        var el = new LiveSession("el", "el", @"C:\w", "default");
+        el.BeginTurn("ask");
+        var elForm = JsonDocument.Parse("""{"subtype":"elicitation","mcp_server_name":"probe","message":"Name?","mode":"form","requested_schema":{"type":"object","properties":{"name":{"type":"string"}}}}""").RootElement.Clone();
+        el.Apply(new PermissionEvt("e1", Elicit.Tool, elForm, "Name?", null, null));
+        Ok(el.Status == SessionStatus.Waiting && el.Pending is [{ Tool: Elicit.Tool, Description: "Name?" }], "elicitation pending");
+        Ok(ThrowsMsg(() => el.Answer(el.Pending[0], Decision.Allow)) == Strings.Get("Ask.NeedsAnswers"), "form elicitation never accepted bare");
+        el.Apply(new CancelRequestEvt("e1"));
+        Ok(el.Pending.IsEmpty && el.Status == SessionStatus.Running, "elicitation withdrawn by the CLI");
+        // A plugin's status line is replaced, then cleared; commands_changed replaces initialize's commands; a reload
+        // (reload_plugins + reload_skills, 2.1.296 shapes trimmed) refreshes the plugin, agent, skill and MCP lists.
+        el.Apply(new PluginStatusEvt("demo", "syncing"));
+        el.Apply(new PluginStatusEvt("demo", "synced"));
+        Ok(el.PluginStatus is { Count: 1 } && el.PluginStatus["demo"] == "synced", "plugin status replaced");
+        el.Apply(new PluginStatusEvt("demo", null));
+        Ok(el.PluginStatus.IsEmpty, "plugin status cleared");
+        var gone = new LiveSession("g", "g", "/w", "default");
+        gone.Apply(new PluginStatusEvt("demo", "syncing"));
+        gone.OnExit(null, 1, "x");
+        Ok(gone.PluginStatus.IsEmpty, "plugin status dropped when the process ends");
+        el.InitializeInfo = JsonDocument.Parse("""{"commands":[{"name":"old"}],"agents":[],"models":[{"value":"haiku"}]}""").RootElement;
+        el.Apply(new CommandsEvt(JsonDocument.Parse("""[{"name":"demo:hello","description":"say hi"}]""").RootElement));
+        Ok(Events.Prop(el.InitializeInfo.Value, "commands")?[0].GetProperty("name").GetString() == "demo:hello" && Events.Prop(el.InitializeInfo.Value, "models") is not null, "commands_changed");
+        el.Apply(new InitEvt("s", "", "", "", [], [], [], ["old"], [], ["gone"], "off", null));
+        el.Reloaded(JsonDocument.Parse("""{"commands":[],"agents":[{"name":"claude","description":"Catch-all"}],"plugins":[{"name":"context7","path":"/p","source":"context7@claude-plugins-official"}],"mcpServers":[{"name":"plugin:context7:context7","status":"needs-auth","config":{"type":"http","url":"https://mcp.context7.com/mcp"},"scope":"dynamic","source":"plugin"}],"error_count":1}""").RootElement,
+            JsonDocument.Parse("""{"skills":[{"name":"demo:hello","description":"say hi","argumentHint":""}]}""").RootElement);
+        Ok(el.Init is { Plugins: ["context7"], Agents: ["claude"], Skills: ["demo:hello"] } && Mcp.Names(el).SequenceEqual(["plugin:context7:context7"])
+           && Events.Prop(el.InitializeInfo.Value, "agents")?.GetArrayLength() == 1, "reload refreshes the lists");
+        el.Apply(new NoticeEvt("Error compacting conversation", "error"));
+        Ok(el.Items[^1] is NoticeItem { Notice.Color: "error" }, "notification joins the thread");
         Ok(ThrowsMsg(() => s.Answer(bare, Decision.Allow)) == Strings.Get("Ask.NeedsAnswers")
            && ThrowsMsg(() => s.Answer(bare, Decision.Deny)) == Strings.Get("Session.NoProcess"), "AskUserQuestion is never allowed bare");
         // Background shell: launch receipt, stop, process exit; the agent path above is untouched by it.
@@ -1166,6 +1766,53 @@ public sealed class LiveSession : IAsyncDisposable
         bg.Apply(new ToolResultEvt("toolu_F", "Command was manually backgrounded by user with ID: b5.", false, null));
         Ok(bg.Tasks is [_, { Id: "b5", Description: "Build", Running: true }] && bg.Items[^1] is ToolItem { Background: true }, "shell moved to the background joins the tasks");
         Ok(BgTask.Tail("tick 1\r\ntick 2\n\u001b[31mred\u001b[0m\n50%\r100%\n\n", 3) == "tick 2\nred\n100%" && BgTask.Tail("", 5) == "", "output tail");
+        bg.Apply(new TaskStartedEvt("m1", "toolu_M", "github/search", "", "mcp_task"));
+        bg.Apply(new TaskStartedEvt("d1", "", "scan", "", "auto_mode_scan", Ambient: true));
+        bg.Apply(new TaskStartedEvt("w1", "toolu_W", "wf", "", "local_workflow"));
+        Ok(bg.Tasks[^1] is { Id: "m1", Type: "mcp_task", Running: true } && bg.Tasks[^2].Type is null && !bg.Tasks.Any(t => t.Id is "d1" or "w1"), "MCP task listed by type, ambient and workflow not");
+        // A subagent's first message names its model (claude 2.1.296 forwards it with --forward-subagent-text); later ones do not overwrite it.
+        var sm = new LiveSession("sm", "sm", "/w", "default");
+        sm.Apply(new ToolUseEvt("toolu_A", "Agent", input, null, "claude-opus-5-5"));
+        sm.Apply(new AssistantTextEvt("m1", "hi", "toolu_A", false, Model: "claude-haiku-5-5"));
+        sm.Apply(new ToolUseEvt("t1", "Read", input, "toolu_A", "claude-sonnet-5"));
+        Ok(sm.Tool("toolu_A") is { Model: "claude-haiku-5-5" } && sm.Tool("t1") is { Model: null }, "subagent model from its first message");
+        sm.Apply(new ScheduledEvt("tick", null));
+        Ok(sm.Items[^1] is ScheduledItem { Prompt: "tick" } && ThreadBlocks.Of(sm.Items)[^1] is ScheduledItem, "scheduled prompt marker");
+        Ok(new LiveSession("k", "k", "/w", "default") { Agent = "pirate" }.Args(false) is var aa && aa.IndexOf("--agent") is >= 0 and var ai && aa[ai + 1] == "pirate", "--agent");
+
+        // Session lifecycle, on claude 2.1.296 shapes.
+        var lockdown = new LiveSession("k", "k", "/w", "default") { Restricted = true, SafeMode = true }.Args(false);
+        Ok(lockdown.Contains("--restricted") && lockdown.Contains("--safe-mode") && !new LiveSession("k", "k", "/w", "default").Args(false).Contains("--restricted"), "--restricted / --safe-mode");
+        var wm = new LiveSession("w", "w", "/r", "default", worktree: "x");
+        wm.BeginTurn("go");
+        wm.Apply(new ToolUseEvt("toolu_E", "EnterWorktree", JsonDocument.Parse("""{"name":"y"}""").RootElement.Clone(), null));
+        wm.Apply(new ToolResultEvt("toolu_E", "Created worktree at /r/.claude/worktrees/y on branch worktree-y.", false,
+            JsonDocument.Parse("""{"worktreePath":"/r/.claude/worktrees/y","worktreeBranch":"worktree-y","message":"Created worktree at /r/.claude/worktrees/y on branch worktree-y."}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r/.claude/worktrees/y", "EnterWorktree moves the session");
+        wm.Apply(new ToolUseEvt("toolu_S", "EnterWorktree", JsonDocument.Parse("""{"path":"/r/.claude/worktrees/z"}""").RootElement.Clone(), "toolu_agent"));
+        wm.Apply(new ToolResultEvt("toolu_S", "Entered worktree", false, JsonDocument.Parse("""{"worktreePath":"/r/.claude/worktrees/z","message":"Entered worktree"}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r/.claude/worktrees/y", "a subagent's EnterWorktree moves only that agent");
+        wm.Apply(new ToolUseEvt("toolu_X", "ExitWorktree", JsonDocument.Parse("""{"action":"keep"}""").RootElement.Clone(), null));
+        wm.Apply(new ToolResultEvt("toolu_X", "Exited worktree.", false, JsonDocument.Parse("""{"action":"keep","originalCwd":"/r","worktreePath":"/r/.claude/worktrees/y","restoredCwd":"/r","message":"Exited worktree."}""").RootElement.Clone()));
+        Ok(wm.Cwd == "/r" && wm.Worktree is null && !wm.Isolated, "ExitWorktree moves it back, no longer isolated");
+        Ok(WorktreeMove("EnterWorktree", null) is null && WorktreeMove("Bash", JsonDocument.Parse("""{"worktreePath":"/x"}""").RootElement) is null, "other tools never move it");
+        var rt = new LiveSession("z", "z", "/w", "default") { Items = [new UserItem("count", default, false)] };
+        rt.Status = SessionStatus.Starting;
+        rt.resumeTurn = true;
+        rt.Apply(new QueueEvt("1967353c-03fe-4c2a-8c3b-72e2b6697258", "started"));
+        rt.Apply(new StatusEvt("requesting", null));
+        Ok(rt.Status == SessionStatus.Running && rt.Items is [UserItem, ResumedItem] && rt.TurnStartedAt is not null, "re-run of the cut-off turn starts a turn, labelled once");
+        rt.Apply(new PrEvt("https://github.com/o/r/pull/42", "42"));
+        Ok(rt.PrUrl == "https://github.com/o/r/pull/42", "code_change_published links the PR");
+        var dl = Path.Combine(Path.GetTempPath(), "ccui-check-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dl);
+        try
+        {
+            File.WriteAllText(Path.Combine(dl, "a.txt"), "");
+            Ok(FreeFile(dl, "a.txt") == Path.Combine(dl, "a-2.txt") && FreeFile(dl, "../../x.txt") == Path.Combine(dl, "x.txt") && FreeFile(dl, null) == Path.Combine(dl, "conversation.txt"),
+               "export file: never over a file, never out of the folder");
+        }
+        finally { Directory.Delete(dl, true); }
 
         Ok(UserText("<command-message>cost</command-message>\n<command-name>/cost</command-name>\n<command-args></command-args>") == "/cost"
             && UserText("<local-command-stdout>Set model</local-command-stdout>") is null && UserText("<agent-message from=\"a\">\nreport\n</agent-message>") is null && UserText("salut") == "salut", "user text");

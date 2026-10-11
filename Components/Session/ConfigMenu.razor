@@ -1,0 +1,79 @@
+@* /config (/settings): the CLI's settings by key, from its own reply to a bare "/config" (sent once if the thread has none).
+   A pick is sent as "/config key=value", as typed in the terminal: the CLI checks and saves it, its answer lands in the
+   thread. No current values: the CLI's reply lists none. *@
+
+@inject IJSRuntime JS
+
+<div class="pop slash menu" role="dialog" aria-labelledby="cfg-cap" tabindex="-1" @ref="box">
+    <div class="sh"><span id="cfg-cap">@L["Config.Title"]</span><span role="status" class="@(error is null ? null : "c-err-fg")">@(error ?? note)</span></div>
+    @if (Keys is not { } keys)
+    {
+        <p class="mm-cache">@L["Config.Loading"]</p>
+    }
+    else
+    {
+        <div class="cfg">
+        @foreach (var (key, choices) in keys)
+        {
+            <label class="si">
+                <b title="@key">@key</b>
+                @if (choices.Length > 0)
+                {
+                    <span class="picks"><select disabled="@busy" @bind:get="string.Empty" @bind:set="v => Set(key, v)">
+                        <option value="">—</option>
+                        @foreach (var c in choices)
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select></span>
+                }
+                else
+                {
+                    <span class="input"><input placeholder="@L["Config.Value"]" disabled="@busy" spellcheck="false" autocomplete="off" @onchange="e => Set(key, e.Value as string)" /></span>
+                }
+                <span></span>
+            </label>
+        }
+        </div>
+    }
+    <p class="mm-cache">@L["Config.Hint"]</p>
+</div>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    string? error, note;
+    bool busy, focused;
+    ElementReference box;
+
+    // The latest answer to a bare /config in the thread.
+    IReadOnlyList<(string Key, string[] Choices)>? Keys =>
+        Session.Items.OfType<TextItem>().LastOrDefault(t => t.ParentToolUseId is null && t.Markdown.StartsWith(LiveSession.ConfigUsage)) is { } u ? LiveSession.ConfigKeys(u.Markdown) : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Keys is not null) return;
+        try { await Session.Send("/config"); }
+        catch (Exception ex) { error = L["Composer.ActionFailed", ex.Message]; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focused || Keys is null) return;
+        focused = true;
+        await JS.InvokeVoidAsync("claudeUi.focus", box);
+    }
+
+    async Task Set(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || busy) return;
+        busy = true;
+        error = note = null;
+        try
+        {
+            await Session.Send($"/config {key}={value.Trim()}");
+            note = L["Config.Sent", key];
+        }
+        catch (Exception ex) { error = L["Composer.ActionFailed", ex.Message]; }
+        finally { busy = false; }
+    }
+}

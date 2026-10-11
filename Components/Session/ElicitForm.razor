@@ -1,0 +1,155 @@
+@* An MCP elicitation, in place of the Allow/Deny body of the PermissionCard (see Elicit). Form mode: one field per
+   requested_schema property, Submit accepts with the content, Decline declines. URL mode, as the CLI's dialog: the full
+   URL, "Open in browser" (a link: no user gesture survives a round-trip), then "I'm done, continue" accepts; the server's
+   elicitation_complete accepts on its own (LiveSession.OnEvent). ⏎ outside a field submits, Suppr declines (PermissionCard). *@
+
+<form class="ask" @onsubmit="Submit">
+    <h3>@(Permission.Info?.Title is { Length: > 0 } t ? t : L["Elicit.Asks", Server])</h3>
+    @if (Permission.Description is { Length: > 0 } msg)
+    {
+        <p class="prose">@msg</p>
+    }
+    @if (url)
+    {
+        @if (link is { } href)
+        {
+            <pre class="cmd">@href</pre>
+            <div class="acts">
+                <a class="btn" href="@href" target="_blank" rel="noopener noreferrer" @onclick="() => opened = true"><Icon Name="right" Sm />@(opened ? L["Elicit.OpenAgain"] : L["Elicit.Open"])</a>
+            </div>
+            @if (opened)
+            {
+                <p role="status">@L["Elicit.Waiting"]</p>
+            }
+        }
+        else
+        {
+            <div class="errbox">@L["Elicit.BadUrl"]</div>
+        }
+    }
+    else
+    {
+        @foreach (var f in fields)
+        {
+            var id = $"el-{Permission.RequestId}-{f.Key}";
+            switch (f.Kind)
+            {
+                case "boolean":
+                    <div class="opt @(text[f.Key] == "true" ? "on" : null)">
+                        <input id="@id" type="checkbox" checked="@(text[f.Key] == "true")" disabled="@answered" @onchange='e => text[f.Key] = e.Value is true ? "true" : "false"' />
+                        <label for="@id"><b>@f.Label</b>@if (f.Description is { } bd)
+                            {
+                                <span>@bd</span>
+                            }</label>
+                    </div>
+                    break;
+                case "multi":
+                    <fieldset disabled="@answered">
+                        <legend><span class="qt">@f.Label@Req(f)</span>@if (f.Description is { } md)
+                            {
+                                <span class="cap">@md</span>
+                            }</legend>
+                        @foreach (var (value, label) in f.Options)
+                        {
+                            var on = picks[f.Key].Contains(value);
+                            <div class="opt @(on ? "on" : null)">
+                                <input id="@($"{id}-{value}")" type="checkbox" checked="@on" @onchange="e => Pick(f.Key, value, e.Value is true)" />
+                                <label for="@($"{id}-{value}")"><b>@label</b></label>
+                            </div>
+                        }
+                    </fieldset>
+                    break;
+                default:
+                    <div class="field">
+                        <label for="@id">@f.Label@Req(f)</label>
+                        @if (f.Kind == "enum")
+                        {
+                            <select id="@id" @bind="text[f.Key]" disabled="@answered" aria-required="@(f.Required ? "true" : null)">
+                                <option value="">—</option>
+                                @foreach (var (value, label) in f.Options)
+                                {
+                                    <option value="@value">@label</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <div class="input"><input id="@id" type="@(f.Kind is "number" or "integer" ? "number" : f.InputType)" step="@(f.Kind == "number" ? "any" : null)"
+                                                      min="@f.Min?.ToString(System.Globalization.CultureInfo.InvariantCulture)" max="@f.Max?.ToString(System.Globalization.CultureInfo.InvariantCulture)" @bind="text[f.Key]" @bind:event="oninput" disabled="@answered"
+                                                      aria-required="@(f.Required ? "true" : null)" aria-describedby="@(f.Description is null ? null : id + "-d")" /></div>
+                            @if (f.Description is { } fd)
+                            {
+                                <p id="@(id + "-d")" class="cap">@fd</p>
+                            }
+                        }
+                    </div>
+                    break;
+            }
+        }
+    }
+    <div class="acts">
+        <button type="submit" class="btn primary" disabled="@answered">@(url ? opened ? L["Elicit.Done"] : L["Elicit.Accept"] : L["Ask.Submit"]) <kbd>⏎</kbd></button>
+        <button type="button" class="btn danger" disabled="@answered" @onclick="Decline">@L["Elicit.Decline"]</button>
+    </div>
+    @if (error is not null)
+    {
+        <div class="errbox" role="alert">@error</div>
+    }
+    <p class="keys"><kbd>⏎</kbd> @(url ? L["Elicit.HintAccept"] : L["Ask.Hint.Submit"]) · <kbd>@L["Key.Del"]</kbd> @L["Elicit.HintDecline"]<span class="perm-off"> · @L["Perm.HintFocus"]</span></p>
+</form>
+
+@code {
+    [Parameter] public LiveSession Session { get; set; } = null!;
+    [Parameter] public PendingPermission Permission { get; set; } = null!;
+
+    Elicit.Field[] fields = [];
+    readonly Dictionary<string, string> text = [];
+    readonly Dictionary<string, HashSet<string>> picks = [];
+    bool url, opened, answered;
+    string? link, error;
+
+    string Server => Events.Str(Permission.Input, "display_name") ?? Events.Str(Permission.Input, "mcp_server_name") ?? "MCP";
+
+    protected override void OnInitialized()
+    {
+        url = Elicit.IsUrl(Permission.Input);
+        link = Elicit.Url(Permission.Input);
+        fields = Elicit.Parse(Permission.Input);
+        foreach (var f in fields)
+        {
+            text[f.Key] = f.Kind == "boolean" ? (f.Default == "true" ? "true" : "false") : f.Default ?? "";
+            picks[f.Key] = [];
+        }
+    }
+
+    static RenderFragment? Req(Elicit.Field f) => f.Required ? @<span aria-hidden="true"> *</span> : null;
+
+    void Pick(string key, string value, bool on) { if (on) picks[key].Add(value); else picks[key].Remove(value); }
+
+    // Public: ⏎ also arrives through the card (UiState.Key), outside any form event, hence the explicit renders.
+    public async Task Submit()
+    {
+        if (answered) return;
+        JsonElement? content = null;
+        if (!url)
+        {
+            var (c, invalid) = Elicit.Content(fields, text, picks);
+            if (c is null) { error = L["Elicit.Invalid", invalid ?? ""]; StateHasChanged(); return; }
+            content = JsonSerializer.SerializeToElement(c);
+        }
+        await Send(Decision.Allow, content);
+    }
+
+    public Task Decline() => Send(Decision.Deny, null);
+
+    async Task Send(Decision d, JsonElement? content)
+    {
+        if (answered) return;
+        answered = true;
+        error = null;
+        StateHasChanged();
+        try { await Session.Answer(Permission, d, input: content); }
+        catch (Exception ex) { error = L["Perm.AnswerFailed", ex.Message]; answered = false; }
+        StateHasChanged();
+    }
+}

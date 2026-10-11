@@ -37,7 +37,10 @@ Then run `claude` once in a terminal to sign in. If `claude` is not found in the
 
 - New session: folder, isolated worktree (generated name), permission mode; the session opens, then you write the first message.
 - Live text, thinking indicator, tool log with an inspector (output, input, JSON).
-- Permission requests with diffs: allow, deny, or allow for the whole session.
+- Permission requests with diffs: allow, deny, or always allow (this session, or local, project or user settings), with why the CLI asked and which subagent asks.
+- Permission rules manager, MCP elicitation forms and sign-in, plugin and marketplace management, hooks editor, auto-memory, output styles and `/config`.
+- Compaction card, uncommitted changes (`/diff`), thinking, bookmarks, copy, rewind; send now, `@agent` mentions, PDF attachments, prompt suggestions.
+- Rename, export, PR link, account and status, background sessions, Remote Control.
 - Overview of all sessions and a queue of pending decisions (Ctrl ⇧ A).
 - Command palette (Ctrl K), resume recent sessions with their history.
 - Model, effort, subagents, context, MCP servers, skills and plugins.

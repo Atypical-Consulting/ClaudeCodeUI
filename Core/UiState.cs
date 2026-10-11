@@ -3,16 +3,21 @@ namespace ClaudeCodeUI;
 // Per-circuit UI state. Setters raise Changed; MainLayout relays the keys it does not handle through Key.
 public sealed class UiState
 {
-    bool inspectorOpen = true, paletteOpen;
+    bool inspectorOpen = true, paletteOpen, diffOpen;
     string? selectedToolId, selectedPhase;
 
     public bool InspectorOpen { get => inspectorOpen; set { inspectorOpen = value; Changed?.Invoke(); } }
     public bool PaletteOpen { get => paletteOpen; set { paletteOpen = value; Changed?.Invoke(); } }
     public string? SelectedToolId { get => selectedToolId; set { selectedToolId = value; Changed?.Invoke(); } }   // a ToolItem or an Agent row
     public string? SelectedPhase { get => selectedPhase; set { selectedPhase = value; Changed?.Invoke(); } }   // of the selected Workflow call; null = the panel's default
+    public bool DiffOpen { get => diffOpen; set { diffOpen = value; Changed?.Invoke(); } }   // the Inspector shows the uncommitted changes (/diff)
 
     public event Action? Changed;
     public event Action<string>? Key;   // "Escape", "Enter", "Shift+Enter", "Delete"
 
     public void RaiseKey(string key) => Key?.Invoke(key);
+
+    // Typed /rewind (Composer): the Thread, which holds the dialog, opens it on that message.
+    public event Action<UserItem>? Rewind;
+    public void AskRewind(UserItem u) => Rewind?.Invoke(u);
 }
