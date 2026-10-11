@@ -223,7 +223,7 @@ Near-black graphite neutrals, a syntax-highlighter hue set doing semantic work, 
 
 ## Layout
 
-Fixed three-pane workbench. App: sessions rail 256px, thread `minmax(0,1fr)`, inspector 420px (the direction contract said 400px; the build is 420px); without an inspector the grid drops to two columns. Pane headers are 48px (52px on the site) with a 1px bottom seam. The thread column caps content at 760px with 28-32px side padding; the composer is pinned at the bottom of the thread.
+Fixed three-pane workbench. App: sessions rail 256px, thread `minmax(0,1fr)`, inspector 420px (the direction contract said 400px; the build is 420px); without an inspector the grid drops to two columns. Pane headers are 48px (52px on the site) with a 1px bottom seam. The thread column caps content at 760px, centred in the pane with 28-32px side padding (hiding the inspector widens the margins evenly, never a blank strip on one side); the composer is pinned at the bottom of the thread.
 
 Site: rail 248px, column, inspector 432px; docs rail 272px with a scroll-spy table of contents and a 400px inspector showing the app screen for the section being read. Below 1240px the inspector folds under the intro (index) or disappears (docs); below 860px the rail becomes a sticky top bar and everything is one column.
 
@@ -305,7 +305,7 @@ The user's turn is a `raise` block with a mono meta line ("toi · maintenant"). 
 
 ### Don't:
 - **Don't** use a light ground anywhere; the product is dark only.
-- **Don't** lay a session out as a centred chat-bubble column with a history sidebar; panes stay fixed.
+- **Don't** lay a session out as a chat-bubble column with a history sidebar; panes stay fixed (the reading column is centred in its pane, the panes are not).
 - **Don't** put drop shadows on resting cards, rows or panes; shadows belong to the palette and popovers only.
 - **Don't** spend the accent on decoration, headings or emphasised words.
 - **Don't** introduce a hue outside the token set for a new tool, state or chart.
