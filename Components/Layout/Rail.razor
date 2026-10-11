@@ -7,26 +7,26 @@
 <nav class="pane" aria-label="@L["Rail.Label"]">
     <div class="ph"><span class="brand"><i></i>Claude Code</span></div>
     <div class="rail-actions">
-        <NavLink class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur" aria-current="@Cur("")"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
+        <NavLink tabindex="0" class="btn block" href="" Match="NavLinkMatch.All" ActiveClass="cur" aria-current="@Cur("")"><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></NavLink>
         @if (AssignedRenderMode is not null)   @* null only on the static-SSR status pages, where no circuit would answer the click *@
         {
             <button class="search" @onclick="() => Ui.PaletteOpen = true"><Icon Name="search" Sm />@L["Rail.Search"]<kbd>@Strings.Kbd("Ctrl K")</kbd></button>
         }
-        <NavLink class="btn block ghost" href="overview" ActiveClass="cur" aria-current="@Cur("overview")"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
-        <NavLink class="btn block ghost" href="worktrees" ActiveClass="cur" aria-current="@Cur("worktrees")"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
+        <NavLink tabindex="0" class="btn block ghost" href="overview" ActiveClass="cur" aria-current="@Cur("overview")"><Icon Name="grid" Sm />@L["Nav.Overview"]</NavLink>
+        <NavLink tabindex="0" class="btn block ghost" href="worktrees" ActiveClass="cur" aria-current="@Cur("worktrees")"><Icon Name="branch" Sm />@L["Nav.Worktrees"]
             @if (Worktrees.CleanableCount is > 0)
             {
-                <span class="tag">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
+                <span class="tag" title="@L["Rail.ToCleanHelp"]">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="background" ActiveClass="cur" aria-current="@Cur("background")"><Icon Name="agents" Sm />@L["Nav.Background"]</NavLink>
-        <NavLink class="btn block ghost" href="extensions" ActiveClass="cur" aria-current="@Cur("extensions")"><Icon Name="plug" Sm />@L["Nav.Extensions"]
+        <NavLink tabindex="0" class="btn block ghost" href="background" ActiveClass="cur" aria-current="@Cur("background")"><Icon Name="agents" Sm />@L["Nav.Background"]</NavLink>
+        <NavLink tabindex="0" class="btn block ghost" href="extensions" ActiveClass="cur" aria-current="@Cur("extensions")"><Icon Name="plug" Sm />@L["Nav.Extensions"]
             @if (FailedMcp > 0)
             {
                 <span class="pill err"><span aria-hidden="true">@FailedMcp</span><span class="vh">@Strings.Plural(FailedMcp, "Rail.FailedMcp")</span></span>
             }
         </NavLink>
-        <NavLink class="btn block ghost" href="settings/appearance" ActiveClass="cur" aria-current="@Cur("settings/appearance")"><Icon Name="palette" Sm />@L["Nav.Appearance"]</NavLink>
+        <NavLink tabindex="0" class="btn block ghost" href="settings/appearance" ActiveClass="cur" aria-current="@Cur("settings/appearance")"><Icon Name="palette" Sm />@L["Nav.Appearance"]</NavLink>
     </div>
     <div class="scroll">
     @{ var active = Sessions.Active; }
@@ -41,7 +41,8 @@
         </div>
     }
     @{ var past = recent.Where(p => !Sessions.IsActive(p.Id)).Take(8).ToList(); }   @* the palette searches the full list *@
-    @if (past.Count > 0)
+    @* The Overview at rest is the recent list, curated: a second, uncurated one beside it would undo its triage. *@
+    @if (past.Count > 0 && !(Cur("overview") is not null && active.Count == 0))
     {
         <div class="grp"><span class="cap">@L["Rail.Recent"]</span></div>
         <div class="list">

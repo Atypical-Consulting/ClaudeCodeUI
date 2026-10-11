@@ -110,7 +110,15 @@
         },
         // Idle = nothing focused, or only the page heading FocusOnNavigate parked focus on after a navigation.
         focusIfIdle(el) { const a = document.activeElement; if (!a || a === document.body || a.matches('h1')) el?.focus(); },
-        reveal(el, id) { el?.querySelector('#' + id)?.scrollIntoView({ block: 'nearest' }); },
+        // focus: also move focus to the row itself (never its first button, which may be Delete), so the keyboard lands where the eye was sent.
+        focusFirst(el) { el?.querySelector('a,button,[tabindex]')?.focus(); },
+        // End-anchored excerpts: mark the ones whose top fell off, so CSS can fade it (CSS alone cannot see an overflow).
+        clipTops(el) {
+            if (!el) return;
+            const mark = () => el.querySelectorAll('.ex.said').forEach(x => x.classList.toggle('clip', x.scrollHeight > x.clientHeight + 1));
+            new ResizeObserver(mark).observe(el);
+        },
+        reveal(el, id, block, focus) { const r = el?.querySelector('#' + id); r?.scrollIntoView({ block: block || 'nearest' }); if (focus && r) { r.tabIndex = -1; r.focus({ preventScroll: true }); } },
         // The command palette is modal: the app behind it is inert while it is open, and on close focus goes back
         // to what had it (unless something, e.g. FocusOnNavigate, already took it). Its input is its only focusable
         // element and owns the keys: Tab keeps focus there, and a click on an option does not take it away.
@@ -282,6 +290,59 @@
 
     const isField = el => el instanceof Element && el.closest('input,textarea,select,button,a[href],[role=button],[role=option],[contenteditable]:not([contenteditable=false])');
 
+    // The Overview's resume list, from nowhere: with nothing focused a digit, J, K or W brings focus back to the list and is
+    // replayed there, so leaving it (Esc twice) never costs the keyboard. Enter is not replayed: it never opens from afar.
+    document.addEventListener('keydown', e => {
+        if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+        const row = e.target instanceof Element ? e.target.closest('.ovwt .wtr') : null;
+        if (row && /^(Home|End)$/.test(e.key)) { e.preventDefault(); (e.key === 'Home' ? row.parentElement.firstElementChild : row.parentElement.lastElementChild)?.focus(); return; }
+        if (row && /^(j|k|J|K|ArrowDown|ArrowUp)$/.test(e.key)) {   // the worktree rows walk like the list above them
+            const down = /^(j|J|ArrowDown)$/.test(e.key), next = down ? row.nextElementSibling : row.previousElementSibling;
+            e.preventDefault();
+            if (next) next.focus();
+            else if (!down) document.querySelector('.resume')?.focus();   // up from the first row: back into the cards
+            return;
+        }
+        // The list's cursor is also kept here (list._ri), moved at once while Blazor applies the same key: the next key, however
+        // fast, reads where this one went, never a render still in flight.
+        const select = (list, n) => { const cards = [...list.querySelectorAll('.rc')]; list._ri = n; cards.forEach((x, k) => x.classList.toggle('sel', k === n)); };
+        const at = list => list._ri ?? [...list.querySelectorAll('.rc')].findIndex(x => x.classList.contains('sel'));
+        if (e.target instanceof Element && e.target.matches('.resume') && /^([1-9]|j|k|r|J|K|R|ArrowLeft|ArrowRight|Home|End|Escape)$/.test(e.key)) {
+            const count = e.target.querySelectorAll('.rc').length, i = at(e.target);
+            if (e.key === 'Escape') e.target.dataset.escFrom = String(i);   // read by the Esc shortcut below: from the lead it leaves
+            const rows = document.querySelector('.ovwt .wtr');
+            if (rows && /^(j|J)$/.test(e.key) && i === count - 1) { e.preventDefault(); e.stopPropagation(); rows.focus(); return; }   // past the last card: into the worktrees, at once, so the next key already acts there
+            const n = /^[1-9]$/.test(e.key) ? +e.key - 1 : /^(j|J|ArrowRight)$/.test(e.key) ? i + 1 : /^(k|K|ArrowLeft)$/.test(e.key) ? i - 1 : e.key === 'End' ? count - 1 : 0;
+            if (e.key === 'Escape' && i === 0) { }   // already home: this Esc leaves (the shortcut handler below)
+            else if (n >= 0 && n < count) select(e.target, n);
+        }
+        if (e.target instanceof Element && e.target.matches('.resume') && /^(w|W)$/.test(e.key) && document.querySelector('.ovwt .wtr')) {
+            e.preventDefault(); e.stopPropagation(); document.querySelector('.ovwt .wtr').focus(); return;
+        }
+        if (e.target instanceof Element && e.target.matches('.resume') && /^(ArrowDown|ArrowUp)$/.test(e.key)) {
+            // A grid: up and down go to the card above or below (nearest column), replayed as its digit. J/K stay linear.
+            const cards = [...e.target.querySelectorAll('.rc')], cur = cards[at(e.target)];
+            e.preventDefault(); e.stopPropagation();
+            if (!cur) return;
+            const c = cur.getBoundingClientRect(), down = e.key === 'ArrowDown', mid = r => r.left + r.width / 2;
+            const rows = cards.map(x => x.getBoundingClientRect()).map((r, i) => ({ r, i })).filter(({ r }) => down ? r.top >= c.bottom - 1 : r.bottom <= c.top + 1);
+            if (!rows.length) { if (down) document.querySelector('.ovwt .wtr')?.focus(); return; }   // down from the bottom row: into the worktrees, as J does
+            const edge = down ? Math.min(...rows.map(o => o.r.top)) : Math.max(...rows.map(o => o.r.bottom));
+            const next = rows.filter(o => Math.abs((down ? o.r.top : o.r.bottom) - edge) < 2).sort((a, b) => Math.abs(mid(a.r) - mid(c)) - Math.abs(mid(b.r) - mid(c)))[0];
+            select(e.target, next.i);
+            e.target.dispatchEvent(new KeyboardEvent('keydown', { key: String(next.i + 1), bubbles: true }));
+            return;
+        }
+        // From nothing focused (or a digit from a worktree row), the key goes to the list. Enter too: with nothing focused the
+        // selected card keeps its focused look, so Enter must keep its promise.
+        if (!(e.target === document.body && /^([1-9]|j|k|w|r|J|K|W|R|Enter)$/.test(e.key) || row && /^([1-9]|r|R)$/.test(e.key))) return;
+        const list = document.querySelector('.resume');
+        if (!list) return;
+        e.preventDefault();
+        list.focus();
+        list.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, code: e.code, bubbles: true }));
+    }, true);
+
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
     document.addEventListener('keydown', e => {
         if (e.isComposing) return;
@@ -302,6 +363,8 @@
             // leaves the focused control (or the text selection), so a stray Esc never kills a turn.
             const t = e.target instanceof Element ? e.target : null, sel = getSelection();
             if (t?.closest('.composer:has(.pop)')) { }   // the Composer closes its popover
+            else if (t?.closest('[data-esc-home]')?.dataset.escFrom !== '0' && t.closest('[data-esc-home]')) { }   // the Overview list: the first Esc goes back to its lead card, the next one leaves
+            else if (t?.closest('.ovwt')) document.querySelector('.resume')?.focus();   // out of the Overview's worktree rows: back to the list
             else if (t && t !== document.body && !t.closest('.composer,.palette')) t.blur();
             else if (t === document.body && sel && !sel.isCollapsed) sel.removeAllRanges();
             else key = 'Escape';

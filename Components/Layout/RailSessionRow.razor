@@ -38,7 +38,7 @@ else if (Past is { } p)
         _ => "idle",
     };
 
-    static RenderFragment Where(string? branch, string? repo) => string.Join(" · ", new[] { branch, repo }.Where(x => !string.IsNullOrEmpty(x))) is { Length: > 0 } w
+    static RenderFragment Where(string? branch, string? repo) => string.Join(" · ", new[] { branch is "HEAD" ? null : branch, repo }.Where(x => !string.IsNullOrEmpty(x))) is { Length: > 0 } w
         ? @<div class="branch"><Icon Name="branch" />@w</div>
         : @<text></text>;
 

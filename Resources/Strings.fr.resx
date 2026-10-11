@@ -396,6 +396,7 @@
   <data name="Ov.AgeMin" xml:space="preserve"><value>il y a {0} min</value></data>
   <data name="Ov.AgeNow" xml:space="preserve"><value>à l’instant</value></data>
   <data name="Ov.AsOf" xml:space="preserve"><value>relevé {0}</value></data>
+  <data name="Ov.AsOfStale" xml:space="preserve"><value>relevé {0} · peut-être dépassé</value></data>
   <data name="Ov.Asked" xml:space="preserve"><value>attend ta réponse</value></data>
   <data name="Ov.Col.Cost" xml:space="preserve"><value>Coût</value></data>
   <data name="Ov.Col.Duration" xml:space="preserve"><value>Durée</value></data>
@@ -403,22 +404,55 @@
   <data name="Ov.Cut" xml:space="preserve"><value>interrompue en cours</value></data>
   <data name="Ov.Decision1" xml:space="preserve"><value>1 décision t’attend</value></data>
   <data name="Ov.DecisionN" xml:space="preserve"><value>{0} décisions t’attendent</value></data>
+  <data name="Ov.Elsewhere1" xml:space="preserve"><value>1 peut-être en cours dans un autre terminal</value></data>
+  <data name="Ov.ElsewhereList" xml:space="preserve"><value>Peut-être encore ouvertes dans un terminal :</value></data>
+  <data name="Ov.ElsewhereN" xml:space="preserve"><value>{0} peut-être en cours dans d’autres terminaux</value></data>
   <data name="Ov.Empty" xml:space="preserve"><value>Aucune session en cours</value></data>
   <data name="Ov.EmptyText" xml:space="preserve"><value>Démarres-en une pour voir ici son état, son coût et les décisions en attente.</value></data>
-  <data name="Ov.IdleSpend" xml:space="preserve"><value>{0} · {1} aujourd’hui · {2} sur 7 jours</value></data>
-  <data name="Ov.NoReply" xml:space="preserve"><value>Interrompue avant de répondre</value></data>
+  <data name="Ov.First" xml:space="preserve"><value>retour à la carte 1</value></data>
+  <data name="Ov.Interrupted" xml:space="preserve"><value>interrompue par toi</value></data>
+  <data name="Ov.LastStep" xml:space="preserve"><value>Dernière étape :</value></data>
+  <data name="Ov.LeftOut" xml:space="preserve"><value>Écartées : {0} · {1} les retrouve.</value></data>
+  <data name="Ov.QuotaLeft" xml:space="preserve"><value>Il reste {0} de {1}.</value></data>
+  <data name="Ov.ThisWeek" xml:space="preserve"><value>la semaine</value></data>
+  <data name="Ov.ThisWindow" xml:space="preserve"><value>la fenêtre de 5 h</value></data>
+  <data name="Ov.TodayAt" xml:space="preserve"><value>aujourd’hui {0}</value></data>
+  <data name="Ov.TomorrowAt" xml:space="preserve"><value>demain {0}</value></data>
+  <data name="Ov.CostUnknown" xml:space="preserve"><value>coût inconnu</value></data>
+  <data name="Ov.WtKeys" xml:space="preserve"><value>parcourir</value></data>
+  <data name="Ov.WtBack" xml:space="preserve"><value>retour aux cartes</value></data>
+  <data name="Ov.MoreKeys" xml:space="preserve"><value>Aussi : ↑ ↓ la carte au-dessus ou en dessous · J après la dernière carte entre dans les worktrees, K remonte · Début Fin</value></data>
+  <data name="Ov.EndsAsk" xml:space="preserve"><value>finit sur une question</value></data>
+  <data name="Ov.BeforeStop" xml:space="preserve"><value>Quand tu l’as arrêté :</value></data>
+  <data name="Ov.Reread" xml:space="preserve"><value>relire</value></data>
+  <data name="Ov.SnapAge" xml:space="preserve"><value>Lues {0} ·</value></data>
+  <data name="Ov.SnapRefresh" xml:space="preserve"><value>pour les relire</value></data>
+  <data name="Ov.LeftProbe1" xml:space="preserve"><value>1 sonde</value></data>
+  <data name="Ov.LeftProbeN" xml:space="preserve"><value>{0} sondes</value></data>
+  <data name="Ov.NoReply" xml:space="preserve"><value>ton dernier message sans réponse</value></data>
+  <data name="Ov.NothingHere" xml:space="preserve"><value>Rien ne tourne ici</value></data>
   <data name="Ov.Pending" xml:space="preserve"><value>en attente</value></data>
   <data name="Ov.Queue" xml:space="preserve"><value>File des décisions</value></data>
+  <data name="Ov.QuotaHelp" xml:space="preserve"><value>Les limites d’usage de Claude Code, au dernier relevé d’une session.</value></data>
+  <data name="Ov.Reading" xml:space="preserve"><value>Lecture des sessions récentes…</value></data>
   <data name="Ov.Recent" xml:space="preserve"><value>Sessions récentes</value></data>
   <data name="Ov.Resume" xml:space="preserve"><value>Reprendre là où tu t’es arrêté</value></data>
   <data name="Ov.ResumeAction" xml:space="preserve"><value>Reprendre</value></data>
+  <data name="Ov.ResumeKey" xml:space="preserve"><value>reprendre</value></data>
+  <data name="Ov.Select" xml:space="preserve"><value>sélectionner</value></data>
   <data name="Ov.Sessions0" xml:space="preserve"><value>{0} session</value></data>
   <data name="Ov.Sessions1" xml:space="preserve"><value>1 session</value></data>
   <data name="Ov.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
   <data name="Ov.ThisRun" xml:space="preserve"><value>dépensés depuis le lancement</value></data>
+  <data name="Ov.Today" xml:space="preserve"><value>{0} aujourd’hui</value></data>
+  <data name="Ov.Unread" xml:space="preserve"><value>Transcript illisible</value></data>
+  <data name="Ov.Week" xml:space="preserve"><value>{0} sur 7 jours</value></data>
   <data name="Ov.Wt" xml:space="preserve"><value>Worktrees avec du travail non sauvegardé</value></data>
   <data name="Ov.WtAll" xml:space="preserve"><value>Tous les worktrees</value></data>
   <data name="Ov.WtFailed" xml:space="preserve"><value>Impossible d’analyser les worktrees : {0}</value></data>
+  <data name="Ov.WtHelp" xml:space="preserve"><value>Non commité, ou commité mais jamais poussé.</value></data>
+  <data name="Ov.WtKey" xml:space="preserve"><value>worktrees</value></data>
+  <data name="Ov.WtScanning" xml:space="preserve"><value>Recherche de travail non sauvegardé dans les worktrees…</value></data>
   <data name="Pick.Folder" xml:space="preserve"><value>Choisir un dossier…</value></data>
   <data name="Pick.None" xml:space="preserve"><value>Aucune boîte de dialogue de dossier sur ce système — tape le chemin.</value></data>
   <data name="Palette.Actions" xml:space="preserve"><value>Actions</value></data>
@@ -503,7 +537,8 @@
   <data name="Rail.NewSession" xml:space="preserve"><value>Nouvelle session</value></data>
   <data name="Rail.Recent" xml:space="preserve"><value>Récentes</value></data>
   <data name="Rail.Search" xml:space="preserve"><value>Rechercher</value></data>
-  <data name="Rail.ToClean" xml:space="preserve"><value>{0} à nettoyer</value></data>
+  <data name="Rail.ToClean" xml:space="preserve"><value>{0} supprimables sans perte</value></data>
+  <data name="Rail.ToCleanHelp" xml:space="preserve"><value>Fusionnés ou orphelins : les supprimer ne perd rien</value></data>
   <data name="Reconnect.Failed" xml:space="preserve"><value>Le serveur de l’application ne répond pas. Réessaie quand il tourne à nouveau, ou recharge la page.</value></data>
   <data name="Reconnect.Paused" xml:space="preserve"><value>Le serveur a mis cette page en pause. Reprends pour te reconnecter.</value></data>
   <data name="Reconnect.Rejoining" xml:space="preserve"><value>Reconnexion au serveur…</value></data>

@@ -13,68 +13,87 @@
     var queue = Sessions.DecisionQueue.ToList();
     var spent = all.Sum(s => s.CostUsd - s.CostAtOpen);   // reopened sessions bring their lifetime cost: only this run counts
     qi = Math.Clamp(qi, 0, Math.Max(0, queue.Count - 1));
-    var cards = all.Count == 0 ? Cards() : [];
     ri = Math.Clamp(ri, 0, Math.Max(0, cards.Count - 1));
 }
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1><span class="end"><a class="btn @(cards.Count > 0 ? null : "primary")" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></a></span></div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Overview"]</h1>@if (all.Count > 0) { <span class="end"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></a></span> }</div>
     <div class="ov">
         @if (all.Count == 0 && !loaded)
         {
-            @* Nothing until the transcripts are read: "no session yet" for a few hundred ms would be a wrong empty state. *@
+            @* No headline until the transcripts are read: "no session yet" for a few hundred ms would be a wrong empty state. *@
+            <p class="ovnote" role="status">@L["Ov.Reading"]</p>
         }
         else if (all.Count == 0)
         {
             <div class="empty">
                 <h2>@L[cards.Count > 0 ? "Ov.Resume" : "Ov.Empty"]</h2>
-                <p class="lead">@(cards.Count > 0 ? Lead() : L["Ov.EmptyText"])</p>
+                <p class="lead one">@StateLine()</p>
+                @if (cards.Count == 0)
+                {
+                    <p class="lead">@L["Ov.EmptyText"]</p>
+                    <a class="btn primary start" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]<kbd>@Strings.Kbd("Alt N")</kbd></a>
+                }
             </div>
-            @if (limits is { } sl)
-            {
-                var l = sl.Limits;
-                <section class="qstrip" aria-labelledby="ov-quota">
-                    <h3 class="cap" id="ov-quota">@L["Quota.Usage"]</h3>
-                    @Window(L["Quota.FiveHours"], L["Quota.Window.five_hour"], l.FiveHour, l.FiveHourReset)
-                    @Window(L["Quota.SevenDays"], L["Quota.Window.seven_day"], l.SevenDay, l.SevenDayReset)
-                    <span class="asof" title="@sl.At.ToLocalTime().ToString("g")">@L["Ov.AsOf", Age(sl.At)]</span>
-                </section>
-            }
+            @if (QuotaHot) { @Quota() }
             @if (cards.Count > 0)
             {
                 <section class="ovs" aria-labelledby="ov-recent">
-                    <div class="ovcap"><h3 class="cap" id="ov-recent">@L["Ov.Recent"]</h3><span class="keys" id="ov-keys"><kbd>1</kbd>–<kbd>@cards.Count</kbd> <kbd>⏎</kbd> @L["Palette.Open"] · <kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"]</span></div>
-                    <div class="resume" role="list" tabindex="0" @ref="resumeEl" aria-labelledby="ov-recent" aria-describedby="ov-keys" @onkeydown="e => ResumeKey(e, cards)">
+                    <div class="ovcap"><h3 class="cap" id="ov-recent">@L["Ov.Recent"]</h3><span class="keys" id="ov-keys" title="@L["Ov.MoreKeys"]"><span class="esc @(ri == 0 ? "off" : null)"><span class="k"><kbd>Esc</kbd> @L["Ov.First"]</span> · </span><span class="k"><kbd>1</kbd>–<kbd>@cards.Count</kbd> <kbd>J</kbd> <kbd>K</kbd> @L["Ov.Select"]</span> · <span class="k"><kbd>Enter</kbd> @L["Ov.ResumeKey"]</span> · <span class="k"><kbd>R</kbd> @L["Ov.Reread"]</span>@if (unsaved is { Count: > 0 }) { <text> · </text><span class="k"><kbd>W</kbd> @L["Ov.WtKey"]</span> }</span></div>
+                    <div class="resume @(cards.Count is 2 or 3 ? $"g{cards.Count - 1}" : null)" role="list" tabindex="0" @ref="resumeEl" aria-labelledby="ov-recent" aria-describedby="ov-keys" data-esc-home="@(ri != 0 ? "1" : null)" @onkeydown="ResumeKey">
                         @for (var i = 0; i < cards.Count; i++)
                         {
                             var p = cards[i];
                             var end = endings.GetValueOrDefault(p.Id);
-                            var away = Away(p);
                             <div role="listitem" @key="p.Id" class="rcw @(i == 0 ? "lead" : null)">
-                                <a class="rc @(i == ri ? "sel" : null)" href="session/@p.Id" tabindex="-1" aria-labelledby="rc-n-@i" aria-describedby="rc-x-@i">
-                                    <span class="rt"><kbd class="num" aria-hidden="true">@(i + 1)</kbd><span class="n" id="rc-n-@i" title="@p.Title">@p.Title</span>@Flag(away, end)<kbd class="enter" aria-hidden="true">⏎</kbd></span>
-                                    <span class="ex @(end?.Text is null ? "none" : null)" id="rc-x-@i">@(end?.Text ?? (end?.Stop == TranscriptStore.Stop.Cut && !away ? L["Ov.NoReply"] : ""))</span>
-                                    <span class="rm"><span class="branch">@if (Branch(p) is { } b) { <Icon Name="branch" />@b<text> · </text> }@TranscriptStore.RepoName(p.Cwd)</span><span>@Fmt.Day(p.LastWrite)@if (p.CostUsd >= 0.005m) { <text> · @Fmt.Cost(p.CostUsd.Value, 2)</text> }</span></span>
-                                    @if (i == 0) { <span class="go btn primary" aria-hidden="true">@L["Ov.ResumeAction"]</span> }
+                                <a class="rc @(i == ri ? "sel" : null)" aria-current="@(i == ri ? "true" : null)" href="session/@p.Id" tabindex="-1" aria-labelledby="rc-n-@i" aria-describedby="@(FlagKey(end) is not null ? $"rc-f-{i} " : "")rc-x-@i">
+                                    <span class="rt"><kbd class="num" aria-hidden="true">@(i + 1)</kbd><span class="n" id="rc-n-@i" title="@p.Title">@p.Title</span>@if (i == 0) { @Flag(end, i) }@if (i > 0) { <span class="ac">@When(p)<span class="sep">·</span>@if (p.CostUsd >= 0.005m) { <span class="cost">@Fmt.Cost(p.CostUsd.Value, 2)</span> } else { <span class="cost" title="@L["Ov.CostUnknown"]">—</span> }</span> }</span>
+                                    @if (end?.Text is { } said)
+                                    {
+                                        <span class="ex said" id="rc-x-@i"><span>@if (end is { Interrupted: true, Unanswered: false }) { <span class="lbl">@(L["Ov.BeforeStop"] + " ")</span> }@(i == 0 ? said : TranscriptStore.Tail(said, 110))</span></span>
+                                    }
+                                    else if (end?.Tool is { } tool)
+                                    {
+                                        <span class="ex did" id="rc-x-@i"><span class="lbl">@L["Ov.LastStep"]</span> <span style="color:@ToolKinds.Color(tool)">@ToolKinds.Label(tool)</span> @ToolKinds.Relative(end.Target ?? "", p.Cwd)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="ex none" id="rc-x-@i">@(end is null ? L["Ov.Unread"] : "")</span>
+                                    }
+                                    @if (i > 0) { @Flag(end, i) }   @* its own line on grid cards: it never competes with the title or the meta *@
+                                    <span class="rm">@if (i == 0) { <span class="ac">@When(p)<span class="sep">·</span>@if (p.CostUsd >= 0.005m) { <span class="cost">@Fmt.Cost(p.CostUsd.Value, 2)</span> } else { <span class="cost" title="@L["Ov.CostUnknown"]">—</span> }</span> }<span class="branch">@if (Branch(p) is { } b) { <Icon Name="branch" /><span class="bn" title="@b" style="min-width:@Floor(b)">@b</span><span class="sep">·</span> }<span class="rp" title="@TranscriptStore.RepoName(p.Cwd)" style="min-width:@Floor(TranscriptStore.RepoName(p.Cwd))">@TranscriptStore.RepoName(p.Cwd)</span></span><span class="slot">@Go(i == ri, keepSlot: true)</span></span>
                                 </a>
                             </div>
                         }
                     </div>
                     @* The J/K cursor is visual; this announces it, as the decision queue does. *@
-                    <div class="sr-only" role="status">@L["OfN", ri + 1, cards.Count] · @cards[ri].Title</div>
+                    <div class="sr-only" role="status">@if (moved) { @(L["OfN", ri + 1, cards.Count] + " · " + cards[ri].Title) }</div>   @* silent on arrival: the focused list already names itself *@
+                    @if (elsewhereList.Count > 0)
+                    {
+                        @* Named, and still reachable: opening one shows its transcript and warns before a second process could start. *@
+                        <p class="ovnote">@(L["Ov.ElsewhereList"] + " ")@for (var k = 0; k < elsewhereList.Count; k++) { var e = elsewhereList[k]; @if (k > 0) { <text>&nbsp;· </text> }<a href="session/@e.Id" tabindex="0" title="@L["Status.ElsewhereLine"]">@(e.Title.Length <= 40 ? e.Title : e.Title[..39] + "…")</a> }@if (elsewhere > elsewhereList.Count) { <text> · +@(elsewhere - elsewhereList.Count)</text> }</p>
+                    }
+                    @if (LeftOutLine() is { } left) { <p class="ovnote">@left</p> }
+                    @if (DateTimeOffset.Now - snapAt > TimeSpan.FromMinutes(2))
+                    {
+                        @* Frozen on purpose (a digit names what it showed), never silently: an open tab says how old its cards are. *@
+                        <p class="ovnote">@L["Ov.SnapAge", Age(snapAt)] <kbd>R</kbd> @L["Ov.SnapRefresh"]</p>
+                    }
                 </section>
             }
+            @if (!QuotaHot) { @Quota() }
             @if (unsaved is { Count: > 0 })
             {
                 <section class="ovs" aria-labelledby="ov-wt">
-                    <div class="ovcap"><h3 class="cap" id="ov-wt">@L["Ov.Wt"]@if (unsaved.Count > WtShown) { <span class="of"> · @L["OfN", WtShown, unsaved.Count]</span> }</h3><a href="worktrees">@L["Ov.WtAll"]</a></div>
-                    <div class="ovwt">
+                    <div class="ovcap"><h3 class="cap" id="ov-wt" title="@L["Ov.WtHelp"]" aria-describedby="ov-wt-help">@L["Ov.Wt"]@if (unsaved.Count > WtShown) { <span class="of"> · @L["OfN", WtShown, unsaved.Count]</span> }</h3><a href="worktrees" tabindex="0">@L["Ov.WtAll"] →</a></div>
+                    <p class="ovhelp" id="ov-wt-help">@L["Ov.WtHelp"]<span class="wtkeys"> · <kbd>J</kbd> <kbd>K</kbd> @L["Ov.WtKeys"] · <kbd>Esc</kbd> @L["Ov.WtBack"]</span></p>
+                    <div class="ovwt" @ref="wtEl">
                         @foreach (var (t, more) in unsaved.Take(WtShown))
                         {
-                            <a class="wtr @(t.Unpushed >= RiskyAhead ? "risky" : null)" href="worktrees" title="@t.Path">
-                                <span class="n">@(t.Branch ?? t.Name)@if (more > 0) { <span class="more"> +@more</span> }</span>
-                                <span class="r">@Path.GetFileName(t.Repo)@if (t.Branch is not null) { <text> · @t.Name</text> }</span>
-                                <span class="why">@((MarkupString)string.Join(" · ", new[] { t.Unpushed > 0 ? Strings.Plural(t.Unpushed, "Wt.Why.Ahead") : null, t.Dirty > 0 ? Strings.Plural(t.Dirty, "Wt.Why.Dirty") : null }.Where(x => x is not null)))</span>
-                                <span class="r">@Fmt.Day(t.LastActivity)</span>
+                            <a class="wtr @(AtRisk(t) >= RiskyAhead ? "risky" : null)" href="@WtUrl(t)" title="@t.Path" tabindex="0">
+                                <span class="n"><span class="nm" title="@WorktreeService.DisplayName(t)">@WorktreeService.DisplayName(t)</span>@if (more > 0) { <span class="more">+@more</span> }</span>
+                                <span class="r">@Path.GetFileName(t.Repo)</span>
+                                <span class="why">@((MarkupString)t.Why)</span>   @* the Worktrees page's own sentence: the row and the page it opens say the same *@
+                                <span class="r">@Age(t.LastActivity)</span>
                             </a>
                         }
                     </div>
@@ -83,6 +102,10 @@
             else if (wtError is not null)
             {
                 <p class="ovnote">@L["Ov.WtFailed", wtError] <button type="button" class="btn ghost" @onclick="RetryWorktrees">@L["Wt.Refresh"]</button></p>
+            }
+            else if (unsaved is null)
+            {
+                <p class="ovnote" role="status">@L["Ov.WtScanning"]</p>
             }
         }
         else
@@ -118,7 +141,7 @@
         {
             var (cs, cp) = queue[qi];
             <div class="queue" role="group" tabindex="0" @ref="queueEl" aria-label="@L["Ov.Queue"]" aria-describedby="q-keys" @onkeydown="e => QueueKey(e, queue)">
-                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" class="keys"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · @if (cp.Tool is not (AskUser.Tool or Elicit.Tool)) { <text><kbd>A</kbd> @L["Perm.HintAllow"] · </text> }<kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>⏎</kbd> @L["Palette.Open"]</span></div>
+                <div class="qh"><span class="cap">@L["Ov.Queue"]</span><span id="q-keys" class="keys"><kbd>J</kbd> <kbd>K</kbd> @L["Palette.Navigate"] · @if (cp.Tool is not (AskUser.Tool or Elicit.Tool)) { <text><kbd>A</kbd> @L["Perm.HintAllow"] · </text> }<kbd>D</kbd> @L["Perm.HintDeny"] · <kbd>Enter</kbd> @L["Palette.Open"]</span></div>
                 @* The J/K cursor is visual; this announces it to screen readers. *@
                 <div class="sr-only" role="status">@L["OfN", qi + 1, queue.Count] · @cs.Name · @cp.Tool @ToolKinds.Target(cp.Tool, cp.Input, cs.Cwd)</div>
                 @if (error is not null)
@@ -214,7 +237,7 @@
         if (!resumeFocused && Sessions.Active.Count == 0 && resumeEl.Id is { Length: > 0 })   // the list is in the DOM, not only in `recent`
         {
             resumeFocused = true;
-            try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", resumeEl); }
+            try { await JS.InvokeVoidAsync("claudeUi.focusIfIdle", resumeEl); await JS.InvokeVoidAsync("claudeUi.clipTops", resumeEl); }
             catch (JSException) { }
             catch (JSDisconnectedException) { }
         }
@@ -231,6 +254,10 @@
     SessionManager.SavedLimits? limits;
     List<(WorktreeInfo W, int More)>? unsaved;   // More: siblings of a numbered series (worktree-x, -2, -3) folded into this row
     bool loaded;
+    List<PastSession> cards = [];
+    int elsewhere, leftAway, leftProbes;
+    List<PastSession> elsewhereList = [];
+    ElementReference wtEl;
     string? wtError;
     ElementReference resumeEl;
     bool resumeFocused;
@@ -238,6 +265,11 @@
     readonly CancellationTokenSource cts = new();
     const double HotAt = 0.8;   // a window this full is the page's alarm: its meter turns Ember
     const int RiskyAhead = 10, WtShown = 5;
+    // Unpushed commits count only when not merged: WorktreeService.Classify's rule, so the order matches the sentence.
+    static int AtRisk(WorktreeInfo w) => w.Merged || w.SquashMerged ? 0 : w.Unpushed;
+    // A repo under the temp root is an agent's scratch: real work is never there, and it would push real risks off a list of 5.
+    static readonly string[] Temp = [Path.GetTempPath().TrimEnd('/'), "/tmp", "/private/tmp", "/private/var/folders"];
+    static bool Scratch(string repo) => Temp.Any(t => repo.StartsWith(t + "/", StringComparison.OrdinalIgnoreCase));
 
     // The idle view reads transcripts and scans worktrees off the render thread. Nothing above the cards depends on a late
     // part (the week only fills a sentence), so a card never moves under the pointer.
@@ -246,17 +278,48 @@
         Sessions.Changed += Refresh;
         if (!RendererInfo.IsInteractive) return;   // not twice: prerender then the circuit
         limits = SessionManager.LastLimits();
+        await Snapshot();
+        _ = Tick();
+        week = await Task.Run(() => TranscriptStore.Since(DateTime.Today.AddDays(-6).ToUniversalTime()));
+        StateHasChanged();
+        var cacheAge = DateTimeOffset.Now - (Wt.CachedAt ?? DateTimeOffset.Now);
+        (unsaved, wtError) = await Unsaved(cts.Token);
+        // A cache older than 30 s rows at once, then a fresh scan patches the counts in place, so the Worktrees page a row opens
+        // says the same. Only when the order holds: rows never move under the keyboard.
+        if (cacheAge > TimeSpan.FromSeconds(30) && cacheAge < TimeSpan.FromMinutes(2) && unsaved is { } shown && await Unsaved(cts.Token, fresh: true) is ({ } now, null)
+            && now.Select(x => x.Item1.Path).SequenceEqual(shown.Select(x => x.Item1.Path)))
+        {
+            unsaved = now;
+            StateHasChanged();
+        }
+    }
+
+    // Ages and the snapshot's own age move once a minute; the cards themselves never do until R.
+    async Task Tick()
+    {
+        using var t = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        try { while (await t.WaitForNextTickAsync(cts.Token)) await InvokeAsync(StateHasChanged); }
+        catch (OperationCanceledException) { }
+    }
+
+    DateTimeOffset snapAt = DateTimeOffset.Now;
+    async Task Snapshot()
+    {
         // Sessions and their endings land together: the lead card depends on both, so it is picked once and never swaps.
         (recent, endings) = await Task.Run(() =>
         {
             var r = TranscriptStore.Recent();   // the rail's 30, cached: enough left after the probes
+            liveCwds = TranscriptStore.PlainClaudeCwds();
             return (r, r.Select(p => (p.Id, E: TranscriptStore.EndOf(p.Id))).Where(x => x.E is not null).ToDictionary(x => x.Id, x => x.E!));
         });
-        loaded = true;
+        // A snapshot: the cards, the lead and the counts are fixed once read, so a digit always names the session it showed. A
+        // session finishing in another terminal while the page is open does not reshuffle them.
+        (cards, elsewhere) = (Cards(), recent.Count(Away));
+        elsewhereList = [.. recent.Where(Away).Take(3)];
+        var left = cards.Count == 0 ? [] : recent.Where(p => p.LastWrite >= cards.Min(c => c.LastWrite) && !cards.Contains(p)).ToList();
+        (leftAway, leftProbes) = (left.Count(Away), left.Count(p => !Away(p)));
+        (loaded, snapAt, ri) = (true, DateTimeOffset.Now, 0);
         StateHasChanged();
-        week = await Task.Run(() => TranscriptStore.Since(DateTime.Today.AddDays(-6).ToUniversalTime()));
-        StateHasChanged();
-        (unsaved, wtError) = await Unsaved(cts.Token);
     }
 
     async Task RetryWorktrees()
@@ -274,46 +337,86 @@
         _ => Fmt.Day(at),
     };
 
-    // Up to 7 sessions worth reopening (a lead and two rows of three), newest first. Left out: a known cost under 5 cents, and an
-    // unknown cost with almost nothing written (a probe's "tick"). The lead is the one waiting on you: a question, then a cut
-    // mid-step, then the newest; never one another process holds.
+    // Up to 7 sessions worth reopening (a lead, then full rows of three), newest first. Left out: sessions another process is
+    // running (they are not left off; the state line counts them), a known cost under 5 cents, and an unknown cost that is a probe:
+    // no branch, or almost nothing written. The lead is the newest, unless one waits on an AskUserQuestion of the last 24 h.
     List<PastSession> Cards()
     {
-        var list = recent.Where(p => p.CostUsd is not < 0.05m && (p.CostUsd is not null || Away(p) || Substantial(endings.GetValueOrDefault(p.Id)))).Take(7).ToList();
-        var lead = list.Where(p => !Away(p)).OrderBy(p => endings.GetValueOrDefault(p.Id)?.Stop switch { TranscriptStore.Stop.Asked => 0, TranscriptStore.Stop.Cut => 1, _ => 2 }).FirstOrDefault();
-        if (lead is not null) { list.Remove(lead); list.Insert(0, lead); }   // OrderBy is stable: the newest wins within a kind
+        var list = recent.Where(Worth).Take(7).ToList();
+        if (list.Count > 4) list = list[..(1 + (list.Count - 1) / 3 * 3)];   // a lead, then full rows of three: never an orphan card
+        // Unfinished first: a pending question, then a session you interrupted or left without a reply; otherwise the newest.
+        bool Fresh(PastSession p) => DateTimeOffset.Now - p.LastWrite < TimeSpan.FromHours(24);
+        var lead = list.FirstOrDefault(p => Fresh(p) && endings.GetValueOrDefault(p.Id)?.Stop == TranscriptStore.Stop.Asked)
+            ?? list.FirstOrDefault(p => Fresh(p) && endings.GetValueOrDefault(p.Id) is { Interrupted: true } or { Unanswered: true });
+        if (lead is not null) { list.Remove(lead); list.Insert(0, lead); }
         return list;
     }
 
-    static bool Substantial(TranscriptStore.Ending? e) => e is { Stop: not TranscriptStore.Stop.Done } || e?.Text?.Length >= 20;
+    bool Worth(PastSession p) => !Away(p) && (p.CostUsd is { } c ? c >= 0.05m : Branch(p) is not null && Substantial(endings.GetValueOrDefault(p.Id)));
+
+
+    static bool Substantial(TranscriptStore.Ending? e) => e is { Stop: not TranscriptStore.Stop.Done } || e?.Text?.Length >= 20 || e?.Tool is not null;
 
     // A plain `claude` names no session id on its command line (RunningElsewhere misses it): a fresh write says it as well.
-    bool Away(PastSession p) => Sessions.RunningElsewhere(p.Id) || DateTimeOffset.Now - p.LastWrite < TimeSpan.FromMinutes(2);
+    // Plus: a transcript of a folder where a plain `claude` runs, written in the last 30 min, may be the one it is writing. Doubt
+    // counts as running: resuming a live session would start a second writer on it.
+    bool Away(PastSession p) => Sessions.RunningElsewhere(p.Id) || DateTimeOffset.Now - p.LastWrite < TimeSpan.FromSeconds(60)
+        || DateTimeOffset.Now - p.LastWrite < TimeSpan.FromMinutes(30) && liveCwds.Contains(Path.TrimEndingDirectorySeparator(p.Cwd));
+    IReadOnlySet<string> liveCwds = new HashSet<string>();
 
     // A detached HEAD is not a branch name worth showing.
     static string? Branch(PastSession p) => p.Branch is { Length: > 0 } b && b != "HEAD" ? b : null;
 
-    string Lead()
+    // "Nothing running here · 2 running in other terminals · $9.44 today · $635 over 7 days": true of the user's machine, not
+    // only of this app.
+    string StateLine()
     {
-        if (week is not { } w) return L["Ov.Empty"];
-        var today = w.Where(p => p.LastWrite.LocalDateTime.Date == DateTime.Today).Sum(p => p.CostUsd ?? 0);
-        return L["Ov.IdleSpend", L["Ov.Empty"], Fmt.Cost(today, 2), Fmt.Cost(w.Sum(p => p.CostUsd ?? 0), 2)];
+        List<string> parts = [L["Ov.NothingHere"]];
+        if (elsewhere > 0 && elsewhereList.Count == 0) parts.Add(Strings.Plural(elsewhere, "Ov.Elsewhere"));   // named under the cards instead: one fact, one place
+        if (week is { } w)
+        {
+            parts.Add(L["Ov.Today", Fmt.Cost(w.Where(p => p.LastWrite.LocalDateTime.Date == DateTime.Today).Sum(p => p.CostUsd ?? 0), 2)]);
+            parts.Add(L["Ov.Week", Fmt.Cost(w.Sum(p => p.CostUsd ?? 0), 0)]);
+        }
+        return string.Join(" · ", parts);
     }
 
+    // "Left out: 2 probes · ⌘K finds them": the count the code knows, and where to look.
+    string? LeftOutLine()
+    {
+        // Sessions running elsewhere are already in the state line: only the probes need saying here.
+        return leftProbes == 0 ? null : L["Ov.LeftOut", Strings.Plural(leftProbes, "Ov.LeftProbe"), Strings.Kbd("Ctrl K").Replace(" ", "")];
+    }
+
+    bool QuotaHot => limits is { Limits: var l } && (Live(l.FiveHourReset) && l.FiveHour >= HotAt || Live(l.SevenDayReset) && l.SevenDay >= HotAt);
+
+    static string WtUrl(WorktreeInfo w) => "worktrees?path=" + Uri.EscapeDataString(w.Path);
+
+    // The one primary at rest: on the lead card, or on the selected card while the cursor is elsewhere.
+    // keepSlot: the lead keeps an invisible copy while the cursor is elsewhere, so its height never changes under the pointer.
+    // A name shrinks to at most 8 of its own characters, never further, and never past its own end (no blank before the "·").
+    static string Floor(string s) => $"calc({Math.Min(s.Length, 8)}ch + 1px)";
+
+    RenderFragment Go(bool shown, bool keepSlot = false) =>
+        shown || keepSlot ? @<span class="go btn primary @(shown ? null : "off")" aria-hidden="true">@L["Ov.ResumeAction"]</span> : @<text></text>;
+
     // Worktrees holding work git cannot get back elsewhere, riskiest first: unpushed commits, then uncommitted files.
-    async Task<(List<(WorktreeInfo, int)>?, string?)> Unsaved(CancellationToken ct)
+    async Task<(List<(WorktreeInfo, int)>?, string?)> Unsaved(CancellationToken ct, bool fresh = false)
     {
         try
         {
             List<WorktreeInfo> found = [];
-            foreach (var r in await Wt.DiscoverReposAsync(ct))
-            {
-                try { found.AddRange(await Wt.ScanAsync(r, ct)); }
-                catch (InvalidOperationException) { }   // one unreadable repo: the Worktrees page names it
-            }
+            if (!fresh && Wt.CachedAt is { } at && DateTimeOffset.Now - at < TimeSpan.FromMinutes(2)) found.AddRange(Wt.Cached);
+            else
+                foreach (var r in await Wt.DiscoverReposAsync(ct))
+                {
+                    try { found.AddRange(await Wt.ScanAsync(r, ct)); }
+                    catch (InvalidOperationException) { }   // one unreadable repo: the Worktrees page names it
+                }
             // A numbered series (an agent's worktree-x, worktree-x-2, -3…) is one row: its riskiest member, plus a count.
-            return ([.. found.Where(w => w.State == WtState.Check && (w.Dirty > 0 || w.Unpushed > 0))
-                .OrderByDescending(w => w.Unpushed).ThenByDescending(w => w.Dirty).ThenByDescending(w => w.LastActivity)
+            // Unpushed counts as at risk only when not merged: the same rule WorktreeService.Classify applies, so the pages agree.
+            return ([.. found.Where(w => w.State == WtState.Check && !w.BranchOnly && (w.Dirty > 0 || w.Unpushed > 0 && !w.Merged && !w.SquashMerged))
+                .Where(w => !Scratch(w.Repo)).OrderByDescending(AtRisk).ThenByDescending(w => w.Dirty).ThenByDescending(w => w.LastActivity)
                 .GroupBy(w => (w.Repo, Stem: Regex.Replace(w.Branch ?? w.Name, @"-\d+$", "")))
                 .Select(g => (g.First(), g.Count() - 1))], null);
         }
@@ -323,35 +426,72 @@
 
     static bool Live(DateTimeOffset reset) => reset == default || reset > DateTimeOffset.Now;
 
-    RenderFragment Window(string name, string label, double used, DateTimeOffset reset)
+    // The quota strip: above the sessions when a window is at 80 % or more (it then decides whether to resume), below otherwise.
+    RenderFragment Quota() => limits is not { } sl ? @<text></text> : @<text>@{ var l = sl.Limits; var stale = DateTimeOffset.Now - sl.At > TimeSpan.FromHours(24); }
+        <section class="qstrip @(stale ? "stale" : null)" aria-labelledby="ov-quota">
+        <h3 class="cap" id="ov-quota" title="@L["Ov.QuotaHelp"]" aria-describedby="ov-quota-help">@L["Quota.Usage"]</h3>@if (!QuotaHot) { <span class="sr-only" id="ov-quota-help">@L["Ov.QuotaHelp"]</span> }
+        @Window(L["Quota.FiveHours"], L["Quota.Window.five_hour"], l.FiveHour, l.FiveHourReset, DateTimeOffset.Now - sl.At > TimeSpan.FromHours(1))
+        @Window(L["Quota.SevenDays"], L["Quota.Window.seven_day"], l.SevenDay, l.SevenDayReset, stale)
+        <span class="asof" title="@sl.At.ToLocalTime().ToString("g")">@L[stale ? "Ov.AsOfStale" : "Ov.AsOf", Age(sl.At)]</span>
+        </section>
+        @if (QuotaHot) { <p class="ovhelp qhelp" id="ov-quota-help">@HotLine(l)</p> }   @* the alarm says what is left and until when: what decides whether to resume *@
+    </text>;
+
+    // "9 % of this week left.": the hottest live window, said as what remains (its reset is on the meter, said once).
+    string HotLine(RateLimitEvt l) => Live(l.SevenDayReset) && l.SevenDay >= HotAt
+        ? L["Ov.QuotaLeft", Fmt.Pct(1 - l.SevenDay), L["Ov.ThisWeek"], Soon(l.SevenDayReset)]
+        : L["Ov.QuotaLeft", Fmt.Pct(1 - l.FiveHour), L["Ov.ThisWindow"], Soon(l.FiveHourReset)];
+
+    // A reset said from today: "today 23:00", "tomorrow 19:59", then the weekday.
+    string Soon(DateTimeOffset t) => (t.LocalDateTime.Date - DateTime.Today).Days switch
+    {
+        0 => L["Ov.TodayAt", Fmt.Time(t)],
+        1 => L["Ov.TomorrowAt", Fmt.Time(t)],
+        _ => Fmt.Day(t),
+    };
+
+    // old: the reading is old for this window (an hour is a fifth of the 5 h window, a day a seventh of the week): dimmed, not hidden.
+    RenderFragment Window(string name, string label, double used, DateTimeOffset reset, bool old)
     {
         var f = Live(reset) ? used : 0;   // the window rolled over since the reading: it starts again empty
         var pct = (int)Math.Round(Math.Clamp(f, 0, 1) * 100);
-        var reads = reset != default && Live(reset) ? $"{Fmt.Pct(f)}, {L["Quota.Resets", Fmt.Day(reset)]}" : Fmt.Pct(f);
-        return @<div class="qw @(f >= HotAt ? "hot" : null)"><span>@name</span><span class="bar" role="meter" aria-label="@label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@pct" aria-valuetext="@reads"><i style="width:@pct%"></i></span><b>@Fmt.Pct(f)</b>@if (reset != default && Live(reset)) { <span class="rs">@L["Quota.Resets", Fmt.Day(reset)]</span> }</div>;
+        var reads = reset != default && Live(reset) ? $"{Fmt.Pct(f)}, {L["Quota.Resets", Soon(reset)]}" : Fmt.Pct(f);
+        return @<div class="qw @(f >= HotAt ? "hot" : null) @(old ? "old" : null)"><span>@name</span><span class="bar" role="meter" aria-label="@label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@pct" aria-valuetext="@reads"><i style="width:@pct%"></i></span><b>@Fmt.Pct(f)</b>@if (reset != default && Live(reset)) { <span class="rs">@L["Quota.Resets", Soon(reset)]</span> }</div>;
     }
 
-    RenderFragment Flag(bool away, TranscriptStore.Ending? end) =>
-        away ? @<span class="flag live">@L["Status.Elsewhere"]</span>
+    RenderFragment When(PastSession p) => @<span class="when" title="@p.LastWrite.ToLocalTime().ToString("g")">@Age(p.LastWrite)</span>;
+
+    // Who owes the next word, in one flag: Ember only when a pending AskUserQuestion waits on you.
+    static string? FlagKey(TranscriptStore.Ending? end) =>
+        end is { Unanswered: true } ? "Ov.NoReply"
+        : end is { Interrupted: true } ? "Ov.Interrupted"
         : end?.Stop switch
         {
-            TranscriptStore.Stop.Asked => @<span class="flag">@L["Ov.Asked"]</span>,
-            TranscriptStore.Stop.Cut => @<span class="flag cut">@L["Ov.Cut"]</span>,
-            _ => @<text></text>,
+            TranscriptStore.Stop.Asked => "Ov.Asked",
+            TranscriptStore.Stop.Cut => "Ov.Cut",
+            TranscriptStore.Stop.Done when end.Text?.TrimEnd().EndsWith('?') == true => "Ov.EndsAsk",   // an offer, not a wait: said, so the excerpt's "?" is not a mystery
+            _ => null,
         };
 
-    void ResumeKey(KeyboardEventArgs e, List<PastSession> cards)
+    RenderFragment Flag(TranscriptStore.Ending? end, int i) =>
+        FlagKey(end) is not { } k ? @<text></text> : @<span class="flag @(k == "Ov.Asked" ? null : "cut")" id="rc-f-@i">@L[k]</span>;
+
+    bool moved;
+    async Task ResumeKey(KeyboardEventArgs e)
     {
         if (e.CtrlKey || e.MetaKey || e.AltKey || cards.Count == 0) return;
+        moved = true;
         switch (e.Key)
         {
-            case [var d] when d is >= '1' and <= '9' && d - '1' < cards.Count:
-                ri = d - '1';
-                if (!Away(cards[ri])) Nav.NavigateTo($"session/{cards[ri].Id}");   // one held elsewhere is only selected: ⏎ confirms
-                break;
-            case "j" or "J" or "ArrowDown" or "ArrowRight": ri = (ri + 1) % cards.Count; break;
-            case "k" or "K" or "ArrowUp" or "ArrowLeft": ri = (ri + cards.Count - 1) % cards.Count; break;
+            case [var d] when d is >= '1' and <= '9' && d - '1' < cards.Count: ri = d - '1'; break;   // select only: ⏎ opens, a stray digit never navigates
+            case "Home" or "Escape": ri = 0; break;
+            case "End": ri = cards.Count - 1; break;
+            case "w" or "W" when unsaved is { Count: > 0 }: _ = JS.InvokeVoidAsync("claudeUi.focusFirst", wtEl).AsTask(); break;   // into the worktrees: Tab then walks them
+            case "j" or "J" when ri == cards.Count - 1 && unsaved is { Count: > 0 }: _ = JS.InvokeVoidAsync("claudeUi.focusFirst", wtEl).AsTask(); break;   // down past the last card: into the worktrees, as K climbs back
+            case "j" or "J" or "ArrowRight": ri = Math.Min(ri + 1, cards.Count - 1); break;   // no wrap: the ends stay put (up and down are resolved by geometry in app.js)
+            case "k" or "K" or "ArrowLeft": ri = Math.Max(ri - 1, 0); break;
             case "Enter": Nav.NavigateTo($"session/{cards[ri].Id}"); break;
+            case "r" or "R": await Snapshot(); if (cards.Count == 0) return; break;   // a fresh snapshot: digits renumber, the lead first
         }
     }
 
