@@ -950,7 +950,6 @@ button.mode{text-align:left}
 .ph .ttl:focus{outline:none}
 .ph .ttl-edit{font:600 13px var(--sans);color:var(--fg);background:var(--field);border:1px solid var(--fg-5);border-radius:var(--r-xs);padding:3px 6px;min-width:16ch;max-width:45%;flex:0 1 auto}
 dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font-size:12px}dl.kv dt{color:var(--fg-4)}dl.kv dd{margin:0;color:var(--fg-2);overflow-wrap:anywhere}
-.bgt th:nth-child(5){width:330px}.bgt .rowacts{flex-wrap:wrap}
 .cwd-now{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--fg-2);overflow-wrap:anywhere}
 .pop.menu{max-height:60vh;overflow:auto}
 .pop.menu [role=listbox]:focus-visible{outline-offset:-2px}
@@ -1061,3 +1060,40 @@ details[open]>summary .i{transform:rotate(90deg)}
 .wtt tr.fchild:focus td:first-child{box-shadow:inset 2px 0 0 var(--fg-3),inset 0 1px 0 var(--fg-5),inset 0 -1px 0 var(--fg-5)}
 .wtt .rowacts .btn.wrapl{white-space:normal;text-align:center;line-height:1.25}   /* "Delete all anyway…" wraps rather than truncating or hiding its warning */
 .wt-head>.btn.held{visibility:hidden}
+/* Background sessions: its own columns (the State is why the page exists: it never folds), needs-you in Ember, output under its row */
+.bgt th:nth-child(3){width:124px}   /* columns 1, 2 and 4 come from .few or .live */
+.bgt .n{font-weight:500}
+.bgt .bgwhy{margin-top:4px;font-size:12px;line-height:1.45;color:var(--fg-3);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+.st-need{color:var(--fg)}.st-need i{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.bgt .rowacts .bgrm{margin-left:6px}
+.bgt tr.bgout td{padding:0 12px 12px;background:var(--raise)}
+.bgt .bgoh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-2px 0 6px;font-family:var(--sans);color:var(--fg-2)}
+.bgt .bgoh b{font-weight:500}
+.cmdlog.bad{border-color:color-mix(in srgb,var(--err) 40%,transparent)}.cmdlog.bad .bgoh b{color:var(--err)}
+.bgnote{max-width:calc(52ch + 26px);margin:0 0 14px;padding:7px 12px;border:1px solid var(--seam-2);border-radius:var(--r);background:var(--field);color:var(--fg-2);font-size:13px;line-height:1.5}
+.bgnote b{color:var(--fg);font-weight:600}
+@container (max-width:679px){.bgt th:nth-child(2){padding:10px 12px}.bgt th:nth-child(3){width:0;padding:0}.bgt td.num{font-size:0;padding:0}.wtt.bgt.few th:nth-child(1){width:46%}}   /* the start date folds before the session name starves; the State keeps its header padding (.wtt zeroes it) */
+.bgt .bgage{margin-top:2px;font-size:12px;line-height:1.45;color:var(--fg-3)}   /* its own line: the clamp of the question never hides how old the state is */
+.bgt .branch .sep{flex:none;margin:0 5px;color:var(--fg-4)}
+.bgt .branch .rp{flex:none;max-width:50%}   /* the repo before the folder gives way: it is what tells the rows apart at a glance */
+.ph .bgneed{all:unset;flex:none;cursor:pointer;font:12px var(--mono);color:var(--fg-2);text-decoration:underline;text-decoration-color:var(--seam-3);text-underline-offset:3px;white-space:nowrap}
+.ph .bgneed:hover{color:var(--fg)}
+.ph .bgneed[aria-pressed=true]{color:var(--fg);text-decoration-color:var(--accent)}
+.ph .bgneed:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.ph .bgneed .bgshowing{color:var(--fg-3);text-decoration:none;display:inline-block}
+.bgt .btn[aria-disabled=true]:not(.busy){color:var(--fg-4);cursor:progress}
+.bgt .branch .lf{direction:ltr;flex:0 1 auto}   /* after the repo: the folder's own start is what reads */
+.wt-head p.bglead{max-width:52ch}   /* over .wt-head p's 70ch: about 75 characters a line */
+.st-frozen{color:var(--fg-3)}.st-frozen i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-3);border-radius:2px}   /* frozen: a square, never idle's ring, never a spinner */
+.bgt .btn.both{display:inline-grid;justify-items:center}.bgt .btn.both>span{grid-area:1/1}.bgt .btn.both>span[aria-hidden=true]{visibility:hidden}
+.bgt.few th:nth-child(4){width:128px}   /* no live background row: one verb a row, the folder takes the room */
+.bgt.stale td :where(.n,.branch,.rp,.lf,.state,.bgwhy,.bgage),.bgt.stale td.num{color:var(--fg-3)}   /* the last read failed: these rows are older than they look (dimmed by colour, never opacity) */
+.bgt .bgarm{font-size:12px;line-height:1.45;color:var(--fg-2);text-align:right}   /* what the armed verb will do, visible to keyboard and touch too */
+.bgkeys{margin-top:12px}.bgkeys+.bgkeys{margin-top:4px}
+.bgt.few th:nth-child(1){width:34%}.bgt.few th:nth-child(2){width:auto}   /* nothing but one verb a row: the State takes the room, not an empty Session */
+.bgt.live th:nth-child(2){width:28%}.bgt.live th:nth-child(4){width:34%}
+.bgnote .linkish{all:unset;cursor:pointer;font:12px var(--mono);color:var(--fg);text-decoration:underline;text-decoration-color:var(--seam-3);text-underline-offset:3px;white-space:nowrap}
+.bgnote .linkish:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.bgnote.flat{border:0;background:none;padding:0;color:var(--fg-3)}.bgnote.flat b{color:var(--fg-2)}   /* nothing to act on: a line, not a box louder than the table */
+.bgt tr:is(:focus-within,.sel) .bgwhy{-webkit-line-clamp:unset}   /* the focused row reads its whole question */
+.bgnotice:empty{display:none}.bgnotice{margin:0 0 10px;color:var(--fg-2)}

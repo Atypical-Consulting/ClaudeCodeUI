@@ -1,4 +1,4 @@
-@* Rail duck. Priority: decisions pending > running > crashed > turn done < 5 min > calm. *@
+@* Rail duck. Priority: decisions pending > sessions outside the app that need you (Background) > running > crashed > turn done < 5 min > calm. *@
 @implements IDisposable
 @inject SessionManager Sessions
 
@@ -17,6 +17,8 @@
             var pending = Sessions.DecisionQueue.Count();
             if (pending > 0)
                 return (Mood.Shocked, Strings.Plural(pending, "Mascot.Decision"), Strings.Kbd(L["Mascot.NextDecision"]));
+            if (BackgroundAgents.NeedsYouCount is > 0 and var bg)
+                return (Mood.Shocked, Strings.Plural(bg, "Mascot.BgNeeds"), L["Mascot.BgWhere"]);
             var running = all.Count(s => s.Status == SessionStatus.Running);
             if (running > 0)
                 return (Mood.Excited, L["Mascot.Working"], Strings.Plural(running, "Mascot.Running"));
@@ -29,7 +31,7 @@
         }
     }
 
-    protected override void OnInitialized() => Sessions.Changed += Refresh;
+    protected override void OnInitialized() { Sessions.Changed += Refresh; BackgroundAgents.Changed += Refresh; }
     void Refresh() => InvokeAsync(StateHasChanged);
-    public void Dispose() => Sessions.Changed -= Refresh;
+    public void Dispose() { Sessions.Changed -= Refresh; BackgroundAgents.Changed -= Refresh; }
 }

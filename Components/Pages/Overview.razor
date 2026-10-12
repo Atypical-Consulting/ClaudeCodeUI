@@ -328,14 +328,7 @@
         (unsaved, wtError) = await Unsaved(cts.Token);
     }
 
-    // "3 min ago", "2 h ago", then the day: how stale a reading is, without date arithmetic.
-    string Age(DateTimeOffset at) => (DateTimeOffset.Now - at) switch
-    {
-        { TotalMinutes: < 1 } => L["Ov.AgeNow"],
-        { TotalHours: < 1 } d => L["Ov.AgeMin", (int)d.TotalMinutes],
-        { TotalHours: < 24 } d => L["Ov.AgeH", (int)d.TotalHours],
-        _ => Fmt.Day(at),
-    };
+    string Age(DateTimeOffset at) => Fmt.Age(at);
 
     // Up to 7 sessions worth reopening (a lead, then full rows of three), newest first. Left out: sessions another process is
     // running (they are not left off; the state line counts them), a known cost under 5 cents, and an unknown cost that is a probe:
