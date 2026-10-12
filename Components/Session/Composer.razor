@@ -375,9 +375,9 @@
         {
             case "/model" or "/output-style" when models.Count > 0: menuOpen = true; break;   // the model menu holds the styles
             case "/config" or "/settings" when !crashed: configOpen = true; break;
-            case "/mcp" or "/hooks" or "/permissions": Nav.NavigateTo($"extensions?tab={t[1..]}"); break;
-            case "/allowed-tools": Nav.NavigateTo("extensions?tab=permissions"); break;
-            case "/plugin" or "/plugins": Nav.NavigateTo("extensions?tab=plugins"); break;
+            case "/mcp" or "/hooks" or "/permissions": Nav.NavigateTo($"extensions?tab={t[1..]}&session={Session.Id}"); break;
+            case "/allowed-tools": Nav.NavigateTo($"extensions?tab=permissions&session={Session.Id}"); break;
+            case "/plugin" or "/plugins": Nav.NavigateTo($"extensions?tab=plugins&session={Session.Id}"); break;
             case "/memory" or "/add-dir": Ui.SelectedToolId = null; Ui.DiffOpen = false; Ui.InspectorOpen = true; break;   // the context panel holds both
             // The terminal's message picker: the latest message that can go back; the Thread's own buttons reach the others.
             case "/rewind" or "/checkpoint" or "/undo":

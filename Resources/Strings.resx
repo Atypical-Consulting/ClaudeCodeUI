@@ -159,8 +159,8 @@
   <data name="Ctx.CompactNow" xml:space="preserve"><value>Compact now</value></data>
   <data name="Ctx.DisableHint" xml:space="preserve"><value>Turning off the ones this session doesn't need frees context on every turn.</value></data>
   <data name="Ctx.Free" xml:space="preserve"><value>free</value></data>
-  <data name="Ctx.Loaded1" xml:space="preserve"><value>{0} from {1} is loaded.</value></data>
-  <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} from {1} are loaded.</value></data>
+  <data name="Ctx.Loaded1" xml:space="preserve"><value>{0} from {1} is loaded into context.</value></data>
+  <data name="Ctx.LoadedN" xml:space="preserve"><value>{0} from {1} are loaded into context.</value></data>
   <data name="Ctx.ManageMcp" xml:space="preserve"><value>Manage MCP servers</value></data>
   <data name="Ctx.McpWeight" xml:space="preserve"><value>MCP tools weigh {0}</value></data>
   <data name="Ctx.Servers1" xml:space="preserve"><value>1 server</value></data>
@@ -210,8 +210,8 @@
   <data name="Ext.Col.Server" xml:space="preserve"><value>Server</value></data>
   <data name="Ext.Col.Skill" xml:space="preserve"><value>Skill</value></data>
   <data name="Ext.Col.Source" xml:space="preserve"><value>Source</value></data>
-  <data name="Ext.Col.ThisFolder" xml:space="preserve"><value>For this folder</value></data>
-  <data name="Ext.EnableHere" xml:space="preserve"><value>Enable for this folder</value></data>
+  <data name="Ext.Col.ThisFolder" xml:space="preserve"><value>In this project</value></data>
+  <data name="Ext.EnableHere" xml:space="preserve"><value>On in this project</value></data>
   <data name="Ext.FailedText" xml:space="preserve"><value>Its tools are missing from this session until this is fixed.</value></data>
   <data name="Ext.FailedTitle" xml:space="preserve"><value>The server couldn't start</value></data>
   <data name="Ext.Filter.Auth" xml:space="preserve"><value>Authentication</value></data>
@@ -222,7 +222,7 @@
   <data name="Ext.Col.Matcher" xml:space="preserve"><value>Matcher</value></data>
   <data name="Ext.Hooks.Disabled" xml:space="preserve"><value>A policy or setting turns hooks off: none of these run.</value></data>
   <data name="Ext.Hooks.Lead" xml:space="preserve"><value>Hooks the CLI runs for sessions in {0}, as it reports them. Those kept in a settings file can be changed here: the CLI writes the file itself.</value></data>
-  <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>disabled</value></data>
+  <data name="Ext.Hooks.RowDisabled" xml:space="preserve"><value>off</value></data>
   <data name="Ext.Hooks.None" xml:space="preserve"><value>No hooks configured for this folder.</value></data>
   <data name="Ext.Hooks.Failed" xml:space="preserve"><value>Couldn't read the hooks: {0}</value></data>
   <data name="Hook.Blocking" xml:space="preserve"><value>blocking error · exit 2</value></data>
@@ -234,8 +234,10 @@
   <data name="Ext.Kv.Target" xml:space="preserve"><value>target</value></data>
   <data name="Ext.Kv.Transport" xml:space="preserve"><value>transport</value></data>
   <data name="Ext.Kv.Version" xml:space="preserve"><value>version</value></data>
-  <data name="Ext.Lead" xml:space="preserve"><value>MCP servers, skills, agents and plugins the CLI loads when each session starts.</value></data>
-  <data name="Ext.NoSession" xml:space="preserve"><value>Start a session to see what the CLI loads.</value></data>
+  <data name="Ext.Lead" xml:space="preserve"><value>What this session loads: the MCP servers, skills, agents and hooks it reports, the plugins installed for its folder, and the permission rules it reads.</value></data>
+  <data name="Ext.NoSession" xml:space="preserve"><value>MCP servers, skills, agents, hooks and permission rules are read from a running session: start one to see them. Your plugins are listed below.</value></data>
+  <data name="Ext.SessionGone" xml:space="preserve"><value>That session isn’t running in the app right now. Open it to see what it loads, or start a new one. Your plugins are listed below.</value></data>
+  <data name="Ext.Session" xml:space="preserve"><value>Session shown</value></data>
   <data name="Ext.OpenSignIn" xml:space="preserve"><value>Open the sign-in page</value></data>
   <data name="Ext.Retry" xml:space="preserve"><value>Retry</value></data>
   <data name="Ext.Scope.Local" xml:space="preserve"><value>local</value></data>
@@ -244,7 +246,7 @@
   <data name="Ext.Scope.User" xml:space="preserve"><value>user</value></data>
   <data name="Ext.SignIn" xml:space="preserve"><value>Sign in</value></data>
   <data name="Ext.State.Connected" xml:space="preserve"><value>connected</value></data>
-  <data name="Ext.State.Disabled" xml:space="preserve"><value>disabled</value></data>
+  <data name="Ext.State.Disabled" xml:space="preserve"><value>off</value></data>
   <data name="Ext.State.Failed" xml:space="preserve"><value>failed</value></data>
   <data name="Ext.State.NeedsAuth" xml:space="preserve"><value>authentication required</value></data>
   <data name="Ext.State.Pending" xml:space="preserve"><value>connecting…</value></data>
@@ -907,7 +909,7 @@
   <data name="Ext.Plugins.Options" xml:space="preserve"><value>Options</value></data>
   <data name="Ext.Plugins.Update" xml:space="preserve"><value>Update</value></data>
   <data name="Ext.Plugins.Uninstall" xml:space="preserve"><value>Uninstall</value></data>
-  <data name="Ext.Plugins.ConfirmUninstall" xml:space="preserve"><value>Confirm uninstall</value></data>
+  <data name="Ext.Plugins.ConfirmUninstall" xml:space="preserve"><value>Uninstall?</value></data>
   <data name="Ext.Plugins.Install" xml:space="preserve"><value>Install a plugin</value></data>
   <data name="Ext.Plugins.InstallButton" xml:space="preserve"><value>Install</value></data>
   <data name="Ext.Plugins.Command" xml:space="preserve"><value>Installing {0} runs this command from its marketplace. Run it only if you trust that marketplace:</value></data>
@@ -915,7 +917,7 @@
   <data name="Ext.Plugins.Markets" xml:space="preserve"><value>Marketplaces</value></data>
   <data name="Ext.Plugins.Market" xml:space="preserve"><value>Marketplace</value></data>
   <data name="Ext.Plugins.Remove" xml:space="preserve"><value>Remove</value></data>
-  <data name="Ext.Plugins.ConfirmRemove" xml:space="preserve"><value>Confirm removal</value></data>
+  <data name="Ext.Plugins.ConfirmRemove" xml:space="preserve"><value>Remove?</value></data>
   <data name="Ext.Plugins.AddMarket" xml:space="preserve"><value>Add a marketplace (owner/repo, git URL or path)</value></data>
   <data name="Ext.Plugins.AddMarketButton" xml:space="preserve"><value>Add</value></data>
   <data name="Ext.Plugins.OptionsTitle" xml:space="preserve"><value>{0} options</value></data>
@@ -1126,4 +1128,52 @@
   <data name="Bg.Gone2" xml:space="preserve"><value>{0} is no longer listed.</value></data>
   <data name="Bg.KeyOpenOnly" xml:space="preserve"><value>open</value></data>
   <data name="Bg.ReadShort" xml:space="preserve"><value>read {0}</value></data>
+  <data name="Ext.OpenSession" xml:space="preserve"><value>Open that session</value></data>
+  <data name="Ext.NoProcess" xml:space="preserve"><value>This session's claude process isn't running, so its MCP servers, skills, agents, hooks and rules can't be read. Plugins are read from disk and still listed.</value></data>
+  <data name="Ext.StartProcess" xml:space="preserve"><value>Start its process</value></data>
+  <data name="Ext.McpTable" xml:space="preserve"><value>MCP servers</value></data>
+  <data name="Ext.ToolsHint" xml:space="preserve"><value>Tools the server offers. The Context panel counts only those loaded into the context so far.</value></data>
+  <data name="Ext.EnableHereHint" xml:space="preserve"><value>On or off for this project: this session follows at once, other sessions in the project at their next start.</value></data>
+  <data name="Ext.ConfirmRemove" xml:space="preserve"><value>Remove?</value></data>
+  <data name="Ext.Scope.Cli" xml:space="preserve"><value>command line</value></data>
+  <data name="Ext.Filter.Disabled" xml:space="preserve"><value>Off</value></data>
+  <data name="Ext.FilterEmpty" xml:space="preserve"><value>No server in this state.</value></data>
+  <data name="Ext.Keys" xml:space="preserve"><value>↑ ↓ or J K move · Home End · Esc back to the filters</value></data>
+  <data name="Ext.KeysRows" xml:space="preserve"><value>↑ ↓ or J K move between rows · Home End · Esc leaves the table</value></data>
+  <data name="Ext.ConfirmRemoveOf" xml:space="preserve"><value>Confirm removal: {0}</value></data>
+  <data name="Ext.Find" xml:space="preserve"><value>Filter</value></data>
+  <data name="Ext.DisabledText" xml:space="preserve"><value>Off in this project: its tools are not offered to this session. The switch in its row turns it back on.</value></data>
+  <data name="Ext.SessionUnknown" xml:space="preserve"><value>No session has that id. Pick one of the sessions open here, or start a new one. Your plugins are listed below.</value></data>
+  <data name="Ext.ShowFor" xml:space="preserve"><value>Show {0}</value></data>
+  <data name="Ext.Plugins.State.Failed" xml:space="preserve"><value>did not load</value></data>
+  <data name="Ext.Plugins.State.ServerFailing1" xml:space="preserve"><value>{0} server failing</value></data>
+  <data name="Ext.Plugins.State.ServerFailingN" xml:space="preserve"><value>{0} servers failing</value></data>
+  <data name="Ext.Plugins.State.Loaded" xml:space="preserve"><value>loaded</value></data>
+  <data name="Ext.Plugins.State.Reload" xml:space="preserve"><value>enabled, reload to load</value></data>
+  <data name="Ext.Plugins.State.On" xml:space="preserve"><value>enabled</value></data>
+  <data name="Ext.FindEmpty" xml:space="preserve"><value>Nothing matches that filter.</value></data>
+  <data name="Ext.FindCount" xml:space="preserve"><value>{0} of {1}</value></data>
+  <data name="Ext.Plugins.ShowServer" xml:space="preserve"><value>Show {0} on the MCP tab</value></data>
+  <data name="Ext.Plugins.Lifecycle" xml:space="preserve"><value>“enabled” means a plugin is on in the settings; “loaded” means this session reports its skills, servers or hooks. A plugin enabled after the session started loads with Reload plugins.</value></data>
+  <data name="Ext.Plugins.State.ServersOff1" xml:space="preserve"><value>1 server off in this project</value></data>
+  <data name="Ext.Plugins.State.ServersOffN" xml:space="preserve"><value>{0} servers off in this project</value></data>
+  <data name="Ext.ConfirmUninstallOf" xml:space="preserve"><value>Confirm uninstall: {0}</value></data>
+  <data name="Ext.FailedWhere.Plugin" xml:space="preserve"><value>It comes from the plugin {0}: an error about a token or a setting is fixed where that plugin reads it, often an environment variable named in its .mcp.json, then Retry.</value></data>
+  <data name="Ext.FailedWhere.User" xml:space="preserve"><value>It is defined in ~/.claude.json for all your projects: fix it there or with claude mcp, then Retry.</value></data>
+  <data name="Ext.FailedWhere.Project" xml:space="preserve"><value>It is defined in this project’s .mcp.json: fix it there, then Retry.</value></data>
+  <data name="Ext.FailedWhere.Local" xml:space="preserve"><value>It is defined in ~/.claude.json for this project only: fix it there or with claude mcp, then Retry.</value></data>
+  <data name="Ext.FailedWhere.Claude" xml:space="preserve"><value>It is a claude.ai connector: reconnect it in your claude.ai settings.</value></data>
+  <data name="Ext.FailedWhere.Other" xml:space="preserve"><value>Fix its configuration, then Retry.</value></data>
+  <data name="Ext.Hooks.AnyMatcher" xml:space="preserve"><value>any</value></data>
+  <data name="Ext.Hooks.FromPlugin" xml:space="preserve"><value>from its plugin</value></data>
+  <data name="Ext.CloseInspector" xml:space="preserve"><value>Close (Ctrl I)</value></data>
+  <data name="Ext.FailedWhere.PluginOptions" xml:space="preserve"><value>It comes from the plugin {0}: an error about a token or a setting is fixed in its options on the Plugins tab, or the environment variable its .mcp.json names, then Retry.</value></data>
+  <data name="Ext.NoProcessExited" xml:space="preserve"><value>This session's claude process exited (code {0}), so its MCP servers, skills, agents, hooks and rules can't be read. Plugins are read from disk and still listed.</value></data>
+  <data name="Ext.SwitchesHint" xml:space="preserve"><value>A switch turns a server on or off for this project: this session follows at once, other sessions in the project at their next start.</value></data>
+  <data name="Ext.SessionGoneOf" xml:space="preserve"><value>{0} isn’t running in the app right now. Open it to see what it loads, or start a new one. Your plugins are listed below.</value></data>
+  <data name="Ext.Plugins.ForHome" xml:space="preserve"><value>Your plugins, as seen from your home folder</value></data>
+  <data name="Ext.Plugins.NoSessionNote" xml:space="preserve"><value>Without a session, “enabled” only says what the settings hold: whether a plugin loads shows in a running session.</value></data>
+  <data name="Ext.TurnOff" xml:space="preserve"><value>Turn off in this project</value></data>
+  <data name="Ext.KeysMcp" xml:space="preserve"><value>↑ ↓ or J K move between rows, the inspector follows · Home End · Ctrl I shows or hides it · Esc leaves the table</value></data>
+  <data name="Ext.KeysExpand" xml:space="preserve"><value>↑ ↓ or J K move between rows · Enter or Space opens a description · Esc leaves the table</value></data>
 </root>
