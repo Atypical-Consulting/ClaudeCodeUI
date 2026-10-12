@@ -19,7 +19,12 @@
                 <span class="tag" title="@L["Rail.ToCleanHelp"]">@L["Rail.ToClean", Worktrees.CleanableCount]</span>
             }
         </NavLink>
-        <NavLink tabindex="0" class="btn block ghost" href="background" ActiveClass="cur" aria-current="@Cur("background")"><Icon Name="agents" Sm />@L["Nav.Background"]</NavLink>
+        <NavLink tabindex="0" class="btn block ghost" href="background" ActiveClass="cur" aria-current="@Cur("background")"><Icon Name="agents" Sm />@L["Nav.Background"]
+            @if (BackgroundAgents.NeedsYouCount is > 0 and var bgNeeds)
+            {
+                <span class="pill wait"><span aria-hidden="true">@bgNeeds</span><span class="vh">@(" " + Strings.Plural(bgNeeds, "Bg.Needs"))</span></span>
+            }
+        </NavLink>
         <NavLink tabindex="0" class="btn block ghost" href="extensions" ActiveClass="cur" aria-current="@Cur("extensions")"><Icon Name="plug" Sm />@L["Nav.Extensions"]
             @if (FailedMcp > 0)
             {
@@ -67,7 +72,7 @@
 
     string? Cur(string p) => Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0] == p ? "page" : null;
 
-    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; Nav.LocationChanged += OnLoc; LoadRecent(); }
+    protected override void OnInitialized() { Sessions.Changed += Refresh; Worktrees.Changed += Refresh; BackgroundAgents.Changed += Refresh; Nav.LocationChanged += OnLoc; LoadRecent(); if (RendererInfo.IsInteractive) BackgroundAgents.Watch(); }
     void Refresh() { LoadRecent(); InvokeAsync(StateHasChanged); }
     void OnLoc(object? _, LocationChangedEventArgs __) => InvokeAsync(StateHasChanged);
 
@@ -86,5 +91,5 @@
             await InvokeAsync(StateHasChanged);
         });
     }
-    public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; Nav.LocationChanged -= OnLoc; }
+    public void Dispose() { Sessions.Changed -= Refresh; Worktrees.Changed -= Refresh; BackgroundAgents.Changed -= Refresh; Nav.LocationChanged -= OnLoc; }
 }

@@ -251,6 +251,7 @@
         const label = [...(b.matches('.cb .copy') ? b.lastElementChild : b).childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         if (!label || b.classList.contains('done')) return;
         wrote.then(() => {
+        if (b.matches('[data-copy]')) b.style.minWidth = b.offsetWidth + 'px';   // "Copied" is shorter: the button keeps its size, nothing around it moves
         const old = label.nodeValue;
         const msg = label.nodeValue = document.body.dataset.copied || 'Copied';   // localized from Strings.resx by App.razor
         copied.textContent = '';   // cleared then set next frame: a second copy within 1400 ms is still a change, so it is announced
@@ -299,15 +300,21 @@
     // the client, so a fast second key reads where the first went; Blazor then moves the one Tab stop to it.
     document.addEventListener('keydown', e => {
         if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !(e.target instanceof Element)) return;
+        if (e.repeat && (e.key === 'Enter' || e.key === ' ') && e.target.closest('.bgt .rowacts button')) { e.preventDefault(); return; }   // a held key never confirms an armed Remove
+        if ((e.key === 'r' || e.key === 'R') && document.querySelector('.bgt') && !e.target.closest('input,textarea,select,[contenteditable]:not([contenteditable=false])')) { e.preventDefault(); document.querySelector('.ph .end .btn')?.click(); return; }   // Background: R refreshes, as on the Overview
+        const out = e.target.closest('.bgout');   // a Background row's output: Esc closes it, focus goes back to its row
+        if (out && e.key === 'Escape') { e.preventDefault(); out.querySelector('.bgoh .btn')?.click(); return; }
         const tr = e.target.closest('.wtt tbody tr[data-r]');
         if (!tr) return;
         const onRow = e.target === tr, rows = [...tr.parentElement.querySelectorAll('tr[data-r]')], i = rows.indexOf(tr);
-        if (e.key === 'Escape') { e.preventDefault(); (onRow ? document.querySelector('.filters .chip.on') : tr).focus(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); (onRow ? document.querySelector('.filters .chip.on') ?? document.querySelector('.ph .bgneed') ?? tr.closest('.pane')?.querySelector('.ph .end .btn') : tr)?.focus(); return; }
         if (!onRow) return;   // keys on a button stay the button's
         const to = /^(j|J|ArrowDown)$/.test(e.key) ? rows[i + 1] : /^(k|K|ArrowUp)$/.test(e.key) ? rows[i - 1]
             : e.key === 'Home' ? rows[0] : e.key === 'End' ? rows[rows.length - 1] : undefined;
         if (to !== undefined) {
             e.preventDefault(); to?.focus({ preventScroll: true });
+            // The one Tab stop moves with focus at once: a Tab right after the key reaches the new row's buttons, not the old row's.
+            if (to) rows.forEach(r => { const on = r === to; r.tabIndex = on ? 0 : -1; r.querySelectorAll('.rowacts button').forEach(b => b.tabIndex = on ? 0 : -1); });
             if (to === rows[0]) tr.closest('.wt')?.scrollTo({ top: 0 });   // the first row brings the heading and the filters back with it
             else to?.scrollIntoView({ block: 'nearest' });                  // scroll-margin keeps it clear of the sticky header
             return;
@@ -318,6 +325,7 @@
             if (up?.matches('.wfold')) { e.preventDefault(); up.focus(); }
             return;
         }
+        if (e.key === 'Enter' && tr.closest('.bgt')) { e.preventDefault(); if (!e.repeat) tr.querySelector('.rowacts [data-enter]')?.click(); return; }   // Background: Open or Copy attach, never a verb that acts
         const fold = tr.querySelector('.fold-t');
         if (fold && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' && fold.getAttribute('aria-expanded') !== 'true' || e.key === 'ArrowLeft' && fold.getAttribute('aria-expanded') === 'true')) { e.preventDefault(); fold.click(); }
     });

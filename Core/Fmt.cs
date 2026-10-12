@@ -42,6 +42,15 @@ public static class Fmt
         var d => Strings.Get("Day.Ago", d),
     };
 
+    // "3 min ago", "2 h ago", then the day: how stale a reading is, without date arithmetic.
+    public static string Age(DateTimeOffset at) => (DateTimeOffset.Now - at) switch
+    {
+        { TotalMinutes: < 1 } => Strings.Get("Ov.AgeNow"),
+        { TotalHours: < 1 } d => Strings.Get("Ov.AgeMin", (int)d.TotalMinutes),
+        { TotalHours: < 24 } d => Strings.Get("Ov.AgeH", (int)d.TotalHours),
+        _ => Day(at),
+    };
+
     public static string Enc(string? s) => System.Text.Encodings.Web.HtmlEncoder.Default.Encode(s ?? "");
 
     public static string Home(string path)

@@ -1,65 +1,111 @@
 @page "/background"
+@implements IDisposable
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@L["Nav.Background"] · Claude Code</PageTitle>
 
 @* `claude --bg` sessions (and the interactive ones running), from `claude agents --json --all`: logs, stop, respawn and
-   remove go through the CLI's own subcommands; Open shows the transcript here (BackgroundAgents). *@
-<div class="pane">
+   remove go through the CLI's own subcommands; Open shows the transcript here (BackgroundAgents). Read again every 15 s. *@
+<div class="pane" @ref="paneEl">
     <div class="ph wrap">
         <h1 class="ttl">@L["Nav.Background"]</h1>
         @if (rows is not null)
         {
-            <span class="sub">@Strings.Plural(rows.Count(r => r.Background), "Bg.Count")</span>
+            <span class="sub" title="@L["Bg.ReadAt", readAt.ToLocalTime().ToString("T", System.Globalization.CultureInfo.CurrentCulture)]">@Counts() · @L["Bg.ReadShort", readAt.ToLocalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)]</span>
+            @if (rows.Count(r => r.NeedsYou) is > 0 and var nn)
+            {
+                <button tabindex="0" class="linkish bgneed" aria-pressed="@(needsOnly ? "true" : "false")" title="@L[needsOnly ? "Bg.ShowAll" : "Bg.ShowNeeds"]" @onclick="() => needsOnly = !needsOnly">@Strings.Plural(nn, "Bg.Needs")@if (needsOnly) { <span class="bgshowing">@L["Bg.Showing", nn, rows.Count]</span> }</button>   @* outside the ellipsised counts: the one filter never clips *@
+            }
         }
-        <span class="end"><button class="btn" disabled="@loading" @onclick="Load"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
+        <span class="end"><button class="btn @(loading ? "busy" : null)" tabindex="0" aria-disabled="@(loading ? "true" : "false")" title="@L["Bg.RefreshHint"]" @ref="refreshEl" @onclick="() => Load(true)"><Icon Name="refresh" Sm="true" />@L["Wt.Refresh"]</button></span>
     </div>
     <div class="wt">
-        <div class="wt-head"><div><h2>@L["Bg.Title"]</h2><p>@((MarkupString)L["Bg.Text"].Value)</p></div></div>
+        <div class="wt-head"><div><p class="bglead">@((MarkupString)L["Bg.Text"].Value)</p></div></div>
+        <p class="ovnote bgnotice" role="status">@notice</p>   @* "Removed …": the row and its output are gone, the announcement is not *@
         @if (error is not null)
         {
             <div class="errbox" role="alert">@error</div>
         }
         @if (rows is null)
         {
-            <p role="status">@L["Bg.Loading"]</p>
+            @if (error is null) { <p role="status">@L["Bg.Loading"]</p> }   @* a failed first read says so, never "no session is running" *@
         }
         else if (rows.Count == 0)
         {
-            <p>@L["Bg.None"]</p>
+            <p>@((MarkupString)L["Bg.None"].Value)</p>
         }
         else
         {
-            <table class="wtt bgt">
-                <thead><tr><th>@L["Bg.Col.Session"]</th><th>@L["Col.State"]</th><th>@L["Bg.Col.Kind"]</th><th class="num">@L["Bg.Col.Started"]</th><th><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
+            @if (!daemonUp)
+            {
+                var canRun = rows.Any(r => r.Stale && (r.SessionId is null || TranscriptStore.ById(r.SessionId) is not null));   // a frozen session could pick up again
+                <p class="bgnote @(canRun ? null : "flat")" role="note"><b>@L["Bg.DaemonDown"]</b> @((MarkupString)L["Bg.DaemonDownText"].Value)@if (canRun) { @(" ")<button type="button" class="linkish" tabindex="0" data-copy="claude daemon run" title="@L["Bg.DaemonRunHint"]">@L["Bg.DaemonRun"]</button> }</p>
+            }
+            var shownRows = needsOnly && rows.Any(r => r.NeedsYou) ? rows.Where(r => r.NeedsYou).ToList() : rows;
+            var cur = shownRows.Any(r => r.Id == cursor) ? cursor : shownRows[0].Id;
+            <span class="vh" role="status">@(rows.Count(r => r.NeedsYou) is > 0 and var ann ? Strings.Plural(ann, "Bg.Needs") : "")</span>
+            <table class="wtt bgt @(shownRows.Any(r => r.Background && !r.Stale) ? "live" : "few") @(error is not null ? "stale" : null)" aria-label="@L["Bg.Title"]">
+                <thead><tr><th scope="col">@L["Bg.Col.Session"]</th><th scope="col">@L["Col.State"]</th><th scope="col" class="num">@L["Bg.Col.Started"]</th><th scope="col"><span class="vh">@L["Col.Actions"]</span></th></tr></thead>
                 <tbody>
-                    @foreach (var a in rows)
+                    @foreach (var a in shownRows)
                     {
-                        <tr @key="a.Id" class="@(a.Id == shown ? "sel" : null)">
-                            <td><div class="n">@(a.Name.Length > 0 ? a.Name : a.Id)</div><div class="branch" title="@a.Cwd">@TranscriptStore.Short(a.Cwd)</div></td>
-                            <td><span class="state @(a.State is "done" or "idle" or "stopped" ? "st-active" : a.State is "blocked" or "waiting" ? "st-check" : "st-safe")"><i></i>@a.State</span>@if (a.WaitingFor is { } wf) { <div class="branch">@wf</div> }</td>
-                            <td class="why">@L[a.Background ? "Bg.Kind.Background" : "Bg.Kind.Interactive"] · <code>@a.Id</code></td>
-                            <td class="num" title="@(a.StartedAt == default ? null : a.StartedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture))">@(a.StartedAt == default ? "—" : a.StartedAt.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture))</td>
+                        var tab = a.Id == cur ? 0 : -1;
+                        var (folder, repo) = Place(a.Cwd);
+                        var transcript = a.SessionId is { } sid0 ? TranscriptStore.ById(sid0) : null;
+                        var gone = a.Stale && a.SessionId is not null && transcript is null;   // frozen with no conversation: nothing left to resume or answer
+                        var asks = a.State is "blocked" or "waiting" ? a.Needs ?? a.WaitingFor : null;
+                        <tr @key="a.Id" id="bg-@a.Id" data-r tabindex="@tab" class="@(a.Id == shown ? "sel" : null)" @onfocusin="() => cursor = a.Id">
+                            <td><div class="n" title="@(a.Background ? a.Id : null)">@a.Label</div><div class="branch" title="@(a.Cwd + (a.StartedAt == default ? "" : " · " + L["Bg.StartedAt", a.StartedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)]))"><span class="tag">@L[a.Background ? "Bg.Kind.Background" : "Bg.Kind.Interactive"]</span>@if (repo is not null) { <span class="rp">@repo</span><span class="sep" aria-hidden="true">·</span> }<span class="lf">@folder</span></div></td>
+                            <td><span class="state @(a.NeedsYou ? "st-need" : a.Stale ? "st-frozen" : a.Working ? "st-safe" : "st-active")"><i></i>@(a.Stale ? L["Bg.FrozenState", StateWord(a.State)] : StateWord(a.State))</span>@if (asks is not null) { <div class="bgwhy" title="@L[gone ? "Bg.Asked" : "Bg.Asks", asks]">@L[gone ? "Bg.Asked" : "Bg.Asks", asks]</div> }@if (a.Background && a.LastAt is { } at) { <div class="bgage" title="@L["Bg.LastStepAt", at.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)]">@L["Bg.LastStep", Fmt.Age(at)]@if (gone) { <span title="@L["Bg.GoneVerdict"]">@(" · " + L["Bg.GoneShort"])</span> }</div> }</td>
+                            <td class="num" title="@(a.StartedAt == default ? null : a.StartedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture))">@(a.StartedAt == default ? "—" : Fmt.Age(a.StartedAt))</td>
                             <td><div class="rowacts">
-                                @if (a.SessionId is { } sid && TranscriptStore.ById(sid) is not null)
+                                @if (a.SessionId is { } sid && transcript is not null)
                                 {
-                                    <button class="btn" aria-label="@($"{L["Action.Open"]} {a.Name}")" @onclick='() => Nav.NavigateTo($"session/{sid}")'>@L["Action.Open"]</button>
+                                    <button class="btn" tabindex="@tab" data-enter aria-label="@L["Bg.OpenOf", a.Label]" title="@L[a.Background ? "Bg.OpenHint" : "Bg.OpenLive"]" @onclick='() => Nav.NavigateTo($"session/{sid}")'>@L["Action.Open"]</button>
                                 }
                                 @if (a.Background)
                                 {
-                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Logs"]} {a.Name}")" @onclick='() => Act("logs", a)'>@L["Bg.Logs"]</button>
-                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Respawn"]} {a.Name}")" title="@L["Bg.RespawnHint"]" @onclick='() => Act("respawn", a)'>@L["Bg.Respawn"]</button>
-                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L["Bg.Stop"]} {a.Name}")" title="@L["Bg.StopHint"]" @onclick='() => Act("stop", a)'>@L["Bg.Stop"]</button>
-                                    <button class="btn ghost" disabled="@busy" aria-label="@($"{L[confirmRm == a.Id ? "Bg.RemoveConfirm" : "Bg.Remove"]} {a.Name}")" title="@L["Bg.RemoveHint"]" @onclick="() => Remove(a)">@L[confirmRm == a.Id ? "Bg.RemoveConfirm" : "Bg.Remove"]</button>
+                                    @if (Attachable(a))   // Open covers it when the conversation is here; nothing to attach to when it is gone
+                                    {
+                                    <button type="button" class="btn ghost" tabindex="@tab" data-enter data-copy="@($"claude attach {a.Id}")" title="@L["Bg.AttachHint", a.Id]" aria-label="@L["Bg.AttachOf", a.Label]">@L["Bg.Attach"]</button>   @* no conversation on disk: nothing for attach to open *@
+                                    }
+                                    @if (daemonUp)
+                                    {
+                                        <button class="btn ghost @(Running(a, "logs") ? "busy" : null)" aria-busy="@(Running(a, "logs") ? "true" : null)" tabindex="@tab" aria-disabled="@(busy ? "true" : "false")" aria-label="@L["Bg.LogsOf", a.Label]" @onclick='() => Act("logs", a)'>@L["Bg.Logs"]@(Running(a, "logs") ? "…" : "")</button>
+                                    }
+                                    var bypass = a.Mode == "bypassPermissions"; var armedRs = Armed(a, "respawn");
+                                    @if (!gone)   // it would resume a conversation that is no longer on disk: what it would do is unknown, so it is not offered
+                                    {
+                                    <button class="btn ghost both @(Running(a, "respawn") ? "busy" : null)" aria-busy="@(Running(a, "respawn") ? "true" : null)" tabindex="@tab" aria-disabled="@(busy ? "true" : "false")" aria-label="@L[armedRs ? "Bg.RespawnConfirmOf" : "Bg.RespawnOf", a.Label]" title="@(L["Bg.RespawnHint"] + (bypass ? " " + L["Bg.RespawnBypass"] : ""))" @onclick='() => Confirm(a, "respawn", true)' @onblur='() => Disarm(a, "respawn")'>@Both(armedRs, "Bg.Respawn", "Bg.RespawnConfirm", Running(a, "respawn"))</button>
+                                    }
+                                    @if (daemonUp && !gone && a.State is not ("done" or "stopped" or "failed"))   // "its conversation is kept": not when there is none
+                                    {
+                                        <button class="btn ghost @(Running(a, "stop") ? "busy" : null)" aria-busy="@(Running(a, "stop") ? "true" : null)" tabindex="@tab" aria-disabled="@(busy ? "true" : "false")" aria-label="@L["Bg.StopOf", a.Label]" title="@L["Bg.StopHint"]" @onclick='() => Act("stop", a)'>@L["Bg.Stop"]@(Running(a, "stop") ? "…" : "")</button>
+                                    }
+                                    <button class="btn danger bgrm both @(Running(a, "rm") ? "busy" : null)" aria-busy="@(Running(a, "rm") ? "true" : null)" tabindex="@tab" aria-disabled="@(busy ? "true" : "false")" aria-label="@L[Armed(a, "rm") ? "Bg.RemoveConfirmOf" : "Bg.RemoveOf", a.Label]" title="@L["Bg.RemoveHint"]" @onclick='() => Confirm(a, "rm", true)' @onblur='() => Disarm(a, "rm")'>@Both(Armed(a, "rm"), "Bg.Remove", "Bg.RemoveConfirm", Running(a, "rm"))</button>
                                 }
                             </div></td>
                         </tr>
+                        @if (armed is { } am && am.Id == a.Id)
+                        {
+                            <tr class="bgout bgarmrow"><td colspan="4"><div class="bgarm" role="status">@L[am.Command == "rm" ? "Bg.RemoveHint" : "Bg.RespawnHint"]@(am.Command == "respawn" && a.Mode == "bypassPermissions" ? " " + L["Bg.RespawnBypass"] : "")</div></td></tr>
+                        }
+                        @if (a.Id == shown && output is not null)
+                        {
+                            <tr class="bgout"><td colspan="4">
+                                <div class="cmdlog wfres @(failed ? "bad" : null)" role="region" tabindex="-1" aria-label="@L["Bg.Output", a.Label]" @ref="outEl">
+                                    <div class="bgoh"><b>@L[failed ? "Bg.FailedOf" : "Bg.OutputOf", outCommand, a.Label]</b><button class="btn ghost" tabindex="0" @onclick="() => CloseOutput(a.Id)">@L["Action.Close"]</button></div>@output
+                                </div>
+                            </td></tr>
+                        }
                     }
                 </tbody>
             </table>
-            @if (output is not null)
+            <p class="ovnote bgkeys"><kbd>J</kbd> <kbd>K</kbd> @L["Bg.KeyMove"] · <kbd>↵</kbd> @L[shownRows.Any(Attachable) ? "Bg.KeyOpen" : "Bg.KeyOpenOnly"] · <kbd>R</kbd> @L["Bg.KeyRefresh"] · <kbd>Esc</kbd> @L["Bg.KeyBack"]</p>
+            @if (shownRows.Any(r => r.Background && !r.Stale))
             {
-                <div class="cmdlog wfres" role="status" aria-label="@L["Bg.Output", shown ?? ""]">@output</div>
+                <p class="ovnote bgkeys">@L["Bg.Legend"]</p>   @* the verbs are on screen: what each one does, not only in its title *@
             }
         }
     </div>
@@ -67,43 +113,141 @@
 
 @code {
     List<BackgroundAgents.Agent>? rows;
-    string? error, output, shown, confirmRm;
-    bool loading, busy;
+    string? error, output, shown, cursor, outCommand;
+    (string Id, string Command)? armed, running;
+    DateTimeOffset armedAt;
+    bool loading, busy, failed, daemonUp = true, focusOut, needsOnly;
+    CancellationTokenSource? disarm;
+    DateTimeOffset readAt;
+    ElementReference outEl, paneEl;
+    string? focusRow, notice;
+    bool focusRefresh;
+    ElementReference refreshEl;
+    Timer? timer;
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive) await Load();
+        if (!RendererInfo.IsInteractive) return;
+        await Load(true);
+        timer = new Timer(_ => InvokeAsync(async () => { if (!loading && !busy) { await Load(false); StateHasChanged(); } }), null, 15000, 15000);
     }
 
-    async Task Load()
+    protected override async Task OnAfterRenderAsync(bool first)
     {
+        // Focus follows the work, never drops to body: to the output a button produced, back to the row when it closes.
+        if (focusOut) { focusOut = false; try { await outEl.FocusAsync(); } catch (InvalidOperationException) { } catch (JSException) { } catch (JSDisconnectedException) { } }
+        if (focusRefresh) { focusRefresh = false; try { await refreshEl.FocusAsync(); } catch (InvalidOperationException) { } catch (JSException) { } catch (JSDisconnectedException) { } }
+        if (focusRow is { } id) { focusRow = null; try { await JS.InvokeVoidAsync("claudeUi.reveal", paneEl, "bg-" + id, "nearest", true); } catch (JSException) { } catch (JSDisconnectedException) { } }
+    }
+
+    // The 15 s re-read keeps every known row where it was (new ones go last), so nothing moves under the pointer;
+    // Refresh, and arriving, sort again.
+    async Task Load(bool sort)
+    {
+        if (loading) return;
         loading = true;
         error = null;
-        try { rows = await BackgroundAgents.List(); }
-        catch (Exception ex) { error = L["Session.ActionFailed", ex.Message.TrimEnd()]; rows ??= []; }
+        try
+        {
+            var (fresh, up) = await BackgroundAgents.List();
+            if (!sort && rows is { } old) fresh = [.. fresh.OrderBy(r => old.FindIndex(o => o.Id == r.Id) is >= 0 and var i ? i : int.MaxValue)];
+            (rows, daemonUp, readAt) = (fresh, up, DateTimeOffset.Now);
+            if (!rows.Any(r => r.NeedsYou)) needsOnly = false;
+        }
+        catch (Exception ex) { error = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
         finally { loading = false; }
     }
 
-    // rm deletes the session's worktree too: a second click confirms.
-    async Task Remove(BackgroundAgents.Agent a)
+    // "3 sessions · 1 background, 2 in a terminal", then who needs you (a filter): parts of one whole, never summed twice.
+    string Counts() => Strings.Plural(rows!.Count, "Bg.Sessions") + " · " + L["Bg.Split", rows!.Count(r => r.Background), rows!.Count(r => !r.Background)];
+
+    // A session's folder, and its repo when it is a worktree (".claude/worktrees/<folder>" of a repo), shown first: it survives truncation.
+    static (string Folder, string? Repo) Place(string cwd)
     {
-        if (confirmRm != a.Id) { confirmRm = a.Id; return; }
-        await Act("rm", a);
+        var p = cwd.Replace('\\', '/').TrimEnd('/');
+        var i = p.IndexOf("/.claude/worktrees/", StringComparison.Ordinal);
+        return i > 0 ? (p[(i + 19)..], Path.GetFileName(p[..i])) : (Path.GetFileName(p) is { Length: > 0 } f ? f : TranscriptStore.Short(p), null);
     }
+
+    // The CLI's word in the UI's language; an unknown one as the CLI says it.
+    string StateWord(string s) => L["Bg.St." + s] is { ResourceNotFound: false } w ? w : s;
+
+
+    void CloseOutput(string id)
+    {
+        output = null;
+        shown = null;
+        cursor = focusRow = id;
+    }
+
+    // rm (and respawn into bypassPermissions) confirm in place: the first click arms, the second runs; leaving the button
+    // or 5 s without the second click disarms it.
+    bool Armed(BackgroundAgents.Agent a, string command) => armed == (a.Id, command);
+
+    // Copy attach: a background session with no conversation here to Open, unless it is frozen with that conversation gone.
+    static bool Attachable(BackgroundAgents.Agent a) =>
+        a.Background && (a.SessionId is not { } sid || TranscriptStore.ById(sid) is null) && !(a.Stale && a.SessionId is not null);
+    bool Running(BackgroundAgents.Agent a, string command) => running == (a.Id, command);
+
+    // A confirming verb holds both its labels in one grid cell, the other hidden: arming never changes its width, so the
+    // second click lands on it, never on a neighbour that slid under the pointer.
+    RenderFragment Both(bool armedNow, string idle, string armedKey, bool run) => __b =>
+    {
+        __b.OpenElement(0, "span"); __b.AddAttribute(1, "aria-hidden", armedNow ? "true" : null); __b.AddContent(2, L[idle] + (run && !armedNow ? "…" : "")); __b.CloseElement();
+        __b.OpenElement(3, "span"); __b.AddAttribute(4, "aria-hidden", armedNow ? null : "true"); __b.AddContent(5, L[armedKey]); __b.CloseElement();
+    };
+
+    async Task Confirm(BackgroundAgents.Agent a, string command, bool ask)
+    {
+        if (busy) return;
+        if (ask && Armed(a, command) && DateTimeOffset.Now - armedAt < TimeSpan.FromMilliseconds(400)) return;   // a double click arms, never confirms
+        if (ask && !Armed(a, command))
+        {
+            armed = (a.Id, command);
+            armedAt = DateTimeOffset.Now;
+            disarm?.Cancel();
+            var cts = disarm = new CancellationTokenSource();
+            _ = Task.Delay(5000, cts.Token).ContinueWith(t => { if (!t.IsCanceled) InvokeAsync(() => { if (armed == (a.Id, command)) { armed = null; StateHasChanged(); } }); });
+            return;
+        }
+        await Act(command, a);
+    }
+
+    void Disarm(BackgroundAgents.Agent a, string command) { if (Armed(a, command)) armed = null; }
 
     async Task Act(string command, BackgroundAgents.Agent a)
     {
+        if (busy) return;
+        var index = rows?.FindIndex(r => r.Id == a.Id) ?? 0;
+        var ok2 = false;
+        notice = null;
         busy = true;
-        confirmRm = null;
+        running = (a.Id, command);
+        armed = null;
+        disarm?.Cancel();
         shown = a.Id;
+        outCommand = command;
         try
         {
             var (ok, text) = await BackgroundAgents.Run(command, a.Id);
+            failed = !ok;
+            ok2 = ok;
             // logs is terminal output: escapes stripped, \r-overwritten lines kept in their last state.
             output = command == "logs" ? BgTask.Tail(text, 200) : text.Length > 0 ? text : L[ok ? "Bg.Done" : "Bg.Failed"];
         }
-        catch (Exception ex) { output = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
-        finally { busy = false; }
-        if (command != "logs") await Load();
+        catch (Exception ex) { failed = true; output = L["Session.ActionFailed", ex.Message.TrimEnd()]; }
+        finally { busy = false; running = null; }
+        if (command != "logs") await Load(false);
+        if (rows?.Any(r => r.Id == a.Id) == true) focusOut = true;
+        else
+        {
+            // The row went (rm): its output goes with it; say so, and hand focus to the row that took its place, else Refresh.
+            notice = L[ok2 ? "Bg.Removed" : "Bg.Gone2", a.Label];
+            output = null; shown = null;
+            var next = rows?.ElementAtOrDefault(Math.Max(0, index)) ?? rows?.LastOrDefault();
+            if (next is not null) cursor = focusRow = next.Id; else focusRefresh = true;
+        }
     }
+
+    public void Dispose() { timer?.Dispose(); disarm?.Cancel(); }
 }

@@ -79,7 +79,7 @@
   <data name="Bg.Stop" xml:space="preserve"><value>Arrêter</value></data>
   <data name="Bg.StopLabel" xml:space="preserve"><value>Arrêter la tâche en arrière-plan : {0}</value></data>
   <data name="Bg.Stopped" xml:space="preserve"><value>arrêtée</value></data>
-  <data name="Bg.Title" xml:space="preserve"><value>Sessions qui tournent sans fenêtre</value></data>
+  <data name="Bg.Title" xml:space="preserve"><value>Sessions en arrière-plan et dans un terminal</value></data>
   <data name="Col.Actions" xml:space="preserve"><value>Actions</value></data>
   <data name="Col.Mode" xml:space="preserve"><value>Mode</value></data>
   <data name="Col.State" xml:space="preserve"><value>État</value></data>
@@ -1033,24 +1033,20 @@
   <data name="New.FromPrGo" xml:space="preserve"><value>Reprendre</value></data>
   <data name="New.FromPrNone" xml:space="preserve"><value>Aucune session de ce dossier n’est liée à {0}.</value></data>
   <data name="Nav.Background" xml:space="preserve"><value>Arrière-plan</value></data>
-  <data name="Bg.Count1" xml:space="preserve"><value>{0} session en arrière-plan</value></data>
-  <data name="Bg.CountN" xml:space="preserve"><value>{0} sessions en arrière-plan</value></data>
-  <data name="Bg.Count0" xml:space="preserve"><value>{0} session en arrière-plan</value></data>
-  <data name="Bg.Text" xml:space="preserve"><value>Lancées avec &lt;code&gt;claude --bg&lt;/code&gt; ou depuis la vue des agents, elles continuent après la fermeture du terminal. Les sessions ouvertes dans un terminal sont listées aussi.</value></data>
+  <data name="Bg.Text" xml:space="preserve"><value>Les sessions en arrière-plan, lancées avec &lt;code&gt;claude --bg&lt;/code&gt; ou depuis la vue des agents, continuent après la fermeture de leur terminal. Les sessions ouvertes dans un terminal sont listées aussi.</value></data>
   <data name="Bg.Loading" xml:space="preserve"><value>Interrogation de Claude Code…</value></data>
-  <data name="Bg.None" xml:space="preserve"><value>Aucune session ne tourne.</value></data>
+  <data name="Bg.None" xml:space="preserve"><value>Aucune session Claude Code ne tourne. Lance-en une en arrière-plan avec &lt;code&gt;claude --bg&lt;/code&gt;.</value></data>
   <data name="Bg.Col.Session" xml:space="preserve"><value>Session</value></data>
-  <data name="Bg.Col.Kind" xml:space="preserve"><value>Type</value></data>
   <data name="Bg.Col.Started" xml:space="preserve"><value>Démarrée</value></data>
   <data name="Bg.Kind.Background" xml:space="preserve"><value>arrière-plan</value></data>
   <data name="Bg.Kind.Interactive" xml:space="preserve"><value>terminal</value></data>
   <data name="Bg.Logs" xml:space="preserve"><value>Journal</value></data>
   <data name="Bg.Respawn" xml:space="preserve"><value>Relancer</value></data>
-  <data name="Bg.RespawnHint" xml:space="preserve"><value>La redémarrer sur la version actuelle de Claude Code</value></data>
-  <data name="Bg.StopHint" xml:space="preserve"><value>L’arrêter ; sa conversation est conservée</value></data>
+  <data name="Bg.RespawnHint" xml:space="preserve"><value>La redémarrer sur la version actuelle de Claude Code.</value></data>
+  <data name="Bg.StopHint" xml:space="preserve"><value>L’arrêter ; sa conversation est conservée.</value></data>
   <data name="Bg.Remove" xml:space="preserve"><value>Supprimer</value></data>
-  <data name="Bg.RemoveConfirm" xml:space="preserve"><value>Supprimer définitivement ?</value></data>
-  <data name="Bg.RemoveHint" xml:space="preserve"><value>Supprimer la session et son worktree</value></data>
+  <data name="Bg.RemoveConfirm" xml:space="preserve"><value>Supprimer ?</value></data>
+  <data name="Bg.RemoveHint" xml:space="preserve"><value>Supprime la session, et le worktree que Claude Code a créé pour elle, s’il y en a un, sauf s’il contient du travail non poussé ou non commité (Claude Code refuse alors, et dit pourquoi).</value></data>
   <data name="Bg.Done" xml:space="preserve"><value>Fait.</value></data>
   <data name="Cwd.Label" xml:space="preserve"><value>Dossier de travail</value></data>
   <data name="Cwd.TrustRoot" xml:space="preserve"><value>Claude Code n’a jamais travaillé dans {0}. Ce dossier appartient au dépôt git {1} : lui faire confiance, c’est faire confiance à tout ce dépôt, chaque sous-dossier et worktree lié, dont les réglages, hooks et CLAUDE.md seraient chargés. Lui faire confiance ?</value></data>
@@ -1068,4 +1064,66 @@
   <data name="Thread.Scheduled" xml:space="preserve"><value>Tâche planifiée lancée à {0} :</value></data>
   <data name="New.Agent" xml:space="preserve"><value>Agent</value></data>
   <data name="New.AgentHint" xml:space="preserve"><value>Aucun : celui de Claude Code par défaut</value></data>
+  <data name="Bg.Needs0" xml:space="preserve"><value>{0} t’attend</value></data>
+  <data name="Bg.Needs1" xml:space="preserve"><value>{0} t’attend</value></data>
+  <data name="Bg.NeedsN" xml:space="preserve"><value>{0} t’attendent</value></data>
+  <data name="Bg.ReadAt" xml:space="preserve"><value>Lu à {0}, puis toutes les 15 s</value></data>
+  <data name="Bg.RefreshHint" xml:space="preserve"><value>Redemander à Claude Code (la liste est aussi relue toutes les 15 s ; Rafraîchir la retrie).</value></data>
+  <data name="Bg.DaemonDown" xml:space="preserve"><value>Démon à l’arrêt :</value></data>
+  <data name="Bg.DaemonDownText" xml:space="preserve"><value>il tourne à la demande et s’arrête quand son dernier client se déconnecte. D’ici à ce qu’il reparte, chaque session en arrière-plan montre son dernier état enregistré.</value></data>
+  <data name="Bg.St.working" xml:space="preserve"><value>au travail</value></data>
+  <data name="Bg.St.blocked" xml:space="preserve"><value>bloquée</value></data>
+  <data name="Bg.St.waiting" xml:space="preserve"><value>en attente</value></data>
+  <data name="Bg.St.done" xml:space="preserve"><value>terminée</value></data>
+  <data name="Bg.St.idle" xml:space="preserve"><value>inactive</value></data>
+  <data name="Bg.St.busy" xml:space="preserve"><value>au travail</value></data>
+  <data name="Bg.St.stopped" xml:space="preserve"><value>arrêtée</value></data>
+  <data name="Bg.St.failed" xml:space="preserve"><value>en échec</value></data>
+  <data name="Bg.St.running" xml:space="preserve"><value>en cours</value></data>
+  <data name="Bg.Asks" xml:space="preserve"><value>Demande : {0}</value></data>
+  <data name="Bg.LastStep" xml:space="preserve"><value>dernière étape {0}</value></data>
+  <data name="Bg.OpenOf" xml:space="preserve"><value>Ouvrir {0}</value></data>
+  <data name="Bg.Attach" xml:space="preserve"><value>Copier attach</value></data>
+  <data name="Bg.AttachOf" xml:space="preserve"><value>Copier attach pour {0}</value></data>
+  <data name="Bg.AttachHint" xml:space="preserve"><value>Copie « claude attach {0} » : colle-la dans un terminal pour y ouvrir la session.</value></data>
+  <data name="Bg.LogsOf" xml:space="preserve"><value>Journal de {0}</value></data>
+  <data name="Bg.RespawnOf" xml:space="preserve"><value>Relancer {0}</value></data>
+  <data name="Bg.StopOf" xml:space="preserve"><value>Arrêter {0}</value></data>
+  <data name="Bg.RemoveOf" xml:space="preserve"><value>Supprimer {0}</value></data>
+  <data name="Bg.RemoveConfirmOf" xml:space="preserve"><value>Supprimer ? {0}</value></data>
+  <data name="Bg.OutputOf" xml:space="preserve"><value>claude {0} · {1}</value></data>
+  <data name="Bg.FailedOf" xml:space="preserve"><value>échec de claude {0} · {1}</value></data>
+  <data name="Bg.Sessions0" xml:space="preserve"><value>{0} session</value></data>
+  <data name="Bg.Sessions1" xml:space="preserve"><value>{0} session</value></data>
+  <data name="Bg.SessionsN" xml:space="preserve"><value>{0} sessions</value></data>
+  <data name="Bg.Split" xml:space="preserve"><value>{0} en arrière-plan, {1} dans un terminal</value></data>
+  <data name="Bg.ShowNeeds" xml:space="preserve"><value>N’afficher que les sessions qui t’attendent</value></data>
+  <data name="Bg.ShowAll" xml:space="preserve"><value>Afficher toutes les sessions</value></data>
+  <data name="Bg.StartedAt" xml:space="preserve"><value>lancée {0}</value></data>
+  <data name="Bg.OpenHint" xml:space="preserve"><value>Ouvre sa conversation ici.</value></data>
+  <data name="Bg.RespawnBypass" xml:space="preserve"><value>Elle redémarre en mode bypassPermissions, comme au lancement : ses outils s’exécutent sans demander.</value></data>
+  <data name="Bg.RespawnConfirm" xml:space="preserve"><value>Relancer ?</value></data>
+  <data name="Bg.RespawnConfirmOf" xml:space="preserve"><value>Relancer ? {0}</value></data>
+  <data name="Mascot.BgNeeds0" xml:space="preserve"><value>{0} session t’attend</value></data>
+  <data name="Mascot.BgNeeds1" xml:space="preserve"><value>{0} session t’attend</value></data>
+  <data name="Mascot.BgNeedsN" xml:space="preserve"><value>{0} sessions t’attendent</value></data>
+  <data name="Mascot.BgWhere" xml:space="preserve"><value>Hors de l’app · Arrière-plan</value></data>
+  <data name="Bg.LastStepAt" xml:space="preserve"><value>Dernière étape : {0}</value></data>
+  <data name="Bg.Showing" xml:space="preserve"><value> · {0} sur {1}</value></data>
+  <data name="Bg.FrozenState" xml:space="preserve"><value>{0}, à l’arrêt</value></data>
+  <data name="Bg.OpenLive" xml:space="preserve"><value>Ouvre sa conversation ici. Elle est ouverte dans un autre claude : envoyer d’ici lancerait un second processus sur la même session.</value></data>
+  <data name="Bg.Asked" xml:space="preserve"><value>Demandait : {0}</value></data>
+  <data name="Bg.GoneVerdict" xml:space="preserve"><value>Sa conversation n’est plus sur le disque : on ne peut ni la reprendre ni lui répondre d’ici.</value></data>
+  <data name="Bg.KeyMove" xml:space="preserve"><value>déplacer</value></data>
+  <data name="Bg.KeyOpen" xml:space="preserve"><value>ouvrir ou copier</value></data>
+  <data name="Bg.KeyRefresh" xml:space="preserve"><value>rafraîchir</value></data>
+  <data name="Bg.KeyBack" xml:space="preserve"><value>quitter la ligne</value></data>
+  <data name="Bg.GoneShort" xml:space="preserve"><value>conversation perdue, impossible à reprendre</value></data>
+  <data name="Bg.DaemonRun" xml:space="preserve"><value>Copier claude daemon run</value></data>
+  <data name="Bg.DaemonRunHint" xml:space="preserve"><value>Copie « claude daemon run », qui lance le superviseur au premier plan (claude daemon --help)</value></data>
+  <data name="Bg.Legend" xml:space="preserve"><value>Arrêter garde sa conversation · Relancer la redémarre sur la version actuelle · Supprimer l’efface, avec le worktree que Claude Code a créé pour elle, s’il y en a un.</value></data>
+  <data name="Bg.Removed" xml:space="preserve"><value>{0} supprimée.</value></data>
+  <data name="Bg.Gone2" xml:space="preserve"><value>{0} n’est plus listée.</value></data>
+  <data name="Bg.KeyOpenOnly" xml:space="preserve"><value>ouvrir</value></data>
+  <data name="Bg.ReadShort" xml:space="preserve"><value>lu à {0}</value></data>
 </root>
