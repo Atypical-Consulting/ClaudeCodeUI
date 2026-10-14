@@ -2,34 +2,79 @@
 @implements IDisposable
 @inject SessionManager Sessions
 @inject UiState Ui
+@inject NavigationManager Nav
 
 <PageTitle>@L["Nav.Extensions"] · Claude Code</PageTitle>
 
 <div class="pane">
-    <div class="ph"><h1 class="ttl">@L["Nav.Extensions"]</h1>@if (Live is { } lv) { <span class="sub">@Fmt.Home(lv.Cwd)</span> }</div>
+    <div class="ph"><h1 class="ttl">@L["Nav.Extensions"]</h1>@if (Live is { } lv)
+        {
+            var others = Sessions.All.Where(x => x.HasProcess || x == lv).ToList();
+            <span class="sub" title="@Slash(lv.Cwd)">@if (others.Count > 1)
+                {
+                    <select aria-label="@L["Ext.Session"]" value="@lv.Id" @onchange="e => Nav.NavigateTo(Link(e.Value?.ToString()))">
+                        @foreach (var o in others)
+                        {
+                            <option value="@o.Id">@o.Name · @Fmt.Home(o.Cwd)</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <a href="@($"session/{lv.Id}")">@lv.Name</a>@(" · " + Fmt.Home(lv.Cwd))
+                }</span>
+        }
+        else if (Past is { } past)
+        {
+            <span class="sub" title="@Slash(past.Cwd)">@past.Title@(" · " + Fmt.Home(past.Cwd))</span>
+        }</div>
     <div class="ext">
         @if (Live is not { } s)
         {
-            <div><h2>@L["Nav.Extensions"]</h2><p class="lead">@L["Ext.NoSession"]</p>
-                <div class="acts"><a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a></div></div>
+            var known = Past is not null;
+            var open = Sessions.All.Where(x => x.HasProcess).ToList();
+            <div><h2>@L["Nav.Extensions"]</h2><p class="lead">@(SessionQuery is not { Length: > 0 } ? L["Ext.NoSession"] : known ? L["Ext.SessionGoneOf", Past!.Title] : L["Ext.SessionUnknown"])</p>
+                <div class="acts">@if (known)
+                    {
+                        <a class="btn primary" href="@($"session/{Uri.EscapeDataString(SessionQuery!)}")">@L["Ext.OpenSession"]</a>
+                        <a class="btn" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                    }
+                    else if (open.Count > 0)
+                    {
+                        @foreach (var o in open)
+                        {
+                            <a class="btn" href="@Link(o.Id)" title="@Slash(o.Cwd)">@L["Ext.ShowFor", o.Name]</a>
+                        }
+                    }
+                    else
+                    {
+                        <a class="btn primary" href=""><Icon Name="plus" Sm />@L["Rail.NewSession"]</a>
+                    }</div></div>
+            <h3>@L["Ext.Plugins.ForHome"]</h3>
+            <p class="d hint">@L["Ext.Plugins.NoSessionNote"]</p>
+            @PluginsTab(null, Home, null, null)
         }
         else
         {
             var servers = Servers(s);
-            var skills = s.Init?.Skills ?? [];
+            var skills = s.Init?.Skills ?? skillsRead;
             var agents = Agents(s);
-            var plugins = s.Init?.Plugins ?? [];
             <div><h2>@L["Nav.Extensions"]</h2><p class="lead">@L["Ext.Lead"]</p></div>
             <div class="subtabs" role="tablist" aria-label="@L["Nav.Extensions"]">
-                @Tab("mcp", "MCP", servers.Count)
-                @Tab("skills", L["Ext.Tab.Skills"], skills.Length)
-                @Tab("agents", L["Ext.Tab.Agents"], agents.Count)
-                @Tab("plugins", L["Ext.Tab.Plugins"], installed?.Count ?? plugins.Length)
-                @Tab("hooks", L["Ext.Tab.Hooks"], hooks?.Rows.Count ?? 0)
-                @Tab("permissions", L["Ext.Tab.Permissions"], perms?.Rules.Count ?? 0)
+                @Tab("mcp", "MCP", s.HasProcess || s.McpStatus is not null ? servers.Count : null)
+                @Tab("skills", L["Ext.Tab.Skills"], skills?.Length)
+                @Tab("agents", L["Ext.Tab.Agents"], s.InitializeInfo is null && s.Init is null ? null : agents.Count)
+                @Tab("plugins", L["Ext.Tab.Plugins"], installed?.Count)
+                @Tab("hooks", L["Ext.Tab.Hooks"], hooks?.Rows.Count)
+                @Tab("permissions", L["Ext.Tab.Permissions"], perms?.Rules.Count)
             </div>
             <div id="ext-panel" role="tabpanel" aria-labelledby="ext-tab-@tab">
-            @if (tab == "mcp")
+            @if (!s.HasProcess && tab != "plugins")
+            {
+                <p class="lead" role="status">@(s.ExitCode is { } code ? L["Ext.NoProcessExited", code] : L["Ext.NoProcess"])</p>
+                <div class="acts"><button class="btn primary" disabled="@busy" @onclick="() => Start(s)"><Icon Name="zap" Sm />@L["Ext.StartProcess"]</button></div>
+            }
+            else if (tab == "mcp")
             {
                 @if (note is not null)
                 {
@@ -37,9 +82,11 @@
                 }
                 <div class="filters">
                     @Filter("", L["Filter.All"], servers.Count)
-                    @Filter("connected", L["Ext.Filter.Connected"], servers.Count(x => x.Status == "connected"))
-                    @Filter("needs-auth", L["Ext.Filter.Auth"], servers.Count(x => x.Status == "needs-auth"))
-                    @Filter("failed", L["Ext.Filter.Failed"], servers.Count(x => x.Status == "failed"))
+                    @foreach (var (st, lbl) in new[] { ("connected", "Ext.Filter.Connected"), ("needs-auth", "Ext.Filter.Auth"), ("failed", "Ext.Filter.Failed"), ("disabled", "Ext.Filter.Disabled") })
+                    {
+                        var c = servers.Count(x => x.Status == st);
+                        if (c > 0 || filter == st) { @Filter(st, L[lbl], c) }
+                    }
                     @if (servers.Count(x => x.Status == "failed") > 1)
                     {
                         <button class="btn" disabled="@busy" @onclick="() => ReconnectAll(s, servers)"><Icon Name="refresh" Sm />@L["Ext.RetryAll"]</button>
@@ -49,28 +96,34 @@
                 {
                     <div class="errbox" role="status">@L["Ext.Skipped", skipped.Name, skipped.Message]</div>
                 }
-                <table class="mcp">
-                    <thead><tr><th>@L["Ext.Col.Server"]</th><th>@L["Ext.Col.Source"]</th><th>@L["Col.State"]</th><th class="num">@L["Col.Tools"]</th><th class="num">@L["Ext.Col.ThisFolder"]</th></tr></thead>
+                @if (servers.Any(x => x.Status is "connected" or "disabled"))
+                {
+                    <p class="d hint">@L["Ext.SwitchesHint"]</p>
+                }
+                var shownRows = servers.Where(x => filter == "" || x.Status == filter).ToList();
+                var stop = shownRows.FirstOrDefault(x => x.Name == selected)?.Name ?? shownRows.FirstOrDefault()?.Name;
+                <table class="mcp servers" aria-label="@L["Ext.McpTable"]">
+                    <thead><tr><th>@L["Ext.Col.Server"]</th><th>@L["Col.State"]</th><th class="num tools" title="@L["Ext.ToolsHint"]">@L["Col.Tools"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                     <tbody>
-                        @foreach (var m in servers.Where(x => filter == "" || x.Status == filter))
+                        @foreach (var m in shownRows)
                         {
-                            <tr class="@(m.Name == selected ? "sel" : null)" tabindex="0" @onclick="() => Select(m.Name)" @onkeydown='e => { if (e.Key is "Enter" or " ") Select(m.Name); }'>
-                                <td><div class="n">@m.Short</div><div class="d">@m.Origin</div></td>
-                                <td><span class="tag">@m.Tag</span></td>
+                            var rt = m.Name == stop ? 0 : -1;
+                            <tr @key="m.Name" data-r class="@(m.Name == selected ? "sel" : null)" tabindex="@rt" aria-selected="@(m.Name == selected ? "true" : "false")" @onclick="() => Select(m.Name)" @onkeydown='e => { if (e.Key is "Enter" or " ") Select(m.Name); }'>
+                                <td><div class="n" title="@m.Short">@m.Short</div><div class="d" title="@m.Origin">@m.Origin</div></td>
                                 <td>@State(m.Status)</td>
-                                <td class="num">@(m.Status == "failed" ? m.Tools?.Length ?? 0 : m.Status == "connected" ? m.Tools?.Length.ToString() ?? "—" : "—")</td>
-                                <td class="num" @onclick:stopPropagation>
+                                <td class="num tools">@(m.Status == "failed" ? m.Tools?.Length ?? 0 : m.Status == "connected" ? m.Tools?.Length.ToString() ?? "—" : "—")</td>
+                                <td class="num rowacts" @onclick:stopPropagation>
                                     @switch (m.Status)
                                     {
                                         case "failed":
-                                            <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Retry"]}: {m.Short}")" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
+                                            <button class="btn" tabindex="@rt" disabled="@busy" aria-label="@($"{L["Ext.Retry"]}: {m.Short}")" @onclick="() => Reconnect(s, m.Name)">@L["Ext.Retry"]</button>
                                             break;
                                         case "needs-auth" when SignsInHere(m):
-                                            <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.SignIn"]}: {m.Short}")" @onclick="() => SignIn(s, m.Name)">@L["Ext.SignIn"]</button>
+                                            <button class="btn" tabindex="@rt" disabled="@busy" aria-label="@($"{L["Ext.SignIn"]}: {m.Short}")" @onclick="() => SignIn(s, m.Name)">@L["Ext.SignIn"]</button>
                                             break;
                                         case "connected" or "disabled":
                                             var on = m.Status == "connected";
-                                            <button class="toggle @(on ? "on" : null)" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="@($"{L["Ext.EnableHere"]}: {m.Short}")"
+                                            <button class="toggle @(on ? "on" : null)" tabindex="@rt" role="switch" aria-checked="@(on ? "true" : "false")" aria-label="@($"{L["Ext.EnableHere"]}: {m.Short}")" title="@L["Ext.EnableHereHint"]"
                                                     disabled="@busy" @onclick="() => Toggle(s, m.Name, !on)"><span class="sw"></span></button>
                                             break;
                                     }
@@ -79,10 +132,18 @@
                         }
                     </tbody>
                 </table>
+                @if (shownRows.Count == 0)
+                {
+                    <p class="lead">@L["Ext.FilterEmpty"]</p>
+                }
+                else
+                {
+                    <p class="keys">@L["Ext.KeysMcp"]</p>
+                }
             }
             else if (tab == "hooks")
             {
-                <p class="lead">@((MarkupString)L["Ext.Hooks.Lead", $"<code title=\"{Fmt.Enc(s.Cwd)}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
+                <p class="lead">@((MarkupString)L["Ext.Hooks.Lead", $"<code title=\"{Fmt.Enc(Slash(s.Cwd))}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
                 @if (hooksNote is not null)
                 {
                     <div class="errbox" role="alert">@hooksNote</div>
@@ -101,35 +162,63 @@
                 }
                 else if (hooks is { } hl)
                 {
-                    <table class="mcp">
-                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+                    var hrows = hl.Rows.Where(h => Matches($"{h.Event} {(h.Matcher.Length > 0 ? h.Matcher : L["Ext.Hooks.AnyMatcher"])} {h.Plugin ?? SourceTag(h.Source)}", h.Command)).ToList();
+                    @FindBox(hrows.Count, hl.Rows.Count)
+                    @if (hrows.Count == 0)
+                    {
+                        <p class="lead">@L["Ext.FindEmpty"]</p>
+                    }
+                    else
+                    {
+                    var anyEdit = hrows.Any(h => h.Edit is not null && !hl.Locked && PermissionRules.Files.Contains(h.Source));
+                    <table class="mcp hooktab @(anyEdit ? null : "ro")" aria-label="@L["Ext.Tab.Hooks"]">
+                        <thead><tr><th>@L["Ext.Col.Event"]</th><th>@L["Ext.Col.Matcher"]</th><th>@L["Ext.Col.Command"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                         <tbody>
-                            @foreach (var h in hl.Rows)
+                            @{ var hstop = StopOf(hrows.Select(HookKey)); }
+                            @foreach (var h in hrows)
                             {
                                 var meta = string.Join(" · ", new[] { h.Type, h.Timeout is { } t ? $"{t} s" : null, h.Display }.Where(x => !string.IsNullOrEmpty(x)));
-                                <tr class="@(h == hookEditing ? "sel" : null)">
-                                    <td><div class="n">@h.Event</div>@if (h.Disabled)
+                                var hkey = HookKey(h);
+                                var rt = hkey == hstop ? 0 : -1;
+                                <tr data-r tabindex="@rt" @onfocusin="() => cursor = hkey" class="@(h == hookEditing ? "sel" : null)">
+                                    <td><div class="n">@h.Event</div><span class="tag" title="@(h.Plugin is null ? h.SourceLabel : null)">@SourceTag(h.Source)</span>@if (h.Plugin is { } hp)
+                                        {
+                                            <span class="d id" title="@hp">@hp</span>
+                                        }@if (h.Disabled)
                                         {
                                             <span class="tag">@L["Ext.Hooks.RowDisabled"]</span>
                                         }</td>
-                                    <td><code>@(h.Matcher.Length > 0 ? h.Matcher : "—")</code></td>
-                                    <td><code class="hookcmd">@h.Command</code><div class="d">@meta</div>@if (h.BlocksOnFailure)
+                                    <td>@if (h.Matcher.Length > 0)
+                                        {
+                                            <code>@Breaks(h.Matcher, '|')</code>
+                                        }
+                                        else
+                                        {
+                                            <span class="d">@L["Ext.Hooks.AnyMatcher"]</span>
+                                        }</td>
+                                    <td><code class="hookcmd">@Breaks(h.Command, '/')</code><div class="d">@meta</div>@if (h.BlocksOnFailure)
                                         {
                                             <span class="tag" title="@L["Ext.Hooks.BlocksHint"]">@L["Ext.Hooks.Blocks"]</span>
                                         }</td>
-                                    <td><span class="tag">@SourceTag(h.Source)</span><div class="d">@(h.Plugin ?? h.SourceLabel)</div></td>
-                                    <td class="num">@if (h.Edit is not null && !hl.Locked && PermissionRules.Files.Contains(h.Source))
+                                    <td class="num rowacts">@if (h.Edit is not null && !hl.Locked && PermissionRules.Files.Contains(h.Source))
                                         {
                                             @if (h.Type == "command")
                                             {
-                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.EditRow", h.Event, h.Command]" @onclick="() => EditHook(h)">@L["Ext.Hooks.Edit"]</button>
+                                                <button class="btn ghost" tabindex="@rt" disabled="@busy" aria-label="@L["Ext.Hooks.EditRow", HookName(h), h.Command]" @onclick="() => EditHook(h)">@L["Ext.Hooks.Edit"]</button>
                                             }
-                                            <button class="btn" disabled="@busy" aria-label="@L["Ext.Hooks.RemoveRow", h.Event, h.Command]" @onclick="() => SaveHook(s, h, true)">@L["Ext.Perm.Remove"]</button>
+                                            var hk = "h:" + HookKey(h);
+                                            <button class="btn arm @(confirm == hk ? "danger" : "ghost")" tabindex="@rt" disabled="@busy" aria-label="@(confirm == hk ? L["Ext.ConfirmRemoveOf", $"{HookName(h)} {h.Command}"] : L["Ext.Hooks.RemoveRow", HookName(h), h.Command])" @onclick='() => Armed(hk, () => SaveHook(s, h, true))' @onblur="Disarm">@(confirm == hk ? L["Ext.ConfirmRemove"] : L["Ext.Perm.Remove"])</button>
+                                        }
+                                        else if (h.Plugin is not null)
+                                        {
+                                            <span class="d">@L["Ext.Hooks.FromPlugin"]</span>
                                         }</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    <p class="keys">@L["Ext.KeysRows"]</p>
+                    }
                 }
                 @if (hooks is { Locked: false, Catalog.Count: > 0 } hf)
                 {
@@ -171,7 +260,7 @@
             }
             else if (tab == "permissions")
             {
-                <p class="lead">@((MarkupString)L["Ext.Perm.Lead", $"<code title=\"{Fmt.Enc(s.Cwd)}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
+                <p class="lead">@((MarkupString)L["Ext.Perm.Lead", $"<code title=\"{Fmt.Enc(Slash(s.Cwd))}\">{Fmt.Enc(Fmt.Home(s.Cwd))}</code>"].Value)</p>
                 @if (permsNote is not null)
                 {
                     <div class="errbox" role="alert">@permsNote</div>
@@ -190,7 +279,8 @@
                         @Filter("", L["Filter.All"], ps.Rules.Count)
                         @foreach (var b in PermissionRules.Behaviors)
                         {
-                            @Filter(b, L["Ext.Perm." + b], ps.Rules.Count(r => r.Behavior == b))
+                            var c = ps.Rules.Count(r => r.Behavior == b);
+                            if (c > 0 || filter == b) { @Filter(b, L["Ext.Perm." + b], c) }
                         }
                     </div>
                     @if (ps.Rules.Count == 0)
@@ -199,12 +289,15 @@
                     }
                     else
                     {
-                        <table class="mcp">
+                        <table class="mcp" aria-label="@L["Ext.Tab.Permissions"]">
                             <thead><tr><th>@L["Ext.Col.Rule"]</th><th>@L["Ext.Col.Behavior"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                             <tbody>
-                                @foreach (var r in ps.Rules.Where(x => filter == "" || x.Behavior == filter))
+                                @{ var shownRules = ps.Rules.Where(x => filter == "" || x.Behavior == filter).ToList(); var pstop = StopOf(shownRules.Select(r => "r:" + r.Source + "|" + r.Behavior + "|" + r.Rule)); }
+                                @foreach (var r in shownRules)
                                 {
-                                    <tr>
+                                    var rk = "r:" + r.Source + "|" + r.Behavior + "|" + r.Rule;
+                                    var rt = rk == pstop ? 0 : -1;
+                                    <tr data-r tabindex="@rt" @onfocusin="() => cursor = rk">
                                         <td><div class="n"><code>@PermissionRules.Visible(r.Rule)</code></div>@if (r.Text is var (pre, emph, suf))
                                             {
                                                 <div class="d">@pre<b>@PermissionRules.Visible(emph)</b>@suf</div>
@@ -214,14 +307,15 @@
                                             {
                                                 <div class="d">@L["Ext.Perm.NotInEffect"]</div>
                                             }</td>
-                                        <td class="num">@if (r.Editable)
+                                        <td class="num rowacts">@if (r.Editable)
                                             {
-                                                <button class="btn" disabled="@busy" aria-label="@L["Ext.Perm.RemoveRule", r.Rule]" @onclick="() => EditRule(s, r.Source, r.Behavior, r.Rule, false)">@L["Ext.Perm.Remove"]</button>
+                                                <button class="btn arm @(confirm == rk ? "danger" : "ghost")" tabindex="@rt" disabled="@busy" aria-label="@(confirm == rk ? L["Ext.ConfirmRemoveOf", r.Rule] : L["Ext.Perm.RemoveRule", r.Rule])" @onclick='() => Armed(rk, () => EditRule(s, r.Source, r.Behavior, r.Rule, false))' @onblur="Disarm">@(confirm == rk ? L["Ext.ConfirmRemove"] : L["Ext.Perm.Remove"])</button>
                                             }</td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
+                        <p class="keys">@L["Ext.KeysRows"]</p>
                     }
                     <div class="field">
                         <label for="perm-rule">@L["Ext.Perm.Add"]</label>
@@ -249,7 +343,7 @@
                             <ul class="dirs">
                                 @foreach (var (path, src) in ps.Dirs)
                                 {
-                                    <li class="chip" title="@path"><Icon Name="folder" Sm />@Fmt.Home(path) <span class="tag">@SourceTag(src)</span></li>
+                                    <li class="chip" title="@Slash(path)"><Icon Name="folder" Sm />@Fmt.Home(path) <span class="tag">@SourceTag(src)</span></li>
                                 }
                             </ul>
                         </div>
@@ -258,36 +352,66 @@
             }
             else if (tab == "plugins")
             {
-                @PluginsTab(s, servers, skills)
+                @PluginsTab(s, s.Cwd, servers, skills)
             }
-            else if (s.Init is null && tab != "agents")
+            else if (tab == "skills" && skills is null)
             {
-                <p class="lead">@L["Ext.AfterFirstMessage"]</p>
+                <p class="lead" role="status">@L["Ext.Plugins.Loading"]</p>
             }
             else if (tab == "skills")
             {
-                <table class="mcp">
-                    <thead><tr><th>@L["Ext.Col.Skill"]</th><th>@L["Ext.Col.Description"]</th></tr></thead>
-                    <tbody>
-                        @foreach (var k in skills)
-                        {
-                            var d = Describe(s, k);
-                            <tr><td><div class="n">@k</div></td><td><span class="last prose" title="@d">@(d ?? "—")</span></td></tr>
-                        }
-                    </tbody>
-                </table>
+                var sk = skills!.Select(k => (Name: k, Desc: Describe(s, k))).Where(x => Matches(x.Name, x.Desc)).ToList();
+                var kstop = StopOf(sk.Select(x => x.Name));
+                @FindBox(sk.Count, skills!.Length)
+                @if (sk.Count == 0)
+                {
+                    <p class="lead">@L["Ext.FindEmpty"]</p>
+                }
+                else
+                {
+                    <table class="mcp" aria-label="@L["Ext.Tab.Skills"]">
+                        <thead><tr><th>@L["Ext.Col.Skill"]</th><th>@L["Ext.Col.Description"]</th></tr></thead>
+                        <tbody>
+                            @foreach (var (name, d) in sk)
+                            {
+                                var (text, origin) = SplitSource(d);
+                                var op = expanded.Contains("k:" + name);
+                                <tr data-r tabindex="@(name == kstop ? 0 : -1)" class="@(op ? "open" : null)" aria-expanded="@(op ? "true" : "false")" @onfocusin="() => cursor = name"
+                                    @onclick='() => Expand("k:" + name)' @onkeydown='e => { if (e.Key is "Enter" or " ") Expand("k:" + name); }'>
+                                    <td><div class="n id">@name</div>@if (origin is not null && !name.Contains(':'))
+                                        {
+                                            <span class="tag">@origin</span>
+                                        }</td><td><span class="last prose clamp">@(text ?? "—")</span></td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    <p class="keys">@L["Ext.KeysExpand"]</p>
+                }
             }
             else if (tab == "agents")
             {
-                <table class="mcp">
+                var ag = agents.Where(a => Matches(a.Name, a.Desc)).ToList();
+                var astop = StopOf(ag.Select(a => a.Name));
+                @FindBox(ag.Count, agents.Count)
+                @if (ag.Count == 0)
+                {
+                    <p class="lead">@L["Ext.FindEmpty"]</p>
+                }
+                else
+                {
+                <table class="mcp" aria-label="@L["Ext.Tab.Agents"]">
                     <thead><tr><th>@L["Agent.Title"]</th><th>@L["Ext.Col.Description"]</th><th>@L["Model"]</th></tr></thead>
                     <tbody>
-                        @foreach (var (name, desc, model) in agents)
+                        @foreach (var (name, desc, model) in ag)
                         {
-                            <tr><td><div class="n">@name</div></td><td><span class="last prose" title="@desc">@(desc ?? "—")</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
+                            var op = expanded.Contains("a:" + name);
+                            <tr data-r tabindex="@(name == astop ? 0 : -1)" class="@(op ? "open" : null)" aria-expanded="@(op ? "true" : "false")" @onfocusin="() => cursor = name"
+                                @onclick='() => Expand("a:" + name)' @onkeydown='e => { if (e.Key is "Enter" or " ") Expand("a:" + name); }'><td><div class="n id">@name</div></td><td><span class="last prose clamp">@(desc ?? "—")</span></td><td><span class="tag">@(model ?? "—")</span></td></tr>
                         }
                     </tbody>
                 </table>
+                <p class="keys">@L["Ext.KeysExpand"]</p>
+                }
             }
             </div>
         }
@@ -297,7 +421,7 @@
 @if (Ui.InspectorOpen && tab == "mcp" && Live is { } ls && Servers(ls).FirstOrDefault(x => x.Name == selected) is { } sel)
 {
     <aside class="pane insp" aria-label="@L["Inspector"]">
-        <div class="ph"><h2 class="ttl" title="@sel.Short">@sel.Short</h2><span class="sub">@sel.Origin</span></div>
+        <div class="ph"><h2 class="ttl" title="@sel.Short">@sel.Short</h2><span class="sub">@sel.Origin</span>@CloseInspector()</div>
         @if (sel.Status == "failed")
         {
             <div class="section">
@@ -306,9 +430,10 @@
                 {
                     <div class="errbox">@err.TrimEnd()</div>
                 }
-                <p>@L["Ext.FailedText"]</p>
+                <p>@L["Ext.FailedText"] @FailedWhere(sel)</p>
                 <div class="acts">
                     <button class="btn primary" disabled="@busy" @onclick="() => Reconnect(ls, sel.Name)"><Icon Name="refresh" Sm="true" />@L["Ext.Retry"]</button>
+                    <button class="btn ghost" disabled="@busy" title="@L["Ext.EnableHereHint"]" @onclick="() => Toggle(ls, sel.Name, false)">@L["Ext.TurnOff"]</button>
                 </div>
             </div>
         }
@@ -335,7 +460,12 @@
                     <p>@L["Ext.AuthHowAlt"]</p>
                 }
                 <div class="acts"><code>/mcp</code><button type="button" class="btn" data-copy="/mcp"><Icon Name="copy" Sm />@L["Md.Copy"]</button></div>
+                <div class="acts"><button class="btn ghost" disabled="@busy" title="@L["Ext.EnableHereHint"]" @onclick="() => Toggle(ls, sel.Name, false)">@L["Ext.TurnOff"]</button></div>
             </div>
+        }
+        @if (sel.Status == "disabled")
+        {
+            <div class="section"><p>@L["Ext.DisabledText"]</p></div>
         }
         <div class="section last">
             <div class="kv">
@@ -346,7 +476,7 @@
                     <span>@L["Ext.Kv.Target"]</span><span>@t</span>
                 }
                 <span>@L["Kv.Tools"]</span><span>@(sel.Tools?.Length.ToString() ?? (sel.Status == "failed" ? "0" : "—"))</span>
-                <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope ?? "—")</span>
+                <span>@L["Ext.Kv.Scope"]</span><span>@(sel.Scope is { } sc ? ScopeLabel(sc) : "—")</span>
                 @if (sel.Version is { } v)
                 {
                     <span>@L["Ext.Kv.Version"]</span><span>@v</span>
@@ -385,10 +515,10 @@
     </aside>
 }
 
-@if (Ui.InspectorOpen && tab == "plugins" && Live is { } po && options is { } opts && configuring is { } cid)
+@if (Ui.InspectorOpen && (tab == "plugins" || Live is null) && options is { } opts && configuring is { } cid)
 {
     <aside class="pane insp" aria-label="@L["Inspector"]">
-        <div class="ph"><h2 class="ttl" title="@cid">@L["Ext.Plugins.OptionsTitle", cid.Split('@')[0]]</h2><span class="sub">@cid</span></div>
+        <div class="ph"><h2 class="ttl" title="@cid">@L["Ext.Plugins.OptionsTitle", cid.Split('@')[0]]</h2><span class="sub">@cid</span>@CloseInspector()</div>
         <div class="section last">
             @foreach (var o in opts)
             {
@@ -423,7 +553,7 @@
                 </div>
             }
             <div class="acts">
-                <button class="btn primary" disabled="@(busy || optionDraft.Count == 0)" @onclick="() => SaveOptions(po, cid)">@L["Ext.Plugins.Save"]</button>
+                <button class="btn primary" disabled="@(busy || optionDraft.Count == 0)" @onclick="() => SaveOptions(Live, Live?.Cwd ?? Home, cid)">@L["Ext.Plugins.Save"]</button>
                 <button class="btn" @onclick="() => { configuring = null; options = null; }">@L["Action.Close"]</button>
             </div>
         </div>
@@ -435,7 +565,12 @@
 
     string tab = "mcp", filter = "";
     string? selected, note, refreshedFor, hooksNote;
-    bool busy, focusAuth;
+    bool busy, focusAuth, readLive;   // readLive: the shown session was read with its process (mcp_status, hooks, rules)
+    string[]? skillsRead;   // reload_skills, before the first message gives init.skills
+    string query = "";   // the Skills / Agents / Hooks filter
+    HashSet<string> expanded = [];   // skill (k:) and agent (a:) rows showing their whole description
+    string? cursor;   // the focused row of the tab's table (Hooks, Permissions, Plugins, Skills, Agents)
+    CancellationTokenSource? disarmIn;
     HookListing? hooks;
     HookRow? hookEditing;   // the row the form replaces; null = the form adds
     string hookEvent = "PreToolUse", hookMatcher = "", hookCommand = "", hookFile = "localSettings";
@@ -448,25 +583,127 @@
     CancellationTokenSource? authPoll;
     ElementReference authLink;
 
-    // The most recent session that has a claude process: mcp_status needs one, and starting one here would be a side effect.
-    LiveSession? Live => Sessions.All.LastOrDefault(s => s.HasProcess);
+    // The session a link names (?session=, from inside it): its process starts if it has none, as the Context panel's does.
+    // Without one, the most recent session that has a claude process: starting one here would be a side effect.
+    LiveSession? Live => SessionQuery is { Length: > 0 } id ? Sessions.Get(id) : Sessions.All.LastOrDefault(s => s.HasProcess);
+    static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    string Link(string? session) => $"extensions?tab={tab}" + (session is { Length: > 0 } ? $"&session={Uri.EscapeDataString(session)}" : "");
 
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }   // /mcp, /hooks typed in a Composer
     [SupplyParameterFromQuery(Name = "server")] public string? ServerQuery { get; set; }   // a failed MCP call's link in the thread
+    [SupplyParameterFromQuery(Name = "session")] public string? SessionQuery { get; set; }   // the session the links come from
 
     protected override void OnInitialized()
     {
-        if (TabQuery is "mcp" or "hooks" or "permissions" or "plugins") tab = TabQuery;
+        if (TabQuery is "mcp" or "skills" or "agents" or "hooks" or "permissions" or "plugins") tab = TabQuery;
         if (ServerQuery is { Length: > 0 }) Select(ServerQuery);
         Sessions.Changed += OnChanged;
         Ui.Changed += OnChanged;
-        if (RendererInfo.IsInteractive) _ = Refresh();   // mcp_status once, not again for the prerender
     }
+
+    // mcp_status once per session shown, not again for the prerender; the switcher changes ?session= in place.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+        if (Live is null) { if (installed is null) await LoadPlugins(null, Home); }
+        else if (SessionQuery is not { Length: > 0 }) Nav.NavigateTo(Link(Live.Id), replace: true);   // the session shown, named
+        else if (Live.Id != refreshedFor) await Refresh();
+    }
+
+    // A session named by a link may have no process (stopped, or opened from history): the page asks before starting one.
+    Task Start(LiveSession s) => Run(async () => { await s.RefreshMcp(); refreshedFor = null; await Refresh(); });
+
+    async Task Armed(string key, Func<Task> act) { if (confirm != key) { Arm(key); return; } confirm = null; await act(); }
+    void Disarm() => confirm = null;
+
+    // An armed Remove/Uninstall disarms after 5 s too: WebKit never focuses a clicked button, so its blur never comes.
+    void Arm(string key)
+    {
+        confirm = key;
+        disarmIn?.Cancel();
+        var ct = (disarmIn = new()).Token;
+        _ = Task.Delay(5000, ct).ContinueWith(_ => InvokeAsync(() => { if (confirm == key) { confirm = null; StateHasChanged(); } }), ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+    }
+
+    bool Matches(string name, string? desc) => query.Trim() is not { Length: > 0 } q
+        || name.Contains(q, StringComparison.OrdinalIgnoreCase) || desc?.Contains(q, StringComparison.OrdinalIgnoreCase) == true;
+
+    // How a plugin stands in this session: off, failed to load, a server of it failing or waiting for sign-in, loaded, or
+    // enabled after the session started (reload). Before the first message the session has not said what it loaded.
+    RenderFragment PluginState(Plugins.Row p, LiveSession? s, List<Srv>? servers, string[]? skills, int rt)
+    {
+        var mine = servers?.Where(x => x.Origin == "plugin:" + p.Name).ToList() ?? [];
+        if (!p.Enabled) return State("disabled");
+        if (p.Errors.Length > 0 || s?.Init?.PluginErrors?.Any(e => e.Plugin == p.Name) == true) return Dot("fail", L["Ext.Plugins.State.Failed"]);
+        if (mine.Where(x => x.Status == "failed").ToList() is [var ff, ..] fl) return ToServer(ff, Dot("fail", Strings.Plural(fl.Count, "Ext.Plugins.State.ServerFailing")), rt);
+        if (mine.FirstOrDefault(x => x.Status == "needs-auth") is { } na) return ToServer(na, Dot("auth", L["Ext.State.NeedsAuth"]), rt);
+        if (mine.Count > 0 && mine.All(x => x.Status == "disabled")) return ToServer(mine[0], Dot("off", Strings.Plural(mine.Count, "Ext.Plugins.State.ServersOff")), rt);
+        if (s?.Init is { } i) return i.Plugins.Contains(p.Name) ? Dot("ok", L["Ext.Plugins.State.Loaded"]) : Dot("wait", L["Ext.Plugins.State.Reload"]);
+        // Before the first message: loaded when the session already reports one of its servers or skills.
+        if (mine.Any(x => x.Status == "connected") || skills?.Any(k => k.StartsWith(p.Name + ":")) == true || s is not null && hooks?.Rows.Any(h => h.Plugin == p.Id || h.Plugin == p.Name) == true)
+            return Dot("ok", L["Ext.Plugins.State.Loaded"]);
+        return Dot("wait", L["Ext.Plugins.State.On"]);
+    }
+
+    RenderFragment Dot(string cls, string text) => @<span class="ms @cls"><i></i>@text</span>;
+
+    // The plugin's server, opened on the MCP tab with its inspector.
+    RenderFragment ToServer(Srv m, RenderFragment state, int rt) =>
+        @<button type="button" class="linkish" tabindex="@rt" title="@L["Ext.Plugins.ShowServer", m.Short]" @onclick='() => { Show("mcp"); Select(m.Name); }'>@state</button>;
+
+    RenderFragment FindBox(int shown, int all) =>
+        @<div class="findrow"><div class="input find"><Icon Name="search" Sm /><input type="search" aria-label="@L["Ext.Find"]" placeholder="@L["Ext.Find"]" @bind="query" @bind:event="oninput" spellcheck="false" autocomplete="off" /></div>@if (query.Trim().Length > 0)
+            {
+                <span class="d" role="status">@L["Ext.FindCount", shown, all]</span>
+            }</div>;
+
+    // The row that holds a table's one Tab stop: the one the keys last reached, while it is shown, else the first.
+    string? StopOf(IEnumerable<string> keys) { var k = keys.ToList(); return cursor is not null && k.Contains(cursor) ? cursor : k.FirstOrDefault(); }
+
+    void Expand(string key) { if (!expanded.Remove(key)) expanded.Add(key); }
+
+    static string Slash(string path) => path.Replace('\\', '/');
+
+    // The past session a ?session= names when it is not open here: its title and folder still name the page.
+    PastSession? Past => Live is null && SessionQuery is { Length: > 0 } q ? TranscriptStore.ById(q) : null;
+
+    // A long command or matcher wraps after its separators, not inside a word.
+    static MarkupString Breaks(string s, char c) => new(string.Join(c + "<wbr>", s.Split(c).Select(Fmt.Enc)));
+
+    // A hook told apart from its siblings: SessionStart (startup), PreToolUse (Bash)…
+    static string HookName(HookRow h) => h.Matcher.Length > 0 ? $"{h.Event} ({h.Matcher})" : h.Event;
+
+    // A command's description ends with where it comes from: "… (user)", "… (commit-commands)". Shown as a tag.
+    static (string? Text, string? From) SplitSource(string? d) =>
+        d is null ? (null, null)
+        : System.Text.RegularExpressions.Regex.Match(d, @"^\(([^()]+)\)\s*(.*)$", System.Text.RegularExpressions.RegexOptions.Singleline) is { Success: true } lead ? (lead.Groups[2].Value, lead.Groups[1].Value)   // a plugin's: "(commit-commands) …"
+        : System.Text.RegularExpressions.Regex.Match(d, @"^(.*?)\s*\(([\w.:@-]+)\)$", System.Text.RegularExpressions.RegexOptions.Singleline) is { Success: true } m ? (m.Groups[1].Value, m.Groups[2].Value)   // "… (user)"
+        : (d, null);
+
+    RenderFragment CloseInspector() =>
+        @<button type="button" class="btn ghost" title="@L["Ext.CloseInspector"]" aria-label="@L["Action.Close"]" @onclick="() => Ui.InspectorOpen = false"><Icon Name="x" Sm /></button>;
+
+    // Where a failed server is defined, so its error has a place to be fixed.
+    string FailedWhere(Srv m) =>
+        m.Origin.StartsWith("plugin:") ? L[installed?.Any(r => r.Name == m.Origin[7..] && r.HasOptions) == true ? "Ext.FailedWhere.PluginOptions" : "Ext.FailedWhere.Plugin", m.Origin[7..]]
+        : m.Tag == "claude.ai" ? L["Ext.FailedWhere.Claude"]
+        : m.Scope switch { "user" => L["Ext.FailedWhere.User"], "project" => L["Ext.FailedWhere.Project"], "local" => L["Ext.FailedWhere.Local"], _ => L["Ext.FailedWhere.Other"] };
+
+    // A scope as the CLI writes it (user, project, local, dynamic, claudeai, managed…) in the page's words.
+    static string ScopeLabel(string scope) => scope switch
+    {
+        "dynamic" => Strings.Get("Ext.Scope.Plugin"),
+        "claudeai" => "claude.ai",
+        "user" or "project" or "local" or "policy" => SourceTag(scope + "Settings"),
+        _ => scope,
+    };
+    static string HookKey(HookRow h) => $"{h.Event}|{h.Source}|{h.Matcher}|{h.Command}";
 
     // Sessions.Changed is raised on the claude reader thread: touch component state on the renderer's dispatcher only.
     void OnChanged() => _ = InvokeAsync(async () =>
     {
-        if (Live?.Id != refreshedFor) await Refresh();
+        if (Live is { } l && (l.Id != refreshedFor || l.HasProcess && !readLive)) await Refresh();
         StateHasChanged();
     });
 
@@ -475,16 +712,22 @@
         if (Live is not { } s) return;
         if (refreshedFor != s.Id)
         {
-            (hooks, hooksNote, perms, permsNote, installed, markets) = (null, null, null, null, null, null);   // the previous session's (another folder) must not show meanwhile
+            if (refreshedFor is not null) selected = null;   // another session: its own failed server is the one to show
+            (hooks, hooksNote, perms, permsNote, installed, markets, skillsRead, readLive) = (null, null, null, null, null, null, null, false);   // the previous session's (another folder) must not show meanwhile
             ResetHookForm();   // nor its hook stay the edit target
         }
         refreshedFor = s.Id;
-        await Run(s.RefreshMcp);
-        if (selected is null && Servers(s) is { Count: > 0 } all)
-            selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
-        await LoadHooks(s);
-        await LoadPerms(s);
-        if (tab == "plugins") await LoadPlugins(s);
+        if (s.HasProcess)   // never started from here unasked: Start does that
+        {
+            readLive = true;
+            await Run(s.RefreshMcp);
+            if (selected is null && Servers(s) is { Count: > 0 } all)
+                selected = (all.FirstOrDefault(x => x.Status == "failed") ?? all[0]).Name;
+            if (s.Init is null) try { skillsRead = Events.Names(await s.Request("reload_skills"), "skills"); } catch (Exception) { }
+            await LoadHooks(s);
+            await LoadPerms(s);
+        }
+        await LoadPlugins(s, s.Cwd);
     }
 
     // get_hooks_listing reads the settings files on every call: asked again whenever the tab is opened.
@@ -586,14 +829,14 @@
     List<Plugins.Option>? options;
     Dictionary<string, string> optionDraft = [];
 
-    async Task LoadPlugins(LiveSession s)
+    async Task LoadPlugins(LiveSession? s, string cwd)
     {
         string? failed = null;
         try
         {
-            var (rows, avail) = await Plugins.List(s.Cwd);
-            var mk = await Plugins.Markets(s.Cwd);
-            if (s.Id != refreshedFor) return;
+            var (rows, avail) = await Plugins.List(cwd);
+            var mk = await Plugins.Markets(cwd);
+            if (s?.Id != refreshedFor) return;
             (installed, available, markets) = (rows, avail, mk);
             if (configuring is { } cid && !rows.Any(r => r.Id == cid)) (configuring, options) = (null, null);   // uninstalled meanwhile
         }
@@ -604,26 +847,26 @@
 
     // The CLI writes the settings and caches; the running session only sees it after reload_plugins (a process that
     // exited is not respawned for it: the next one reads the disk anyway).
-    async Task PluginAct(LiveSession s, params string[] args)
+    async Task PluginAct(LiveSession? s, string cwd, params string[] args)
     {
         if (busy) return;
         busy = true;
         (pluginsNote, pluginsDone, confirm, toAccept) = (null, null, null, null);
         try
         {
-            var r = await Plugins.Act(s.Cwd, args);
-            if (r.Ok) pluginsDone = r.Message + (s.HasProcess ? " " + await Reload(s) : "");
+            var r = await Plugins.Act(cwd, args);
+            if (r.Ok) pluginsDone = r.Message + (s is { HasProcess: true } ? " " + await Reload(s) : "");
             else if (r is { Command: not null, CommandSha: not null }) toAccept = (r, args);
             else pluginsNote = r.Message;
             if (r.Ok && args[0] == "install") installDraft = "";
         }
         catch (Exception ex) { pluginsNote = L["Ext.Plugins.Failed", ex.Message.TrimEnd()]; }
         finally { busy = false; }
-        await LoadPlugins(s);
+        await LoadPlugins(s, cwd);
     }
 
     // The person read the command: the same install again, bound to that command's sha (a changed one is refused again).
-    Task Accept(LiveSession s) => toAccept is { } a ? PluginAct(s, [.. a.Args, "--accept-command", a.Outcome.CommandSha!]) : Task.CompletedTask;
+    Task Accept(LiveSession? s, string cwd) => toAccept is { } a ? PluginAct(s, cwd, [.. a.Args, "--accept-command", a.Outcome.CommandSha!]) : Task.CompletedTask;
 
     async Task<string> Reload(LiveSession s)
     {
@@ -635,32 +878,32 @@
     Task ReloadNow(LiveSession s) => Run(async () => { pluginsDone = await Reload(s); });
 
     // Uninstall and remove ask for a second click on the same button: the row and its data go.
-    async Task Confirmed(LiveSession s, string key, params string[] args)
+    async Task Confirmed(LiveSession? s, string cwd, string key, params string[] args)
     {
-        if (confirm != key) { confirm = key; return; }
-        await PluginAct(s, args);
+        if (confirm != key) { Arm(key); return; }
+        await PluginAct(s, cwd, args);
     }
 
-    async Task Configure(LiveSession s, string id)
+    async Task Configure(string cwd, string id)
     {
         (configuring, options, pluginsNote) = (id, null, null);
         optionDraft = [];
         Ui.InspectorOpen = true;
-        try { options = await Plugins.Options(s.Cwd, id); }
+        try { options = await Plugins.Options(cwd, id); }
         catch (Exception ex) { (configuring, pluginsNote) = (null, L["Ext.Plugins.Failed", ex.Message.TrimEnd()]); }
     }
 
     // Only what was edited is sent: a sensitive option left empty keeps its saved value.
-    async Task SaveOptions(LiveSession s, string id)
+    async Task SaveOptions(LiveSession? s, string cwd, string id)
     {
         busy = true;
         (pluginsNote, pluginsDone) = (null, null);
         try
         {
-            if (await Plugins.Save(s.Cwd, id, optionDraft) is { } refused) { pluginsNote = refused; return; }
+            if (await Plugins.Save(cwd, id, optionDraft) is { } refused) { pluginsNote = refused; return; }
             optionDraft = [];
-            options = await Plugins.Options(s.Cwd, id);
-            pluginsDone = L["Ext.Plugins.Saved"] + (s.HasProcess ? " " + await Reload(s) : "");
+            options = await Plugins.Options(cwd, id);
+            pluginsDone = L["Ext.Plugins.Saved"] + (s is { HasProcess: true } ? " " + await Reload(s) : "");
         }
         catch (Exception ex) { pluginsNote = L["Ext.Plugins.Failed", ex.Message.TrimEnd()]; }
         finally { busy = false; }
@@ -672,11 +915,14 @@
     IEnumerable<Plugins.Listed> Matches() =>
         available.Where(a => installDraft.Length == 0 || a.Id.Contains(installDraft, StringComparison.OrdinalIgnoreCase)).OrderByDescending(a => a.Installs).Take(30);
 
-    RenderFragment PluginsTab(LiveSession s, List<Srv> servers, string[] skills) => __builder =>
+    RenderFragment PluginsTab(LiveSession? s, string cwd, List<Srv>? servers, string[]? skills) => __builder =>
     {
-        <div class="filters">
-            <button class="btn" disabled="@(busy || !s.HasProcess)" @onclick="() => ReloadNow(s)"><Icon Name="refresh" Sm />@L["Ext.Plugins.Reload"]</button>
-        </div>
+        @if (s is not null)
+        {
+            <div class="filters">
+                <button class="btn" disabled="@(busy || !s.HasProcess)" @onclick="() => ReloadNow(s)"><Icon Name="refresh" Sm />@L["Ext.Plugins.Reload"]</button>
+            </div>
+        }
         <div role="status">@if (pluginsDone is not null)
             {
                 <p class="lead">@pluginsDone</p>
@@ -685,7 +931,7 @@
         {
             <div class="errbox" role="alert">@pluginsNote</div>
         }
-        @foreach (var pe in s.Init?.PluginErrors ?? [])
+        @foreach (var pe in s?.Init?.PluginErrors ?? [])
         {
             <div class="errbox" role="status" title="@pe.Path">@L["Ext.Plugins.LoadError", pe.Plugin, pe.Message]</div>
         }
@@ -693,7 +939,7 @@
         {
             <div class="errbox" role="alert">@L["Ext.Plugins.Command", ta.Args[1]]<br /><code>@ta.Outcome.Command</code></div>
             <div class="acts">
-                <button class="btn primary" disabled="@busy" @onclick="() => Accept(s)">@L["Ext.Plugins.Accept"]</button>
+                <button class="btn primary" disabled="@busy" @onclick="() => Accept(s, cwd)">@L["Ext.Plugins.Accept"]</button>
                 <button class="btn" @onclick="() => toAccept = null">@L["Action.Cancel"]</button>
             </div>
         }
@@ -707,15 +953,24 @@
         }
         else
         {
-            <table class="mcp">
-                <thead><tr><th>@L["Ext.Col.Plugin"]</th><th>@L["Ext.Col.Scope"]</th><th class="num">@L["Ext.Col.McpServers"]</th><th class="num">@L["Ext.Tab.Skills"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
+            @if (s is { Init: null })
+            {
+                <p class="lead">@L["Ext.Plugins.Lifecycle"]</p>
+            }
+            <table class="mcp plugins" aria-label="@L["Ext.Tab.Plugins"]">
+                <thead><tr><th>@L["Ext.Col.Plugin"]</th><th>@L["Col.State"]</th><th class="opt">@L["Ext.Col.Scope"]</th><th class="num opt">@L["Ext.Col.McpServers"]</th>@if (skills is not null)
+                    {
+                        <th class="num opt">@L["Ext.Tab.Skills"]</th>
+                    }<th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                 <tbody>
+                    @{ var plstop = StopOf(installed.Select(x => x.Id + "|" + x.Scope)); }
                     @foreach (var p in installed)
                     {
                         var key = p.Id + "|" + p.Scope;
                         var editable = p.Scope is "user" or "project" or "local";
-                        <tr>
-                            <td><div class="n">@p.Name</div><div class="d">@p.Id · @p.Version</div>
+                        var rt = key == plstop ? 0 : -1;
+                        <tr data-r tabindex="@rt" @onfocusin="() => cursor = key">
+                            <td><div class="n">@p.Name</div><div class="d id" title="@($"{p.Id} · {p.Version}")">@p.Id · @p.Version</div>
                                 @foreach (var e in p.Errors)
                                 {
                                     <div class="errbox">@e</div>
@@ -724,31 +979,36 @@
                                 {
                                     <div class="d">@n</div>
                                 }</td>
-                            <td><span class="tag">@SourceTag(p.Scope switch { "user" => "userSettings", "project" => "projectSettings", "local" => "localSettings", _ => p.Scope })</span></td>
-                            <td class="num">@servers.Count(x => x.Origin == "plugin:" + p.Name)</td>
-                            <td class="num">@skills.Count(k => k.StartsWith(p.Name + ":"))</td>
-                            <td class="num">
+                            <td>@PluginState(p, s, servers, skills, rt)</td>
+                            <td class="opt"><span class="tag">@ScopeLabel(p.Scope)</span></td>
+                            <td class="num opt">@p.McpServers.Length</td>
+                            @if (skills is not null)
+                            {
+                                <td class="num opt">@(p.Enabled ? skills.Count(k => k.StartsWith(p.Name + ":")) : "—")</td>
+                            }
+                            <td class="num rowacts">
                                 @if (editable)
                                 {
-                                    <button class="toggle @(p.Enabled ? "on" : null)" role="switch" aria-checked="@(p.Enabled ? "true" : "false")" aria-label="@($"{L["Ext.Plugins.Enable"]}: {p.Name}")"
-                                            disabled="@busy" @onclick='() => PluginAct(s, p.Enabled ? "disable" : "enable", p.Id, "--scope", p.Scope)'><span class="sw"></span></button>
+                                    <button class="toggle @(p.Enabled ? "on" : null)" tabindex="@rt" role="switch" aria-checked="@(p.Enabled ? "true" : "false")" aria-label="@($"{L["Ext.Plugins.Enable"]}: {p.Name}")"
+                                            disabled="@busy" @onclick='() => PluginAct(s, cwd, p.Enabled ? "disable" : "enable", p.Id, "--scope", p.Scope)'><span class="sw"></span></button>
                                     @if (p.HasOptions)
                                     {
-                                        <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Options"]}: {p.Name}")" @onclick="() => Configure(s, p.Id)">@L["Ext.Plugins.Options"]</button>
+                                        <button class="btn" tabindex="@rt" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Options"]}: {p.Name}")" @onclick="() => Configure(cwd, p.Id)">@L["Ext.Plugins.Options"]</button>
                                     }
-                                    <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {p.Name}")" @onclick='() => PluginAct(s, "update", p.Id, "--scope", p.Scope)'>@L["Ext.Plugins.Update"]</button>
-                                    <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Uninstall"]}: {p.Name}")" @onclick='() => Confirmed(s, "u:" + key, "uninstall", p.Id, "--scope", p.Scope)'>@(confirm == "u:" + key ? L["Ext.Plugins.ConfirmUninstall"] : L["Ext.Plugins.Uninstall"])</button>
+                                    <button class="btn ghost" tabindex="@rt" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {p.Name}")" @onclick='() => PluginAct(s, cwd, "update", p.Id, "--scope", p.Scope)'>@L["Ext.Plugins.Update"]</button>
+                                    <button class="btn arm @(confirm == "u:" + key ? "danger" : "ghost")" tabindex="@rt" disabled="@busy" aria-label="@(confirm == "u:" + key ? L["Ext.ConfirmUninstallOf", p.Name] : $"{L["Ext.Plugins.Uninstall"]}: {p.Name}")" @onblur="Disarm" @onclick='() => Confirmed(s, cwd, "u:" + key, "uninstall", p.Id, "--scope", p.Scope)'>@(confirm == "u:" + key ? L["Ext.Plugins.ConfirmUninstall"] : L["Ext.Plugins.Uninstall"])</button>
                                 }
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            <p class="keys">@L["Ext.KeysRows"]</p>
         }
         <div class="field">
             <label for="plugin-install">@L["Ext.Plugins.Install"]</label>
             <div class="input"><input id="plugin-install" list="plugin-catalog" @bind="installDraft" @bind:event="oninput" placeholder="name@marketplace" spellcheck="false" autocomplete="off" disabled="@busy"
-                                      @onkeydown='async e => { if (e.Key == "Enter" && installDraft.Trim().Length > 0) await PluginAct(s, "install", installDraft.Trim(), "--scope", installScope); }' /></div>
+                                      @onkeydown='async e => { if (e.Key == "Enter" && installDraft.Trim().Length > 0) await PluginAct(s, cwd, "install", installDraft.Trim(), "--scope", installScope); }' /></div>
             <datalist id="plugin-catalog">
                 @foreach (var a in Matches())
                 {
@@ -763,35 +1023,39 @@
                     <option value="@sc">@SourceTag(sc + "Settings")</option>
                 }
             </select>
-            <button class="btn primary" disabled="@(busy || installDraft.Trim().Length == 0)" @onclick='() => PluginAct(s, "install", installDraft.Trim(), "--scope", installScope)'><Icon Name="plus" Sm />@L["Ext.Plugins.InstallButton"]</button>
+            <button class="btn primary" disabled="@(busy || installDraft.Trim().Length == 0)" @onclick='() => PluginAct(s, cwd, "install", installDraft.Trim(), "--scope", installScope)'><Icon Name="plus" Sm />@L["Ext.Plugins.InstallButton"]</button>
         </div>
         <h3>@L["Ext.Plugins.Markets"]</h3>
         @if (markets is { Count: > 0 } ms)
         {
-            <table class="mcp">
+            <table class="mcp" aria-label="@L["Ext.Plugins.Markets"]">
                 <thead><tr><th>@L["Ext.Plugins.Market"]</th><th>@L["Ext.Col.Source"]</th><th class="num"><span class="vh">@L["Ext.Col.Actions"]</span></th></tr></thead>
                 <tbody>
+                    @{ var mstop = StopOf(ms.Select(x => "m:" + x.Name)); }
                     @foreach (var m in ms)
                     {
-                        <tr>
+                        var mk = "m:" + m.Name;
+                        var rt = mk == mstop ? 0 : -1;
+                        <tr data-r tabindex="@rt" @onfocusin="() => cursor = mk">
                             <td><div class="n">@m.Name</div></td>
                             <td><code>@m.Where</code></td>
-                            <td class="num">
-                                <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {m.Name}")" @onclick='() => PluginAct(s, "marketplace", "update", m.Name)'>@L["Ext.Plugins.Update"]</button>
-                                <button class="btn" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Remove"]}: {m.Name}")" @onclick='() => Confirmed(s, "m:" + m.Name, "marketplace", "remove", m.Name)'>@(confirm == "m:" + m.Name ? L["Ext.Plugins.ConfirmRemove"] : L["Ext.Plugins.Remove"])</button>
+                            <td class="num rowacts">
+                                <button class="btn ghost" tabindex="@rt" disabled="@busy" aria-label="@($"{L["Ext.Plugins.Update"]}: {m.Name}")" @onclick='() => PluginAct(s, cwd, "marketplace", "update", m.Name)'>@L["Ext.Plugins.Update"]</button>
+                                <button class="btn arm @(confirm == "m:" + m.Name ? "danger" : "ghost")" tabindex="@rt" disabled="@busy" aria-label="@(confirm == "m:" + m.Name ? L["Ext.ConfirmRemoveOf", m.Name] : $"{L["Ext.Plugins.Remove"]}: {m.Name}")" @onblur="Disarm" @onclick='() => Confirmed(s, cwd, "m:" + m.Name, "marketplace", "remove", m.Name)'>@(confirm == "m:" + m.Name ? L["Ext.Plugins.ConfirmRemove"] : L["Ext.Plugins.Remove"])</button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            <p class="keys">@L["Ext.KeysRows"]</p>
         }
         <div class="field">
             <label for="market-add">@L["Ext.Plugins.AddMarket"]</label>
             <div class="input"><input id="market-add" @bind="marketDraft" @bind:event="oninput" placeholder="owner/repo" spellcheck="false" autocomplete="off" disabled="@busy"
-                                      @onkeydown='async e => { if (e.Key == "Enter" && marketDraft.Trim().Length > 0) { await PluginAct(s, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; } }' /></div>
+                                      @onkeydown='async e => { if (e.Key == "Enter" && marketDraft.Trim().Length > 0) { await PluginAct(s, cwd, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; } }' /></div>
         </div>
         <div class="picks">
-            <button class="btn primary" disabled="@(busy || marketDraft.Trim().Length == 0)" @onclick='async () => { await PluginAct(s, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; }'><Icon Name="plus" Sm />@L["Ext.Plugins.AddMarketButton"]</button>
+            <button class="btn primary" disabled="@(busy || marketDraft.Trim().Length == 0)" @onclick='async () => { await PluginAct(s, cwd, "marketplace", "add", marketDraft.Trim()); if (pluginsNote is null) marketDraft = ""; }'><Icon Name="plus" Sm />@L["Ext.Plugins.AddMarketButton"]</button>
         </div>
     };
 
@@ -799,9 +1063,12 @@
     {
         tab = key;
         filter = "";   // the filters are per tab: an MCP state means nothing to the rules
+        (confirm, query, cursor) = (null, "", null);
+        expanded.Clear();
+        Nav.NavigateTo(Link(SessionQuery), replace: true);   // reload and Back keep the tab
         if (key == "hooks" && Live is { } s) _ = LoadHooks(s);
         if (key == "permissions" && Live is { } p) _ = LoadPerms(p);
-        if (key == "plugins" && Live is { } pl) _ = LoadPlugins(pl);
+        if (key == "plugins" && Live is { } pl) _ = LoadPlugins(pl, pl.Cwd);
     }
 
     // userSettings / projectSettings / localSettings / pluginHook; anything else (policy…) as the CLI names it.
@@ -813,6 +1080,7 @@
         "pluginHook" => Strings.Get("Ext.Scope.Plugin"),
         "session" => Strings.Get("Ext.Scope.Session"),
         "policySettings" => Strings.Get("Ext.Scope.Policy"),
+        "cliArg" => Strings.Get("Ext.Scope.Cli"),
         _ => source,
     };
 
@@ -951,12 +1219,20 @@
             ? c.EnumerateArray().Where(x => Events.Str(x, "name") == skill).Select(x => Events.Str(x, "description")).FirstOrDefault()
             : null;
 
-    RenderFragment Tab(string key, string label, int n) =>
+    RenderFragment Tab(string key, string label, int? n) =>
         @<button id="ext-tab-@key" role="tab" aria-selected="@(tab == key ? "true" : "false")" aria-controls="ext-panel" tabindex="@(tab == key ? 0 : -1)"
-                 class="@(tab == key ? "on" : null)" @onclick="() => Show(key)">@label <b>@n</b></button>;
+                 class="@(tab == key ? "on" : null)" @onclick="() => Show(key)">@label <b>@(n?.ToString() ?? "—")</b></button>;
 
     RenderFragment Filter(string key, string label, int n) =>
-        @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key">@label <b>@n</b></button>;
+        @<button class="chip @(filter == key ? "on" : null)" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => SetFilter(key)">@label <b>@n</b></button>;
+
+    // An MCP filter that hides the selected server moves the selection (and its inspector) to the first one it shows.
+    void SetFilter(string key)
+    {
+        filter = key;
+        if (tab == "mcp" && Live is { } s && Servers(s).Where(x => key == "" || x.Status == key).ToList() is var shown
+            && !shown.Any(x => x.Name == selected)) selected = shown.FirstOrDefault()?.Name;
+    }
 
     RenderFragment State(string status) => status switch
     {

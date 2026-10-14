@@ -56,6 +56,7 @@ public static class Fmt
     public static string Home(string path)
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
-        return path.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
+        var p = path.Replace('\\', '/');   // C:\Users\x\… as well as C:/Users/x/…, shown as ~/…
+        return p.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + p[home.Length..] : p;
     }
 }

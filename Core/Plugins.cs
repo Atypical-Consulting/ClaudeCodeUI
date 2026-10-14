@@ -12,7 +12,7 @@ public static class Plugins
 {
     // One install as `plugin list --json` reports it. Errors / Notes: the CLI's own lines for a load failure, a demoted
     // dependency, a shadowed folder… already worded for a person. A plugin installed in two scopes is two rows.
-    public record Row(string Id, string Version, string Scope, bool Enabled, string[] Errors, string[] Notes, bool HasOptions)
+    public record Row(string Id, string Version, string Scope, bool Enabled, string[] Errors, string[] Notes, bool HasOptions, string[] McpServers)
     {
         public string Name => Id.Split('@')[0];
     }
@@ -36,7 +36,8 @@ public static class Plugins
     internal static (List<Row>, List<Listed>) ParseList(JsonElement r) => (
         Events.Prop(r, "installed") is { ValueKind: JsonValueKind.Array } i
             ? [.. i.EnumerateArray().Select(p => new Row(Events.Str(p, "id") ?? "", Events.Str(p, "version") ?? "", Events.Str(p, "scope") ?? "",
-                Events.Bool(p, "enabled"), Texts(p, "errors"), Texts(p, "notes"), Events.Bool(p, "hasUserConfig")))]
+                Events.Bool(p, "enabled"), Texts(p, "errors"), Texts(p, "notes"), Events.Bool(p, "hasUserConfig"),
+                Events.Prop(p, "mcpServers") is { ValueKind: JsonValueKind.Object } ms ? [.. ms.EnumerateObject().Select(o => o.Name)] : []))]
             : [],
         Events.Prop(r, "available") is { ValueKind: JsonValueKind.Array } a
             ? [.. a.EnumerateArray().Select(p => new Listed(Events.Str(p, "pluginId") ?? "", Events.Str(p, "description"), Events.Str(p, "marketplaceName") ?? "", Events.Long(p, "installCount")))]

@@ -607,6 +607,7 @@ textarea,input{caret-color:var(--accent)}
 .set-grp{display:flex;flex-direction:column;gap:18px}
 .set-grp+.set-grp{border-top:1px solid var(--seam);padding-top:28px}
 .settings .lead,.ext .lead,.wt-head p{margin:6px 0 0;color:var(--fg-3);font-size:13px;max-width:70ch}
+.ext .lead{max-width:62ch}
 .set-row{display:grid;grid-template-columns:minmax(200px,25%) minmax(0,1fr);gap:24px}
 .set-row>div:first-child b{display:block;color:var(--fg);font-weight:500}
 .set-row>div:first-child span{font-size:13px;color:var(--fg-4);line-height:1.5}
@@ -821,14 +822,61 @@ button.sl{width:100%;text-align:left}
 .ext{flex:1;min-height:0;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
 .ext>[role=tabpanel]{display:flex;flex-direction:column;gap:18px}
 .ext .lead+.acts{margin-top:14px}
-.subtabs{flex:none;display:flex;gap:2px;box-shadow:inset 0 -1px var(--seam);overflow-x:auto}   /* the seam under the tabs, not a border: it scrolls with them when narrow */
-.subtabs>*{padding:8px 12px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;white-space:nowrap}
+.subtabs{flex:none;display:flex;flex-wrap:wrap;gap:2px;box-shadow:inset 0 -1px var(--seam)}   /* the seam under the tabs, not a border; narrow, they wrap rather than hide behind a scroll */
+.subtabs>*:focus-visible{outline-offset:-2px}
+.subtabs>*{padding:8px 10px 10px;font:500 13px var(--sans);color:var(--fg-4);border-bottom:2px solid transparent;white-space:nowrap}
 .subtabs>* b{font:500 12px var(--mono);color:var(--fg-4);margin-left:2px}
 .subtabs>*.on{color:var(--fg);border-color:var(--accent)}
 .mcp td{padding:10px 12px}
 .mcp td.num{white-space:nowrap}.mcp td.num>.btn+.btn{margin-left:6px}   /* a row's Edit and Remove stay side by side */
 .mcp tr.sel td{background:var(--raise)}
 .mcp tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.mcp tbody tr[data-r]:focus{outline:none}
+.mcp tbody tr[data-r]:focus td{background:var(--raise);box-shadow:inset 0 1px 0 var(--fg-4),inset 0 -1px 0 var(--fg-4)}   /* framed like a Worktrees row, its lines at 3:1 */
+.mcp tbody tr[data-r]:focus td:first-child{box-shadow:inset 2px 0 0 var(--fg-3),inset 0 1px 0 var(--fg-4),inset 0 -1px 0 var(--fg-4)}
+.mcp tbody tr.sel[data-r]:focus td:first-child{box-shadow:inset 2px 0 0 var(--accent),inset 0 1px 0 var(--fg-4),inset 0 -1px 0 var(--fg-4)}
+.mcp td.num>.toggle+.btn{margin-left:10px}
+.ext .rowacts .btn.arm{min-width:92px;justify-content:center}   /* "Uninstall?" fits the resting width: arming never moves the row */
+.ext .rowacts .btn.arm.ghost{color:var(--fg-3)}
+.ph .sub a:focus-visible{outline-offset:-2px}   /* inside the ellipsised .sub: the ring stays drawn */
+.ext p.hint{margin:-8px 0 0;font-size:12px;color:var(--fg-4);max-width:62ch}   /* a muted aside at the lead's measure */
+.ext h3+p.hint{margin:0}
+.ext .mcp.hooktab td:first-child .d.id{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext .mcp.hooktab.ro th:nth-child(4){width:120px}
+.ext .mcp.plugins th{white-space:nowrap}
+.ext label.toggle input{margin:0}
+.ext .mcp.servers{table-layout:fixed;width:100%}   /* the columns stay put whichever filter is on */
+.ext .mcp.servers th:nth-child(2){width:200px}.ext .mcp.servers th:nth-child(3){width:72px}.ext .mcp.servers th:nth-child(4){width:120px}
+.ext .mcp.servers td:first-child>*{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext .mcp.plugins td:first-child{max-width:0;width:100%}   /* the name column gives way first: the table fits its pane at every width */
+.ext .mcp.plugins td:first-child .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcp td.num .toggle{vertical-align:middle}
+.mcp td>.d.id{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ext .findrow{display:flex;align-items:center;gap:12px}
+.ext .linkish .ms{cursor:pointer;text-decoration:underline;text-decoration-color:var(--seam-3);text-underline-offset:3px}.ext .linkish:hover .ms{text-decoration-color:currentColor}   /* the house link: underlined at rest */
+@container (max-width:819px){.mcp.plugins .opt{display:none}}   /* narrow: scope and counts give way, the state and the actions stay */
+.mcp td>.n.id{font:500 12px var(--mono);white-space:nowrap}   /* skill and agent names are machine names */
+.ext td .last.prose.clamp{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mcp .toggle.on .sw{background:var(--fg-3)}   /* on is the resting state here: Ember stays for what needs the person */
+.mcp .toggle.on .sw::after{background:var(--ground)}
+.ext .mcp.hooktab{table-layout:fixed;width:100%}   /* fixed columns: a long command wraps in its own column, never widens the page */
+.ext .mcp.hooktab th:nth-child(1){width:24%}.ext .mcp.hooktab th:nth-child(2){width:16%}.ext .mcp.hooktab th:nth-child(4){width:170px}
+.ext .mcp.hooktab td code{overflow-wrap:break-word}
+.ext .mcp.hooktab td .tag{margin-right:6px}
+.ext td .hookcmd{max-width:none}
+.ext{container-type:inline-size}
+@container (max-width:560px){.subtabs{gap:0}.subtabs>*{padding:8px 7px 10px}.mcp.servers .tools{display:none}.mcp.servers .ms{white-space:normal}.ext .mcp.servers th:nth-child(2){width:140px}}   /* beside the inspector: the tool count is in it, the actions stay on screen */
+.ext .keys{margin:-8px 0 0;font-size:12px;color:var(--fg-4)}
+.ext .find{max-width:360px}
+.ext tr.open td .last.prose.clamp{display:block;-webkit-line-clamp:unset;overflow:visible}   /* Enter, Space or a click: the whole description */
+.ext tr[aria-expanded]{cursor:pointer}
+.ext td>.n.id+.tag{margin-top:4px;display:inline-block}
+.insp .ph>.btn.ghost:last-child{margin-left:auto;flex:none}
+@media (min-width:1100px){.app:has(>main>.insp):has(.ext){grid-template-columns:256px minmax(0,1fr) clamp(340px,28vw,420px)}}   /* Extensions: the inspector grows with the window, so the table never shrinks as the window widens */
+.ext [role=status]:empty{position:absolute}   /* a live region with nothing to say takes no gap */
+.ph .sub a{color:var(--fg-3);text-decoration:none}.ph .sub a:hover{color:var(--fg);text-decoration:underline}
+.ph .sub:has(select){overflow:visible}   /* its focus ring is not clipped */
+.ph .sub select{font:13px var(--sans);color:var(--fg);background:var(--field);border:1px solid var(--seam-2);border-radius:var(--r);padding:6px 10px;max-width:100%;text-overflow:ellipsis}
 .ms{display:inline-flex;align-items:center;gap:7px;font:500 12px var(--sans);white-space:nowrap}
 .ms i{width:8px;height:8px;border-radius:50%}
 .ms.ok{color:var(--ok)}.ms.ok i{background:var(--ok)}

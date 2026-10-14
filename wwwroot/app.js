@@ -300,14 +300,26 @@
     // the client, so a fast second key reads where the first went; Blazor then moves the one Tab stop to it.
     document.addEventListener('keydown', e => {
         if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !(e.target instanceof Element)) return;
-        if (e.repeat && (e.key === 'Enter' || e.key === ' ') && e.target.closest('.bgt .rowacts button')) { e.preventDefault(); return; }   // a held key never confirms an armed Remove
+        if (e.repeat && (e.key === 'Enter' || e.key === ' ') && e.target.closest('.bgt .rowacts button, .ext .rowacts button')) { e.preventDefault(); return; }   // a held key never confirms an armed Remove
+        if (e.key === 'Escape' && e.target.closest('.ext .filters .chip')) { e.preventDefault(); document.querySelector('.subtabs [aria-selected=true]')?.focus(); return; }   // Extensions: from the filters back to the tabs
+        if (e.key === 'ArrowDown' && e.target.matches('.ext .find input')) { const r = document.querySelector('.ext .mcp tbody tr[data-r][tabindex="0"]'); if (r) { e.preventDefault(); r.focus(); } return; }   // from the filter into its results
+        if (e.key === 'Escape' && e.target.matches('.ext .find input')) {   // a filter box: the first Esc clears it, the next goes back to the tabs
+            e.preventDefault(); e.stopImmediatePropagation();
+            if (e.target.value) { e.target.value = ''; e.target.dispatchEvent(new Event('input', { bubbles: true })); }
+            else document.querySelector('.subtabs [aria-selected=true]')?.focus();
+            return;
+        }
         if ((e.key === 'r' || e.key === 'R') && document.querySelector('.bgt') && !e.target.closest('input,textarea,select,[contenteditable]:not([contenteditable=false])')) { e.preventDefault(); document.querySelector('.ph .end .btn')?.click(); return; }   // Background: R refreshes, as on the Overview
         const out = e.target.closest('.bgout');   // a Background row's output: Esc closes it, focus goes back to its row
         if (out && e.key === 'Escape') { e.preventDefault(); out.querySelector('.bgoh .btn')?.click(); return; }
-        const tr = e.target.closest('.wtt tbody tr[data-r]');
+        if ((e.target === document.body || e.target.matches('.ph h1')) && /^(j|k|J|K|ArrowDown|ArrowUp|Home|End)$/.test(e.key)) {   // Extensions on arrival: the keys reach the table at once
+            const r = document.querySelector('.ext .mcp tbody tr[data-r][tabindex="0"]');
+            if (r) { e.preventDefault(); r.focus(); return; }
+        }
+        const tr = e.target.closest('.wtt tbody tr[data-r], .mcp tbody tr[data-r]');
         if (!tr) return;
         const onRow = e.target === tr, rows = [...tr.parentElement.querySelectorAll('tr[data-r]')], i = rows.indexOf(tr);
-        if (e.key === 'Escape') { e.preventDefault(); (onRow ? document.querySelector('.filters .chip.on') ?? document.querySelector('.ph .bgneed') ?? tr.closest('.pane')?.querySelector('.ph .end .btn') : tr)?.focus(); return; }
+        if (e.key === 'Escape') { e.preventDefault(); (onRow ? document.querySelector('.filters .chip.on') ?? document.querySelector('.ph .bgneed') ?? document.querySelector('.subtabs [aria-selected=true]') ?? tr.closest('.pane')?.querySelector('.ph .end .btn') : tr)?.focus(); return; }
         if (!onRow) return;   // keys on a button stay the button's
         const to = /^(j|J|ArrowDown)$/.test(e.key) ? rows[i + 1] : /^(k|K|ArrowUp)$/.test(e.key) ? rows[i - 1]
             : e.key === 'Home' ? rows[0] : e.key === 'End' ? rows[rows.length - 1] : undefined;
@@ -315,6 +327,7 @@
             e.preventDefault(); to?.focus({ preventScroll: true });
             // The one Tab stop moves with focus at once: a Tab right after the key reaches the new row's buttons, not the old row's.
             if (to) rows.forEach(r => { const on = r === to; r.tabIndex = on ? 0 : -1; r.querySelectorAll('.rowacts button').forEach(b => b.tabIndex = on ? 0 : -1); });
+            if (to?.closest('.mcp.servers')) to.click();   // MCP: the row under the cursor is the one the inspector shows
             if (to === rows[0]) tr.closest('.wt')?.scrollTo({ top: 0 });   // the first row brings the heading and the filters back with it
             else to?.scrollIntoView({ block: 'nearest' });                  // scroll-margin keeps it clear of the sticky header
             return;
@@ -328,6 +341,17 @@
         if (e.key === 'Enter' && tr.closest('.bgt')) { e.preventDefault(); if (!e.repeat) tr.querySelector('.rowacts [data-enter]')?.click(); return; }   // Background: Open or Copy attach, never a verb that acts
         const fold = tr.querySelector('.fold-t');
         if (fold && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' && fold.getAttribute('aria-expanded') !== 'true' || e.key === 'ArrowLeft' && fold.getAttribute('aria-expanded') === 'true')) { e.preventDefault(); fold.click(); }
+    });
+
+    // Extensions: a plugin's state link opens its server on the MCP tab, and the inspector's Close goes back to the table:
+    // focus follows to that row once Blazor has drawn it.
+    document.addEventListener('click', e => {
+        if (!(e.target instanceof Element)) return;
+        const closing = e.target.closest('.insp .ph>.btn.ghost:last-child') && document.querySelector('.ext');   // Close: focus goes back to the row it showed
+        if (!closing && !e.target.closest('.ext .mcp.plugins .linkish')) return;
+        let n = 0;
+        const go = () => { const r = closing ? (!document.querySelector('.insp') && (document.querySelector('.ext .mcp.servers tr.sel') ?? document.querySelector('.ext .mcp tbody tr[data-r][tabindex="0"]'))) : document.querySelector('.mcp.servers tr.sel'); if (r) r.focus(); else if (n++ < 20) setTimeout(go, 50); };
+        setTimeout(go, 50);
     });
 
     // The Overview's resume list, from nowhere: with nothing focused a digit, J, K or W brings focus back to the list and is

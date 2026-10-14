@@ -65,7 +65,7 @@
                         {
                             <button class="btn primary" disabled="@authBusy" @onclick="() => SignInAgain(server)"><Icon Name="plug" Sm />@L["Mcp.SignInAgain"]</button>
                         }
-                        <a class="btn" href="@($"extensions?tab=mcp&server={Uri.EscapeDataString(server)}")">@L["Mcp.Servers"]</a>
+                        <a class="btn" href="@($"extensions?tab=mcp&session={Session.Id}&server={Uri.EscapeDataString(server)}")">@L["Mcp.Servers"]</a>
                     </div>
                 }
             </div>

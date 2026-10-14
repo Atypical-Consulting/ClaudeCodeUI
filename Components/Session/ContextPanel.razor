@@ -60,7 +60,7 @@
                 <span class="cap">@L["Ctx.McpWeight", Fmt.Tokens(mcpTokens)]</span>
                 @{ int n = mcpTools.Count, k = mcpTools.Select(t => Events.Str(t, "serverName")).Distinct().Count(); }
                 <p>@L[n == 1 ? "Ctx.Loaded1" : "Ctx.LoadedN", Strings.Plural(n, "Tools"), Strings.Plural(k, "Ctx.Servers")] @L["Ctx.DisableHint"]</p>
-                <div><a class="btn" href="extensions">@L["Ctx.ManageMcp"]</a></div>
+                <div><a class="btn" href="@($"extensions?session={Session.Id}")">@L["Ctx.ManageMcp"]</a></div>
             </div>
         }
     }
