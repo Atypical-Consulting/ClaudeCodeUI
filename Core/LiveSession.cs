@@ -212,6 +212,7 @@ public sealed class LiveSession : IAsyncDisposable
         // next turn (also after an interrupt). It joins the thread on command_lifecycle `started` (--probe-cli queue).
         // A queued message never arms ultracode (the flag would land on the running turn; the toggle stays armed for the next
         // send). It runs under whatever flag the CLI holds when it starts: see the `started` case.
+        if (Untitled && Interlocked.Exchange(ref titling, 1) == 0) _ = AutoTitle(text);
         bool queued;
         lock (gate)
         {
@@ -577,6 +578,34 @@ public sealed class LiveSession : IAsyncDisposable
     // A user rename, as /rename: rename_session from the host; session_title_changed then carries the name the CLI kept
     // (cleaned, made unique). Verified on claude 2.1.296.
     public Task Rename(string title) => Request("rename_session", new() { ["title"] = title.Trim(), ["source"] = "host" });
+
+    // A new session is started under its folder or worktree name (--name), which stops the CLI's own title; stream-json writes
+    // no ai-title anyway (probed on 2.1.296). Haiku titles it from its first prompt, a one-shot `claude -p` (~8 s), and the
+    // rename persists it as the terminal's /rename would. Untitled until then; a user rename meanwhile wins.
+    public bool Untitled { get; internal set; }
+    int titling;
+    const string TitlePrompt = "Write a 3-7 word title for a coding session that starts with the user's request. Same language as the request. "
+                             + "Keep issue/PR numbers. Reply with the title only, no quotes, no trailing period.";
+
+    async Task AutoTitle(string prompt)
+    {
+        string? title = null;
+        try
+        {
+            // Temp folder, no settings: no CLAUDE.md, hooks or MCP servers loaded for one line of output.
+            var (code, output, _) = await Plugins.Run(Path.GetTempPath(), ["--model", "haiku", "--no-session-persistence", "--tools", "", "--setting-sources", "",
+                "--system-prompt", TitlePrompt], prompt.Length > 2000 ? prompt[..2000] : prompt, command: "-p");
+            if (code == 0) title = TitleFrom(output);
+        }
+        catch (Exception) { }   // no claude, timeout: the prompt's first words
+        title ??= TranscriptStore.Trunc(prompt);
+        if (!Untitled || title is null) return;
+        try { await Rename(title); }
+        catch (Exception) { Name = title; Untitled = false; Notify(); }   // process gone: shown, not persisted
+    }
+
+    internal static string? TitleFrom(string output) =>
+        output.Split('\n').Select(l => l.Trim().Trim('"', '\'', '`', '*', '.').Trim()).FirstOrDefault(l => l.Length > 0) is { } t ? TranscriptStore.Trunc(t) : null;
 
     // export_conversation: the plain text and file name the terminal's /export writes (verified on claude 2.1.296). Saved
     // in Downloads, beside a file of that name rather than over it; the path is returned for "Show in folder".
@@ -1262,6 +1291,7 @@ public sealed class LiveSession : IAsyncDisposable
 
             case TitleEvt { Title.Length: > 0 } ti:
                 Name = ti.Title;
+                Untitled = false;
                 break;
 
             case PrEvt pr:
@@ -1345,6 +1375,7 @@ public sealed class LiveSession : IAsyncDisposable
         var input = JsonDocument.Parse("""{"file_path":"C:\\w\\b.txt","content":"x"}""").RootElement.Clone();
         var fresh = new LiveSession("id", "n", @"C:\w", "default").Args(false);
         Ok(fresh is ["--permission-mode", "manual", _, _, TodoList.AllowedToolsArg, "--include-hook-events", "--prompt-suggestions", "true", "--session-id", "id", "--name", "n"], "fresh args");
+        Ok(TitleFrom("\n\"Pagination liste vols Steward #2520.\"\n") == "Pagination liste vols Steward #2520" && TitleFrom(" \n") is null, "Haiku title cleaned");
         var resumed = new LiveSession("o", "o", @"C:\w", "plan", model: "haiku").Args(true);
         Ok(resumed is ["--permission-mode", "plan", _, _, _, _, _, _, "--resume", "o", "--model", "haiku"], "resume args");
         var fork = new LiveSession("f", "x (fork)", @"C:\w", "default") { ForkOf = "o", ForkAt = "u1" };

@@ -6,7 +6,7 @@
 {
     <NavLink class="s" href="@($"session/{s.Id}")" ActiveClass="on" aria-current="@(IsCur(s.Id) ? "page" : null)">
         <span class="dot @Dot(s)"></span>
-        <div><div class="n">@s.Name</div>@Where(s.Branch, s.Repo)</div>
+        <div>@if (s.Untitled) {<div class="n pending">@L[s.Items.Count > 0 ? "Rail.Titling" : "Rail.Untitled"]</div>} else {<div class="n">@s.Name</div>}@Where(s.Worktree ?? s.Branch, null)</div>
         @switch (s.Status)
         {
             case SessionStatus.Waiting: <span class="pill wait"><span aria-hidden="true">@s.Pending.Count</span><span class="vh">@Strings.Plural(s.Pending.Count, "Mascot.Decision")</span></span> break;

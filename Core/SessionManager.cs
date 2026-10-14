@@ -47,7 +47,7 @@ public sealed class SessionManager : IAsyncDisposable
     public LiveSession Start(string cwd, string mode, string name, string? worktree, string? model, string? effort, IReadOnlyList<string> addDirs, string? fallback = null,
                              bool restricted = false, bool safeMode = false, string? agent = null)
     {
-        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs) { FallbackModel = fallback, Restricted = restricted, SafeMode = safeMode, Agent = agent });
+        var s = Add(new LiveSession(Guid.NewGuid().ToString(), name, cwd, mode, worktree, model, effort, addDirs: addDirs) { FallbackModel = fallback, Restricted = restricted, SafeMode = safeMode, Agent = agent, Untitled = true });
         if (addDirs.Count > 0) TranscriptStore.RecordDirs(s.Id, addDirs);
         try { s.EnsureProcess(); } catch (Exception) { }   // a failed start leaves the session Crashed with the reason
         _ = s.RefreshGit();
