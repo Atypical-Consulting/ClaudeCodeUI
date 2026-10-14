@@ -223,7 +223,7 @@ Near-black graphite neutrals, a syntax-highlighter hue set doing semantic work, 
 
 ## Layout
 
-Fixed three-pane workbench. App: sessions rail 256px, thread `minmax(0,1fr)`, inspector 420px (the direction contract said 400px; the build is 420px); without an inspector the grid drops to two columns. Pane headers are 48px (52px on the site) with a 1px bottom seam. The thread column caps content at 760px, centred in the pane with 28-32px side padding (hiding the inspector widens the margins evenly, never a blank strip on one side); the composer is pinned at the bottom of the thread.
+Fixed three-pane workbench. App: sessions rail 256px, thread `minmax(0,1fr)`, inspector 420px (the direction contract said 400px; the build is 420px); without an inspector the grid drops to two columns. Both side panes are resizable from their seam (a 9px grip; hover draws a 3px `seam-3` bar, drag `fg-5`, focus Ember): rail 200-400px, inspector 320-720px, the thread never below 440px; arrows step 16px (Shift 64px), double-click resets, the widths are remembered (AppPref and localStorage). Pane headers are 48px (52px on the site) with a 1px bottom seam. The thread column caps content at 760px, centred in the pane with 28-32px side padding (hiding the inspector widens the margins evenly, never a blank strip on one side); the composer is pinned at the bottom of the thread.
 
 Site: rail 248px, column, inspector 432px; docs rail 272px with a scroll-spy table of contents and a 400px inspector showing the app screen for the section being read. Below 1240px the inspector folds under the intro (index) or disappears (docs); below 860px the rail becomes a sticky top bar and everything is one column.
 

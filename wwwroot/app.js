@@ -45,7 +45,7 @@
             return false;
         },
         copy: text => navigator.clipboard?.writeText(text),
-        registerShortcuts(ref) { net = ref; },
+        registerShortcuts(ref) { net = ref; document.querySelectorAll('.split').forEach(sync); },   // the splitters' values read true before a first focus
         focus(el) { el?.focus(); },
         // Composer images: files pasted into or dropped on the box go to its hidden <InputFile>, which streams them to the
         // server in chunks, never as one hub message; the paperclip button opens that input's file picker.
@@ -406,6 +406,55 @@
         list.focus();
         list.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, code: e.code, bubbles: true }));
     }, true);
+
+    // Splitters (MainLayout): drag a seam, or focus it and use the arrows (Shift: 64px), Home / End; a double-click resets.
+    // The width lives in --rail-w / --insp-w, remembered here and on the server (MainLayout.OnResize). Bounds match AppPref.
+    const SPLIT = { rail: [200, 400], insp: [320, 720] };
+    const pane = k => document.querySelector(k === 'rail' ? '.app>nav.pane' : '.app>main>.insp');
+    const width = k => Math.round(pane(k)?.getBoundingClientRect().width || 0);
+    const bounds = k => {   // the thread keeps 440px (app.css --insp-cap): a grip never runs into a dead zone
+        const [min, max] = SPLIT[k], other = width(k === 'rail' ? 'insp' : 'rail');
+        return [min, Math.max(min, Math.min(max, innerWidth - other - 440))];
+    };
+    const sync = el => {
+        const [min, max] = bounds(el.dataset.split);
+        el.setAttribute('aria-valuemin', min); el.setAttribute('aria-valuemax', max); el.setAttribute('aria-valuenow', width(el.dataset.split));
+    };
+    const resize = (el, px, keep) => {
+        const k = el.dataset.split, [min, max] = bounds(k), v = px == null ? null : Math.round(Math.min(max, Math.max(min, px))) + 'px';
+        if (v) root.style.setProperty('--' + k + '-w', v); else root.style.removeProperty('--' + k + '-w');
+        sync(el);
+        if (!keep) return;
+        try { v ? localStorage.setItem('claude-ui.' + k + '-w', v) : localStorage.removeItem('claude-ui.' + k + '-w'); } catch { }
+        net?.invokeMethodAsync('OnResize', k, v).catch(() => { });
+    };
+    document.addEventListener('pointerdown', e => {
+        const el = e.button === 0 && e.target instanceof Element && e.target.closest('.split');
+        if (!el) return;
+        e.preventDefault();
+        const x0 = e.clientX, w0 = width(el.dataset.split), sign = el.dataset.split === 'rail' ? 1 : -1;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('on'); root.classList.add('resizing');
+        const move = m => resize(el, w0 + sign * (m.clientX - x0));
+        const up = () => {
+            el.removeEventListener('pointermove', move);
+            el.classList.remove('on'); root.classList.remove('resizing');
+            if (width(el.dataset.split) !== w0) resize(el, width(el.dataset.split), true);
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('lostpointercapture', up, { once: true });
+    });
+    document.addEventListener('dblclick', e => { const el = e.target instanceof Element && e.target.closest('.split'); if (el) resize(el, null, true); });
+    document.addEventListener('focusin', e => { if (e.target instanceof Element && e.target.matches('.split')) sync(e.target); });
+    document.addEventListener('keydown', e => {
+        const el = e.target instanceof Element && e.target.closest('.split');
+        if (!el || e.ctrlKey || e.metaKey || e.altKey) return;
+        const step = e.shiftKey ? 64 : 16, grow = el.dataset.split === 'rail' ? 'ArrowRight' : 'ArrowLeft', [min, max] = bounds(el.dataset.split);
+        const to = { ArrowLeft: 0, ArrowRight: 0, Home: min, End: max }[e.key];
+        if (to === undefined) return;
+        e.preventDefault();
+        resize(el, e.key.startsWith('Arrow') ? width(el.dataset.split) + (e.key === grow ? step : -step) : to, true);
+    });
 
     // Global shortcuts, forwarded to MainLayout.OnShortcut. Alt N doubles Ctrl N (the browser keeps Ctrl N).
     document.addEventListener('keydown', e => {
