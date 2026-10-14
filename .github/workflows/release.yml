@@ -103,7 +103,7 @@ jobs:
 
       - name: Sign the bundled server
         if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
-        run: codesign --force --timestamp --options runtime --entitlements desktop/src-tauri/Entitlements.plist --sign "$APPLE_SIGNING_IDENTITY" desktop/src-tauri/server/ClaudeCodeUI
+        run: codesign --force --timestamp --options runtime --entitlements desktop/src-tauri/Entitlements.plist --sign "$APPLE_SIGNING_IDENTITY" desktop/src-tauri/server/ccui-server
 
       - run: npm ci
         working-directory: desktop
@@ -129,7 +129,7 @@ jobs:
         run: |
           app=$(ls -d desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)
           codesign --verify --deep --strict --verbose=2 "$app"
-          codesign --display --verbose=2 "$app/Contents/Resources/server/ClaudeCodeUI" 2>&1 | grep -E 'Authority=Developer ID|flags=.*runtime'
+          codesign --display --verbose=2 "$app/Contents/Resources/server/ccui-server" 2>&1 | grep -E 'Authority=Developer ID|flags=.*runtime'
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
 

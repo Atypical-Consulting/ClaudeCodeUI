@@ -19,4 +19,10 @@
     <Content Update="renovate.json;release-please-config.json;.release-please-manifest.json;appsettings.Development.json" CopyToPublishDirectory="Never"/>
   </ItemGroup>
 
+  <!-- The desktop's bundled server (the only single-file publish) runs as ccui-server: a `Stop-Process -Name ClaudeCodeUI`
+       or `pkill ClaudeCodeUI` aimed at a dev instance killed the installed app's server, and every claude session with it. -->
+  <Target Name="RenameDesktopServer" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
+    <Move SourceFiles="$(PublishDir)$(AssemblyName)$(_NativeExecutableExtension)" DestinationFiles="$(PublishDir)ccui-server$(_NativeExecutableExtension)"/>
+  </Target>
+
 </Project>
