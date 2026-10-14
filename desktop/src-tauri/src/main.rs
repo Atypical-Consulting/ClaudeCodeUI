@@ -64,7 +64,7 @@ fn main() {
             }
         })
         .setup(|app| {
-            let exe = app.path().resource_dir()?.join("server").join(if cfg!(windows) { "ClaudeCodeUI.exe" } else { "ClaudeCodeUI" });
+            let exe = app.path().resource_dir()?.join("server").join(if cfg!(windows) { "ccui-server.exe" } else { "ccui-server" }); // not ClaudeCodeUI: ClaudeCodeUI.csproj
             let mut cmd = Command::new(&exe);
             cmd.args(["--desktop-port", "0", "--parent-pid", &std::process::id().to_string()])
                 .current_dir(app.path().home_dir()?) // fallback working folder when there are no recent projects
