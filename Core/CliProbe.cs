@@ -1090,11 +1090,15 @@ public static class CliProbe
     // turn's text and a .txt name (LiveSession.Export).
     static async Task<IEnumerable<(string, string, string)>> Lifecycle(string dir)
     {
-        await using var c = await Cli.Start(dir, "--name", "probe-life");
+        await using var c = await Cli.Start(dir, "--name", "probe-life", "--include-partial-messages");
         return await Guard(["rename-session", "status", "export", "set-cwd"], async () =>
         {
+            // Mid-turn, as LiveSession.AutoTitle renames after the first prompt.
+            await c.S.SendUser("Write the numbers from 1 to 200 separated by single spaces. Nothing else.");
+            await c.Until(e => Events.Str(e, "type") == "stream_event");
             await c.S.Request("rename_session", new() { ["title"] = "probe renamed", ["source"] = "host" });
             var title = Events.Str(await c.Until(e => Events.Str(e, "subtype") == "session_title_changed" && Events.Str(e, "title") != "probe-life"), "title");
+            await c.Collect(1);
             var rows = StatusSection.Parse(await c.S.Request("get_status", null, 30));
             var version = rows.SelectMany(r => r.Rows).FirstOrDefault(r => r.Label == "Version").Value;
             await c.Turn("Reply with just: ok");

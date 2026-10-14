@@ -539,6 +539,8 @@
   <data name="Rail.Label" xml:space="preserve"><value>Sessions et navigation</value></data>
   <data name="Rail.NewSession" xml:space="preserve"><value>Nouvelle session</value></data>
   <data name="Rail.Recent" xml:space="preserve"><value>Récentes</value></data>
+  <data name="Rail.Untitled" xml:space="preserve"><value>Nouvelle session</value></data>
+  <data name="Rail.Titling" xml:space="preserve"><value>Titre en cours…</value></data>
   <data name="Rail.Search" xml:space="preserve"><value>Rechercher</value></data>
   <data name="Rail.ToClean" xml:space="preserve"><value>{0} supprimables sans perte</value></data>
   <data name="Rail.ToCleanHelp" xml:space="preserve"><value>Fusionnés ou orphelins : les supprimer ne perd rien</value></data>

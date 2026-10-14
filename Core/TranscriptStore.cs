@@ -555,7 +555,7 @@ public static class TranscriptStore
         catch (JsonException) { return null; }   // a bad escape in a cut or corrupt chunk
     }
 
-    static string? Trunc(string? s)
+    internal static string? Trunc(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return null;
         s = string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
