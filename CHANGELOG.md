@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.2...v0.5.0) (2026-10-14)
+
+
+### Features
+
+* **layout:** resizable sidebar and inspector columns ([#126](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/126)) ([85e9c66](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/85e9c664dcb68863a0c62d06e4951bdc0db467c2))
+* **rail:** sessions grouped by repository, titled by Haiku from their first prompt ([#127](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/127)) ([5271bfe](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/5271bfe6d5a7d8d44091da35ec59c10349df0210))
+
+
+### Bug Fixes
+
+* **background:** truthful frozen sessions, a quiet rail, keyboard-reachable, critique rounds 1-12 (24 → 36/40) ([#123](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/123)) ([c993cf1](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/c993cf1dacb7f9d05fc2a939493b816e45ab9adc))
+* **desktop:** bundled server runs as ccui-server, out of reach of name-based kills ([#128](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/128)) ([fedfaca](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/fedfaca64e3f879ab92983e8dc2cda7275e10a0c))
+* **extensions:** bound to its session, truthful plugin states, keyboard-reachable, critique rounds 1-9 (26 → 36/40) ([#125](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/125)) ([36a7e5f](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/36a7e5fc1064fd2f3fcd1ce51353a0fea7e43811))
+
 ## [0.4.2](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.1...v0.4.2) (2026-10-11)
 
 
