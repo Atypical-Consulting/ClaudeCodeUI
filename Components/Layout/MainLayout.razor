@@ -8,6 +8,9 @@
 <div class="app">
     <Rail />
     <main>@Body</main>
+    @* Splitters on the two seams (app.js: drag, arrow keys, double-click resets). *@
+    <div class="split" data-split="rail" role="separator" aria-orientation="vertical" tabindex="0" aria-label="@L["Layout.ResizeRail"]" title="@L["Layout.ResizeHint"]"></div>
+    <div class="split" data-split="insp" role="separator" aria-orientation="vertical" tabindex="0" aria-label="@L["Layout.ResizeInspector"]" title="@L["Layout.ResizeHint"]"></div>
 </div>
 <CommandPalette />
 <IconSprite />
@@ -97,6 +100,15 @@
             case "Escape" when Ui.PaletteOpen: Ui.PaletteOpen = false; break;
             default: Ui.RaiseKey(key); break;
         }
+    }
+
+    // A splitter let go (app.js): kept on the server too, the desktop page's localStorage resets per launch. null: back to the default.
+    [JSInvokable]
+    public void OnResize(string which, string? width)
+    {
+        var pref = which == "rail" ? AppPref.RailWidth : AppPref.InspectorWidth;
+        if (width is null) { try { File.Delete(pref.Path); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } }
+        else pref.Value = width;
     }
 
     public void Dispose()

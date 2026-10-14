@@ -274,6 +274,9 @@
   <data name="Kv.Tools" xml:space="preserve"><value>tools</value></data>
   <data name="Kv.Type" xml:space="preserve"><value>type</value></data>
   <data name="Layout.Dismiss" xml:space="preserve"><value>Dismiss</value></data>
+  <data name="Layout.ResizeRail" xml:space="preserve"><value>Resize the sidebar</value></data>
+  <data name="Layout.ResizeInspector" xml:space="preserve"><value>Resize the inspector</value></data>
+  <data name="Layout.ResizeHint" xml:space="preserve"><value>Drag or use the arrow keys; double-click to reset</value></data>
   <data name="Layout.Error" xml:space="preserve"><value>Something went wrong.</value></data>
   <data name="Layout.ErrorHint" xml:space="preserve"><value>The interface stopped following changes. Reload to bring it back.</value></data>
   <data name="Layout.Reload" xml:space="preserve"><value>Reload</value></data>

@@ -274,6 +274,9 @@
   <data name="Kv.Tools" xml:space="preserve"><value>outils</value></data>
   <data name="Kv.Type" xml:space="preserve"><value>type</value></data>
   <data name="Layout.Dismiss" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Layout.ResizeRail" xml:space="preserve"><value>Redimensionner la barre latérale</value></data>
+  <data name="Layout.ResizeInspector" xml:space="preserve"><value>Redimensionner l’inspecteur</value></data>
+  <data name="Layout.ResizeHint" xml:space="preserve"><value>Glisser ou flèches du clavier ; double-clic pour réinitialiser</value></data>
   <data name="Layout.Error" xml:space="preserve"><value>Une erreur inattendue est survenue.</value></data>
   <data name="Layout.ErrorHint" xml:space="preserve"><value>L’interface ne suit plus les changements. Recharge pour la rétablir.</value></data>
   <data name="Layout.Reload" xml:space="preserve"><value>Recharger</value></data>

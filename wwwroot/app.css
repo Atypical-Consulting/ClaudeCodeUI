@@ -64,7 +64,19 @@ code{font-family:var(--mono)}
 
 
 /* ---------- shell ---------- */
-.app{display:grid;grid-template-columns:256px minmax(0,1fr) 420px;height:100vh;background:var(--ground)}
+:root{--rail:var(--rail-w,256px);--insp-cap:max(320px,100vw - var(--rail) - 440px);--insp:min(var(--insp-w,420px),var(--insp-cap))}   /* --rail-w / --insp-w: the splitters (app.js); the thread always keeps 440px */
+.app{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--insp);height:100vh;background:var(--ground)}
+/* Splitters: a 9px grip straddling the 1px seam, drawn only when hovered (after a beat, so crossing it never flickers), held or focused. */
+.app>.pane,main{grid-row:1}.app>.pane{grid-column:1}   /* pinned: the splitters share their cells, auto-placement would push the panes aside */
+.split{grid-row:1;position:relative;z-index:6;width:9px;cursor:col-resize;touch-action:none;outline:none}
+.split[data-split=rail]{grid-column:1;justify-self:end;margin-right:-5px}
+.split[data-split=insp]{grid-column:3;justify-self:start;margin-left:-5px}
+.split::after{content:"";position:absolute;inset-block:0;left:3px;width:3px;border-radius:2px;background:transparent;transition:background-color .15s cubic-bezier(.2,.8,.2,1)}
+.split:hover::after{background:var(--seam-3);transition-delay:.12s}
+.split.on::after{background:var(--fg-5);transition-delay:0s}
+.split:focus-visible{outline:none}.split:focus-visible::after{background:var(--accent);transition-delay:0s}   /* the bar itself is the focus indicator */
+.app:not(:has(>main>.insp))>.split[data-split=insp]{display:none}
+html.resizing,html.resizing *{cursor:col-resize!important;user-select:none}
 .pane{border-right:1px solid var(--seam);display:flex;flex-direction:column;min-width:0;min-height:0}
 .pane:last-child{border-right:0}
 .ph{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--seam)}
@@ -872,7 +884,7 @@ button.sl{width:100%;text-align:left}
 .ext tr[aria-expanded]{cursor:pointer}
 .ext td>.n.id+.tag{margin-top:4px;display:inline-block}
 .insp .ph>.btn.ghost:last-child{margin-left:auto;flex:none}
-@media (min-width:1100px){.app:has(>main>.insp):has(.ext){grid-template-columns:256px minmax(0,1fr) clamp(340px,28vw,420px)}}   /* Extensions: the inspector grows with the window, so the table never shrinks as the window widens */
+@media (min-width:1100px){.app:has(>main>.insp):has(.ext){grid-template-columns:var(--rail) minmax(0,1fr) min(var(--insp-w,clamp(340px,28vw,420px)),var(--insp-cap))}}   /* Extensions: the inspector grows with the window, so the table never shrinks as the window widens */
 .ext [role=status]:empty{position:absolute}   /* a live region with nothing to say takes no gap */
 .ph .sub a{color:var(--fg-3);text-decoration:none}.ph .sub a:hover{color:var(--fg);text-decoration:underline}
 .ph .sub:has(select){overflow:visible}   /* its focus ring is not clipped */
@@ -916,7 +928,7 @@ button.sl{width:100%;text-align:left}
 /* ---------- app glue (not in mockup) ---------- */
 html,body{height:100%}
 body{overflow:hidden}
-.app:not(:has(>main>.insp)){grid-template-columns:256px minmax(0,1fr)}
+.app:not(:has(>main>.insp)){grid-template-columns:var(--rail) minmax(0,1fr)}
 /* The page columns of the .app grid, inside the main landmark. */
 main{grid-column:2/-1;display:grid;grid-template-columns:subgrid;grid-template-rows:minmax(0,1fr);min-width:0;min-height:0}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -962,9 +974,9 @@ button.mode{text-align:left}
 /* ---------- blazor ---------- */
 /* Unhandled-error toast. blazor.web.js toggles display:block on the host, so the layout lives on .beu. Floats, so it
    takes the popover shadow; the err tint and the KO duck carry the meaning. */
-#blazor-error-ui{display:none;position:fixed;left:calc(50% + 128px);bottom:20px;transform:translateX(-50%);z-index:1000;width:min(620px,calc(100vw - 256px - 32px))}
-/* With the 420px inspector open, centre on the thread column instead of rail + thread. */
-.app:has(>main>.insp)~#blazor-error-ui{left:calc(50% - 82px);width:min(620px,calc(100vw - 676px - 32px))}
+#blazor-error-ui{display:none;position:fixed;left:calc(50% + var(--rail) / 2);bottom:20px;transform:translateX(-50%);z-index:1000;width:min(620px,calc(100vw - var(--rail) - 32px))}
+/* With the inspector open, centre on the thread column instead of rail + thread. */
+.app:has(>main>.insp)~#blazor-error-ui{left:calc(50% + (var(--rail) - var(--insp)) / 2);width:min(620px,calc(100vw - var(--rail) - var(--insp) - 32px))}
 #blazor-error-ui .beu{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:10px 10px 10px 14px;background:color-mix(in srgb,var(--err) 6%,var(--raise));border:1px solid color-mix(in srgb,var(--err) 35%,transparent);border-radius:var(--r-pop);box-shadow:var(--shadow-pop)}
 #blazor-error-ui p{margin:0;font-size:13px;line-height:1.45;color:var(--fg-3)}
 #blazor-error-ui p b{display:block;font-weight:600;color:var(--fg)}
@@ -1041,17 +1053,19 @@ dl.kv{grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font
    The Tauri shell stops at 640px, so a half-screen tiled window reflows instead of being squeezed. Under 1100px the inspector docks under the
    main column instead of taking a third column; under 760px everything stacks and the page scrolls (WCAG 1.4.10). */
 @media (max-width:1099px){
-  .app{grid-template-columns:256px minmax(0,1fr)}
+  .app{grid-template-columns:var(--rail) minmax(0,1fr)}
+  .split[data-split=insp]{display:none}   /* the inspector docks under the thread */
   main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,min(40%,280px))}
   main:has(>.insp [data-permission]){grid-template-rows:minmax(0,1fr) minmax(0,60%)}
   main:not(:has(>.insp)){grid-template-rows:minmax(0,1fr)}
   main>.insp{border-top:1px solid var(--seam)}
   main>.insp [role=tabpanel]{flex:none}  /* the pane scrolls whole (the panel keeps its sideways scroll): a pinned .kv footer would eat it */
-  .app:has(>main>.insp)~#blazor-error-ui{left:calc(50% + 128px);width:min(620px,calc(100vw - 256px - 32px))}
+  .app:has(>main>.insp)~#blazor-error-ui{left:calc(50% + var(--rail) / 2);width:min(620px,calc(100vw - var(--rail) - 32px))}
 }
 @media (max-width:759px){
   body{overflow:auto}
   .app,.app:not(:has(>main>.insp)),main{display:flex;flex-direction:column;height:auto}
+  .split{display:none}
   .app>.pane{border-right:0;border-bottom:1px solid var(--seam);max-height:50vh;overflow-y:auto;mask-image:linear-gradient(#000 calc(100% - 25px),transparent calc(100% - 1px),#000 0)}  /* the cut edge fades instead of slicing a row; the last 1px keeps the seam */
   .app>.pane .scroll{flex:none;overflow:visible}
   main>.pane:not(.insp){min-height:100vh}

@@ -31,6 +31,11 @@ public sealed class AppPref(string name, string[] values)
 {
     public static readonly AppPref Theme = new("theme", ["graphite", "encre", "ristretto", "mousse", "contraste"]);
     public static readonly AppPref CodeSize = new("code-size", ["12px", "13px", "14px", "15px"]);
+    // The splitters' widths (app.js): every pixel between the bounds, so a hand-edited file cannot break the grid.
+    public static readonly AppPref RailWidth = new("rail-width", Px(200, 400));
+    public static readonly AppPref InspectorWidth = new("inspector-width", Px(320, 720));
+
+    static string[] Px(int min, int max) => [.. Enumerable.Range(min, max - min + 1).Select(i => i + "px")];
 
     public static event Action? Changed;
 
