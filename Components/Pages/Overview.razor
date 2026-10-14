@@ -492,7 +492,8 @@
     public void Dispose()
     {
         Sessions.Changed -= Refresh;
+        // Cancel only: OnInitializedAsync reads cts.Token after its awaits, and leaving mid-load must not throw there (a
+        // disposed source throws, which killed the circuit). Nothing to release: no timer on this source.
         cts.Cancel();
-        cts.Dispose();
     }
 }
