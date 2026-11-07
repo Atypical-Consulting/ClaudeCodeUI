@@ -64,6 +64,13 @@ jobs:
         with:
           tool: trunk@0.22.1
 
+      # trunk downloads a prebuilt wasm-bindgen, and the linux-arm64 one needs glibc 2.38 (ubuntu-22.04-arm has 2.35).
+      # Build it here instead; trunk uses a wasm-bindgen on PATH when its version matches Cargo.lock.
+      # (Moving the leg to ubuntu-24.04 would raise the glibc floor of the arm64 .deb/.AppImage.)
+      - name: wasm-bindgen from source (linux-arm64)
+        if: matrix.os == 'ubuntu-22.04-arm'
+        run: cargo install wasm-bindgen-cli --locked --version "$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')"
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
