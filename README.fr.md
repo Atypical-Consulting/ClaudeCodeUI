@@ -8,7 +8,7 @@ Une console de bureau pour [Claude Code](https://docs.claude.com/en/docs/claude-
 
 ## Installation
 
-Télécharge l'installeur de ton système sur la page des [versions GitHub](https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest). Aucun SDK .NET ni navigateur particulier n'est nécessaire : l'application embarque son serveur et utilise la vue web du système.
+Télécharge l'installeur de ton système sur la page des [versions GitHub](https://github.com/Atypical-Consulting/ClaudeCodeUI/releases/latest). Rien d'autre à installer : l'application est un binaire natif unique et utilise la vue web du système.
 
 | Système | Fichier | Remarque |
 |---|---|---|

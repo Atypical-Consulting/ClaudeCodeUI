@@ -1,7 +1,8 @@
 # Architecture — the Rust rewrite (Tauri 2 + Leptos 0.8)
 
-The .NET 10 Blazor Server app (C# sources still in the repo: `Core/*.cs`, `ClaudeSession.cs`,
-`Components/**/*.razor`, `wwwroot/app.js`, `Resources/*.resx`) is being rewritten in Rust. The sidecar server is
+Until 0.5.0 the app was a .NET 10 Blazor Server sidecar inside a Tauri shell; its C# sources (`Core/*.cs`,
+`ClaudeSession.cs`, `Components/**/*.razor`, `wwwroot/app.js`, `Resources/*.resx`) live in git history at tag
+`v0.5.0` and are the reference behind the ports named in each module's doc comment. The sidecar server is
 gone: one Tauri process holds the backend (`ccui-core`) and serves the Leptos UI (`ccui-ui`, wasm) in its webview.
 
 The requirements are the port specs `01-live-session.md` … `07-ui-session.md` (spec N §x below). This file is the

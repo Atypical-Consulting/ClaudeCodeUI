@@ -20,15 +20,15 @@ It is the real Claude Code agent (same CLI, same flags the SDK and VS Code exten
 
 ## Operating Context
 
-- Runs on localhost (ASP.NET Core Blazor Server, interactive server render mode), one user.
+- Native desktop app (Tauri 2 shell, Rust backend in-process, Leptos UI in the system web view), one user.
 - Each session is bound to a working directory and a permission mode (`default`, `acceptEdits`, `plan`, `auto`) chosen before it starts.
 - Used alongside an IDE and terminal; sessions can be long, with many tool calls.
 
 ## Capabilities and Constraints
 
-- Today: single session page with working directory, permission mode, new session, send (Ctrl+Enter), stop/interrupt, markdown rendering (Markdig, raw HTML disabled), highlight.js code blocks, collapsible tool call/result entries, allow/deny permission cards, result meta (subtype, duration, cost USD).
+- Today: single session page with working directory, permission mode, new session, send (Ctrl+Enter), stop/interrupt, markdown rendering (pulldown-cmark, raw HTML escaped), highlight.js code blocks, collapsible tool call/result entries, allow/deny permission cards, result meta (subtype, duration, cost USD).
 - Planned screens (mockups requested): chat session, permission request, start/new session, multi-session navigation (sidebar, history, parallel sessions).
-- Stack: .NET 10 Blazor Server, Markdig, highlight.js. No auth.
+- Stack: Rust (Tauri 2, tokio) + Leptos 0.8 (wasm, trunk), pulldown-cmark, highlight.js. No auth.
 - Undecided: session persistence/history storage, how parallel sessions are surfaced.
 
 ## Brand Commitments
