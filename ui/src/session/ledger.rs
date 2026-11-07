@@ -9,7 +9,9 @@ use leptos::prelude::*;
 #[component]
 pub fn Ledger(
     session: SessionHandle,
-    tools: Vec<ToolItem>,
+    /// Item indexes of the run's ToolItems (`thread_blocks::Block::Run`); each ToolRow reads `session.tool_at(i)`.
+    /// Local state (`open`) survives the run growing.
+    #[prop(into)] tools: Signal<Vec<usize>>,
     #[prop(optional)] expanded: bool,
 ) -> impl IntoView {
     // port: Ledger.razor markup + behaviour (placeholder root only)

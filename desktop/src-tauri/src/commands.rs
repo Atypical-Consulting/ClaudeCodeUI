@@ -9,13 +9,13 @@ use ccui_shared::api::*;
 use ccui_shared::edit_diff::DiffLine;
 use ccui_shared::hooks::HookListing;
 use ccui_shared::memory::{AutoMemory, MemoryFile, MemorySave};
-use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, UserImage};
+use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, TaskOutput, UserImage};
 use ccui_shared::permission_rules::PermissionRulesState;
 use ccui_shared::plugins::{Market, Outcome, PluginList, PluginOption};
 use ccui_shared::push::Push;
 use ccui_shared::session::{SessionSnapshot, SessionsSummary};
 use ccui_shared::workflow::WorkflowRun;
-use ccui_shared::worktree_rules::{CleanupStep, WorktreeInfo};
+use ccui_shared::worktree_rules::WorktreeInfo;
 use ccui_shared::Time;
 use serde_json::{Map, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -88,16 +88,32 @@ async fn sessions_summary(core: Core_<'_>) -> Res<SessionsSummary> {
     Ok(core.sessions.summary())
 }
 
-/// Live session snapshot, or None.
+/// Live session snapshot, or None. Does not watch (gap re-fetch of an already watched session).
 #[tauri::command(rename_all = "snake_case")]
 async fn session_snapshot(core: Core_<'_>, id: String) -> Res<Option<SessionSnapshot>> {
     Ok(core.sessions.get(&id).map(|s| s.snapshot()))
 }
 
 /// Resolve `/session/:id`: the live session, else its transcript opened as history; None = not found.
+/// WATCHES it (patches flow from now on) and returns the snapshot taken in the same lock.
 #[tauri::command(rename_all = "snake_case")]
 async fn session_open(core: Core_<'_>, id: String) -> Res<Option<SessionSnapshot>> {
-    Ok(core.sessions.open_id(&id).await.map(|s| s.snapshot()))
+    Ok(core.sessions.open_id(&id).await.map(|s| s.watch()))
+}
+
+/// Live only (never opens a transcript — Extensions): watch + snapshot in one lock; None = not live.
+#[tauri::command(rename_all = "snake_case")]
+async fn session_watch(core: Core_<'_>, id: String) -> Res<Option<SessionSnapshot>> {
+    Ok(core.sessions.get(&id).map(|s| s.watch()))
+}
+
+/// The UI no longer shows this session: its patches / streams stop being built (meta still flows via Sessions).
+#[tauri::command(rename_all = "snake_case")]
+async fn session_unwatch(core: Core_<'_>, id: String) -> Res<()> {
+    if let Some(s) = core.sessions.get(&id) {
+        s.unwatch();
+    }
+    Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -108,6 +124,7 @@ async fn session_start(core: Core_<'_>, args: StartArgs) -> Res<String> {
 #[tauri::command(rename_all = "snake_case")]
 async fn session_stop(core: Core_<'_>, id: String) -> Res<()> {
     core.sessions.stop(&id).await;
+    core.agent_logs.forget_session(&id);
     Ok(())
 }
 
@@ -191,11 +208,16 @@ async fn session_set_ultracode(core: Core_<'_>, id: String, on: bool) -> Res<()>
     Ok(())
 }
 
-/// Composer unsent text + images (debounced by the UI).
+/// Composer unsent text (debounced by the UI), based on draft `rev`; false = ignored (the backend's draft moved on).
 #[tauri::command(rename_all = "snake_case")]
-async fn session_set_draft(core: Core_<'_>, id: String, text: String, images: Vec<UserImage>) -> Res<()> {
-    session(&core, &id)?.set_draft(text, images);
-    Ok(())
+async fn session_set_draft_text(core: Core_<'_>, id: String, text: String, rev: u64) -> Res<bool> {
+    Ok(session(&core, &id)?.set_draft_text(text, rev))
+}
+
+/// Composer images, sent only when they change (never per keystroke). Same rev rule.
+#[tauri::command(rename_all = "snake_case")]
+async fn session_set_draft_images(core: Core_<'_>, id: String, images: Vec<UserImage>, rev: u64) -> Res<bool> {
+    Ok(session(&core, &id)?.set_draft_images(images, rev))
 }
 
 /// Generic control request (spawns the process if needed).
@@ -286,7 +308,7 @@ async fn session_stop_task(core: Core_<'_>, id: String, task_id: String) -> Res<
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn session_task_output(core: Core_<'_>, id: String, task_id: String) -> Res<Option<String>> {
+async fn session_task_output(core: Core_<'_>, id: String, task_id: String) -> Res<TaskOutput> {
     session(&core, &id)?.task_output(&task_id).await
 }
 
@@ -309,6 +331,12 @@ async fn session_rewind(core: Core_<'_>, id: String, uuid: String, files: bool) 
 #[tauri::command(rename_all = "snake_case")]
 async fn session_sign_in_again(core: Core_<'_>, id: String, server: String) -> Res<McpAuthStart> {
     session(&core, &id)?.sign_in_again(&server).await
+}
+
+/// Extensions sign-in: `mcp_authenticate {serverName}`, parsed by the backend.
+#[tauri::command(rename_all = "snake_case")]
+async fn session_mcp_authenticate(core: Core_<'_>, id: String, server: String) -> Res<McpAuthStart> {
+    session(&core, &id)?.mcp_authenticate(&server).await
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -346,6 +374,18 @@ async fn recent_sessions(take: usize) -> Res<RecentList> {
 #[tauri::command(rename_all = "snake_case")]
 async fn sessions_since(since: Time) -> Res<Vec<PastSession>> {
     blocking(move || ccui_core::transcript_store::since(since)).await
+}
+
+/// `TranscriptStore.ById(id)` WITHOUT opening it (Background rows, Extensions "Past"); None = no transcript.
+#[tauri::command(rename_all = "snake_case")]
+async fn transcript_by_id(id: String) -> Res<Option<PastSession>> {
+    blocking(move || ccui_core::transcript_store::by_id(&id)).await
+}
+
+/// The ids among `ids` that have a transcript file (`find(id).is_some()`), in input order.
+#[tauri::command(rename_all = "snake_case")]
+async fn transcripts_exist(ids: Vec<String>) -> Res<Vec<String>> {
+    blocking(move || ids.into_iter().filter(|id| ccui_core::transcript_store::find(id).is_some()).collect()).await
 }
 
 /// `EndOf(id)` for each id that has one.
@@ -419,6 +459,12 @@ async fn local_dir(path: String) -> Res<bool> {
     Ok(ccui_core::new_session::local_dir(&path))
 }
 
+/// ExtraDirs checks (normalise, known, exists locally, not a root). Ok = the folder to add; Err = the message to show.
+#[tauri::command(rename_all = "snake_case")]
+async fn validate_extra_dir(raw: String, cwd: String, dirs: Vec<String>) -> Res<String> {
+    blocking(move || ccui_core::new_session::validate_extra_dir(&raw, &cwd, &dirs)).await?
+}
+
 #[tauri::command(rename_all = "snake_case")]
 async fn git_branch(dir: String) -> Res<Option<String>> {
     Ok(ccui_core::git::branch(&dir).await)
@@ -458,6 +504,12 @@ async fn bg_list(core: Core_<'_>) -> Res<BgList> {
 #[tauri::command(rename_all = "snake_case")]
 async fn bg_run(command: String, id: String) -> Res<BgRunResult> {
     ccui_core::background_agents::run(&command, &id).await
+}
+
+/// Current `NeedsYouCount` (Rail badge after a webview reload: `Push::BgAgents` fires only on change).
+#[tauri::command(rename_all = "snake_case")]
+async fn bg_needs_you() -> Res<i32> {
+    Ok(ccui_core::background_agents::needs_you_count())
 }
 
 /// Start the 1-minute watcher (once per process; the Rail calls it on mount).
@@ -504,10 +556,11 @@ async fn worktrees_ignores(core: Core_<'_>, repo: String) -> Res<bool> {
     Ok(core.worktrees.ignores_worktrees(&repo).await)
 }
 
-/// Runs the plan; progress arrives as `Push::WorktreeRunStep` / `WorktreeRunDone` with this run_id.
+/// Cleans the chosen worktree `paths` (plan rebuilt in the backend from its cached rows; `kept_ok` = acknowledged
+/// paths); progress arrives as `Push::WorktreeRunStep` / `WorktreeRunDone` with this run_id.
 #[tauri::command(rename_all = "snake_case")]
-async fn worktrees_run(core: Core_<'_>, run_id: u64, plan: Vec<CleanupStep>) -> Res<()> {
-    core.worktrees.run(run_id, plan).await
+async fn worktrees_run(core: Core_<'_>, run_id: u64, paths: Vec<String>, kept_ok: Vec<String>) -> Res<()> {
+    core.worktrees.run(run_id, paths, kept_ok).await
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -618,7 +671,7 @@ async fn memory_autos(core: Core_<'_>, id: String) -> Res<Vec<AutoMemory>> {
 
 #[tauri::command(rename_all = "snake_case")]
 async fn memory_read(core: Core_<'_>, id: String, path: String) -> Res<Option<String>> {
-    let known = ccui_core::memory_files::list(&*session(&core, &id)?);
+    let known = ccui_core::memory_files::known(&*session(&core, &id)?);
     if !known.iter().any(|f| ccui_core::memory_files::same(&f.path, &path)) {
         return Err(ccui_shared::t!("Mem.NotAllowed"));
     }
@@ -627,7 +680,7 @@ async fn memory_read(core: Core_<'_>, id: String, path: String) -> Res<Option<St
 
 #[tauri::command(rename_all = "snake_case")]
 async fn memory_save(core: Core_<'_>, id: String, path: String, loaded: Option<String>, text: String) -> Res<MemorySave> {
-    let known = ccui_core::memory_files::list(&*session(&core, &id)?);
+    let known = ccui_core::memory_files::known(&*session(&core, &id)?);
     ccui_core::memory_files::save(&known, &path, loaded.as_deref(), &text)
 }
 
@@ -661,6 +714,13 @@ async fn workflow_agent_log(core: Core_<'_>, id: String, tool_id: String, agent_
     blocking(move || core.agent_logs.read(&id, &tool, &agent_id)).await
 }
 
+/// The inspector no longer shows that agent: drop its log (kept only while selected).
+#[tauri::command(rename_all = "snake_case")]
+async fn workflow_agent_log_release(core: Core_<'_>, id: String, tool_id: String, agent_id: String) -> Res<()> {
+    core.agent_logs.release(&id, &tool_id, &agent_id);
+    Ok(())
+}
+
 // ============================================================================================ registration
 
 pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
@@ -677,6 +737,8 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         sessions_summary,
         session_snapshot,
         session_open,
+        session_watch,
+        session_unwatch,
         session_start,
         session_stop,
         session_fork,
@@ -695,7 +757,8 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         session_set_default,
         session_set_fast,
         session_set_ultracode,
-        session_set_draft,
+        session_set_draft_text,
+        session_set_draft_images,
         session_request,
         session_restart,
         session_rename,
@@ -718,6 +781,7 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         session_preview_rewind,
         session_rewind,
         session_sign_in_again,
+        session_mcp_authenticate,
         session_reload_plugins,
         session_hooks,
         session_permission_rules,
@@ -725,6 +789,8 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         // transcripts
         recent_sessions,
         sessions_since,
+        transcript_by_id,
+        transcripts_exist,
         transcript_endings,
         plain_claude_cwds,
         search_transcripts,
@@ -738,6 +804,7 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         recent_roots,
         default_cwd,
         local_dir,
+        validate_extra_dir,
         git_branch,
         agent_names,
         free_worktree_name,
@@ -747,6 +814,7 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         // background agents
         bg_list,
         bg_run,
+        bg_needs_you,
         bg_watch,
         // worktrees
         worktrees_discover,
@@ -782,6 +850,7 @@ pub fn register(builder: Builder<Wry>) -> Builder<Wry> {
         // workflow runs
         workflow_run,
         workflow_agent_log,
+        workflow_agent_log_release,
     ])
 }
 

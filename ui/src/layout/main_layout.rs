@@ -30,7 +30,8 @@ pub fn MainLayout(children: Children) -> impl IntoView {
             <div class="beu">
                 <div class="duck" aria-hidden="true"><Duck mood=Mood::Ko size=36/></div>
                 <p><b>{t!("Layout.Error")}</b>{t!("Layout.ErrorHint")}</p>
-                <a href="" class="reload btn primary"><Icon name="refresh" sm=true/>{t!("Layout.Reload")}</a>
+                // rel="external": the router must not take it; main.rs wires reload / dismiss (no Leptos after a panic).
+                <a href="" rel="external" class="reload btn primary"><Icon name="refresh" sm=true/>{t!("Layout.Reload")}</a>
                 <button type="button" class="dismiss btn ghost" aria-label=t!("Layout.Dismiss")><Icon name="x"/></button>
             </div>
         </div>

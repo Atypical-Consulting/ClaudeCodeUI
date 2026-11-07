@@ -52,6 +52,12 @@ pub fn boot_info(version: &str, os_locale: Option<&str>) -> BootInfo {
 
 /// The window initialization script: `window.__CCUI_BOOT__ = <json>;` + apply `data-theme`, `--code-size`,
 /// `--rail-w`, `--insp-w` and `<html lang>` on `document.documentElement` before first paint.
+///
+/// STALENESS: Tauri registers this script once per webview (built in `setup`), so a reload — `set_culture` then
+/// `location.reload()` (spec 06 §6.4), or any reload — would re-inject the values of app start. The script
+/// therefore overlays `localStorage[ccui_shared::api::BOOT_MIRROR_KEY]` (`{culture, prefs, flags}`, kept current by
+/// the UI: `ipc::save_boot_mirror`) on the injected JSON, inside try/catch (missing / bad mirror → injected values),
+/// BEFORE applying anything; `version`, `mac`, `home`, `sep` always come from the injection.
 pub fn boot_script(boot: &BootInfo) -> String {
     todo!("port: App.razor inline theme bootstrap script")
 }

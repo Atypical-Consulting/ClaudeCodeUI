@@ -9,7 +9,8 @@ use leptos::prelude::*;
 #[component]
 pub fn AgentPanel(
     session: SessionHandle,
-    agent: ToolItem,
+    /// Reactive (`SessionHandle::tool_by_id`): state, tokens and children update in place.
+    #[prop(into)] agent: Signal<ToolItem>,
 ) -> impl IntoView {
     // port: AgentPanel.razor markup + behaviour (placeholder root only)
     view! { <div class="ph"></div> }

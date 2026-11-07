@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The bundled UI: core IPC and events. App-defined commands are allowed by default.",
+  "description": "The bundled UI: core IPC and events, and the window title (SessionTitle sets it through window.__TAURI__.window). App-defined commands are allowed by default.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-set-title"]
 }

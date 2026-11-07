@@ -9,13 +9,13 @@ use ccui_shared::api::*;
 use ccui_shared::edit_diff::DiffLine;
 use ccui_shared::hooks::HookListing;
 use ccui_shared::memory::{AutoMemory, MemoryFile, MemorySave};
-use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, UserImage};
+use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, TaskOutput, UserImage};
 use ccui_shared::permission_rules::PermissionRulesState;
 use ccui_shared::plugins::{Market, Outcome, PluginList, PluginOption};
 use ccui_shared::push::{Push, PUSH_EVENT};
 use ccui_shared::session::{SessionSnapshot, SessionsSummary};
 use ccui_shared::workflow::WorkflowRun;
-use ccui_shared::worktree_rules::{CleanupStep, WorktreeInfo};
+use ccui_shared::worktree_rules::WorktreeInfo;
 use ccui_shared::Time;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -43,8 +43,10 @@ pub async fn call<R: DeserializeOwned>(cmd: &str, args: Value) -> IpcResult<R> {
     }
 }
 
-/// Subscribe to every backend push for the life of the page (call once, at boot).
-pub fn listen_push(handler: impl Fn(Push) + 'static) {
+/// Subscribe to every backend push for the life of the page (call once, at boot). Resolves once the listener is
+/// REGISTERED: await it before the first `sessions_summary` / `session_open`, so nothing emitted after that call
+/// can be missed. Returns the unlisten function (unused today: the listener lives as long as the page).
+pub async fn listen_push(handler: impl Fn(Push) + 'static) -> IpcResult<js_sys::Function> {
     let cb = Closure::<dyn FnMut(JsValue)>::new(move |ev: JsValue| {
         let payload = js_sys::Reflect::get(&ev, &JsValue::from_str("payload")).unwrap_or(JsValue::NULL);
         match serde_wasm_bindgen::from_value::<Push>(payload) {
@@ -54,9 +56,18 @@ pub fn listen_push(handler: impl Fn(Push) + 'static) {
     });
     let f: js_sys::Function = cb.as_ref().unchecked_ref::<js_sys::Function>().clone();
     cb.forget(); // lives as long as the page
-    wasm_bindgen_futures::spawn_local(async move {
-        let _ = tauri_listen(PUSH_EVENT, &f).await;
-    });
+    let unlisten = tauri_listen(PUSH_EVENT, &f).await.map_err(|e| e.as_string().unwrap_or_else(|| format!("{e:?}")))?;
+    Ok(unlisten.unchecked_into())
+}
+
+/// Write the boot mirror (`BOOT_MIRROR_KEY`: culture, prefs, flags) the shell's init script overlays on its stale
+/// injected values after a reload. Call on every `PrefChanged`, after `set_culture` (before `location.reload()`)
+/// and once at boot with `app_boot()`'s answer. Storage errors are ignored (the injected values then apply).
+pub fn save_boot_mirror(boot: &BootInfo) {
+    let mirror = json!({"culture": boot.culture, "prefs": boot.prefs, "flags": boot.flags});
+    if let Some(store) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let _ = store.set_item(BOOT_MIRROR_KEY, &mirror.to_string());
+    }
 }
 
 /// `window.__CCUI_BOOT__` (set by the shell's initialization script), else defaults (plain `trunk serve`).
@@ -102,6 +113,12 @@ pub async fn session_snapshot(id: &str) -> IpcResult<Option<SessionSnapshot>> {
 }
 pub async fn session_open(id: &str) -> IpcResult<Option<SessionSnapshot>> {
     call("session_open", json!({"id": id})).await
+}
+pub async fn session_watch(id: &str) -> IpcResult<Option<SessionSnapshot>> {
+    call("session_watch", json!({"id": id})).await
+}
+pub async fn session_unwatch(id: &str) -> IpcResult<()> {
+    call("session_unwatch", json!({"id": id})).await
 }
 pub async fn session_start(args: &StartArgs) -> IpcResult<String> {
     call("session_start", json!({"args": args})).await
@@ -157,8 +174,11 @@ pub async fn session_set_fast(id: &str, on: bool) -> IpcResult<()> {
 pub async fn session_set_ultracode(id: &str, on: bool) -> IpcResult<()> {
     call("session_set_ultracode", json!({"id": id, "on": on})).await
 }
-pub async fn session_set_draft(id: &str, text: &str, images: &[UserImage]) -> IpcResult<()> {
-    call("session_set_draft", json!({"id": id, "text": text, "images": images})).await
+pub async fn session_set_draft_text(id: &str, text: &str, rev: u64) -> IpcResult<bool> {
+    call("session_set_draft_text", json!({"id": id, "text": text, "rev": rev})).await
+}
+pub async fn session_set_draft_images(id: &str, images: &[UserImage], rev: u64) -> IpcResult<bool> {
+    call("session_set_draft_images", json!({"id": id, "images": images, "rev": rev})).await
 }
 pub async fn session_request(id: &str, subtype: &str, fields: Option<Value>) -> IpcResult<Value> {
     call("session_request", json!({"id": id, "subtype": subtype, "fields": fields})).await
@@ -211,7 +231,7 @@ pub async fn session_background(id: &str, tool_use_id: &str) -> IpcResult<()> {
 pub async fn session_stop_task(id: &str, task_id: &str) -> IpcResult<()> {
     call("session_stop_task", json!({"id": id, "task_id": task_id})).await
 }
-pub async fn session_task_output(id: &str, task_id: &str) -> IpcResult<Option<String>> {
+pub async fn session_task_output(id: &str, task_id: &str) -> IpcResult<TaskOutput> {
     call("session_task_output", json!({"id": id, "task_id": task_id})).await
 }
 pub async fn session_clear_ended_tasks(id: &str) -> IpcResult<()> {
@@ -225,6 +245,9 @@ pub async fn session_rewind(id: &str, uuid: &str, files: bool) -> IpcResult<()> 
 }
 pub async fn session_sign_in_again(id: &str, server: &str) -> IpcResult<McpAuthStart> {
     call("session_sign_in_again", json!({"id": id, "server": server})).await
+}
+pub async fn session_mcp_authenticate(id: &str, server: &str) -> IpcResult<McpAuthStart> {
+    call("session_mcp_authenticate", json!({"id": id, "server": server})).await
 }
 pub async fn session_reload_plugins(id: &str) -> IpcResult<ReloadSummary> {
     call("session_reload_plugins", json!({"id": id})).await
@@ -246,6 +269,12 @@ pub async fn recent_sessions(take: usize) -> IpcResult<RecentList> {
 }
 pub async fn sessions_since(since: Time) -> IpcResult<Vec<PastSession>> {
     call("sessions_since", json!({"since": since})).await
+}
+pub async fn transcript_by_id(id: &str) -> IpcResult<Option<PastSession>> {
+    call("transcript_by_id", json!({"id": id})).await
+}
+pub async fn transcripts_exist(ids: &[String]) -> IpcResult<Vec<String>> {
+    call("transcripts_exist", json!({"ids": ids})).await
 }
 pub async fn transcript_endings(ids: &[String]) -> IpcResult<Vec<(String, Ending)>> {
     call("transcript_endings", json!({"ids": ids})).await
@@ -286,6 +315,9 @@ pub async fn default_cwd() -> IpcResult<String> {
 pub async fn local_dir(path: &str) -> IpcResult<bool> {
     call("local_dir", json!({"path": path})).await
 }
+pub async fn validate_extra_dir(raw: &str, cwd: &str, dirs: &[String]) -> IpcResult<String> {
+    call("validate_extra_dir", json!({"raw": raw, "cwd": cwd, "dirs": dirs})).await
+}
 pub async fn git_branch(dir: &str) -> IpcResult<Option<String>> {
     call("git_branch", json!({"dir": dir})).await
 }
@@ -312,6 +344,9 @@ pub async fn bg_list() -> IpcResult<BgList> {
 }
 pub async fn bg_run(command: &str, id: &str) -> IpcResult<BgRunResult> {
     call("bg_run", json!({"command": command, "id": id})).await
+}
+pub async fn bg_needs_you() -> IpcResult<i32> {
+    call("bg_needs_you", json!({})).await
 }
 pub async fn bg_watch() -> IpcResult<()> {
     call("bg_watch", json!({})).await
@@ -340,8 +375,8 @@ pub async fn worktrees_push(path: &str, branch: Option<&str>) -> IpcResult<i32> 
 pub async fn worktrees_ignores(repo: &str) -> IpcResult<bool> {
     call("worktrees_ignores", json!({"repo": repo})).await
 }
-pub async fn worktrees_run(run_id: u64, plan: &[CleanupStep]) -> IpcResult<()> {
-    call("worktrees_run", json!({"run_id": run_id, "plan": plan})).await
+pub async fn worktrees_run(run_id: u64, paths: &[String], kept_ok: &[String]) -> IpcResult<()> {
+    call("worktrees_run", json!({"run_id": run_id, "paths": paths, "kept_ok": kept_ok})).await
 }
 pub async fn worktrees_cancel_run(run_id: u64) -> IpcResult<()> {
     call("worktrees_cancel_run", json!({"run_id": run_id})).await
@@ -417,4 +452,7 @@ pub async fn workflow_run(id: &str, tool_id: &str) -> IpcResult<Option<WorkflowR
 }
 pub async fn workflow_agent_log(id: &str, tool_id: &str, agent_id: &str) -> IpcResult<WorkflowAgentLog> {
     call("workflow_agent_log", json!({"id": id, "tool_id": tool_id, "agent_id": agent_id})).await
+}
+pub async fn workflow_agent_log_release(id: &str, tool_id: &str, agent_id: &str) -> IpcResult<()> {
+    call("workflow_agent_log_release", json!({"id": id, "tool_id": tool_id, "agent_id": agent_id})).await
 }

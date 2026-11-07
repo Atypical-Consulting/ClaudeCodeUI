@@ -9,7 +9,8 @@ use leptos::prelude::*;
 #[component]
 pub fn TaskActions(
     session: SessionHandle,
-    tool: ToolItem,
+    /// Reactive (`SessionHandle::tool_at` / `tool_by_id`): Running → Done, live tokens re-render in place.
+    #[prop(into)] tool: Signal<ToolItem>,
 ) -> impl IntoView {
     // port: TaskActions.razor markup + behaviour (placeholder root only)
     view! { <button type="button" class="btn ghost"></button> }

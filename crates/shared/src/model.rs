@@ -329,6 +329,10 @@ pub struct PendingPermission {
     pub suggestions: Option<Value>,
     pub at: Time,
     pub info: Option<PermissionInfo>,
+    /// Write only: whether `input.file_path` existed when the request arrived (PermissionCard titles it
+    /// `Perm.Overwrite` vs `Perm.Create`, checked ONCE per permission — spec 07 §35). Filled by `live::lifecycle`
+    /// (the reducer is pure) right after it folds the can_use_tool event; None for every other tool.
+    pub target_exists: Option<bool>,
 }
 
 /// A message written to stdin mid-turn, not started yet (the "chip").
@@ -387,6 +391,21 @@ impl BgTask {
     pub fn tail(output: &str, lines: usize) -> String {
         todo!("port: BgTask.Tail")
     }
+}
+
+/// `session_task_output` answer (spec 07 §25): TasksPanel marks a task final on `RequestFailed` (the CLI answered
+/// with an error: the task is gone with its output file) and retries on `Timeout` (next tick).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value")]
+pub enum TaskOutput {
+    /// The output so far ("" when none).
+    Text(String),
+    /// The session has no process (nothing asked).
+    NoProcess,
+    /// `ClaudeRequestException`: the CLI's error reply.
+    RequestFailed(String),
+    /// `TimeoutException`: no reply in time.
+    Timeout,
 }
 
 /// A hook that is running (`running_hooks` entry).

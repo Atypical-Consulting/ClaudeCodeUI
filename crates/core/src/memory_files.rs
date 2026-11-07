@@ -17,6 +17,12 @@ pub fn autos(session: &LiveSession) -> Vec<AutoMemory> {
     todo!("port: MemoryFiles.Memories (session call site)")
 }
 
+/// Known = `list` ∪ `autos` as `MemoryFile { path, kind: "Auto", tokens: None, exists: true }` (spec 07 §34): the
+/// only paths `memory_read` / `memory_save` accept.
+pub fn known(session: &LiveSession) -> Vec<MemoryFile> {
+    todo!("port: MemoryPanel Known")
+}
+
 /// None if missing; Err(`Mem.TooLarge`) above 256 KiB; UTF-8 with BOM stripped.
 pub fn read(path: &str) -> CoreResult<Option<String>> {
     todo!("port: MemoryFiles.Read")

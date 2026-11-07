@@ -5,7 +5,8 @@ use ccui_shared::model::*;
 use ccui_shared::t;
 use leptos::prelude::*;
 
-/// Prompt box: draft (session_set_draft debounced), images (images::from in wasm), queued chips, menus/popovers,
+/// Prompt box: draft (`session.draft`; text → `session_set_draft_text(text, rev)` debounced, images →
+/// `session_set_draft_images(images, rev)` on change; adopt a pushed draft only on a new rev), images (images::from in wasm), queued chips, menus/popovers,
 /// slash commands, history recall (PromptHistory + past_prompts), Invisible strip notice, send / stop, meta row.
 #[component]
 pub fn Composer(

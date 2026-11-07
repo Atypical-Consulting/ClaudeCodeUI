@@ -26,4 +26,7 @@ web-sys = { version = "0.3", features = [
   "HtmlSelectElement", "HtmlDialogElement", "ScrollIntoViewOptions", "ScrollLogicalPosition", "FocusOptions",
   "ResizeObserver", "ResizeObserverEntry", "IntersectionObserver", "IntersectionObserverEntry", "MutationObserver",
   "MutationObserverInit", "MutationRecord", "Storage", "Navigator", "Clipboard", "Location", "Performance", "console",
+  "DomRect", "DomStringMap", "AddEventListenerOptions", "EventInit", "KeyboardEventInit", "CustomEvent", "CustomEventInit",
+  "Selection", "Range", "Text", "HtmlCollection", "HtmlButtonElement", "HtmlAnchorElement", "HtmlDetailsElement",
+  "ScrollToOptions", "ScrollBehavior", "HashChangeEvent",
 ] }

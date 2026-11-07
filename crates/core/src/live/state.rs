@@ -8,7 +8,7 @@
 //! ≥ i that remains dirty (the UI truncates to `len`, then writes the upserts).
 
 use ccui_shared::model::*;
-use ccui_shared::session::SessionMeta;
+use ccui_shared::session::{SessionDraft, SessionHeavy, SessionMeta};
 use ccui_shared::usage::Usage;
 use rust_decimal::Decimal;
 use serde_json::Value;
@@ -38,6 +38,8 @@ pub struct SessionState {
     pub queued: Vec<QueuedMessage>,
     /// Streamed text buffer (top-level text_delta only).
     pub stream: String,
+    /// Bumped by `clear_stream` (the next stream push restarts at offset 0).
+    pub stream_epoch: u64,
     pub status: SessionStatus,
     pub thinking_tokens: i32,
     pub cost_usd: Decimal,
@@ -56,37 +58,32 @@ pub struct SessionState {
     pub exit_code: Option<i32>,
     pub exit_text: Option<String>,
     pub start_failed: bool,
-    pub init: Option<InitInfo>,
-    pub initialize_info: Option<Value>,
+    /// init, initialize_info, status_rows, memory_dialog, context, mcp_status, usage (pushed only when changed).
+    pub heavy: SessionHeavy,
     pub model: Option<String>,
     pub effort: Option<String>,
     pub ultracode: bool,
     pub pr_url: Option<String>,
     pub remote_url: Option<String>,
-    pub status_rows: Option<Vec<StatusSection>>,
     pub thinking: bool,
     pub advisor: Option<String>,
     pub output_style: Option<String>,
-    pub memory_dialog: Option<Value>,
     pub status_text: Option<String>,
     /// hook_id → (name, started_at), insertion order.
     pub running_hooks: Vec<RunningHook>,
     pub fast_mode_state: String,
     pub fast_mode_reason: Option<String>,
-    pub context: Option<Value>,
-    pub mcp_status: Option<Value>,
     pub plugin_status: BTreeMap<String, String>,
     pub tasks: Vec<BgTask>,
     pub limits: Option<RateLimits>,
     pub limits_at: Option<Time>,
-    pub usage: Option<Usage>,
     pub retry: Option<RetryEvt>,
     pub compacting_since: Option<Time>,
     pub artifacts: Vec<Artifact>,
     pub pushes: i32,
     pub last_push: Option<String>,
-    pub draft: String,
-    pub draft_images: Vec<UserImage>,
+    /// Composer draft; `draft.rev` += 1 only in `cut_back` (backend-originated writes).
+    pub draft: SessionDraft,
     pub suggestion: Option<String>,
     pub untitled: bool,
 
@@ -163,6 +160,7 @@ impl SessionState {
         todo!("port: LiveSession.EndTools")
     }
 
+    /// Empty the stream and bump `stream_epoch`.
     pub fn clear_stream(&mut self) {
         todo!("port: LiveSession.ClearStream")
     }
@@ -177,7 +175,8 @@ impl SessionState {
         todo!("port: LiveSession.Truncate")
     }
 
-    /// Restore the typed text (or `user_text(prefill)`) ahead of the draft, images if the draft has none, truncate.
+    /// Restore the typed text (or `user_text(prefill)`) ahead of the draft, images if the draft has none, truncate;
+    /// `draft.rev += 1` so the patch carries the restored draft and stale UI writes are ignored.
     pub fn cut_back(&mut self, uuid: &str, prefill: Option<&str>, rewound: Option<&[String]>) {
         todo!("port: LiveSession.CutBack")
     }

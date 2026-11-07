@@ -14,14 +14,16 @@ pub const PUSH_EVENT: &str = "ccui://push";
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum Push {
-    /// One session's structural change (items/meta), throttled 50 ms; immediate on permission request and result.
+    /// One WATCHED session's structural change (items/meta), throttled 50 ms; immediate on permission request and
+    /// result. Apply rule: `SessionPatch` doc.
     SessionPatch(SessionPatch),
-    /// One session's streaming text (throttled with the patches, does not bump version).
+    /// One WATCHED session's streaming text increment (throttled with the patches, does not bump version).
     SessionStream(SessionStream),
-    /// App-wide session list / decision queue / quota (relayed only when some session's version moved, or on
-    /// add/stop).
+    /// App-wide session list / decision queue / quota, for every live session (watched or not). Throttled to ≤ 1
+    /// per 50 ms app-wide (trailing), emitted only when some session's version moved, and on add/stop.
     Sessions(SessionsSummary),
-    /// A session was removed from the live list (Stop): its page re-resolves (transcript) or shows "not found".
+    /// A session was removed from the live list (Stop): the UI drops its handle; its page re-resolves (transcript)
+    /// or shows "not found".
     SessionRemoved { id: String },
     /// `TranscriptStore.Invalidate()`: readers of `recent_sessions` holding an older generation reload now.
     TranscriptsInvalidated { generation: u64 },

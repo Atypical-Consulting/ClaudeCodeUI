@@ -6,7 +6,7 @@ use super::LiveSession;
 use crate::CoreResult;
 use ccui_shared::api::{AnswerArgs, TrustPrompt};
 use ccui_shared::hooks::HookListing;
-use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, UserImage};
+use ccui_shared::model::{McpAuthStart, ReloadSummary, RewindPreview, TaskOutput, UserImage};
 use ccui_shared::permission_rules::PermissionRulesState;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -109,9 +109,15 @@ impl LiveSession {
         todo!("port: LiveSession.SetUltracode")
     }
 
-    /// Composer unsent text (survives navigation/reload); no notify loop back to the sender is needed beyond the patch.
-    pub fn set_draft(&self, text: String, images: Vec<UserImage>) {
-        todo!("port: LiveSession.Draft / DraftImages setters")
+    /// Composer unsent text (survives navigation/reload). Ignored (false) when `rev != draft.rev` (a stale debounced
+    /// write after cut_back restored a prompt). Never bumps `version` or `draft.rev`: the sender is never echoed.
+    pub fn set_draft_text(&self, text: String, rev: u64) -> bool {
+        todo!("port: LiveSession.Draft setter")
+    }
+
+    /// Composer images (sent only when they change, never per keystroke). Same rev rule as `set_draft_text`.
+    pub fn set_draft_images(&self, images: Vec<UserImage>, rev: u64) -> bool {
+        todo!("port: LiveSession.DraftImages setter")
     }
 
     /// §6.4: validate (`session_rules::extra_dir`), apply the whole list live, record `dirs/<id>.txt`.
@@ -164,6 +170,12 @@ impl LiveSession {
         todo!("port: Extensions.LoadPerms (request part)")
     }
 
+    /// Extensions sign-in (spec 06 §6.7): `mcp_authenticate {serverName}` → `events::mcp_auth` (the parser stays in
+    /// core; the UI gets the typed answer). Spawns the process if needed, like `request`.
+    pub async fn mcp_authenticate(self: &Arc<Self>, server: &str) -> CoreResult<McpAuthStart> {
+        todo!("port: Extensions SignIn (mcp_authenticate)")
+    }
+
     /// `mcp_clear_auth` then `mcp_authenticate` → McpAuthStart.
     pub async fn sign_in_again(self: &Arc<Self>, server: &str) -> CoreResult<McpAuthStart> {
         todo!("port: LiveSession.SignInAgain")
@@ -200,8 +212,9 @@ impl LiveSession {
         todo!("port: LiveSession.FinishSignIn")
     }
 
-    /// If proc: `get_task_output {task_id}` → output ?? ""; else None.
-    pub async fn task_output(self: &Arc<Self>, task_id: &str) -> CoreResult<Option<String>> {
+    /// If proc: `get_task_output {task_id}` → Text(output ?? ""); CLI error reply → RequestFailed(msg); no reply in
+    /// time → Timeout; no proc → NoProcess.
+    pub async fn task_output(self: &Arc<Self>, task_id: &str) -> CoreResult<TaskOutput> {
         todo!("port: LiveSession.TaskOutput")
     }
 

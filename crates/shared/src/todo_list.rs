@@ -34,7 +34,7 @@ impl TodoEntry {
 }
 
 /// Fold the items (ResetItem clears; top-level ToolItems not Error/Denied/NotRun apply).
-pub fn from(items: &[Item]) -> Vec<TodoEntry> {
+pub fn from<I: std::borrow::Borrow<Item>>(items: &[I]) -> Vec<TodoEntry> {
     todo!("port: TodoList.From")
 }
 

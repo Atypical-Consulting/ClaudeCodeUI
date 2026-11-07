@@ -11,7 +11,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Everything about a live session except its items and streaming text.
+/// Everything about a live session except its items, streaming text, the heavy rarely-changing JSON
+/// ([`SessionHeavy`]) and the composer draft ([`SessionDraft`]). Small: sent whole on every patch.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SessionMeta {
     /// == `--session-id` == transcript file stem == route `/session/{id}`.
@@ -52,9 +53,6 @@ pub struct SessionMeta {
     /// `Session.NotStarted` if start_failed else `Session.ExitShort(exit_code)`, localized by the backend.
     pub exit_label: String,
     pub crashed_mid_turn: bool,
-    pub init: Option<InitInfo>,
-    /// initialize response: models, commands, agents, account, available_output_styles, claude_code_version…
-    pub initialize_info: Option<Value>,
     pub model: Option<String>,
     pub effort: Option<String>,
     pub advisor: Option<String>,
@@ -67,30 +65,20 @@ pub struct SessionMeta {
     pub pr_url: Option<String>,
     pub remote_url: Option<String>,
     pub remote_available: bool,
-    pub status_rows: Option<Vec<StatusSection>>,
     /// statusLine command output (≤ 3 lines).
     pub status_text: Option<String>,
-    pub memory_dialog: Option<Value>,
-    /// Raw get_context_usage.
-    pub context: Option<Value>,
-    /// Raw mcp_status (`{"mcpServers":[…]}`).
-    pub mcp_status: Option<Value>,
     /// plugin → status line, sorted by plugin name.
     pub plugin_status: Vec<(String, String)>,
     pub running_hooks: Vec<RunningHook>,
     pub tasks: Vec<BgTask>,
     pub limits: Option<RateLimits>,
     pub limits_at: Option<Time>,
-    pub usage: Option<Usage>,
     pub retry: Option<RetryEvt>,
     pub compacting_since: Option<Time>,
     pub artifacts: Vec<Artifact>,
     pub pushes: i32,
     pub last_push: Option<String>,
     pub has_process: bool,
-    /// Composer unsent text: owned by the backend (rewind writes it back), set by `session_set_draft`.
-    pub draft: String,
-    pub draft_images: Vec<UserImage>,
     /// Predicted next prompt (ghost text).
     pub suggestion: Option<String>,
     pub untitled: bool,
@@ -106,34 +94,84 @@ pub struct SessionMeta {
     pub sent: Vec<String>,
 }
 
-/// Full state for first render (`session_snapshot`).
+/// The large, rarely-changing part of the read model. Held by the backend as ONE sub-struct of the session state
+/// (`SessionState.heavy`) so a patch carries it only when it differs from the copy last pushed (compared by value
+/// under the gate — no revision counter to forget).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SessionHeavy {
+    pub init: Option<InitInfo>,
+    /// initialize response: models, commands, agents, account, available_output_styles, claude_code_version…
+    pub initialize_info: Option<Value>,
+    pub status_rows: Option<Vec<StatusSection>>,
+    pub memory_dialog: Option<Value>,
+    /// Raw get_context_usage.
+    pub context: Option<Value>,
+    /// Raw mcp_status (`{"mcpServers":[…]}`).
+    pub mcp_status: Option<Value>,
+    pub usage: Option<Usage>,
+}
+
+/// The composer's unsent text + images, owned by the backend because rewind (`cut_back`) writes the restored prompt
+/// into it. `rev` is bumped ONLY by backend-originated writes (cut_back); the UI's own writes
+/// (`session_set_draft_text` / `session_set_draft_images`) carry the rev they are based on and are ignored by the
+/// backend when it moved on, and they never bump it (so they are never echoed back).
+/// A patch carries the draft only when `rev` changed since the last push; the Composer adopts a pushed draft only
+/// when its rev differs from the one it holds (and drops any pending debounced write then).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SessionDraft {
+    pub rev: u64,
+    pub text: String,
+    pub images: Vec<UserImage>,
+}
+
+/// Full state for first render (`session_open` / `session_watch` / `session_snapshot`). `version` and every field
+/// are read under the same lock.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SessionSnapshot {
     pub version: u64,
     pub meta: SessionMeta,
+    pub heavy: SessionHeavy,
+    pub draft: SessionDraft,
     pub items: Vec<Item>,
     pub streaming_text: String,
 }
 
-/// Structural change, throttled 50 ms (immediate on permission request / result). Apply: truncate items to `len`,
-/// then write each upsert at its index (index == len-before-upserts appends). Ignore a patch whose version is not
-/// greater than the one held; on a gap the UI may re-fetch `session_snapshot`.
+/// Structural change, throttled 50 ms (immediate on permission request / result). Only WATCHED sessions get
+/// patches (`session_watch`); built under the session lock together with `version`.
+///
+/// The upserts are every item changed since the previous patch (`base_version`), so a patch covers the range
+/// `(base_version, version]`. UI rule (held = version the UI holds):
+/// - `version <= held` → stale, ignore;
+/// - `base_version <= held < version` → apply: truncate items to `len`, write each upsert at its index (an index
+///   greater than the current length is a gap → re-fetch), replace `meta`, replace heavy/draft when present;
+/// - `base_version > held` → a patch was missed → re-fetch `session_snapshot` (buffer patches meanwhile, then apply
+///   the buffered ones by the same rule).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SessionPatch {
     pub id: String,
+    /// Version of the previous patch pushed for this session (0 for the first).
+    pub base_version: u64,
     pub version: u64,
     pub meta: SessionMeta,
+    /// Only when it differs from the heavy part last pushed.
+    pub heavy: Option<SessionHeavy>,
+    /// Only when `draft.rev` changed since the last push.
+    pub draft: Option<SessionDraft>,
     /// Items changed since the last push, `(index, item)` in ascending index order.
     pub items: Vec<(usize, Item)>,
     /// Item count after this patch (shorter = rewind/reset truncated).
     pub len: usize,
 }
 
-/// Streaming text only (does not bump version). The whole current text, not a delta; "" clears.
+/// Streaming text increment (does not bump version; watched sessions only). UI rule: `offset == 0` → replace the
+/// text with `append` (a cleared/restarted stream; `append` "" clears); `offset <= held length` → truncate the held
+/// text to `offset` (byte offset, a char boundary: both sides hold the same prefix), then push `append`;
+/// `offset > held length` → gap → re-fetch the snapshot (its `streaming_text`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SessionStream {
     pub id: String,
-    pub text: String,
+    pub offset: usize,
+    pub append: String,
 }
 
 /// A tool name + input (Overview "last step", palette details).
@@ -188,6 +226,9 @@ pub struct DecisionEntry {
     pub session_name: String,
     pub session_cwd: String,
     pub permission: PendingPermission,
+    /// `session_rules::agent_label(asking_agent(items, permission))`, computed by the backend (the UI holds only the
+    /// watched session's items): PermissionCard's "also waiting" shows `name · label`.
+    pub agent_label: Option<String>,
 }
 
 /// The session the quota meter can ask again (`UsageSource`).

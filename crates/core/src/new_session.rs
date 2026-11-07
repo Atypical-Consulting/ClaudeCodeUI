@@ -19,6 +19,13 @@ pub fn local_dir(path: &str) -> bool {
     todo!("port: NewSession.Local")
 }
 
+/// `validate_extra_dir` (spec 07 §20, ExtraDirs.Add checks — they need the filesystem and the OS rules):
+/// `session_rules::extra_dir(raw, cwd, dirs, case_sensitive = Linux)` else Err(`Dirs.Known`); `!local_dir(d)` →
+/// Err(`Dirs.NoFolder`); `d` is its own path root (`/`, `C:\`) → Err(`Dirs.Root`). Errors are localized messages.
+pub fn validate_extra_dir(raw: &str, cwd: &str, dirs: &[String]) -> Result<String, String> {
+    todo!("port: ExtraDirs.Add checks (ExtraDir + Local + GetPathRoot)")
+}
+
 /// Process current dir (the default cwd when there is no recent).
 pub fn default_cwd() -> String {
     todo!("port: Environment.CurrentDirectory")

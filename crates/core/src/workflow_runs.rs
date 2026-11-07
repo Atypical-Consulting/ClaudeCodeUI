@@ -105,4 +105,15 @@ impl AgentLogs {
     pub fn read(&self, session_id: &str, tool: &ToolItem, agent_id: &str) -> WorkflowAgentLog {
         todo!("port: AgentPanel/WorkflowPanel AgentLog ownership")
     }
+
+    /// The inspector stopped showing that agent (`workflow_agent_log_release`): drop its log. Spec 05/07: a log is
+    /// kept only while selected.
+    pub fn release(&self, session_id: &str, tool_id: &str, agent_id: &str) {
+        todo!("port: (AgentLog disposed with its panel)")
+    }
+
+    /// Drop every log of a session (called by the `session_stop` command after `SessionManager::stop`).
+    pub fn forget_session(&self, session_id: &str) {
+        todo!("port: (AgentLog disposed with its session)")
+    }
 }

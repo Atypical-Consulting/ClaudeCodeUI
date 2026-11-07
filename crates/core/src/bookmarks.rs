@@ -4,6 +4,18 @@
 
 use crate::CoreResult;
 use ccui_shared::api::Bookmark;
+use serde::{Deserialize, Serialize};
+
+/// One entry of `bookmarks.json` as the C# app wrote it (`record Bookmark(string Session, string Uuid, string Gist,
+/// DateTimeOffset At)`, System.Text.Json PascalCase, `At` with its offset). Converted to/from `api::Bookmark` (UTC).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct BookmarkFile {
+    session: String,
+    uuid: String,
+    gist: String,
+    at: chrono::DateTime<chrono::FixedOffset>,
+}
 
 pub fn all() -> Vec<Bookmark> {
     todo!("port: Bookmarks.All")

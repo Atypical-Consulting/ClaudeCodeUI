@@ -19,8 +19,15 @@ pub const PREF_THEME: &str = "theme";
 pub const PREF_CODE_SIZE: &str = "code-size";
 pub const PREF_RAIL_WIDTH: &str = "rail-width";
 pub const PREF_INSPECTOR_WIDTH: &str = "inspector-width";
-/// Persisted UI culture (replaces the `.AspNetCore.Culture` cookie): `en` | `fr`.
+/// Persisted UI culture file (replaces the `.AspNetCore.Culture` cookie): `en` | `fr`. NOT an AppPref: written only
+/// by `set_culture` (which also switches the backend's i18n language), so `valid_pref` refuses it.
 pub const PREF_CULTURE: &str = "culture";
+
+/// localStorage key of the UI's boot mirror (`{culture, prefs, flags}` JSON). The shell's initialization script is
+/// built once per webview, so after `set_culture` + `location.reload()` (spec 06 §6.4) or any reload it would
+/// re-inject stale values: the script overlays this mirror on the injected `BootInfo` before applying theme / sizes
+/// / lang. The UI rewrites it on every `PrefChanged`, `set_culture` and at boot (`ipc::save_boot_mirror`).
+pub const BOOT_MIRROR_KEY: &str = "ccui.boot";
 
 pub const THEMES: [&str; 5] = ["graphite", "encre", "ristretto", "mousse", "contraste"];
 pub const CODE_SIZES: [&str; 4] = ["12px", "13px", "14px", "15px"];
@@ -34,8 +41,9 @@ pub const FLAG_TIMESTAMPS: &str = "timestamps";
 pub const FLAG_NOTIFY: &str = "notify-on";
 
 /// Whether `value` is allowed for pref `name` (whitelist; a hand-edited file outside it reads as None).
+/// Names: theme, code-size, rail-width, inspector-width only (`culture` goes through `set_culture`).
 pub fn valid_pref(name: &str, value: &str) -> bool {
-    todo!("port: AppPref values (Theme, CodeSize, RailWidth, InspectorWidth) + culture en|fr")
+    todo!("port: AppPref values (Theme, CodeSize, RailWidth, InspectorWidth)")
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

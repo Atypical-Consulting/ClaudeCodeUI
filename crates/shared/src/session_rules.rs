@@ -4,6 +4,7 @@
 use crate::model::{HookEvt, Item, PendingPermission, ToolItem};
 use crate::session::{SessionMeta, SessionsSummary};
 use serde_json::Value;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 /// Modes offered by the UI (bypassPermissions / dontAsk deliberately not offered).
@@ -61,29 +62,38 @@ pub fn upto(items: Vec<Item>, at: Option<&str>) -> Vec<Item> {
     todo!("port: LiveSession.Upto")
 }
 
+// Item-slice helpers are generic over `I: Borrow<Item>` so the backend passes `&[Item]` and the UI passes the
+// `&[&Item]` of its per-row signals (`SessionHandle::with_items`) without cloning.
+
 /// uuids of the target and every UserItem after it, newest first (rewind_conversation takes only the latest).
-pub fn rewind_steps(items: &[Item], uuid: &str) -> Vec<String> {
+pub fn rewind_steps<I: Borrow<Item>>(items: &[I], uuid: &str) -> Vec<String> {
     todo!("port: LiveSession.RewindSteps")
 }
 
 /// `CanRewind(u)`: u.uuid ∈ meta.sent && has_process && Idle && no running background ToolItem.
-pub fn can_rewind(meta: &SessionMeta, items: &[Item], uuid: Option<&str>) -> bool {
+pub fn can_rewind<I: Borrow<Item>>(meta: &SessionMeta, items: &[I], uuid: Option<&str>) -> bool {
     todo!("port: LiveSession.CanRewind")
 }
 
 /// Last ToolItem with that id.
-pub fn tool<'a>(items: &'a [Item], id: &str) -> Option<&'a ToolItem> {
+pub fn tool<'a, I: Borrow<Item>>(items: &'a [I], id: &str) -> Option<&'a ToolItem> {
     todo!("port: LiveSession.Tool")
 }
 
 /// parent_tool_use_id → indexes of its Tool/Text items, in order (`Children`).
-pub fn children(items: &[Item]) -> HashMap<String, Vec<usize>> {
+pub fn children<I: Borrow<Item>>(items: &[I]) -> HashMap<String, Vec<usize>> {
     todo!("port: LiveSession.Children")
 }
 
 /// `AskingAgent(p)`: last ToolItem with task_id == info.agent_id, else the parent tool of tool(p.tool_use_id).
-pub fn asking_agent<'a>(items: &'a [Item], p: &PendingPermission) -> Option<&'a ToolItem> {
+pub fn asking_agent<'a, I: Borrow<Item>>(items: &'a [I], p: &PendingPermission) -> Option<&'a ToolItem> {
     todo!("port: LiveSession.AskingAgent")
+}
+
+/// `PermissionCard.AgentLabel(a)`: input.description ?? input.subagent_type ?? name. Used by the PermissionCard and
+/// by the backend for `DecisionEntry.agent_label`.
+pub fn agent_label(agent: &ToolItem) -> String {
+    todo!("port: PermissionCard.AgentLabel")
 }
 
 /// Hook shown in the thread: outcome != success, or output non-empty and not SessionStart*/SubagentStart* and not

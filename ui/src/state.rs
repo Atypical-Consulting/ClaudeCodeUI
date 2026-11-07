@@ -4,15 +4,19 @@
 //! - `UiState`: per-window UI signals + the relayed key / rewind events (sequence numbers, so identical consecutive
 //!   events re-fire).
 //! - `AppStore`: app-wide data pushed by the backend (session summary, counts, prefs) and the per-session stores.
-//! - `SessionHandle`: one session's read model (meta, items, version, streaming text) + front-end-only per-session
-//!   state that must outlive components (memory panel edit). Created under the root owner, keyed by session id,
-//!   so it survives SessionPage remounts. Patches apply in place (see `ccui_shared::session::SessionPatch`).
+//! - `SessionHandle`: one session's read model (meta, heavy, draft, items, version, streaming text) + front-end-only
+//!   per-session state that must outlive components (memory panel edit). Created under the root owner, keyed by
+//!   session id, so it survives SessionPage remounts; dropped on `Push::SessionRemoved`. Patches apply in place
+//!   (rule: `ccui_shared::session::SessionPatch`). Items are one `ArcRwSignal` per row: an upsert touches only its
+//!   own row, rows freed with the list (never arena-leaked).
 
 use ccui_shared::api::{BootInfo, Flags, Prefs, WorktreeRunStep};
 use ccui_shared::memory::MemoryEdit;
-use ccui_shared::model::{Item, UserItem};
+use ccui_shared::model::{Item, ToolItem, UserItem};
 use ccui_shared::push::Push;
-use ccui_shared::session::{SessionMeta, SessionPatch, SessionSnapshot, SessionsSummary};
+use ccui_shared::session::{
+    SessionDraft, SessionHeavy, SessionMeta, SessionPatch, SessionSnapshot, SessionStream, SessionsSummary,
+};
 use leptos::prelude::*;
 use std::collections::HashMap;
 
@@ -53,32 +57,76 @@ impl UiState {
 #[derive(Clone, Copy)]
 pub struct SessionHandle {
     pub id: StoredValue<String>,
-    /// False until the first snapshot arrived.
+    /// False until the first snapshot arrived (and again after `AppStore::release` unwatched it).
     pub loaded: RwSignal<bool>,
     /// None = unknown yet; Some(false) = no such session (SessionPage shows "not found").
     pub found: RwSignal<Option<bool>>,
     pub version: RwSignal<u64>,
     pub meta: RwSignal<SessionMeta>,
-    pub items: RwSignal<Vec<Item>>,
-    /// Streaming text only (StreamingTail).
+    pub heavy: RwSignal<SessionHeavy>,
+    /// The Composer's draft. Snapshot / patch write it only when the incoming `rev` differs from the held one (a
+    /// backend-originated write: cut_back); the Composer writes its own edits here (same rev) on every change, so
+    /// the text survives remounts, and sends them debounced with `session_set_draft_text(text, rev)` /
+    /// `session_set_draft_images(images, rev)`. On adopting a new rev it drops any pending debounced write.
+    pub draft: RwSignal<SessionDraft>,
+    /// One signal per item (index = item index). Read whole-list helpers through `with_items`.
+    pub items: RwSignal<Vec<ArcRwSignal<Item>>>,
+    /// Streaming text only (StreamingTail), accumulated from `SessionStream` increments.
     pub stream: RwSignal<String>,
     /// Memory panel edit (front-end only; survives the panel unmounting).
     pub memory: RwSignal<MemoryEdit>,
+    /// Patches received while `loaded == false` (or while a gap re-fetch runs), applied after the snapshot.
+    pub buffer: StoredValue<Vec<SessionPatch>>,
+    /// Components holding this session watched (`AppStore::load_*` +1, `release` −1).
+    pub watchers: StoredValue<u32>,
 }
 
 impl SessionHandle {
-    /// Replace everything from a snapshot.
+    /// Replace everything from a snapshot (meta, heavy, items, stream, version; draft only on a new rev), set
+    /// loaded, then drain `buffer` through `apply_patch` (patches with `version <= snapshot.version` are dropped).
     pub fn apply_snapshot(&self, snap: SessionSnapshot) {
         todo!("port: (first render state)")
     }
 
-    /// Apply a patch: ignore if not newer; truncate to len; write upserts; replace meta; bump version.
+    /// Apply a patch by the `SessionPatch` rule. While `loaded == false`, push it to `buffer` instead (a snapshot
+    /// is in flight; everything emitted after the backend took it must survive). `version <= held` → ignore;
+    /// `base_version > held`, or an upsert index > current length → gap: buffer it and re-fetch `session_snapshot`
+    /// (loaded = false meanwhile). Else truncate to `len`, upsert rows (existing row: `set`; new index: push a new
+    /// `ArcRwSignal`), replace meta, replace heavy / draft (draft only on a new rev) when present, version = patch.
     pub fn apply_patch(&self, patch: SessionPatch) {
         todo!("port: LiveSession.Changed → re-render (version guard)")
     }
 
+    /// Apply a stream increment by the `SessionStream` rule (gap → re-fetch like `apply_patch`).
+    pub fn apply_stream(&self, stream: SessionStream) {
+        todo!("port: (streamed text render)")
+    }
+
     pub fn id(&self) -> String {
         self.id.get_value()
+    }
+
+    /// The row signal of item `index` (None past the end). Tracks the list (a truncate drops it).
+    pub fn row(&self, index: usize) -> Option<ArcRwSignal<Item>> {
+        todo!("port: (per-row item signal)")
+    }
+
+    /// The ToolItem at `index` as a signal for a keyed row component (`Signal<ToolItem>` props): re-runs only when
+    /// that row changes. A non-tool / missing row reads as the last value it had (rows are replaced, not retyped,
+    /// while a component keyed on them is alive).
+    pub fn tool_at(&self, index: usize) -> Signal<ToolItem> {
+        todo!("port: (row → ToolItem)")
+    }
+
+    /// The last ToolItem with id `id` (inspector selection), None when absent.
+    pub fn tool_by_id(&self, id: String) -> Signal<Option<ToolItem>> {
+        todo!("port: LiveSession.Tool (reactive)")
+    }
+
+    /// Run `f` over every item without cloning (`&[&Item]` fits the `I: Borrow<Item>` helpers: thread_blocks,
+    /// todo_list, session_rules). Tracks every row.
+    pub fn with_items<R>(&self, f: impl FnOnce(&[&Item]) -> R) -> R {
+        todo!("port: (whole-list read)")
     }
 }
 
@@ -116,18 +164,35 @@ impl AppStore {
         todo!("port: (per-session store)")
     }
 
-    /// Fetch `session_open(id)` into the store (SessionPage resolution: live or transcript, else found = false).
+    /// SessionPage resolution: `session_open(id)` (live, else its transcript opened as history; the backend
+    /// watches it and returns the snapshot of that same lock) → `apply_snapshot`, else found = false. watchers += 1.
+    /// Pair with `release(id)` in the page's `on_cleanup`.
     pub fn load_session(&self, id: &str) {
         todo!("port: SessionPage.OnParametersSet resolve")
     }
 
-    /// Dispatch one backend push to the signals.
+    /// Live only (Extensions: "Live = Sessions.Get only", never opens a transcript): `session_watch(id)` →
+    /// `apply_snapshot`, else found = false. watchers += 1; pair with `release(id)`.
+    pub fn load_live(&self, id: &str) {
+        todo!("port: Extensions session resolve (Sessions.Get)")
+    }
+
+    /// watchers −= 1; at 0: `session_unwatch(id)`, loaded = false, items cleared (draft / memory kept: they must
+    /// survive navigation).
+    pub fn release(&self, id: &str) {
+        todo!("port: (component disposed)")
+    }
+
+    /// Dispatch one backend push to the signals. `SessionRemoved` drops the handle from the map (its page then
+    /// re-resolves); patches / streams for an id without a handle are ignored.
     pub fn apply_push(&self, push: Push) {
         todo!("port: (every C# Changed subscription)")
     }
 }
 
-/// Create both stores, provide them as context, subscribe to pushes, load the initial summary. Call once in App.
+/// Create both stores and provide them as context, then (spawned) `ipc::listen_push(apply_push).await` FIRST, and
+/// only after it resolved: `sessions_summary`, `bg_needs_you`, `worktrees_cleanable_count`, `app_boot` (→
+/// `ipc::save_boot_mirror`), so no push can fall between a read and the subscription. Call once in App.
 pub fn provide_stores(boot: BootInfo) {
     todo!("port: Program/App service wiring")
 }

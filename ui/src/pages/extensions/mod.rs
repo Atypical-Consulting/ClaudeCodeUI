@@ -1,5 +1,8 @@
 //! Port of `Components/Pages/Extensions.razor` (page shell: session selector, tabs, query `tab` / `server` /
 //! `session`, inspector) — spec 06 §6.7. Owner: ui-extensions. One file per tab beside it.
+//! The selected live session is loaded with `AppStore::load_live` (never opens a transcript; `release` on change /
+//! cleanup); the "Past" session is looked up with `ipc::transcript_by_id`; MCP sign-in uses
+//! `ipc::session_mcp_authenticate`.
 
 pub mod agents;
 pub mod hooks;

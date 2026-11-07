@@ -5,7 +5,8 @@ use ccui_shared::model::*;
 use ccui_shared::t;
 use leptos::prelude::*;
 
-/// The log: `thread_blocks::of(items)` memo (thoughts filtered when hidden), timestamps/day dividers (flag),
+/// The log: `session.with_items(|it| thread_blocks::of(it, hide_thoughts))` memo (index blocks; rows read
+/// `session.tool_at(i)` / `row(i)`), timestamps / day dividers (`fmt::long_date`, flag),
 /// bookmarks, fork from here, rewind; StreamingTail; CrashBanner; dock (jump + StatusLine); RewindDialog.
 #[component]
 pub fn Thread(

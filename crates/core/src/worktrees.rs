@@ -76,9 +76,12 @@ impl WorktreeService {
         todo!("port: WorktreeService.IgnoresWorktreesAsync")
     }
 
-    /// Run a plan step by step, re-validating each path's row first; emit `Push::WorktreeRunStep` per step and
+    /// Clean the chosen worktrees. The plan is REBUILT here with `worktree_rules::plan` from this service's own
+    /// cached rows (`last_scan`) for `paths` (unknown paths skipped): command arguments never come from the webview
+    /// (a `-c core.fsmonitor=…` would be code execution). `kept_ok` = paths whose kept files were acknowledged.
+    /// Then step by step, re-validating each path's row first; emit `Push::WorktreeRunStep` per step and
     /// `Push::WorktreeRunDone`; full rescan of each repo after. Cancellable by `cancel_run(run_id)`.
-    pub async fn run(&self, run_id: u64, plan: Vec<CleanupStep>) -> CoreResult<()> {
+    pub async fn run(&self, run_id: u64, paths: Vec<String>, kept_ok: Vec<String>) -> CoreResult<()> {
         todo!("port: WorktreeService.RunAsync")
     }
 

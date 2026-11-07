@@ -1,9 +1,11 @@
 //! Port of `Core/SessionManager.cs` — every live session of the app; kills every claude process on shutdown.
 //! Spec 03 §2. Owner: core-store-sessions.
 //!
-//! `all` is in creation order, never re-sorted, copy-on-write. Each session's change hook relays app-wide
-//! (`Push::Sessions` + the notification observer) only when that session's version moved; streamed text alone
-//! concerns the session page only.
+//! `all` is in creation order, never re-sorted, copy-on-write. Each session's change hook relays app-wide only when
+//! that session's version moved; streamed text alone concerns the session page only. On a moved version the
+//! notification observer runs synchronously, and `Push::Sessions` is THROTTLED app-wide to ≤ 1 per 50 ms (trailing:
+//! a raise inside the window schedules one emit at its end) — the summary is rebuilt from every session
+//! (TodoList, last-tool scan), never per raise.
 
 use crate::live::{LiveSession, SessionInit};
 use crate::notifications::NotifyObserver;
@@ -46,6 +48,10 @@ pub struct SessionManager {
     open_gate: tokio::sync::Mutex<()>,
     /// Last relayed version per session id.
     seen_versions: Mutex<HashMap<String, u64>>,
+    /// Unix ms of the last `Push::Sessions` emit (summary throttle).
+    summary_last_ms: std::sync::atomic::AtomicI64,
+    /// A trailing summary emit is scheduled.
+    summary_queued: std::sync::atomic::AtomicBool,
     notifier: NotifyObserver,
     sink: Arc<dyn UiSink>,
 }
@@ -77,7 +83,8 @@ impl SessionManager {
         todo!("port: SessionManager.RunningElsewhere")
     }
 
-    /// Every (session, pending) across sessions, by arrival time.
+    /// Every (session, pending) across sessions, by arrival time; `agent_label` =
+    /// `session_rules::agent_label(asking_agent(items, p))` read under each session's gate.
     pub fn decision_queue(&self) -> Vec<DecisionEntry> {
         todo!("port: SessionManager.DecisionQueue")
     }
@@ -129,9 +136,16 @@ impl SessionManager {
         todo!("port: SessionManager.Add")
     }
 
-    /// The change hook given to every LiveSession: relay only when its version moved.
-    fn on_session_changed(&self, id: &str, version: u64) {
+    /// The change hook given to every LiveSession: when its version moved, run the notification observer now and
+    /// `emit_summary_throttled()`.
+    fn on_session_changed(self: &Arc<Self>, id: &str, version: u64) {
         todo!("port: SessionManager.Add (Changed relay)")
+    }
+
+    /// `Push::Sessions(summary())` now if 50 ms passed since the last one, else schedule one at the window's end
+    /// (once). add/stop call it too.
+    fn emit_summary_throttled(self: &Arc<Self>) {
+        todo!("port: (SessionManager.Changed, throttled)")
     }
 
     /// Build a LiveSession wired to this manager (sink + change hook through a Weak).
