@@ -4,9 +4,13 @@
   "version": "0.5.0",
   "identifier": "com.atypicalconsulting.claudecodeui",
   "build": {
-    "frontendDist": "../src"
+    "beforeDevCommand": "trunk serve --config ../ui/Trunk.toml",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "trunk build --release --config ../ui/Trunk.toml",
+    "frontendDist": "../../ui/dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
@@ -23,7 +27,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; object-src 'none'; base-uri 'none'"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'",
+      "dangerousDisableAssetCspModification": ["style-src"]
     }
   },
   "bundle": {
@@ -41,9 +46,6 @@
     ],
     "macOS": {
       "entitlements": "./Entitlements.plist"
-    },
-    "resources": {
-      "server/": "server/"
     }
   },
   "plugins": {

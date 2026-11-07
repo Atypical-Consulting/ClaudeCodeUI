@@ -2,19 +2,26 @@
 name = "claude-code-ui"
 version = "0.5.0"
 description = "Claude Code UI"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-serde_json = "1"
+ccui-core.workspace = true
+ccui-shared.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
 sys-locale = "0.3"
+tokio.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 
-# Desktop notifications (main.rs notify). macOS: mac-notification-sys directly, the only way to learn about a click
+# Desktop notifications (notify). macOS: mac-notification-sys directly, the only way to learn about a click
 # (tauri-plugin-notification drops it on desktop). It is what the plugin itself posts through, via notify-rust.
 [target.'cfg(target_os = "macos")'.dependencies]
 mac-notification-sys = "0.6"

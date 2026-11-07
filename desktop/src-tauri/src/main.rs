@@ -1,50 +1,50 @@
-// Desktop shell: starts the bundled self-contained Blazor server on a loopback port it picks itself, shows the
-// splash (src/index.html) until the server prints its tokened URL on stdout, then points the window at it. The server watches
-// --parent-pid and shuts itself down (killing its claude children) when this process exits.
-// Updates: tauri-plugin-updater, checked silently once the server is up, from the app menu, or when the server prints
-// UPDATE_LINE (the UI's "Check for updates" action); see check_for_updates.
-// The page gets no IPC (no capability): desktop notifications come from the server as `ccui-notify` stdout lines
-// (Notifications.cs), and a click on one comes back to the page as an eval.
+// Desktop app: the Leptos UI (ui/, built by trunk) runs in the webview and talks to the backend (ccui-core) over
+// Tauri commands and events, all in this one process. No server, no sidecar, no token.
+// Updates: tauri-plugin-updater, checked silently once at startup, from the app menu, or from the UI (check_for_updates).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
-use std::process::{Child, Command, ExitStatus, Stdio};
+mod commands;
+mod sink;
+
+use ccui_shared::push::Push;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
 use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Manager, Url, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
-// Origin of our own server, known once it prints its URL. The window only ever shows it or the bundled splash.
-static SERVER: OnceLock<String> = OnceLock::new();
-// The server's tokened URL (to ask it to stop before an update), its process, and the splash URL.
-static SERVER_URL: OnceLock<Url> = OnceLock::new();
-static CHILD: Mutex<Option<Child>> = Mutex::new(None);
-static SPLASH: OnceLock<Url> = OnceLock::new();
-// Startup is over (the server is up, or failed to start): before that an update must not install, since the
-// server it would have to stop may still be spawning. A check is on screen (one at a time); an update is being
-// installed (the server stopping is then expected).
-static STARTED: AtomicBool = AtomicBool::new(false);
+// A check is on screen (one at a time).
 static CHECKING: AtomicBool = AtomicBool::new(false);
 // A manual request made while a check runs: that check then answers it (up to date, errors) instead of staying silent.
 static WANT_MANUAL: AtomicBool = AtomicBool::new(false);
-static UPDATING: AtomicBool = AtomicBool::new(false);
-// Printed on stdout by the server when the user picks "Check for updates" in the UI (Core/Shell.cs). The same pipe
-// carries the console log, whose lines never equal it: they start with a level or an indent.
-const UPDATE_LINE: &str = "ccui:check-for-updates";
 const MENU_CHECK: &str = "check-for-updates";
 
 fn main() {
+    // GUI apps on macOS (and most Linux launchers) don't inherit the shell PATH, so `claude` would not be found.
+    // Before any thread exists: set_var is only sound single-threaded.
+    #[cfg(unix)]
+    if let Some(path) = login_path() {
+        std::env::set_var("PATH", path);
+    }
+    // Developer entry point, before any window: `--boot-probe <dir> [seconds=90]` (cold-start stall repro).
+    let argv: Vec<String> = std::env::args().collect();
+    if let Some(i) = argv.iter().position(|a| a == "--boot-probe") {
+        let dir = argv.get(i + 1).cloned().unwrap_or_else(|| ".".into());
+        let secs = argv.get(i + 2).and_then(|s| s.parse().ok()).unwrap_or(90);
+        let code = tauri::async_runtime::block_on(ccui_core::boot_probe::run(&dir, secs));
+        std::process::exit(code);
+    }
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(not(target_os = "macos"))]
     let builder = builder.plugin(tauri_plugin_notification::init());
-    builder
+    let app = commands::register(builder)
         .menu(|app| {
             let check = MenuItem::with_id(app, MENU_CHECK, t("Check for Updates…", "Rechercher des mises à jour…"), true, None::<&str>)?;
             // macOS: in the app menu, under About. Elsewhere there is no default menu bar: a Help menu holds it.
@@ -64,23 +64,17 @@ fn main() {
             }
         })
         .setup(|app| {
-            let exe = app.path().resource_dir()?.join("server").join(if cfg!(windows) { "ccui-server.exe" } else { "ccui-server" }); // not ClaudeCodeUI: ClaudeCodeUI.csproj
-            let mut cmd = Command::new(&exe);
-            cmd.args(["--desktop-port", "0", "--parent-pid", &std::process::id().to_string()])
-                .current_dir(app.path().home_dir()?) // fallback working folder when there are no recent projects
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::inherit()); // launched from a terminal, a crash is readable there
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console flash for the server or claude
-            }
-            // Links in model output must not replace the app: anything else opens in the system browser.
-            let window = WebviewWindowBuilder::from_config(app.handle(), &app.config().app.windows[0])?
+            // Backend state: every claude process, transcript, worktree… (ccui-core), pushing to the UI through the sink.
+            let locale = sys_locale::get_locale();
+            let core = ccui_core::Core::new(Arc::new(sink::TauriSink::new(app.handle().clone())), locale.clone());
+            app.manage(core);
+            // Theme, code size, pane widths and language applied before first paint, and BootInfo for the UI.
+            let boot = ccui_core::app_flag::boot_info(&app.package_info().version.to_string(), locale.as_deref());
+            // Links in model output must not replace the app: anything that is not the bundled UI opens in the system browser.
+            WebviewWindowBuilder::from_config(app.handle(), &app.config().app.windows[0])?
+                .initialization_script(ccui_core::app_flag::boot_script(&boot))
                 .on_navigation(|url| {
-                    let ours = url.scheme() == "tauri" || url.host_str() == Some("tauri.localhost") // the bundled splash
-                        || SERVER.get() == Some(&url.origin().ascii_serialization());
+                    let ours = is_ours(url);
                     if !ours {
                         open_external(url);
                     }
@@ -91,97 +85,27 @@ fn main() {
                     NewWindowResponse::Deny
                 })
                 .build()?;
-            let splash = window.url()?;
-            let _ = SPLASH.set(splash.clone());
-            std::thread::spawn(move || {
-                // Here, not in setup: the splash is already painted while the login shell runs.
-                #[cfg(unix)]
-                if let Some(path) = login_path() {
-                    cmd.env("PATH", path);
-                }
-                let fail = |why: String, stopped: bool| {
-                    STARTED.store(true, Ordering::SeqCst);
-                    std::thread::sleep(Duration::from_millis(500)); // let the splash finish loading
-                    let _ = window.eval(format!("fail({why:?}, {stopped})")); // index.html words it in the OS language
-                };
-                let mut child = match cmd.spawn() {
-                    Ok(c) => c,
-                    Err(e) => return fail(format!("{} ({e})", exe.display()), false),
-                };
-                let stdout = child.stdout.take().unwrap();
-                *CHILD.lock().unwrap() = Some(child);
-                // The URL comes from our own child (it binds port 0), so no other listener can be mistaken for it.
-                let mut lines = BufReader::new(stdout).lines().map_while(Result::ok);
-                match lines.find(|l| l.starts_with("http://127.0.0.1:")).and_then(|u| u.parse::<Url>().ok()) {
-                    Some(url) => {
-                        let _ = SERVER.set(url.origin().ascii_serialization());
-                        let _ = SERVER_URL.set(url.clone());
-                        let _ = window.navigate(url);
-                        STARTED.store(true, Ordering::SeqCst);
-                        check_for_updates(window.app_handle().clone(), false); // the server is up: never in the way of startup
-                    }
-                    None => return fail(wait_child(), false),
-                }
-                // Keep draining stdout so the server's console logging never blocks; echoed for a terminal launch.
-                // Post the notifications it asks for.
-                for l in lines {
-                    let mut f = l.splitn(4, '\t');
-                    if l == UPDATE_LINE {
-                        check_for_updates(window.app_handle().clone(), true);
-                    } else if let (Some("ccui-notify"), Some(id), Some(title), Some(body)) = (f.next(), f.next(), f.next(), f.next()) {
-                        let (window, id, title, body) = (window.clone(), id.to_owned(), title.to_owned(), body.to_owned());
-                        // A thread per notification: on macOS it waits for the click. Clicked: bring the window up on that session.
-                        std::thread::spawn(move || {
-                            if notify(&window, &title, &body) {
-                                // set_focus alone is a no-op on a minimized or hidden window (tao, macOS): restore it first.
-                                let _ = window.unminimize();
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                                let _ = window.eval(format!("Blazor.navigateTo({:?})", format!("session/{id}")));
-                            }
-                        });
-                    } else {
-                        let _ = writeln!(std::io::stdout(), "{l}");
-                    }
-                }
-                // stdout closed: the server is gone. Say so on the splash instead of Blazor's endless reconnect,
-                // unless it was stopped on purpose to install an update.
-                let status = wait_child();
-                if UPDATING.load(Ordering::SeqCst) {
-                    return;
-                }
-                let _ = window.navigate(splash);
-                fail(status, true);
-            });
+            check_for_updates(app.handle().clone(), false);
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Claude Code UI");
-}
-
-// Waits for the server to exit, polling so CHILD is never locked across a blocking wait: stop_server must be able
-// to take it to kill a server that ignores /quit.
-fn wait_child() -> String {
-    loop {
-        match CHILD.lock().unwrap().as_mut().map(Child::try_wait) {
-            None => return String::new(),
-            Some(Ok(None)) => {}
-            Some(r) => return code(r.map(Option::unwrap)),
+        .build(tauri::generate_context!())
+        .expect("error while building Claude Code UI");
+    app.run(|app, event| {
+        // Window closed / app quitting: claude children die with us.
+        if let tauri::RunEvent::Exit = event {
+            commands::shutdown(app);
         }
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    });
 }
 
-// The exit code alone ("1"), not Rust's "exit status: 1"; a signal or a wait error keeps its own wording.
-fn code(r: std::io::Result<ExitStatus>) -> String {
-    match r {
-        Ok(s) => s.code().map_or_else(|| s.to_string(), |c| c.to_string()),
-        Err(e) => e.to_string(),
-    }
+fn is_ours(url: &Url) -> bool {
+    url.scheme() == "tauri"
+        || url.host_str() == Some("tauri.localhost")
+        || (cfg!(debug_assertions) && url.host_str() == Some("localhost") && url.port() == Some(1420)) // trunk serve
 }
 
-// The shell's few words follow the OS language, like the splash.
-fn t(en: &'static str, fr: &'static str) -> &'static str {
+// The shell's few words follow the OS language, like the UI's default.
+pub fn t(en: &'static str, fr: &'static str) -> &'static str {
     static FR: OnceLock<bool> = OnceLock::new();
     if *FR.get_or_init(|| sys_locale::get_locale().is_some_and(|l| l.to_ascii_lowercase().starts_with("fr"))) {
         fr
@@ -190,9 +114,9 @@ fn t(en: &'static str, fr: &'static str) -> &'static str {
     }
 }
 
-// Silent (manual = false): speaks only when an update exists; network and server errors stay quiet.
+// Silent (manual = false): speaks only when an update exists; network errors stay quiet.
 // Manual: also reports "up to date" and errors. Runs on its own thread: the native dialogs block it, not the app.
-fn check_for_updates(app: AppHandle, manual: bool) {
+pub fn check_for_updates(app: AppHandle, manual: bool) {
     if CHECKING.swap(true, Ordering::SeqCst) {
         // One check at a time: a second one would stack dialogs. An explicit request is still answered, by the running check.
         if manual {
@@ -214,7 +138,7 @@ fn check_for_updates(app: AppHandle, manual: bool) {
     });
 }
 
-// True when the app must restart (an update was installed, or the server was stopped for one that then failed).
+// True when the app must restart (an update was installed, or sessions were stopped for one that then failed).
 fn update_flow(app: &AppHandle, manual: bool) -> bool {
     let dialog = |title: &str, text: String, kind| app.dialog().message(text).title(title).kind(kind).blocking_show();
     let failed = |text: String| dialog(t("The update could not be installed", "La mise à jour n’a pas pu être installée"), text, MessageDialogKind::Error);
@@ -277,15 +201,6 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
     if !install {
         return false;
     }
-    if !STARTED.load(Ordering::SeqCst) {
-        // The server may still be spawning: it could not be stopped, and Windows could not replace its executable.
-        dialog(
-            t("Claude Code UI is still starting", "Claude Code UI démarre encore"),
-            t("Try again once the app has started.", "Réessaie une fois l’application démarrée.").into(),
-            MessageDialogKind::Info,
-        );
-        return false;
-    }
     // Download while the app keeps working; the title bar shows the progress.
     let window = app.get_webview_window("main");
     let title = |s: &str| drop(window.as_ref().map(|w| w.set_title(s)));
@@ -308,46 +223,14 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
             return false;
         }
     };
-    // The bundled server must be gone before its files are replaced (Windows locks a running executable).
-    UPDATING.store(true, Ordering::SeqCst);
-    if let (Some(w), Some(s)) = (&window, SPLASH.get()) {
-        let mut s = s.clone();
-        s.set_query(Some("updating"));
-        let _ = w.navigate(s);
-    }
-    stop_server();
+    // claude children must be gone before files are replaced (and the passive Windows installer kills this process).
+    let _ = app.emit(ccui_shared::push::PUSH_EVENT, Push::Updating);
+    commands::shutdown(app);
     // Windows: the installer (passive) takes over and this process exits inside install. macOS/Linux: files replaced.
     if let Err(e) = update.install(bytes) {
         failed(format!("{e}\n\n{}", t("The app will restart on the current version.", "L’application va redémarrer sur la version actuelle.")));
     }
     true
-}
-
-// Stops the server through its own shutdown path (it disposes the sessions, so claude children exit too), then waits
-// for the process; one that has not exited after 15 s is killed.
-fn stop_server() {
-    if let Some(url) = SERVER_URL.get() {
-        let addr = format!("127.0.0.1:{}", url.port().unwrap_or(80));
-        if let Ok(mut s) = TcpStream::connect(&addr) {
-            let _ = s.set_read_timeout(Some(Duration::from_secs(5)));
-            let req = format!("POST /quit?{} HTTP/1.1\r\nHost: {addr}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", url.query().unwrap_or(""));
-            if s.write_all(req.as_bytes()).is_ok() {
-                let _ = s.read(&mut [0; 64]); // the answer: shutdown has begun
-            }
-        }
-    }
-    // The lock is taken per poll, never held across a sleep or a wait (the stdout thread polls it too).
-    for _ in 0..150 {
-        match CHILD.lock().unwrap().as_mut().map(Child::try_wait) {
-            None | Some(Ok(Some(_))) => return,
-            _ => {}
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    if let Some(c) = CHILD.lock().unwrap().as_mut() {
-        let _ = c.kill();
-        let _ = c.wait(); // killed: returns at once
-    }
 }
 
 // The first entries of release-please notes, without headings, commit/issue links or bold markers.
@@ -365,7 +248,7 @@ fn excerpt(notes: &str) -> String {
     out
 }
 
-fn open_external(url: &Url) {
+pub fn open_external(url: &Url) {
     if !matches!(url.scheme(), "http" | "https" | "mailto") {
         return;
     }
@@ -381,10 +264,26 @@ fn open_external(url: &Url) {
     std::thread::spawn(move || c.spawn().and_then(|mut p| p.wait())); // waited, so no zombie
 }
 
-// Posts one notification; true once the user clicks it. The page only asks for one while the window is in the background
-// (app.js notify): NSUserNotificationCenter does not present the frontmost app's own notifications.
+// Posts one notification for a session; a click brings the window up and tells the UI to open that session.
+// ccui-core (notifications observer) only asks while the window is in the background: macOS does not present the frontmost
+// app's own notifications.
+pub fn notify(app: &AppHandle, session_id: String, title: String, body: String) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    // A thread per notification: on macOS it waits for the click.
+    std::thread::spawn(move || {
+        if post_notification(&window, &title, &body) {
+            // set_focus alone is a no-op on a minimized or hidden window (tao, macOS): restore it first.
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+            let _ = window.emit(ccui_shared::push::PUSH_EVENT, Push::Navigate { path: format!("session/{session_id}") });
+        }
+    });
+}
+
+// True once the user clicks it.
 #[cfg(target_os = "macos")]
-fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
+fn post_notification(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
     use mac_notification_sys::{set_application, Notification, NotificationResponse};
     // Posted as this app (as Terminal under `tauri dev`, like tauri-plugin-notification); only the first call sets it.
     let _ = set_application(if tauri::is_dev() { "com.apple.Terminal" } else { &window.config().identifier });
@@ -396,16 +295,16 @@ fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
 
 // Windows / Linux: tauri-plugin-notification posts it but reports no click on desktop.
 #[cfg(not(target_os = "macos"))]
-fn notify(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
+fn post_notification(window: &tauri::WebviewWindow, title: &str, body: &str) -> bool {
     use tauri_plugin_notification::NotificationExt;
     let _ = window.app_handle().notification().builder().title(title).body(body).show();
     false
 }
 
-// GUI apps on macOS (and most Linux launchers) don't inherit the shell PATH, so `claude` would not be found.
 // Interactive rc files can be slow or hang: after 3 s the inherited PATH is kept.
 #[cfg(unix)]
 fn login_path() -> Option<String> {
+    use std::io::Read;
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
     let mut child = Command::new(shell).args(["-ilc", "printenv PATH"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let mut out = child.stdout.take()?;
