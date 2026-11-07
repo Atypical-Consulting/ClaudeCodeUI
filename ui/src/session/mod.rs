@@ -57,4 +57,77 @@ impl PopoverCtl {
     pub fn new() -> PopoverCtl {
         PopoverCtl { open: RwSignal::new(false), active_id: RwSignal::new(None), key: RwSignal::new(None) }
     }
+
+    /// The Composer relays a key to the open popover (sequenced: the same key twice fires twice).
+    pub fn press(&self, key: &str) {
+        self.key.update(|k| {
+            let n = k.as_ref().map_or(1, |(n, _)| n + 1);
+            *k = Some((n, key.to_string()));
+        });
+    }
+
+    /// Popover side: run `f` for every key pressed after this call (a key left from an earlier popover is skipped).
+    pub(crate) fn on_key(&self, f: impl Fn(&str) + 'static) {
+        let key = self.key;
+        let seen = StoredValue::new(key.get_untracked().map_or(0, |(n, _)| n));
+        Effect::new(move |_| {
+            let Some((n, k)) = key.get() else { return };
+            if n <= seen.get_value() {
+                return;
+            }
+            seen.set_value(n);
+            f(&k);
+        });
+    }
+
+    /// Popover side: on unmount, nothing is open any more (no stale aria-activedescendant).
+    pub(crate) fn reset_on_cleanup(&self) {
+        let (open, active) = (self.open, self.active_id);
+        on_cleanup(move || {
+            let _ = open.try_set(false);
+            let _ = active.try_set(None);
+        });
+    }
+}
+
+impl Default for PopoverCtl {
+    fn default() -> Self {
+        PopoverCtl::new()
+    }
+}
+
+/// The current time, moved once a second while `active` (the Ticker's job, but read only where a duration is
+/// printed, so the elements around it are not rebuilt every second: focus and live regions stay put).
+pub(crate) fn clock(active: Signal<bool>) -> Signal<ccui_shared::model::Time> {
+    let now = RwSignal::new(chrono::Utc::now());
+    let timer: StoredValue<Option<IntervalHandle>> = StoredValue::new(None);
+    let stop = move || {
+        if let Some(h) = timer.try_update_value(Option::take).flatten() {
+            h.clear();
+        }
+    };
+    Effect::new(move |_| {
+        let on = active.get();
+        stop();
+        now.set(chrono::Utc::now());
+        if on {
+            let tick = move || {
+                let _ = now.try_set(chrono::Utc::now());
+            };
+            if let Ok(h) = set_interval_with_handle(tick, std::time::Duration::from_secs(1)) {
+                timer.set_value(Some(h));
+            }
+        }
+    });
+    on_cleanup(stop);
+    now.into()
+}
+
+/// The session cwd as a memo: the meta is replaced on every patch, and rows that print a path relative to the cwd
+/// must not recompute it 20 times a second. Shared through the Thread's context; else a memo of its own.
+#[derive(Clone, Copy)]
+pub struct Cwd(pub Memo<String>);
+
+pub(crate) fn cwd(session: crate::state::SessionHandle) -> Memo<String> {
+    use_context::<Cwd>().map(|c| c.0).unwrap_or_else(|| Memo::new(move |_| session.meta.with(|m| m.cwd.clone())))
 }
