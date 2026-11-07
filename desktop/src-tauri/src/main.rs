@@ -4,10 +4,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod sink;
 
+use ccui_shared::push::Push;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, MenuItemKind, Submenu};
 use tauri::webview::NewWindowResponse;
@@ -28,8 +30,17 @@ fn main() {
     if let Some(path) = login_path() {
         std::env::set_var("PATH", path);
     }
+    // Developer entry point, before any window: `--boot-probe <dir> [seconds=90]` (cold-start stall repro).
+    let argv: Vec<String> = std::env::args().collect();
+    if let Some(i) = argv.iter().position(|a| a == "--boot-probe") {
+        let dir = argv.get(i + 1).cloned().unwrap_or_else(|| ".".into());
+        let secs = argv.get(i + 2).and_then(|s| s.parse().ok()).unwrap_or(90);
+        let code = tauri::async_runtime::block_on(ccui_core::boot_probe::run(&dir, secs));
+        std::process::exit(code);
+    }
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(not(target_os = "macos"))]
     let builder = builder.plugin(tauri_plugin_notification::init());
@@ -53,8 +64,15 @@ fn main() {
             }
         })
         .setup(|app| {
+            // Backend state: every claude process, transcript, worktree… (ccui-core), pushing to the UI through the sink.
+            let locale = sys_locale::get_locale();
+            let core = ccui_core::Core::new(Arc::new(sink::TauriSink::new(app.handle().clone())), locale.clone());
+            app.manage(core);
+            // Theme, code size, pane widths and language applied before first paint, and BootInfo for the UI.
+            let boot = ccui_core::app_flag::boot_info(&app.package_info().version.to_string(), locale.as_deref());
             // Links in model output must not replace the app: anything that is not the bundled UI opens in the system browser.
             WebviewWindowBuilder::from_config(app.handle(), &app.config().app.windows[0])?
+                .initialization_script(ccui_core::app_flag::boot_script(&boot))
                 .on_navigation(|url| {
                     let ours = is_ours(url);
                     if !ours {
@@ -206,7 +224,7 @@ fn update_flow(app: &AppHandle, manual: bool) -> bool {
         }
     };
     // claude children must be gone before files are replaced (and the passive Windows installer kills this process).
-    let _ = app.emit("ccui://updating", ());
+    let _ = app.emit(ccui_shared::push::PUSH_EVENT, Push::Updating);
     commands::shutdown(app);
     // Windows: the installer (passive) takes over and this process exits inside install. macOS/Linux: files replaced.
     if let Err(e) = update.install(bytes) {
@@ -247,7 +265,8 @@ pub fn open_external(url: &Url) {
 }
 
 // Posts one notification for a session; a click brings the window up and tells the UI to open that session.
-// The UI only asks while the window is in the background: macOS does not present the frontmost app's own notifications.
+// ccui-core (notifications observer) only asks while the window is in the background: macOS does not present the frontmost
+// app's own notifications.
 pub fn notify(app: &AppHandle, session_id: String, title: String, body: String) {
     let Some(window) = app.get_webview_window("main") else { return };
     // A thread per notification: on macOS it waits for the click.
@@ -257,7 +276,7 @@ pub fn notify(app: &AppHandle, session_id: String, title: String, body: String) 
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
-            let _ = window.emit("ccui://open-session", session_id);
+            let _ = window.emit(ccui_shared::push::PUSH_EVENT, Push::Navigate { path: format!("session/{session_id}") });
         }
     });
 }

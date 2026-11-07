@@ -5,7 +5,18 @@ publish = false
 edition.workspace = true
 license.workspace = true
 
-# Types that cross the IPC boundary (backend <-> wasm UI). No tokio, no fs: it compiles to wasm32.
+# Types that cross the IPC boundary (backend <-> wasm UI) and every pure helper both sides need.
+# No tokio, no fs, no process: it compiles to wasm32 AND native.
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+chrono.workspace = true
+rust_decimal.workspace = true
+regex.workspace = true
+base64.workspace = true
+sha1.workspace = true
+hex.workspace = true
+html-escape.workspace = true
+unicode-normalization.workspace = true
+unicode-general-category.workspace = true
+pulldown-cmark.workspace = true

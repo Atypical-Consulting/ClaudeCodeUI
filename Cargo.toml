@@ -10,7 +10,25 @@ license = "MIT"
 ccui-shared = { path = "crates/shared" }
 ccui-core = { path = "crates/core" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# preserve_order: JSON key order is load-bearing (settings files rewritten in place, CliEdit/Elicit payloads, modelUsage).
+serde_json = { version = "1", features = ["preserve_order"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde", "wasmbind"] }
+rust_decimal = { version = "1", default-features = false, features = ["std", "serde"] }
+regex = "1"
+base64 = "0.22"
+sha1 = "0.10"
+hex = "0.4"
+html-escape = "0.2"
+unicode-normalization = "0.1"
+unicode-general-category = "1"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+parking_lot = "0.12"
+dirs = "6"
+dunce = "1"
+libc = "0.2"
 
 [profile.release]
 lto = true
