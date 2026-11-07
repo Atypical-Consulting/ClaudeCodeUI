@@ -259,7 +259,6 @@ mod tests {
     // `cargo test -p ccui-core -- --include-ignored` once that unit is merged.
 
     #[test]
-    #[ignore = "needs core-live-session reducer"]
     fn replay_basic() {
         let items = run(&[
             r#"{"type":"permission-mode","permissionMode":"default","sessionId":"s"}"#,
@@ -278,7 +277,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs core-live-session reducer"]
     fn replay_compaction() {
         let items = run(&[
             r#"{"parentUuid":"b","isSidechain":false,"type":"system","subtype":"stop_hook_summary","hookCount":2,"level":"suggestion","uuid":"e464"}"#,
@@ -296,7 +294,6 @@ mod tests {
     const BG1: &str = r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_A","type":"tool_result","content":"Async agent launched"}]},"toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aa5"},"timestamp":"2026-10-09T12:00:01Z"}"#;
 
     #[test]
-    #[ignore = "needs core-live-session reducer"]
     fn replay_misc() {
         let bg = run(&[BG0, BG1, r#"{"type":"user","message":{"role":"user","content":"<task-notification>\n<task-id>aa5</task-id>\n<tool-use-id>toolu_A</tool-use-id>\n<status>completed</status>\n<result>pong</result>\n<usage><subagent_tokens>31599</subagent_tokens></usage>\n</task-notification>"},"timestamp":"2026-10-09T12:00:05Z"}"#]);
         assert_eq!(bg.len(), 1);
@@ -345,7 +342,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs core-live-session reducer"]
     fn replay_workflow() {
         let wf = [
             r#"{"type":"assistant","message":{"id":"m","role":"assistant","content":[{"type":"tool_use","id":"toolu_W","name":"Workflow","input":{"script":"export const meta = { name: 'p', description: 'd', phases: [{ title: 'Ping' }] }"}}]},"timestamp":"2026-10-10T09:00:00Z"}"#,
@@ -361,7 +357,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs core-live-session reducer"]
     fn replay_rewinds() {
         let b = branched();
         let lines: Vec<&str> = b.iter().map(String::as_str).collect();

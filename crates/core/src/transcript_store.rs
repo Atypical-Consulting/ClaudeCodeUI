@@ -896,7 +896,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs core-live-session: session_rules::user_text"]
     fn prompts_in_lines() {
         let lines = [
             r#"{"type":"user","message":{"role":"user","content":"first"}}"#,

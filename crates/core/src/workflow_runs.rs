@@ -626,7 +626,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs SessionState::new and replay::apply (core-live-session / core-store-sessions)"]
     fn agent_log() {
         let tmp = tempfile::tempdir().unwrap();
         let f = tmp.path().join("agent-a1.jsonl");
