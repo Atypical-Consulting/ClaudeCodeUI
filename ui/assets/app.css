@@ -1163,3 +1163,6 @@ details[open]>summary .i{transform:rotate(90deg)}
 .bgnote.flat{border:0;background:none;padding:0;color:var(--fg-3)}.bgnote.flat b{color:var(--fg-2)}   /* nothing to act on: a line, not a box louder than the table */
 .bgt tr:is(:focus-within,.sel) .bgwhy{-webkit-line-clamp:unset}   /* the focused row reads its whole question */
 .bgnotice:empty{display:none}.bgnotice{margin:0 0 10px;color:var(--fg-2)}
+/* Push::Updating: the old shell's splash `?updating` — the whole window, inert, until the restart (or the installer) */
+.updating{position:fixed;inset:0;z-index:1001;display:grid;place-content:center;justify-items:center;gap:18px;background:var(--ground);color:var(--fg-3);font-size:14px}
+.updating img{width:64px;height:64px;animation:upbob 1.6s ease-in-out infinite}@keyframes upbob{50%{transform:translateY(-6px)}}

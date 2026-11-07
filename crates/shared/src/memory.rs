@@ -134,8 +134,39 @@ pub fn auto_folder(dialog: &Value) -> Option<String> {
     fs.iter()
         .filter(|f| json::str(f, "kind") == Some("auto"))
         .filter_map(|f| json::str(f, "path"))
-        .find(|p| Path::new(p).is_absolute())
+        .find(|p| is_absolute(p))
         .map(str::to_string)
+}
+
+/// Absolute on any host, by its text: `/…`, `C:\…` / `C:/…`, `\\server\…`. The UI (wasm32-unknown-unknown) runs this:
+/// there `std::path::Path::is_absolute` is false for every path.
+pub fn is_absolute(p: &str) -> bool {
+    let b = p.as_bytes();
+    p.starts_with('/') || p.starts_with("\\\\") || (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && matches!(b[2], b'/' | b'\\'))
+}
+
+/// Segments split on both separators, `.` dropped, `..` resolved lexically (never above the root).
+fn segments(p: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    for c in p.split(['/', '\\']) {
+        match c {
+            "" | "." => {}
+            ".." => {
+                out.pop();
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// The host's separator as the path writes it (a `\` anywhere = Windows), not the UI target's.
+fn sep_of(p: &str) -> char {
+    if p.contains('\\') {
+        '\\'
+    } else {
+        '/'
+    }
 }
 
 /// `memories[]` inside the auto folder (lexically normalized containment, `..` rejected), CLI order.
@@ -161,35 +192,27 @@ pub fn memories(dialog: &Value, case_insensitive: bool) -> Vec<AutoMemory> {
         .collect()
 }
 
-/// `Path.GetRelativePath(base, path)` when path lies under base (no `..`): the rest, "." for base itself.
+/// `Path.GetRelativePath(base, path)` when path lies under base (no `..`): the rest, "." for base itself. String-based:
+/// the UI runs it on wasm (see `is_absolute`).
 fn under(path: &str, base: &str) -> Option<String> {
-    if base.is_empty() || !Path::new(base).is_absolute() || !Path::new(path).is_absolute() {
+    if base.is_empty() || !is_absolute(base) || !is_absolute(path) {
         return None;
     }
+    // ponytail: on wasm the host OS is unknown, so case-insensitive there (macOS / Windows); a Linux host could
+    // match two folders differing only by case. Pass the host from BootInfo if that ever matters.
     let ci = !cfg!(target_os = "linux");
-    let (p, b) = (normalize(path), normalize(base));
-    let (pc, bc): (Vec<_>, Vec<_>) = (p.components().collect(), b.components().collect());
-    if pc.len() < bc.len() {
+    let (pc, bc) = (segments(path), segments(base));
+    let eq = |x: &&str, y: &&str| if ci { x.to_lowercase() == y.to_lowercase() } else { x == y };
+    if pc.len() < bc.len() || !bc.iter().zip(&pc).all(|(x, y)| eq(x, y)) {
         return None;
     }
-    let eq = |x: &Component, y: &Component| {
-        let (x, y) = (x.as_os_str().to_string_lossy(), y.as_os_str().to_string_lossy());
-        if ci {
-            x.to_lowercase() == y.to_lowercase()
-        } else {
-            x == y
-        }
-    };
-    if !bc.iter().zip(&pc).all(|(x, y)| eq(x, y)) {
-        return None;
-    }
-    let rest: Vec<String> = pc[bc.len()..].iter().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
-    Some(if rest.is_empty() { ".".into() } else { rest.join(&MAIN_SEPARATOR.to_string()) })
+    let rest = &pc[bc.len()..];
+    Some(if rest.is_empty() { ".".into() } else { rest.join(&sep_of(path).to_string()) })
 }
 
 /// Display path: relative to cwd, else `~/…` relative to home, else the full path.
 pub fn display(path: &str, cwd: &str, home: &str) -> String {
-    under(path, cwd).or_else(|| under(path, home).map(|h| format!("~{MAIN_SEPARATOR}{h}"))).unwrap_or_else(|| path.to_string())
+    under(path, cwd).or_else(|| under(path, home).map(|h| format!("~{}{h}", sep_of(path)))).unwrap_or_else(|| path.to_string())
 }
 
 /// .NET `string.ReplaceLineEndings(with)`: every CRLF, CR, LF, FF, NEL, LS and PS becomes `with`.
@@ -297,5 +320,25 @@ mod tests {
         assert!(!same_path("/r/sub/../../repo/x.md", "/r/x.md", false));
         assert!(same_path("/R/X.md", "/r/x.md", true) && !same_path("/R/X.md", "/r/x.md", false));
         assert_eq!(display(CWD, CWD, HOME), ".");
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    fn string_based_on_any_host() {
+        assert!(is_absolute("/u/a") && is_absolute("C:\\u") && is_absolute("c:/u") && is_absolute("\\\\srv\\share"));
+        assert!(!is_absolute("rel/a") && !is_absolute("C:") && !is_absolute("C:rel") && !is_absolute(""));
+        assert_eq!(display("/u/p/CLAUDE.md", "/u/p", "/u"), "CLAUDE.md");
+        assert_eq!(display("/u/p/.claude/CLAUDE.md", "/u/p/", "/u"), ".claude/CLAUDE.md");
+        assert_eq!(display("/u/.claude/CLAUDE.md", "/u/p", "/u"), "~/.claude/CLAUDE.md");
+        assert_eq!(display("/x/CLAUDE.md", "/u/p", "/u"), "/x/CLAUDE.md");
+        assert_eq!(display("/u/p/../q/a.md", "/u/q", "/u"), "a.md", ".. resolved lexically");
+        assert_eq!(display("C:\\Users\\me\\p\\CLAUDE.local.md", "C:\\Users\\me\\p", "C:\\Users\\me"), "CLAUDE.local.md");
+        assert_eq!(display("C:\\Users\\me\\.claude\\CLAUDE.md", "D:\\w", "C:\\Users\\me"), "~\\.claude\\CLAUDE.md");
+        let dlg = serde_json::json!({"folders": [{"kind": "auto", "path": "rel"}, {"kind": "auto", "path": "C:\\m"}]});
+        assert_eq!(auto_folder(&dlg).as_deref(), Some("C:\\m"));
     }
 }

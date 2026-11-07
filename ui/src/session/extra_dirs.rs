@@ -92,6 +92,9 @@ pub fn ExtraDirs(
                     return;
                 }
             };
+            if draft.is_disposed() {
+                return;
+            }
             if has_confirm && confirmed.get_untracked().as_deref() != Some(d.as_str()) {
                 confirmed.set(Some(d));
                 return;
@@ -120,7 +123,7 @@ pub fn ExtraDirs(
                     return true;
                 }
                 add().await;
-                draft.get_untracked().is_empty()
+                draft.try_with_untracked(String::is_empty).unwrap_or(false)
             })
         })));
         on_cleanup(move || ctl.install(None));

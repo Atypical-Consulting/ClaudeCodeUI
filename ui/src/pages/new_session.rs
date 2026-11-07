@@ -140,10 +140,10 @@ pub fn NewSession() -> impl IntoView {
     let focus_name = move |to_input: bool| {
         request_animation_frame(move || {
             if to_input {
-                if let Some(i) = name_input.get_untracked() {
+                if let Some(i) = name_input.try_get_untracked().flatten() {
                     let _ = i.focus();
                 }
-            } else if let Some(b) = edit_btn.get_untracked() {
+            } else if let Some(b) = edit_btn.try_get_untracked().flatten() {
                 let _ = b.focus();
             }
         });
@@ -223,7 +223,7 @@ pub fn NewSession() -> impl IntoView {
         cwd.track();
         found.track();
         request_animation_frame(move || {
-            if let Some(i) = cwd_input.get_untracked() {
+            if let Some(i) = cwd_input.try_get_untracked().flatten() {
                 crate::interop::scroll_to_end(&i);
             }
         });
@@ -282,6 +282,9 @@ pub fn NewSession() -> impl IntoView {
                 busy.set(true);
                 if !ctl.commit().await {
                     busy.set(false); // a typed folder is not dropped
+                    return;
+                }
+                if busy.is_disposed() {
                     return;
                 }
                 if editing.get_untracked() {

@@ -1,6 +1,6 @@
 //! Port of `Core/Strings.cs` + `Resources/Strings.resx` / `Strings.fr.resx` (spec 05 §7). IMPLEMENTED (not a stub).
 //!
-//! Tables: `crates/shared/i18n/{en,fr}.json`, generated once by `scripts/resx2json.py` (1 177 keys each, values raw).
+//! Tables: `crates/shared/i18n/{en,fr}.json`, generated once by `scripts/resx2json.py` (1 177 keys each, values raw; + Layout.Updating, the old splash string).
 //! Language: one app-wide value (`set_lang`), as the C# app-wide culture; tests pin theirs per thread with
 //! `set_thread_lang` (the C# SelfCheck ran under culture fr). Missing key in fr → en value → the key itself.
 //!
@@ -242,9 +242,9 @@ mod tests {
     #[test]
     fn same_keys_in_both_tables() {
         let en: Vec<_> = table(Lang::En).keys().collect();
-        assert_eq!(en.len(), 1177);
+        assert_eq!(en.len(), 1178);
         assert!(en.iter().all(|k| table(Lang::Fr).contains_key(*k)));
-        assert_eq!(table(Lang::Fr).len(), 1177);
+        assert_eq!(table(Lang::Fr).len(), 1178);
     }
 
     #[test]

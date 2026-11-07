@@ -199,7 +199,7 @@ pub fn Composer(session: SessionHandle) -> impl IntoView {
     let pick_btn = NodeRef::<leptos::html::Button>::new();
     let focus_area = move || {
         request_animation_frame(move || {
-            if let Some(a) = area.get_untracked() {
+            if let Some(a) = area.try_get_untracked().flatten() {
                 interop::focus(&a);
             }
         })
@@ -306,7 +306,7 @@ pub fn Composer(session: SessionHandle) -> impl IntoView {
     let close_mode_to_trigger = move || {
         mode_open.set(false);
         request_animation_frame(move || {
-            if let Some(b) = mode_btn.get_untracked() {
+            if let Some(b) = mode_btn.try_get_untracked().flatten() {
                 interop::focus(&b);
             }
         });
@@ -317,7 +317,7 @@ pub fn Composer(session: SessionHandle) -> impl IntoView {
             read_settings(); // another model: its applied effort and effort cap
         }
         request_animation_frame(move || {
-            if let Some(b) = pick_btn.get_untracked() {
+            if let Some(b) = pick_btn.try_get_untracked().flatten() {
                 interop::focus(&b);
             }
         });

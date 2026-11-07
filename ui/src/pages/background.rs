@@ -140,7 +140,7 @@ pub fn Background() -> impl IntoView {
     let after = |f: Box<dyn FnOnce()>| request_animation_frame(f);
     let focus_row = move |id: String| {
         after(Box::new(move || {
-            if let Some(p) = pane_el.get_untracked() {
+            if let Some(p) = pane_el.try_get_untracked().flatten() {
                 interop::reveal(&p, &format!("bg-{id}"), "nearest", true);
             }
         }))
@@ -195,7 +195,7 @@ pub fn Background() -> impl IntoView {
         if list.iter().any(|r| r.id == a.id) {
             // Focus follows the work, never drops to body: to the output a button produced.
             after(Box::new(move || {
-                if let Some(o) = out_el.get_untracked() {
+                if let Some(o) = out_el.try_get_untracked().flatten() {
                     let _ = o.focus();
                 }
             }));
@@ -211,7 +211,7 @@ pub fn Background() -> impl IntoView {
                     focus_row(next.id.clone());
                 }
                 None => after(Box::new(move || {
-                    if let Some(b) = refresh_el.get_untracked() {
+                    if let Some(b) = refresh_el.try_get_untracked().flatten() {
                         let _ = b.focus();
                     }
                 })),

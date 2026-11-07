@@ -89,6 +89,12 @@ pub struct ClaudeProcess {
     trace: Option<Trace>,
 }
 
+/// A control_request already written, awaiting its control_response (`ClaudeProcess::post` / `await_reply`).
+pub struct Posted {
+    id: String,
+    rx: oneshot::Receiver<Result<Value, ClaudeError>>,
+}
+
 /// Removes a pending request in all cases, including a dropped future.
 struct PendingGuard<'a>(&'a Pending, String);
 
@@ -244,10 +250,17 @@ impl ClaudeProcess {
     /// `{"type":"control_request","request_id":<32 hex>,"request":{"subtype":…, ...fields}}` and await the matching
     /// control_response (pending entry removed in all cases).
     pub async fn request(&self, subtype: &str, fields: Value, timeout: Duration) -> Result<Value, ClaudeError> {
+        let posted = self.post(subtype, fields).await?;
+        self.await_reply(posted, timeout).await
+    }
+
+    /// The write half of `request`: the control_request is on stdin when this returns (so a later write lands after
+    /// it), its answer is awaited by `await_reply`. A `Posted` never passed to it leaves its pending entry until exit.
+    pub async fn post(&self, subtype: &str, fields: Value) -> Result<Posted, ClaudeError> {
         let id = uuid::Uuid::new_v4().simple().to_string();
         let (tx, rx) = oneshot::channel();
         self.pending.lock().insert(id.clone(), tx);
-        let _guard = PendingGuard(&self.pending, id.clone());
+        let guard = PendingGuard(&self.pending, id.clone());
         if self.exited.load(Ordering::SeqCst) {
             return Err(ClaudeError::Stopped);
         }
@@ -257,7 +270,14 @@ impl ClaudeProcess {
             req.extend(f);
         }
         self.write(json!({"type": "control_request", "request_id": id, "request": req})).await?;
-        match tokio::time::timeout(timeout, rx).await {
+        std::mem::forget(guard); // `await_reply` owns the cleanup from here
+        Ok(Posted { id, rx })
+    }
+
+    /// The await half of `request`: the matching control_response, or Timeout (pending entry removed in all cases).
+    pub async fn await_reply(&self, posted: Posted, timeout: Duration) -> Result<Value, ClaudeError> {
+        let _guard = PendingGuard(&self.pending, posted.id);
+        match tokio::time::timeout(timeout, posted.rx).await {
             Err(_) => Err(ClaudeError::Timeout),
             Ok(Err(_)) => Err(ClaudeError::Stopped),
             Ok(Ok(r)) => r,

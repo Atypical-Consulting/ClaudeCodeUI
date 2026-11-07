@@ -423,7 +423,7 @@ pub fn CommandPalette() -> impl IntoView {
                     let _ = recent.try_set(r.list);
                 }
             });
-            request_animation_frame(move || interop::modal(true, input.get_untracked().as_ref()));
+            request_animation_frame(move || interop::modal(true, input.try_get_untracked().flatten().as_ref()));
         } else if !open && was {
             interop::modal(false, None);
             cancel();
@@ -439,7 +439,7 @@ pub fn CommandPalette() -> impl IntoView {
             return;
         }
         request_animation_frame(move || {
-            if let Some(l) = list.get_untracked() {
+            if let Some(l) = list.try_get_untracked().flatten() {
                 interop::reveal(&l, &format!("pal-{i}"), "nearest", false);
             }
         });

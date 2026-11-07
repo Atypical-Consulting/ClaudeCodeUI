@@ -218,7 +218,7 @@ pub fn PermissionCard(
     on_relayed_key(move |key| match key_action(key, plan, question || elicit) {
         KeyAction::Answer(d, mode) => ans(d, mode, None),
         KeyAction::FocusFeedback => {
-            if let Some(el) = feedback_box.get_untracked() {
+            if let Some(el) = feedback_box.try_get_untracked().flatten() {
                 let _ = el.focus();
             }
         }

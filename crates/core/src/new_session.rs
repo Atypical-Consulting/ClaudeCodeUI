@@ -51,9 +51,9 @@ fn check_local(d: String) -> Result<String, String> {
     Ok(d)
 }
 
-/// Process current dir (the default cwd when there is no recent).
+/// The default cwd when there is no recent: the home dir (the C# sidecar ran there; a Finder/Dock launch has cwd `/`).
 pub fn default_cwd() -> String {
-    std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default()
+    crate::paths::home().to_string_lossy().into_owned()
 }
 
 /// Agent names: every live session's agents ∪ `*.md` stems of `<dir>/.claude/agents` and `~/.claude/agents`;
@@ -140,6 +140,6 @@ mod tests {
         assert_eq!(free_in(&ds, "calm-dog", &[]).await, "calm-dog");
         assert_eq!(free_in(&ds, "brave-cat", &[]).await, "brave-cat-2");
         assert_eq!(free_in(&ds, "calm-dog", &["calm-dog".into(), "calm-dog-2".into()]).await, "calm-dog-3");
-        assert!(!default_cwd().is_empty());
+        assert_eq!(std::path::PathBuf::from(default_cwd()), crate::paths::home(), "home, never the process cwd");
     }
 }

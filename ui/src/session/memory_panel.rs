@@ -54,7 +54,7 @@ pub fn MemoryPanel(
 
     let focus_area = move || {
         request_animation_frame(move || {
-            if let Some(a) = area.get_untracked() {
+            if let Some(a) = area.try_get_untracked().flatten() {
                 let _ = a.focus();
             }
         })

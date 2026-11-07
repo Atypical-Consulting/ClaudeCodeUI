@@ -109,7 +109,7 @@ pub fn MainLayout(children: Children) -> impl IntoView {
     });
 
     view! {
-        <div class="app">
+        <div class="app" inert=move || app.updating.get()>
             <Rail/>
             <main>{children()}</main>
             // Splitters on the two seams (interop.js: drag, arrow keys, double-click resets).
@@ -129,6 +129,10 @@ pub fn MainLayout(children: Children) -> impl IntoView {
                 <button type="button" class="dismiss btn ghost" aria-label=t!("Layout.Dismiss")><Icon name="x"/></button>
             </div>
         </div>
+        // Push::Updating: the backend is about to stop every claude and install; the old shell showed its splash.
+        <Show when=move || app.updating.get()>
+            <div class="updating" role="status"><img src="favicon.png" alt=""/><div>{t!("Layout.Updating")}</div></div>
+        </Show>
     }
 }
 

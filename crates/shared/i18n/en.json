@@ -275,6 +275,7 @@
  "Layout.Error": "Something went wrong.",
  "Layout.ErrorHint": "The interface stopped following changes. Reload to bring it back.",
  "Layout.Reload": "Reload",
+ "Layout.Updating": "Installing the update…",
  "Mascot.Calm": "All quiet",
  "Mascot.Crashed": "A session went down",
  "Mascot.Decision1": "1 decision waiting on you",

@@ -1224,37 +1224,107 @@ mod tests {
         assert!(r.pending_count == 1 && r.first_pending_tool.as_deref() == Some("Write") && r.last_tool.unwrap().name == "Write");
     }
 
+    /// A real-CLI session on haiku in a fresh temp dir. Drop removes the dir AND the transcript dir the CLI wrote for it
+    /// (so test runs never show up as "ccui-it" sessions in the user's recent list).
+    struct RealCli {
+        s: Arc<LiveSession>,
+        sink: Arc<Rec>,
+        cwd: String,
+        _dir: tempfile::TempDir,
+    }
+
+    impl RealCli {
+        fn new() -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            // The CLI names its project dir after the realpath (/var -> /private/var on macOS).
+            let cwd = std::fs::canonicalize(dir.path()).unwrap().to_string_lossy().into_owned();
+            let sink = rec();
+            let s = live_with(
+                SessionInit {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: "ccui-it".into(),
+                    cwd: cwd.clone(),
+                    mode: "default".into(),
+                    model: Some("haiku".into()),
+                    ..Default::default()
+                },
+                sink.clone(),
+            );
+            s.watch();
+            Self { s, sink, cwd, _dir: dir }
+        }
+
+        async fn until(&self, what: &str, done: impl Fn(&SessionState) -> bool) {
+            let deadline = std::time::Instant::now() + Duration::from_secs(180);
+            while !self.s.with_state(&done) {
+                assert!(std::time::Instant::now() < deadline, "{what}: nothing in 3 min");
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+        }
+
+        /// A Write turn up to its permission card, answered through `answer` (the session_answer command path).
+        async fn write_turn(&self, decision: Decision) -> std::path::PathBuf {
+            let file = std::path::Path::new(&self.cwd).join("hello.txt");
+            let prompt = format!("Use the Write tool to create the file {} containing the word hi. Use no other tool.", file.display());
+            self.s.send(prompt, vec![]).await.unwrap();
+            self.until("permission", |st| st.pending.iter().any(|p| p.tool == "Write")).await;
+            let request_id = self.s.with_state(|st| st.pending.iter().find(|p| p.tool == "Write").unwrap().request_id.clone());
+            let args = AnswerArgs { request_id, decision, mode: None, message: None, input: None, destination: None };
+            self.s.answer(args).await.unwrap();
+            self.until("result", |st| st.last_result_at.is_some() && st.pending.is_empty()).await;
+            file
+        }
+    }
+
+    impl Drop for RealCli {
+        fn drop(&mut self) {
+            let root = crate::paths::projects_root();
+            let transcripts = root.join(ccui_shared::text::slug(&self.cwd));
+            assert_eq!(transcripts.parent(), Some(root.as_path()), "only ever a project dir under the projects root");
+            if transcripts.is_dir() {
+                std::fs::remove_dir_all(&transcripts).unwrap();
+            }
+        }
+    }
+
     /// End to end against the real CLI (haiku): spawn, boot, one turn, result, cost. `cargo test -- --ignored`.
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "drives the real claude CLI (network, account)"]
     async fn real_claude_haiku_turn() {
-        let dir = tempfile::tempdir().unwrap();
-        let sink = rec();
-        let s = live_with(
-            SessionInit {
-                id: uuid::Uuid::new_v4().to_string(),
-                name: "ccui-it".into(),
-                cwd: dir.path().to_string_lossy().into_owned(),
-                mode: "default".into(),
-                model: Some("haiku".into()),
-                ..Default::default()
-            },
-            sink.clone(),
-        );
-        s.watch();
+        let it = RealCli::new();
+        let s = &it.s;
+        // Thinking off: the boot trace must show initialize, set_max_thinking_tokens, THEN the user message.
+        s.with_state_mut(|st| st.thinking = false);
         s.send("Reply with the single word pong.".into(), vec![]).await.unwrap();
-        let deadline = std::time::Instant::now() + Duration::from_secs(180);
-        while s.with_state(|st| st.last_result_at.is_none()) {
-            assert!(std::time::Instant::now() < deadline, "no result in 3 min");
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
+        it.until("result", |st| st.last_result_at.is_some()).await;
         s.with_state(|st| {
             assert_eq!(st.status, SessionStatus::Idle);
             assert!(st.items().iter().any(|i| matches!(i, Item::Text(t) if t.markdown.to_lowercase().contains("pong"))));
             assert!(st.heavy.initialize_info.is_some(), "boot answered initialize");
         });
-        assert!(sink.0.lock().iter().any(|p| matches!(p, Push::SessionPatch(_))));
+        assert!(it.sink.0.lock().iter().any(|p| matches!(p, Push::SessionPatch(_))));
         s.dispose().await;
         assert_eq!(s.with_state(|st| st.status), SessionStatus::Exited);
+    }
+
+    /// Permission round trip against the real CLI: Write asks (default mode), allow -> the file exists, cost > 0.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "drives the real claude CLI (network, account)"]
+    async fn real_claude_permission_allow() {
+        let it = RealCli::new();
+        let file = it.write_turn(Decision::Allow).await;
+        assert!(file.is_file(), "allowed Write created the file");
+        assert!(it.s.with_state(|st| st.cost_usd) > Decimal::ZERO);
+        it.s.dispose().await;
+    }
+
+    /// Same round trip, denied: no file.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "drives the real claude CLI (network, account)"]
+    async fn real_claude_permission_deny() {
+        let it = RealCli::new();
+        let file = it.write_turn(Decision::Deny).await;
+        assert!(!file.exists(), "denied Write created nothing");
+        it.s.dispose().await;
     }
 }

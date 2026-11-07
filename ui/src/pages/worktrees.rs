@@ -461,6 +461,7 @@ pub fn Worktrees() -> impl IntoView {
                 if rows.is_disposed() {
                     return;
                 }
+                let home = home.get_value(); // read while mounted: the loop below awaits
                 repos_n.set(repos.len());
                 progress.set((0, repos.len()));
                 let (mut found, mut bad, mut errs) = (Vec::new(), Vec::new(), Vec::new());
@@ -472,7 +473,7 @@ pub fn Worktrees() -> impl IntoView {
                             }
                             found.extend(list);
                         }
-                        Err(e) => errs.push(t!("Wt.RepoError", fmt::home(r, &home.get_value()), e)),
+                        Err(e) => errs.push(t!("Wt.RepoError", fmt::home(r, &home), e)),
                     }
                     if rows.is_disposed() {
                         return;
@@ -510,14 +511,14 @@ pub fn Worktrees() -> impl IntoView {
         focus_to.set(None);
         request_animation_frame(move || {
             if let Some(key) = to.strip_prefix("row:") {
-                if let Some(p) = pane_el.get_untracked() {
+                if let Some(p) = pane_el.try_get_untracked().flatten() {
                     interop::reveal(&p, &rules::anchor(key), "nearest", true);
                 }
             } else if to == "plan" {
-                if let Some(p) = plan_el.get_untracked() {
+                if let Some(p) = plan_el.try_get_untracked().flatten() {
                     let _ = p.focus();
                 }
-            } else if let Some(b) = head_btn.get_untracked() {
+            } else if let Some(b) = head_btn.try_get_untracked().flatten() {
                 let _ = b.focus();
             }
         });
@@ -530,7 +531,7 @@ pub fn Worktrees() -> impl IntoView {
         }
         revealed.set_value(true);
         request_animation_frame(move || {
-            if let Some(p) = pane_el.get_untracked() {
+            if let Some(p) = pane_el.try_get_untracked().flatten() {
                 interop::reveal(&p, &rules::anchor(&f), "center", true);
             }
         });

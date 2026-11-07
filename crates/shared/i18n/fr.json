@@ -275,6 +275,7 @@
  "Layout.Error": "Une erreur inattendue est survenue.",
  "Layout.ErrorHint": "L’interface ne suit plus les changements. Recharge pour la rétablir.",
  "Layout.Reload": "Recharger",
+ "Layout.Updating": "Installation de la mise à jour…",
  "Mascot.Calm": "Tout est calme",
  "Mascot.Crashed": "Une session est tombée",
  "Mascot.Decision1": "1 décision t’attend",

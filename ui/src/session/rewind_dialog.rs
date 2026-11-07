@@ -36,7 +36,7 @@ pub fn RewindDialog(session: SessionHandle, #[prop(into)] target: Signal<Option<
         let n = opening.get_value() + 1;
         opening.set_value(n);
         request_animation_frame(move || {
-            if let Some(d) = el.get_untracked() {
+            if let Some(d) = el.try_get_untracked().flatten() {
                 interop::dialog(&d, true, None);
             }
         });
@@ -67,7 +67,7 @@ pub fn RewindDialog(session: SessionHandle, #[prop(into)] target: Signal<Option<
             match ipc::session_rewind(&id, &uuid, p.changes()).await {
                 Ok(()) => {
                     // The message (and its button, where focus would return) is gone: its text waits in the Composer.
-                    if let Some(d) = el.get_untracked() {
+                    if let Some(d) = el.try_get_untracked().flatten() {
                         interop::dialog(&d, false, Some(".composer textarea"));
                     }
                 }
@@ -79,7 +79,7 @@ pub fn RewindDialog(session: SessionHandle, #[prop(into)] target: Signal<Option<
         });
     };
     let close = move |_| {
-        if let Some(d) = el.get_untracked() {
+        if let Some(d) = el.try_get_untracked().flatten() {
             interop::dialog(&d, false, None);
         }
     };

@@ -374,7 +374,7 @@ pub fn Overview() -> impl IntoView {
             return;
         }
         request_animation_frame(move || {
-            if let Some(el) = resume_el.get_untracked() {
+            if let Some(el) = resume_el.try_get_untracked().flatten() {
                 resume_focused.set_value(true);
                 interop::focus_if_idle(&el);
                 interop::clip_tops(&el);
@@ -386,7 +386,7 @@ pub fn Overview() -> impl IntoView {
             return;
         }
         request_animation_frame(move || {
-            if let Some(el) = queue_el.get_untracked() {
+            if let Some(el) = queue_el.try_get_untracked().flatten() {
                 autofocused.set_value(true);
                 interop::focus_if_idle(&el);
             }
@@ -465,7 +465,7 @@ pub fn Overview() -> impl IntoView {
         let cur = ri.get_untracked().min(n - 1);
         let wt = has_unsaved.get_untracked();
         let to_wt = move || {
-            if let Some(el) = wt_el.get_untracked() {
+            if let Some(el) = wt_el.try_get_untracked().flatten() {
                 interop::focus_first(&el);
             }
         };

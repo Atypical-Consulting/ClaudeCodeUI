@@ -398,6 +398,8 @@ pub struct AppStore {
     pub updating: RwSignal<bool>,
     sessions: StoredValue<HashMap<String, SessionHandle>>,
     owner: StoredValue<Owner>,
+    /// Loads asked before `listen_push` resolved (ARCHITECTURE §2.6), started by `listening`; None once listening.
+    deferred: StoredValue<Option<Vec<(String, bool)>>>,
 }
 
 /// Apply a `PrefChanged` to the prefs / flags records (flags: value present = on). False for an unknown name.
@@ -434,6 +436,7 @@ impl AppStore {
             updating: RwSignal::new(false),
             sessions: StoredValue::new(HashMap::new()),
             owner: StoredValue::new(owner),
+            deferred: StoredValue::new(Some(Vec::new())),
         }
     }
 
@@ -476,6 +479,29 @@ impl AppStore {
         }
         h.loaded.set(false);
         let id = id.to_string();
+        // Not listening yet: a patch between the snapshot and the subscription would be lost. Queued.
+        if self.deferred.with_value(Option::is_some) {
+            self.deferred.update_value(|d| {
+                if let Some(q) = d {
+                    q.push((id, live_only));
+                }
+            });
+            return;
+        }
+        Self::fetch(h, id, live_only);
+    }
+
+    /// The listener is registered: start the queued loads still held (a released one was dropped from the queue).
+    fn listening(&self) {
+        let queued = self.deferred.try_update_value(Option::take).flatten().unwrap_or_default();
+        for (id, live_only) in queued {
+            if let Some(h) = self.existing(&id) {
+                Self::fetch(h, id, live_only);
+            }
+        }
+    }
+
+    fn fetch(h: SessionHandle, id: String, live_only: bool) {
         spawn_local(async move {
             let got = if live_only { ipc::session_watch(&id).await } else { ipc::session_open(&id).await };
             match got {
@@ -498,12 +524,23 @@ impl AppStore {
         if n > 0 {
             return;
         }
+        let mut never_asked = false;
+        self.deferred.update_value(|d| {
+            if let Some(q) = d {
+                let len = q.len();
+                q.retain(|(i, _)| i != id);
+                never_asked = q.len() != len;
+            }
+        });
         h.loaded.set(false);
         h.items.set(Vec::new());
         h.stream.set(String::new());
         h.version.set(0);
         h.buffer.set_value(Vec::new());
         h.stream_buffer.set_value(Vec::new());
+        if never_asked {
+            return; // still queued: the backend never watched it
+        }
         let id = id.to_string();
         spawn_local(async move {
             if let Err(e) = ipc::session_unwatch(&id).await {
@@ -582,6 +619,7 @@ pub fn provide_stores(boot: BootInfo) {
         if let Err(e) = ipc::listen_push(move |p| app.apply_push(p)).await {
             leptos::logging::error!("listen_push: {e}");
         }
+        app.listening();
         match ipc::sessions_summary().await {
             Ok(s) => app.summary.set(s),
             Err(e) => leptos::logging::error!("sessions_summary: {e}"),

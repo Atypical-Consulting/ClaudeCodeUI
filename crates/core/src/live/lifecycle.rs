@@ -3,7 +3,7 @@
 
 use super::{spawn, LiveSession};
 use crate::events::{self, ClaudeEvent};
-use crate::process::{ClaudeError, ClaudeProcess, DEFAULT_TIMEOUT};
+use crate::process::{ClaudeError, ClaudeProcess, Posted, DEFAULT_TIMEOUT};
 use crate::session_manager::SessionManager;
 use crate::{status_command, transcript_store, CoreResult};
 use ccui_shared::api::{AnswerArgs, FLAG_THINKING};
@@ -18,6 +18,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const INIT_SECONDS: u64 = 180;
+
+/// A boot control_request written by `ensure_process`, answered in `boot_steps`.
+type Posting = Result<Posted, ClaudeError>;
 
 impl LiveSession {
     /// Locked check-then-spawn (two windows / boot + reader must not start two claude on one --session-id):
@@ -92,7 +95,15 @@ impl LiveSession {
         match spawned {
             Ok(p) => {
                 self.notify();
-                spawn(self.clone().boot(p.clone()));
+                // Written HERE, before the caller's own write (a Composer send's user message): initialize, then the
+                // thinking-off live 0, "sent before any prompt" (C# Boot runs its writes before EnsureProcess returns).
+                let init = p.post("initialize", Value::Null).await;
+                let off = if self.with_state(|s| s.thinking) {
+                    None
+                } else {
+                    Some(p.post("set_max_thinking_tokens", json!({"max_thinking_tokens": 0})).await)
+                };
+                spawn(self.clone().boot(p.clone(), init, off));
                 Ok(p)
             }
             Err(msg) => {
@@ -104,8 +115,8 @@ impl LiveSession {
 
     /// initialize (180 s, waited ONCE), thinking-off live 0, get_settings, get_usage, then Starting → Idle and the
     /// status line. Initialize timeout → crash banner (on_exit), never a fake Idle.
-    pub(crate) async fn boot(self: Arc<Self>, p: Arc<ClaudeProcess>) {
-        match self.boot_steps(&p).await {
+    pub(crate) async fn boot(self: Arc<Self>, p: Arc<ClaudeProcess>, init: Posting, off: Option<Posting>) {
+        match self.boot_steps(&p, init, off).await {
             Ok(true) => {}
             Ok(false) => return, // initialize timed out: already turned into a crash
             Err(e) => eprintln!("[{}] startup: {e}", self.id),
@@ -121,18 +132,16 @@ impl LiveSession {
     }
 
     /// Boot steps 1-7; Ok(false) = initialize timed out (the session was stopped).
-    async fn boot_steps(self: &Arc<Self>, p: &Arc<ClaudeProcess>) -> Result<bool, ClaudeError> {
+    async fn boot_steps(self: &Arc<Self>, p: &Arc<ClaudeProcess>, init: Posting, off: Option<Posting>) -> Result<bool, ClaudeError> {
         let init_timeout = Duration::from_secs(INIT_SECONDS);
         // A cold start can keep the CLI busy past a minute. Wait ONCE on the same request_id.
-        let init = p.request("initialize", Value::Null, init_timeout);
+        let init = p.await_reply(init?, init_timeout);
         tokio::pin!(init);
         // Thinking off survives a relaunch as a live 0, sent before any prompt (never a launch flag).
-        let off = if self.with_state(|s| s.thinking) {
-            None
-        } else {
+        let off = off.map(|o| {
             let p2 = p.clone();
-            Some(tokio::spawn(async move { p2.request("set_max_thinking_tokens", json!({"max_thinking_tokens": 0}), init_timeout).await }))
-        };
+            tokio::spawn(async move { p2.await_reply(o?, init_timeout).await })
+        });
         let info = tokio::select! {
             r = &mut init => r,
             _ = tokio::time::sleep(Duration::from_secs(60)) => {

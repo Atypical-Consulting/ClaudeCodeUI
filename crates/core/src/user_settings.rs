@@ -26,6 +26,8 @@ pub fn set_model(model: &str) -> CoreResult<()> {
 
 /// Every other key kept (order too), "default" removes the key; indented. Not an object → Err.
 pub fn with_model(json: &str, model: &str) -> CoreResult<String> {
+    // A BOM (Notepad, PowerShell 5) is dropped like C# File.ReadAllText did; written back without one, like WriteAllText.
+    let json = json.strip_prefix('\u{feff}').unwrap_or(json);
     let mut v: Value = serde_json::from_str(json).map_err(|e| e.to_string())?;
     let o = v.as_object_mut().ok_or("settings.json is not an object")?;
     if model == "default" {
@@ -53,6 +55,7 @@ mod tests {
         let cleared: Value = serde_json::from_str(&with_model(r#"{"model":"opus"}"#, "default").unwrap()).unwrap();
         assert!(cleared.as_object().unwrap().is_empty());
         assert!(with_model("[1]", "x").is_err());
+        assert_eq!(with_model("\u{feff}{\"model\":\"opus\"}", "sonnet").unwrap(), "{\n  \"model\": \"sonnet\"\n}", "BOM dropped");
     }
 
     #[test]

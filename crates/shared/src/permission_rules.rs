@@ -106,6 +106,8 @@ pub fn valid(rule: &str) -> bool {
 /// order; strict JSON only (comments / trailing commas → Err, never rewrite such a file); output indented 2 spaces,
 /// no HTML/unicode escaping, trailing "\n". Idempotent.
 pub fn edit(json: Option<&str>, behavior: &str, rule: &str, add: bool) -> Result<String, String> {
+    // A BOM (Notepad, PowerShell 5) is dropped like C# File.ReadAllText did; written back without one, like WriteAllText.
+    let json = json.map(|s| s.strip_prefix('\u{feff}').unwrap_or(s));
     let mut root = match json.filter(|s| !s.trim().is_empty()) {
         None => Map::new(),
         Some(s) => match serde_json::from_str::<Value>(s).map_err(|e| e.to_string())? {
@@ -207,6 +209,8 @@ mod tests {
         assert!(edit(Some("{ // comment\n}"), "allow", "Bash", true).is_err(), "never rewrite a file the CLI skips");
         assert!(edit(Some(r#"{"a":1,}"#), "allow", "Bash", true).is_err());
         assert!(edit(Some("[]"), "allow", "Bash", true).is_err());
+        let bom = edit(Some("\u{feff}{\"model\":\"haiku\"}"), "allow", "Bash", true).unwrap();
+        assert!(bom.starts_with("{\n  \"model\": \"haiku\""), "BOM dropped, file still edited: {bom}");
     }
 
     #[test]
