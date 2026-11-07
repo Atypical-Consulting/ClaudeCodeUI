@@ -262,6 +262,35 @@ mod tests {
         set_thread_lang(None);
     }
 
+    /// Strings.Check: French typography (no-break space before `? ! : ; »`, after `«`; `’` not `'`), outside code/tags.
+    #[test]
+    fn fr_typography() {
+        let strip = regex::Regex::new(r"<code>.*?</code>|`[^`]*`|<[^>]*>").unwrap();
+        let bad = regex::Regex::new(r" [?!:;»]|« |'").unwrap();
+        let mut bad_keys: Vec<_> =
+            table(Lang::Fr).iter().filter(|(_, v)| bad.is_match(&strip.replace_all(v, ""))).map(|(k, _)| k.as_str()).collect();
+        bad_keys.sort();
+        assert!(bad_keys.is_empty(), "fr typography: {bad_keys:?}");
+    }
+
+    /// Strings.Check: en / fr lookups, plurals, names.
+    #[test]
+    fn strings_check() {
+        set_thread_lang(Some(Lang::En));
+        assert_eq!(t("Rail.NewSession"), "New session");
+        assert_eq!(t("Wt.State.Safe"), "Safe");
+        assert_eq!(plural(0, "Ov.Sessions"), "0 sessions");
+        assert_eq!(plural(1, "Ov.Sessions"), "1 session");
+        assert_eq!(plural(0, "Tools"), "0 tools");
+        assert_eq!(name("Mode.Name.", Some("acceptEdits")), "Accept edits");
+        set_thread_lang(Some(Lang::from_code("fr-BE")));
+        assert_eq!(t("Rail.NewSession"), "Nouvelle session");
+        assert_eq!(t("Wt.State.Safe"), "Sûr");
+        assert_eq!(plural(0, "Ov.Sessions"), "0 session");
+        assert_eq!(plural(2, "Ov.Sessions"), "2 sessions");
+        set_thread_lang(None);
+    }
+
     #[test]
     fn net_braces() {
         assert_eq!(format_net(Lang::En, "a {{base}} {0}", &[&"x"]), "a {base} x");
