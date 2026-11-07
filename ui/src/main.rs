@@ -28,6 +28,7 @@ fn main() {
     if let Some(body) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.body()) {
         let _ = body.set_attribute("data-copied", &ccui_shared::t!("Copy.Done"));
     }
+    interop::install_globals();
     leptos::mount::mount_to_body(move || leptos::view! { <app::App boot=boot/> });
 }
 
