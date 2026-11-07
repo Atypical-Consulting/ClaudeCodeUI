@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.5.0...v0.6.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* rewrite the app in Rust (Tauri 2 + Leptos), dropping the Blazor sidecar ([#135](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/135))
+
+### Features
+
+* rewrite the app in Rust (Tauri 2 + Leptos), dropping the Blazor sidecar ([#135](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/135)) ([5b48fd8](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/5b48fd86968475b2d02d791e41c7a0dc5ab080da))
+
 ## [0.5.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.4.2...v0.5.0) (2026-10-14)
 
 
