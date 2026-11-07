@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.6.0...v0.6.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **release:** build wasm-bindgen from source on linux-arm64 (prebuilt needs glibc 2.38) ([#139](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/139)) ([8ea1be0](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/8ea1be07f8fd4b9db2c7c705fe34b9f6ced8b262))
+
 ## [0.6.0](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.5.0...v0.6.0) (2026-11-07)
 
 
