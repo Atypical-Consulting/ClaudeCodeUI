@@ -51,29 +51,28 @@ Then run `claude` once in a terminal to sign in. If `claude` is not found in the
 
 ## Development
 
-Requirements: .NET 10 SDK. For the desktop app: Rust (stable), Node 20+ and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system.
+Requirements: Rust (stable) with the `wasm32-unknown-unknown` target, [trunk](https://trunkrs.dev/) and the Tauri CLI, plus the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system.
 
 ```sh
-dotnet run                     # web server alone: open the http://localhost:5284/?token=… URL it prints
-dotnet run -- --self-check     # built-in checks, non-zero exit code on failure
+rustup target add wasm32-unknown-unknown
+cargo install trunk tauri-cli --locked
 ```
 
-Desktop app (`desktop/` folder):
+Everything is one Cargo workspace: `crates/shared` (types and pure helpers, native and wasm), `crates/core` (the backend: `claude` processes, sessions, transcripts, worktrees…), `ui` (the Leptos interface, compiled to wasm by trunk) and `desktop/src-tauri` (the Tauri shell). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```sh
-cd desktop
-npm install
-npm run server                 # publishes the self-contained server for your machine into src-tauri/server
-npm run dev                    # launches the Tauri window (same as cargo tauri dev)
-npm run build                  # builds the installers into src-tauri/target/release/bundle
+cargo tauri dev                # launches the window; trunk serves and rebuilds the UI on every change
+cargo tauri build              # builds the installers into target/release/bundle
+cargo test --workspace         # unit tests (the backend runs without Tauri)
+cargo check -p ccui-ui --target wasm32-unknown-unknown
 ```
 
-The Tauri shell launches `ClaudeCodeUI --desktop-port 0 --parent-pid <pid>` (HTTP on 127.0.0.1 only, Production environment, access protected by a local-use token passed over standard output), shows a loading screen, then opens the interface. The server stops on its own when the window closes, and takes the `claude` processes down with it. Re-run `npm run server` after every change to the .NET code.
+The interface runs in the system web view and talks to the backend in the same process through Tauri commands and events: no server, no port, no token. The `claude` processes stop with the app.
 
 ## Releasing
 
 1. Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/) (`feat:`, `fix:`, `docs:`, `ci:`, `chore:`).
-2. On every push to `main`, [release-please](https://github.com/googleapis/release-please) opens or updates a release PR: CHANGELOG, and the version in `ClaudeCodeUI.csproj`, `tauri.conf.json` and `Cargo.toml`.
+2. On every push to `main`, [release-please](https://github.com/googleapis/release-please) opens or updates a release PR: CHANGELOG, and the version in `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`.
 3. Merging that PR creates the tag and the GitHub release. The `release.yml` workflow then builds the Windows, macOS (Apple Silicon) and Linux installers and attaches them to the release.
 
 ## License

@@ -356,12 +356,27 @@ pub struct RewindPreview {
 impl RewindPreview {
     /// `Parse(r)`: canRewind must be JSON true; filesChanged keeps non-empty strings; counts else 0.
     pub fn parse(r: &Value) -> RewindPreview {
-        todo!("port: RewindPreview.Parse")
+        let int = |k: &str| match crate::json::prop(r, k) {
+            Some(Value::Number(n)) => n.as_i64().map_or(0, |n| n as i32),
+            _ => 0,
+        };
+        RewindPreview {
+            can_rewind: matches!(crate::json::prop(r, "canRewind"), Some(Value::Bool(true))),
+            files: match crate::json::prop(r, "filesChanged") {
+                Some(Value::Array(a)) => {
+                    a.iter().filter_map(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string).collect()
+                }
+                _ => Vec::new(),
+            },
+            insertions: int("insertions"),
+            deletions: int("deletions"),
+            error: crate::json::str(r, "error").map(str::to_string),
+        }
     }
 
     /// `can_rewind && (files non-empty || insertions + deletions > 0)` (a hosted transport drops filesChanged).
     pub fn changes(&self) -> bool {
-        todo!("port: RewindPreview.Changes")
+        self.can_rewind && (!self.files.is_empty() || self.insertions + self.deletions > 0)
     }
 }
 
@@ -383,13 +398,22 @@ pub struct BgTask {
 impl BgTask {
     /// status ∈ {running, pending, paused}.
     pub fn running(&self) -> bool {
-        todo!("port: BgTask.Running")
+        matches!(self.status.as_str(), "running" | "pending" | "paused")
     }
 
     /// `Tail(output, lines)`: strip ANSI, keep each line's text after its last `\r`, drop trailing empties, last N lines.
     /// Test: `"tick 1\r\ntick 2\n\e[31mred\e[0m\n50%\r100%\n\n"`, 3 → `"tick 2\nred\n100%"`.
     pub fn tail(output: &str, lines: usize) -> String {
-        todo!("port: BgTask.Tail")
+        let plain = crate::permission_rules::ansi().replace_all(output, "");
+        let mut all: Vec<&str> = plain
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r'))
+            .map(|l| l.rfind('\r').map_or(l, |i| &l[i + 1..]))
+            .collect();
+        while all.last().is_some_and(|l| l.is_empty()) {
+            all.pop();
+        }
+        all[all.len().saturating_sub(lines)..].join("\n")
     }
 }
 
@@ -455,3 +479,46 @@ pub struct ReloadSummary {
 
 /// Cost as the UI shows it (invariant decimal).
 pub type Usd = Decimal;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn task(status: &str) -> BgTask {
+        BgTask {
+            id: "b".into(),
+            tool_use_id: "t".into(),
+            description: "d".into(),
+            started_at: Time::default(),
+            kind: None,
+            status: status.into(),
+            ended_at: None,
+        }
+    }
+
+    #[test]
+    fn rewind_preview() {
+        let pv = RewindPreview::parse(
+            &json!({"canRewind":true,"filesChanged":["/w/notes.txt","/w/keep.txt"],"insertions":1,"deletions":2}),
+        );
+        assert!(pv.can_rewind && pv.files == ["/w/notes.txt", "/w/keep.txt"]);
+        assert_eq!((pv.insertions, pv.deletions, pv.error), (1, 2, None));
+        let e = RewindPreview::parse(&json!({"canRewind":false,"error":"No file checkpoint found for this message."}));
+        assert!(!e.can_rewind && e.files.is_empty());
+        assert_eq!(e.error.as_deref(), Some("No file checkpoint found for this message."));
+        assert_eq!(RewindPreview::parse(&json!({"canRewind":true,"filesChanged":[null,"","/w/a"]})).files, ["/w/a"]);
+        assert!(RewindPreview::parse(&json!({"canRewind":true,"insertions":3,"deletions":0})).changes());
+        assert!(!RewindPreview::parse(&json!({"canRewind":true,"filesChanged":[]})).changes());
+        assert!(!RewindPreview::parse(&json!({"canRewind":false,"insertions":3})).changes());
+        assert!(!RewindPreview::parse(&json!({"canRewind":"true"})).can_rewind, "canRewind must be JSON true");
+    }
+
+    #[test]
+    fn bg_task() {
+        assert_eq!(BgTask::tail("tick 1\r\ntick 2\n\x1b[31mred\x1b[0m\n50%\r100%\n\n", 3), "tick 2\nred\n100%");
+        assert_eq!(BgTask::tail("", 5), "");
+        assert!(task("running").running() && task("pending").running() && task("paused").running());
+        assert!(!task("completed").running() && !task("killed").running());
+    }
+}
