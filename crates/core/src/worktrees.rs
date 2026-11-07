@@ -1090,7 +1090,9 @@ mod tests {
         assert_eq!(norm("/.."), format!("{drive}/"));
         #[cfg(windows)]
         assert_eq!(norm("C:\\r\\x\\..\\y"), "C:/r/y");
-        assert!(inside("/R/x/Y/z", "/r/x/y") && inside("/r/x/y/", "/r/x/y") && !inside("/r/x/yz", "/r/x/y"));
+        // `path` is a normalized worktree path (callers pass git's absolute paths), as in C# Inside.
+        let p = norm("/r/x/y");
+        assert!(inside("/R/x/Y/z", &p) && inside("/r/x/y/", &p) && !inside("/r/x/yz", &p));
         assert_eq!(strip_worktree("/r/repo/.claude/worktrees/agent-a"), "/r/repo");
         assert_eq!(strip_worktree("C:\\r\\.claude\\worktrees\\a"), "C:\\r");
         assert_eq!(strip_worktree("/r/repo"), "/r/repo");
