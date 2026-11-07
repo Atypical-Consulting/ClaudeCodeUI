@@ -75,11 +75,22 @@ pub struct Core {
 impl Core {
     /// Build the state; sets the app-wide i18n language from the persisted culture (else `os_locale`).
     pub fn new(sink: Arc<dyn UiSink>, os_locale: Option<String>) -> Arc<Core> {
-        todo!("port: Program.cs service registration (SessionManager, WorktreeService singletons)")
+        ccui_shared::i18n::set_lang(app_flag::culture(os_locale.as_deref()));
+        ccui_shared::i18n::set_mac(cfg!(target_os = "macos"));
+        let sessions = session_manager::SessionManager::new(sink.clone());
+        let worktrees = worktrees::WorktreeService::new(sessions.clone(), sink.clone());
+        Arc::new(Core {
+            sink,
+            sessions,
+            worktrees,
+            searches: Default::default(),
+            file_scans: Default::default(),
+            agent_logs: Default::default(),
+        })
     }
 
     /// App exit / before an update: dispose every session in parallel (each may wait 2 s for its process).
     pub async fn shutdown(&self) {
-        todo!("port: SessionManager.DisposeAsync")
+        self.sessions.dispose_all().await
     }
 }

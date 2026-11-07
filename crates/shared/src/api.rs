@@ -43,7 +43,18 @@ pub const FLAG_NOTIFY: &str = "notify-on";
 /// Whether `value` is allowed for pref `name` (whitelist; a hand-edited file outside it reads as None).
 /// Names: theme, code-size, rail-width, inspector-width only (`culture` goes through `set_culture`).
 pub fn valid_pref(name: &str, value: &str) -> bool {
-    todo!("port: AppPref values (Theme, CodeSize, RailWidth, InspectorWidth)")
+    let px = |range: std::ops::RangeInclusive<u32>| {
+        value.strip_suffix("px").and_then(|n| n.parse::<u32>().ok()).is_some_and(|n| {
+            range.contains(&n) && n.to_string().len() + 2 == value.len()
+        })
+    };
+    match name {
+        PREF_THEME => THEMES.contains(&value),
+        PREF_CODE_SIZE => CODE_SIZES.contains(&value),
+        PREF_RAIL_WIDTH => px(RAIL_WIDTHS),
+        PREF_INSPECTOR_WIDTH => px(INSPECTOR_WIDTHS),
+        _ => false,
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -269,4 +280,20 @@ pub struct BgList {
 pub struct BgRunResult {
     pub ok: bool,
     pub text: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefs_whitelist() {
+        assert!(valid_pref(PREF_THEME, "mousse") && !valid_pref(PREF_THEME, "Mousse"));
+        assert!(valid_pref(PREF_CODE_SIZE, "13px") && !valid_pref(PREF_CODE_SIZE, "16px"));
+        assert!(valid_pref(PREF_RAIL_WIDTH, "200px") && valid_pref(PREF_RAIL_WIDTH, "400px"));
+        assert!(!valid_pref(PREF_RAIL_WIDTH, "199px") && !valid_pref(PREF_RAIL_WIDTH, "0300px"));
+        assert!(!valid_pref(PREF_RAIL_WIDTH, "+300px") && !valid_pref(PREF_RAIL_WIDTH, "300"));
+        assert!(valid_pref(PREF_INSPECTOR_WIDTH, "720px") && !valid_pref(PREF_INSPECTOR_WIDTH, "721px"));
+        assert!(!valid_pref(PREF_CULTURE, "fr") && !valid_pref("x", "a"));
+    }
 }

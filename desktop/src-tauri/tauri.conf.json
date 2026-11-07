@@ -4,9 +4,9 @@
   "version": "0.5.0",
   "identifier": "com.atypicalconsulting.claudecodeui",
   "build": {
-    "beforeDevCommand": "trunk serve --config ../../ui/Trunk.toml",
+    "beforeDevCommand": "trunk serve --config ../ui/Trunk.toml",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "trunk build --release --config ../../ui/Trunk.toml",
+    "beforeBuildCommand": "trunk build --release --config ../ui/Trunk.toml",
     "frontendDist": "../../ui/dist"
   },
   "app": {
