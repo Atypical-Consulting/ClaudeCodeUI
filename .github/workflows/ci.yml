@@ -37,4 +37,4 @@ jobs:
         working-directory: ui
       - run: cargo check --workspace
       - run: cargo check -p ccui-ui --target wasm32-unknown-unknown
-      - run: cargo test --workspace
+      - run: cargo test --workspace --no-fail-fast

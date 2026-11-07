@@ -128,7 +128,9 @@ mod tests {
         let ds = d.to_string_lossy().into_owned();
         assert!(local_dir(&ds) && !local_dir("relative") && !local_dir("//host/share") && !local_dir(&format!("{ds}/nope")));
         assert_eq!(check_local(ds.clone()), Ok(ds.clone()));
-        assert_eq!(check_local("/".into()), Err(ccui_shared::t!("Dirs.Root")));
+        // The drive root: `/` on unix; on Windows `/` is drive-relative (not absolute), the root is `C:\`.
+        let root = if cfg!(windows) { "C:\\" } else { "/" };
+        assert_eq!(check_local(root.into()), Err(ccui_shared::t!("Dirs.Root")));
         assert_eq!(check_local(format!("{ds}/nope")), Err(ccui_shared::t!("Dirs.NoFolder")));
 
         std::fs::create_dir_all(d.join(".claude/agents")).unwrap();

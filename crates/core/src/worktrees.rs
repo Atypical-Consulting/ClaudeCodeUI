@@ -1083,9 +1083,13 @@ mod tests {
 
     #[test]
     fn paths() {
-        assert_eq!(norm("/a/b/../c/./d/"), "/a/c/d");
-        assert_eq!(norm("/"), "/");
-        assert_eq!(norm("/.."), "/");
+        // On Windows a leading `/` is drive-relative, so norm prefixes the current drive.
+        let drive = if cfg!(windows) { std::env::current_dir().unwrap().to_string_lossy()[..2].to_string() } else { String::new() };
+        assert_eq!(norm("/a/b/../c/./d/"), format!("{drive}/a/c/d"));
+        assert_eq!(norm("/"), format!("{drive}/"));
+        assert_eq!(norm("/.."), format!("{drive}/"));
+        #[cfg(windows)]
+        assert_eq!(norm("C:\\r\\x\\..\\y"), "C:/r/y");
         assert!(inside("/R/x/Y/z", "/r/x/y") && inside("/r/x/y/", "/r/x/y") && !inside("/r/x/yz", "/r/x/y"));
         assert_eq!(strip_worktree("/r/repo/.claude/worktrees/agent-a"), "/r/repo");
         assert_eq!(strip_worktree("C:\\r\\.claude\\worktrees\\a"), "C:\\r");
