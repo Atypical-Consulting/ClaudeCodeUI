@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The bundled UI: core IPC and events. App-defined commands are allowed by default.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

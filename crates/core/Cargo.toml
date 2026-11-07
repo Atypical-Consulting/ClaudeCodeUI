@@ -1,0 +1,13 @@
+[package]
+name = "ccui-core"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+
+# Everything the .NET server did, without Tauri: testable with plain `cargo test`.
+[dependencies]
+ccui-shared.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", features = ["full"] }

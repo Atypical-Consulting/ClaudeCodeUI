@@ -1,0 +1,11 @@
+[package]
+name = "ccui-shared"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+
+# Types that cross the IPC boundary (backend <-> wasm UI). No tokio, no fs: it compiles to wasm32.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
