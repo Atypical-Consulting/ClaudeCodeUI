@@ -16,7 +16,7 @@ chrono = { version = "0.4", default-features = false, features = ["std", "clock"
 rust_decimal = { version = "1", default-features = false, features = ["std", "serde"] }
 regex = "1"
 base64 = "0.22"
-sha1 = "0.10"
+sha1 = "0.11"
 hex = "0.4"
 html-escape = "0.2"
 unicode-normalization = "0.1"
