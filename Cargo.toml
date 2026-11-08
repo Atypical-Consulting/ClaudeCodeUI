@@ -26,7 +26,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 parking_lot = "0.12"
-dirs = "6"
+dirs = "7"
 dunce = "1"
 libc = "0.2"
 
