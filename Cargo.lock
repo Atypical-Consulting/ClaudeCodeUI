@@ -513,7 +513,7 @@ dependencies = [
 name = "ccui-core"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "ccui-shared",
  "chrono",
  "dirs 6.0.0",
@@ -535,7 +535,7 @@ dependencies = [
 name = "ccui-shared"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "chrono",
  "hex",
  "html-escape",
