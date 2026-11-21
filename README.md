@@ -1,5 +1,10 @@
 **English** · [Français](README.fr.md)
 
+> [!IMPORTANT]
+> **This repository is archived.** Claude Code UI is no longer developed here: its session engine and its screens
+> now live inside Anduril, a private product of Atypical Consulting. Version 0.6.1 is the last release. It stays
+> downloadable and keeps working, but receives no further fixes or updates, and issues and pull requests are closed.
+
 # Claude Code UI
 
 A desktop console for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). The app drives the real `claude` CLI (stream-json protocol, the same options as the SDK and the VS Code extension) and shows sessions more readably than a terminal: live text, a tool log, permissions with diffs, several sessions in parallel, git worktrees. The interface is available in French and English; dark themes only.
