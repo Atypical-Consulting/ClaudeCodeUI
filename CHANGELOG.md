@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.6.1...v0.6.2) (2026-11-21)
+
+
+### Documentation
+
+* archive notice ([#146](https://github.com/Atypical-Consulting/ClaudeCodeUI/issues/146)) ([0f2f974](https://github.com/Atypical-Consulting/ClaudeCodeUI/commit/0f2f974cb1746cb8aab3deeac316cff7d98f42cd))
+
 ## [0.6.1](https://github.com/Atypical-Consulting/ClaudeCodeUI/compare/v0.6.0...v0.6.1) (2026-11-07)
 
 
